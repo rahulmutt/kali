@@ -137,6 +137,172 @@ fn core_schema_documents_match_current_cli_contracts() {
         .iter()
         .any(|value| value == "glue"));
 
+    let diagnostic: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/diagnostic/v1.json"))
+            .expect("read diagnostic schema"),
+    )
+    .expect("parse diagnostic schema");
+    assert_eq!(diagnostic["type"], "object");
+    assert_eq!(
+        diagnostic["required"]
+            .as_array()
+            .expect("diagnostic required array")
+            .iter()
+            .map(|value| value.as_str().expect("diagnostic required string"))
+            .collect::<Vec<_>>(),
+        vec!["severity", "code", "message", "span", "labels", "related", "fix", "notes"]
+    );
+    assert_eq!(
+        diagnostic["properties"]["severity"]["enum"]
+            .as_array()
+            .expect("severity enum array")
+            .iter()
+            .map(|value| value.as_str().expect("severity enum string"))
+            .collect::<Vec<_>>(),
+        vec!["error", "warning", "info"]
+    );
+    assert_eq!(
+        diagnostic["properties"]["code"]["pattern"],
+        "^[EWI][0-9]{4}$"
+    );
+    assert_eq!(
+        diagnostic["properties"]["span"]["required"]
+            .as_array()
+            .expect("span required array")
+            .iter()
+            .map(|value| value.as_str().expect("span required string"))
+            .collect::<Vec<_>>(),
+        vec!["file", "line", "column", "endLine", "endColumn"]
+    );
+    assert_eq!(
+        diagnostic["properties"]["span"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        diagnostic["properties"]["labels"]["items"]["required"]
+            .as_array()
+            .expect("label required array")
+            .iter()
+            .map(|value| value.as_str().expect("label required string"))
+            .collect::<Vec<_>>(),
+        vec!["file", "line", "column", "endLine", "endColumn"]
+    );
+    assert!(diagnostic["properties"]["context"].is_object());
+
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/manifest/v1.json")).expect("read manifest schema"),
+    )
+    .expect("parse manifest schema");
+    assert_eq!(manifest["type"], "object");
+    assert_eq!(manifest["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(
+        manifest["required"]
+            .as_array()
+            .expect("manifest required array")
+            .iter()
+            .map(|value| value.as_str().expect("manifest required string"))
+            .collect::<Vec<_>>(),
+        vec!["schemaVersion"]
+    );
+    for property in ["compilerOptions", "compat"] {
+        assert_eq!(manifest["properties"][property]["type"], "object");
+    }
+    assert_eq!(
+        manifest["properties"]["sandbox"]["type"],
+        serde_json::json!(["string", "null"])
+    );
+    for property in ["include", "exclude"] {
+        assert_eq!(manifest["properties"][property]["type"], "array");
+        assert_eq!(manifest["properties"][property]["items"]["type"], "string");
+    }
+    for property in ["imports", "dependencies", "devDependencies"] {
+        assert_eq!(manifest["properties"][property]["type"], "object");
+        assert_eq!(
+            manifest["properties"][property]["additionalProperties"]["type"],
+            "string"
+        );
+    }
+
+    let lock: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/lock/v1.json")).expect("read lock schema"),
+    )
+    .expect("parse lock schema");
+    assert_eq!(lock["type"], "object");
+    assert_eq!(lock["properties"]["version"]["const"], 1);
+    assert_eq!(
+        lock["required"]
+            .as_array()
+            .expect("lock required array")
+            .iter()
+            .map(|value| value.as_str().expect("lock required string"))
+            .collect::<Vec<_>>(),
+        vec!["version"]
+    );
+    for property in ["registry", "integrity", "resolved"] {
+        assert_eq!(
+            lock["properties"]["packages"]["additionalProperties"]["properties"][property]["type"],
+            "string"
+        );
+    }
+    assert_eq!(
+        lock["properties"]["packages"]["additionalProperties"]["required"]
+            .as_array()
+            .expect("lock package required array")
+            .iter()
+            .map(|value| value.as_str().expect("lock package required string"))
+            .collect::<Vec<_>>(),
+        vec!["registry", "integrity", "resolved", "dependencies"]
+    );
+    assert_eq!(
+        lock["properties"]["rawUrls"]["additionalProperties"]["required"]
+            .as_array()
+            .expect("lock rawUrls required array")
+            .iter()
+            .map(|value| value.as_str().expect("lock rawUrls required string"))
+            .collect::<Vec<_>>(),
+        vec!["integrity", "cached"]
+    );
+
+    let policy: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/policy/v1.json")).expect("read policy schema"),
+    )
+    .expect("parse policy schema");
+    assert_eq!(policy["type"], "object");
+    assert_eq!(policy["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(
+        policy["required"]
+            .as_array()
+            .expect("policy required array")
+            .iter()
+            .map(|value| value.as_str().expect("policy required string"))
+            .collect::<Vec<_>>(),
+        vec!["schemaVersion", "effects", "resources"]
+    );
+    assert_eq!(
+        policy["properties"]["effects"]["required"]
+            .as_array()
+            .expect("policy effects required array")
+            .iter()
+            .map(|value| value.as_str().expect("policy effects required string"))
+            .collect::<Vec<_>>(),
+        vec![
+            "fileSystem",
+            "network",
+            "process",
+            "timer",
+            "eval",
+            "random",
+            "console"
+        ]
+    );
+    assert_eq!(
+        policy["properties"]["resources"]["properties"]
+            .as_object()
+            .expect("policy resource properties")
+            .len(),
+        5
+    );
+
     let package_effects: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/package-effects/v1.json"))
             .expect("read package-effects schema"),
@@ -271,7 +437,6 @@ fn core_schema_documents_match_current_cli_contracts() {
     .expect("parse package-audit schema");
     assert_eq!(package_audit["type"], "null");
 }
-
 #[test]
 fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     let root = repo_root();
