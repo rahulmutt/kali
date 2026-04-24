@@ -5040,6 +5040,98 @@ main();
 }
 
 #[test]
+fn run_supports_optional_chaining_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "7.7.4",
+  "main": "index.js",
+  "exports": "./index.js"
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"export function minVersion(range) { return { version: '1.2.3' }; }
+"#,
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("main.js"),
+        r#"import { minVersion } from 'semver';
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write consumer source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(dir.path().join("main.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2.3\n", "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_optional_chaining_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "7.7.4",
+  "main": "index.js",
+  "exports": "./index.js"
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"export function minVersion(range) { return { version: '1.2.3' }; }
+"#,
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("smoke.test.js"),
+        r#"import { minVersion } from 'semver';
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write consumer source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(dir.path().join("smoke.test.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "1.2.3\nok 1\n", "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_try_catch_exception_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
