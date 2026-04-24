@@ -4,9 +4,10 @@ use kali_ast::{
     CatchClause, ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement,
     Expression, ExpressionOrSpread, ExpressionStatement, ForInit, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
-    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, MemberExpression,
-    ParenthesizedExpression, ReturnStatement, Statement, SwitchCase, SwitchStatement,
-    ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator, WhileStatement, AST,
+    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
+    MemberExpression, ParenthesizedExpression, ReturnStatement, Statement, SwitchCase,
+    SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator,
+    WhileStatement, AST,
 };
 use kali_common::FileId;
 use kali_error::diagnostic::Diagnostic;
@@ -885,10 +886,7 @@ impl Parser {
                     let _ = self.stream.advance();
                     let index = self.parse_expression();
                     let _ = self.stream.accept(TokenType::RightBracket);
-                    let index_str = match &index {
-                        Expression::Identifier(s) => s.clone(),
-                        _ => "index".to_string(),
-                    };
+                    let index_str = Self::expression_to_property_name(&index);
                     expr = Expression::MemberExpression(Box::new(MemberExpression {
                         object: expr,
                         property: index_str,
@@ -931,6 +929,33 @@ impl Parser {
         }
 
         expr
+    }
+
+    fn expression_to_property_name(expr: &Expression) -> String {
+        match expr {
+            Expression::Identifier(s) => s.clone(),
+            Expression::Literal(LiteralValue::String(s)) => Self::normalize_string_literal(s),
+            Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 => {
+                format!("{n:.0}")
+            }
+            Expression::Literal(LiteralValue::Number(n)) => n.to_string(),
+            _ => "index".to_string(),
+        }
+    }
+
+    fn normalize_string_literal(value: &str) -> String {
+        let Some(first) = value.chars().next() else {
+            return value.to_string();
+        };
+        let Some(last) = value.chars().last() else {
+            return value.to_string();
+        };
+
+        if value.len() >= 2 && matches!((first, last), ('"', '"') | ('\'', '\'') | ('`', '`')) {
+            value[1..value.len() - 1].to_string()
+        } else {
+            value.to_string()
+        }
     }
 
     fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {

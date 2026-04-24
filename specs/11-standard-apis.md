@@ -132,7 +132,7 @@ Implementation simplification:
 - that keeps the Deno compatibility story aligned with the sandbox-first model: permission status is observed, not negotiated interactively at runtime
 - Phase 1 therefore keeps one compact split:
   - `Deno.permissions.query(...)` is the only **stable callable path** in the facade
-  - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5506`) instead of disappearing as ordinary missing properties
+  - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5506`) instead of disappearing as ordinary missing properties; the same applies to statically-known string-literal bracketed property forms such as `Deno.permissions["request"](...)` and `globalThis["Deno"]["permissions"]["revoke"](...)`
   - this compatibility-visible rejection is intentional simplification, not a hidden Phase-2/3 promise: unless a future sandbox model explicitly reopens interactive escalation, these members stay documented as unavailable rather than silently graduating into a roadmap lane
 - accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, but each descriptor still projects only the capability slice that actually exists for the active phase/API surface
 
@@ -149,7 +149,7 @@ Phase-1 descriptor projection shorthand:
 - Kali's broader schema-v1 capability/effect vocabulary still includes the `timer` family, random, console, and later `eval`, but those are **not** surfaced as synthetic `Deno.permissions.query({ name: ... })` descriptor kinds in schema v1. This keeps the Deno-compat API smaller and avoids implying non-standard Deno permission names.
 - returned states follow the shared **stable permission status subset (schema v1)** from [SPEC.md](../SPEC.md)
 - to keep checker and runtime behavior aligned, unsupported `query(...)` descriptor kinds should also fail with `E5506` rather than degrading into silent `denied`, fake `prompt`, or missing-surface drift
-- type checking should model that same split: Kali's Deno-compat typing for this facade should expose the shared descriptor subset and stable status subset `"granted" | "denied"` for `query(...)`, while keeping `request()` / `revoke()` in the documented **recognized-but-unavailable compatibility member** lane rather than advertising an implemented interactive permission flow
+- type checking should model that same split: Kali's Deno-compat typing for this facade should expose the shared descriptor subset and stable status subset `"granted" | "denied"` for `query(...)`, while keeping `request()` / `revoke()` and the corresponding statically-known string-literal bracketed property forms in the documented **recognized-but-unavailable compatibility member** lane rather than advertising an implemented interactive permission flow
 
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract

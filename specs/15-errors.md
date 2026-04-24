@@ -183,7 +183,7 @@ Use `E5506` for cases such as:
 - `--api node` before the documented Node subset is implemented for a command family that still gates it, including `kali check --api node` and `kali build --api node`
 - `eval` / `Function()` when the active availability context does not permit that compatibility path yet — both ordinary source use without effective `--compat eval` and an explicit `--compat eval` request before the Phase-4 path exists stay on `E5506`
 - dynamic `require()` in early phases
-- **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
+- **recognized-but-unavailable compatibility members** from [SPEC.md](../SPEC.md), such as Phase-1 `Deno.permissions.request()` / `revoke()` and their statically-known string-literal bracketed property forms (these stay on the compatibility-member path, not the ordinary missing-property/type-error path)
 - `Deno.permissions.query(...)` asked to evaluate a descriptor kind that Kali intentionally does not support in the current phase/API surface (for example an early-phase `ffi`/`sys`-style permission descriptor)
 - `run --api browser` in early phases where browser support is limited to the shared **Phase-1 browser-targeted command set** and there is still no standalone browser runtime contract
 - plain `kali run main.ts` or `kali run --sandbox kali.policy.json main.ts` under an inherited `compilerOptions.apiSurface = browser`, because effective-context inheritance must not silently fall back to `deno`; inherited `compilerOptions.apiSurface = node` now uses the supported Node execution subset instead of this gate
