@@ -1806,6 +1806,19 @@ fn run_uses_browser_entrypoint_for_msedge_canary_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_msedge_stable_executables() {
+    for browser_name in [
+        "msedge-stable",
+        "edge-stable",
+        "microsoft-edge-stable",
+        "microsoft edge stable",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_brave_browser_stable_executables() {
     for browser_name in ["brave-browser-stable", "brave browser stable"] {
         run_browser_entrypoint_smoke(browser_name);

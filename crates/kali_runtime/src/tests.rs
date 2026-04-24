@@ -452,10 +452,18 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("msedge-canary"));
     assert!(browser_harness_uses_html_entrypoint("msedge-dev"));
     assert!(browser_harness_uses_html_entrypoint("msedge-insider"));
+    assert!(browser_harness_uses_html_entrypoint("msedge-stable"));
     assert!(browser_harness_uses_html_entrypoint("edge-beta"));
     assert!(browser_harness_uses_html_entrypoint("edge-canary"));
     assert!(browser_harness_uses_html_entrypoint("edge-dev"));
     assert!(browser_harness_uses_html_entrypoint("edge-insider"));
+    assert!(browser_harness_uses_html_entrypoint("edge-stable"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "microsoft-edge-stable"
+    ));
+    assert!(browser_harness_uses_html_entrypoint(
+        "microsoft edge stable"
+    ));
     assert!(browser_harness_uses_html_entrypoint("brave-browser.exe"));
     assert!(browser_harness_uses_html_entrypoint(
         "brave-browser-stable.exe"
@@ -641,8 +649,30 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         Some(vec!["msedge-insider".to_string(), "--headless".to_string()])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable("msedge-stable"),
+        Some(vec!["msedge-stable".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable("edge-beta"),
         Some(vec!["edge-beta".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("edge-stable"),
+        Some(vec!["edge-stable".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("microsoft-edge-stable"),
+        Some(vec![
+            "microsoft-edge-stable".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("microsoft edge stable"),
+        Some(vec![
+            "microsoft edge stable".to_string(),
+            "--headless".to_string()
+        ])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("edge-canary"),

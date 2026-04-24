@@ -76,7 +76,7 @@ Implement Kali in these packets, in order.
 
 Current progress note:
 - the top-level `kali --version` entrypoint is now pinned by a dedicated smoke test, so the F1 command spine stays regression-covered even as later product work widens the CLI surface
-- the browser entrypoint smoke lane now also covers the Google Chrome stable wrapper spelling (`google-chrome-stable`), so the browser-launcher alias coverage stays aligned with another common stable-channel name as the browser runtime surface widens
+- the browser entrypoint smoke lane now also covers the Google Chrome stable wrapper spelling (`google-chrome-stable`) and the Microsoft Edge stable wrapper spellings (`msedge-stable`, `edge-stable`, and `microsoft-edge-stable`), so the browser-launcher alias coverage stays aligned with another common stable-channel name family as the browser runtime surface widens
 
 ### F2 — Frontend acceptance
 
