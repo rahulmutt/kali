@@ -39,7 +39,7 @@ Add runtime and host breadth without weakening sandbox honesty or confusing depl
 
 - Triage `Proxy`, `WeakMap`, `WeakSet`, `FinalizationRegistry`, `SharedArrayBuffer`, `Atomics`, and broader `Intl`.
 - Require conformance fixtures and memory-model review before promotion.
-- Progress: late host-control, broader `Intl`, and late object-model rejection coverage now also has mirrored `.js` input fixtures across the `check` / `run` / `test` paths, keeping the first-class JavaScript surface aligned with the current later-compatibility gates.
+- Progress: late host-control, broader `Intl`, and late object-model rejection coverage now also has mirrored `.js` input fixtures across the `check` / `run` / `test` paths, and browser-targeted `check` / `build --bundle` now also carries mirrored `.js` rejection coverage for broader `Intl` plus late object-model members, keeping the first-class JavaScript surface aligned with the current later-compatibility gates.
 
 ## Exit gate
 
