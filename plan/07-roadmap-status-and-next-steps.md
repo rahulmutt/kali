@@ -48,6 +48,7 @@ Recent hardening:
 - the standalone browser runtime negative gates for `run --api browser` and `test --api browser` are now explicitly env-hardened in the CLI smoke suite, so the later browser rejection path stays pinned even if a browser harness helper leaks into the test environment
 - the top-level CLI spine now has a dedicated `kali --version` smoke test, keeping the entrypoint contract pinned alongside the other command-shape regressions
 - `kali build --validate-ir` now runs structural HIR/MIR/LIR validation on demand, so the build lane can fail early on inconsistent lowered trees without changing the emitted artifact shape
+- the component build smoke lane now also exercises `--validate-ir` alongside the existing `--component` JSON artifact coverage, keeping the validation pass honest on the public embedding path as well as the browser bundle path
 - the browser bundle smoke lane now also exercises `--validate-ir` together with `--bundle`, `--api browser`, and a valid sandbox policy, so the browser-targeted build evidence covers the validation path instead of only the default browser bundle shape
 - the semver package bin now has an explicit default-standalone rejection regression, so the package-execution lane keeps the Node-only CLI split honest before the later Node row opens
 - the package corpus now also carries an explicit `@mariozechner/pi-coding-agent` published-bin-entrypoint probe, so the bootstrap-named CLI package is tracked separately from ordinary package-content coverage and stays honest about the Node-only execution path

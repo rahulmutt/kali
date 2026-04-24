@@ -7585,6 +7585,91 @@ fn build_emits_component_artifacts_and_valid_component_bytes() {
 }
 
 #[test]
+fn build_emits_component_json_artifacts_with_validate_ir() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.ts");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg("--validate-ir")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "component");
+    assert_eq!(
+        PathBuf::from(
+            payload["outputPath"]
+                .as_str()
+                .expect("component output path")
+        ),
+        source_path.with_file_name("lib.component.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(
+            payload["bindingPackagePath"]
+                .as_str()
+                .expect("binding package path")
+        ),
+        source_path.with_file_name("lib.binding-package.json")
+    );
+
+    let meta_path = source_path.with_file_name("lib.component.meta.json");
+    let metadata: Value =
+        serde_json::from_str(&fs::read_to_string(&meta_path).expect("read component metadata"))
+            .expect("parse component metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["artifactKind"], "component");
+    assert_eq!(metadata["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(metadata["maxSpecializations"], 16);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
+
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["schemaVersion"], 1);
+    assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(binding_package["runtimeProfiles"], serde_json::json!([]));
+    assert_eq!(binding_package["hostContract"], "kali-hosted");
+    assert_eq!(binding_package["runtimeBackend"], "wasmtime");
+    assert_eq!(binding_package["maxSpecializations"], 16);
+    assert_eq!(
+        binding_package["artifacts"]["library"],
+        "lib.component.wasm"
+    );
+    assert_eq!(
+        binding_package["artifacts"]["metadata"],
+        "lib.component.meta.json"
+    );
+    assert_eq!(binding_package["artifacts"]["exportsHeader"], "lib.wit");
+
+    let component_path = source_path.with_file_name("lib.component.wasm");
+    let component_bytes = fs::read(&component_path).expect("read component bytes");
+    wasmparser::Validator::new()
+        .validate_all(&component_bytes)
+        .expect("generated component should validate");
+}
+
+#[test]
 fn build_emits_component_json_artifacts_for_binding_package_manifest() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("lib.ts");
