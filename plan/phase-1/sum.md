@@ -15,3 +15,4 @@ tracked by the owning normative specs rather than by a Phase-1 todo list. Use:
 
 - Phase 1 remains the shipped baseline for CLI, runtime, package, build, and developer-workflow behavior.
 - Any additional breadth/depth work should update the owning specs and evidence tracks directly rather than reopening completed Phase-1 checklist items.
+- The determinism smoke lane now also checks the default `effects` JSON payload path directly, keeping the native-JSON reporting mode byte-stable in addition to the envelope lanes.

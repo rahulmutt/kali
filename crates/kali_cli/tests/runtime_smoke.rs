@@ -10084,6 +10084,70 @@ eval("1 + 2");
 }
 
 #[test]
+fn effects_command_is_deterministic_across_repeated_default_invocations() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"
+fetch("https://api.example.com/data");
+console.log("hello");
+eval("1 + 2");
+"#,
+    )
+    .expect("write source");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg(&source_path)
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(
+        json["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    assert_eq!(json["dynamicEffects"], true);
+    assert_eq!(json["dynamicReasons"], json!(["eval"]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_reports_computed_deno_host_access() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
