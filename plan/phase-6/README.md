@@ -40,7 +40,7 @@ Move from broad working coverage to measurable language conformance for the surf
 
 - Add minimized tests for exceptions, async/await, iterators/generators, built-ins, CJS/ESM interop, and object semantics.
 - Ensure unsupported dynamic features produce canonical availability diagnostics rather than silent placeholders.
-- Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, and try/catch exception semantics in `crates/kali_cli/tests/runtime_smoke.rs`.
+- Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, try/catch exception semantics, and `Object.keys()` object-enumeration semantics in `crates/kali_cli/tests/runtime_smoke.rs`.
 
 ## Exit gate
 
