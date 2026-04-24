@@ -545,11 +545,15 @@ globalThis.Proxy.revocable({}, {});
 fn effect_reports_normalize_dynamic_reasons_and_analysis_context_axes() {
     let mut context = EffectAnalysisContext::new("deno");
     context.runtime_profiles = vec![
-        "wasm-threads".to_string(),
+        " wasm-threads ".to_string(),
         "alpha".to_string(),
         "wasm-threads".to_string(),
     ];
-    context.compat_features = vec!["beta".to_string(), "alpha".to_string(), "beta".to_string()];
+    context.compat_features = vec![
+        " beta ".to_string(),
+        "alpha".to_string(),
+        "beta".to_string(),
+    ];
 
     let report = effect_report_from_inference(
         vec!["main.ts".to_string()],
@@ -573,6 +577,41 @@ fn effect_reports_normalize_dynamic_reasons_and_analysis_context_axes() {
     assert_eq!(
         report.analysis_context.compat_features,
         vec!["alpha", "beta"]
+    );
+}
+
+#[test]
+fn effect_reports_trim_and_deduplicate_semantic_axes_before_serialization() {
+    let mut context = EffectAnalysisContext::new("deno");
+    context.runtime_profiles = vec![
+        " wasm-threads ".to_string(),
+        "".to_string(),
+        "alpha".to_string(),
+        "alpha ".to_string(),
+    ];
+    context.compat_features = vec![
+        " eval ".to_string(),
+        "beta".to_string(),
+        " ".to_string(),
+        "eval".to_string(),
+    ];
+
+    let report = effect_report_from_inference(
+        vec!["main.ts".to_string()],
+        context,
+        EffectInference {
+            effects: Vec::new(),
+            dynamic_reasons: Vec::new(),
+        },
+    );
+
+    assert_eq!(
+        report.analysis_context.runtime_profiles,
+        vec!["alpha", "wasm-threads"]
+    );
+    assert_eq!(
+        report.analysis_context.compat_features,
+        vec!["beta", "eval"]
     );
 }
 
