@@ -12297,6 +12297,36 @@ fn json_test_rejects_threaded_runtime_globals_js_input() {
 }
 
 #[test]
+fn json_run_accepts_zero_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--max-threads")
+        .arg("0")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn json_run_rejects_positive_thread_budget_override() {
     let output = Command::new(kali_bin())
         .arg("--output")
@@ -12316,6 +12346,56 @@ fn json_run_rejects_positive_thread_budget_override() {
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5506");
+}
+
+#[test]
+fn test_accepts_zero_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--max-threads")
+        .arg("0")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn json_test_accepts_zero_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--max-threads")
+        .arg("0")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
 }
 
 #[test]
