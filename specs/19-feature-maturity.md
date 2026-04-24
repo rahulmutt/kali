@@ -519,6 +519,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | **E52xx syntax diagnostics** | Phase 1 MVP | Lexer/parser produce stable syntax-error diagnostics and recover enough to continue useful analysis; see [specs/15-errors.md](15-errors.md) for the canonical syntax namespace |
 | Annex B / web-legacy semantics | Later compatibility | Broad syntax support does not imply immediate support for every legacy browser semantic corner |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `.js` is a first-class input under the shared **first-class JavaScript compilation** contract, with early precision bounded by the shared **bounded inference contract** |
+| Async function / await sequencing | Phase 1 MVP | Basic async/await sequencing is covered by runtime-smoke regression; keep broader async iteration and cancellation semantics on the wider ECMA-262 conformance track |
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
 | Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
 | Non-literal dynamic loading | Later compatibility | Host-mediated path with dynamic effect boundary |
