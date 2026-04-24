@@ -4525,6 +4525,42 @@ fn run_supports_array_literal_length_in_js_input() {
 }
 
 #[test]
+fn run_supports_crypto_get_random_values_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log('ok');
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "ok", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_function_call_return_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -4643,6 +4679,42 @@ main();
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn test_supports_crypto_get_random_values_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log('ok');
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "ok\nok 1", "stdout: {stdout}");
 }
 
 #[test]
