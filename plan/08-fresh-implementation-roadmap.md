@@ -118,6 +118,7 @@ Do not widen host-API, browser, or package claims here. This packet is about loc
 
 Current progress note:
 - the semver package bin now has an explicit default-standalone rejection regression, so the F3 handoff keeps the Node-only CLI split honest while the later Node row remains gated
+- recursive project discovery now has a nested-child regression for no-argument `check`, so the F2 discovery path stays bounded by nested `kali.json` roots instead of accidentally widening into child-project diagnostics
 - the package corpus now also carries an explicit `@mariozechner/pi-coding-agent` published-bin-entrypoint probe, so the fresh-start breadth lane keeps the bootstrap-named CLI package separate from ordinary package-content coverage and honest about its Node-only execution path
 - `kali install --dev semver` now has a configless-project regression that records the package in `devDependencies` and materializes the lockfile, so the F4b package/install lane now has corpus-style evidence for the documented dev-dependency path too
 - `kali install --allow-scripts semver` now has a CLI smoke regression with empty lifecycle scripts, so the F4b package/install lane now also pins the explicit registry-target no-op allow-scripts path

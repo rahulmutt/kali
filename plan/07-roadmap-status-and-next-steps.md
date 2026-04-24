@@ -23,6 +23,7 @@ Current repository note:
 
 Recent hardening:
 - a dedicated determinism smoke lane now runs through `scripts/check-determinism.sh` and a matching CI job, so the repeated-build evidence is exercised separately from the larger runtime smoke suite; the lane also pins the repeated-invocation envelopes for `effects`, `package-effects`, and `package-audit`, not just the build artifacts
+- recursive project discovery now has an explicit nested-child regression for no-argument `check`, so the parent workspace walk stays bounded by nested `kali.json` roots instead of drifting into child-project diagnostics
 - package-audit findings now use span position as a final deterministic tie-breaker after severity, code, message, notes, and suggestion, so same-message audit findings no longer depend on incidental registry iteration order
 - package-effects now also rejects the full inherited-analysis flag family (`--api`, `--compat`, `--wasm-threads`, and `--sandbox`) with the canonical package-analysis-specific `E5508` message, keeping the registry-analysis command honest about its inherited-only context; the matching JSON-output regression is now pinned too so the schema-v1 envelope path stays covered alongside human output
 - package-audit and package-effects JSON envelopes are now pinned under inherited browser context and quiet mode, reducing machine-contract drift across analysis presentation flags

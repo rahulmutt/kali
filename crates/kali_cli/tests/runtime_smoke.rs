@@ -1615,6 +1615,33 @@ fn check_discovers_fixture_tree_from_cwd() {
 }
 
 #[test]
+fn check_discovers_fixture_tree_from_cwd_but_stops_at_nested_child_projects() {
+    let dir = tempdir().expect("tempdir");
+    let root_source = dir.path().join("main.ts");
+    fs::write(&root_source, "const ok = 1;\nok;\n").expect("write root source");
+
+    let child_project = dir.path().join("child");
+    fs::create_dir(&child_project).expect("create child project directory");
+    fs::write(child_project.join("kali.json"), "{}\n").expect("write child manifest");
+    fs::write(child_project.join("bad.ts"), "missing;\n").expect("write child source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_reports_unresolved_identifiers() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
