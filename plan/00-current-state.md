@@ -30,6 +30,7 @@ The current repo has already implemented the historical MVP and several later su
 - The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in, and the runtime now also exposes deterministic guest-facing thread-spawn host import plumbing backed by the threaded topology model.
 - Schema-v1 outputs and diagnostic envelopes are first-class contracts, including combined inherited analysis-context normalization for `effects` JSON output across `compat.features` and `compilerOptions.runtimeProfiles`.
 - Schema contract checks now also pin the `schemas/result/package-effects/v1.json` object payload and `schemas/result/package-audit/v1.json` null payload shapes so the registry-analysis schema-v1 documents stay aligned with their CLI contracts.
+- `package-audit` quiet-mode coverage now also suppresses human output while inheriting `eval` plus `wasm-threads`, keeping the context-free registry-analysis command honest when `--quiet` is present.
 
 ## Planning consequence
 

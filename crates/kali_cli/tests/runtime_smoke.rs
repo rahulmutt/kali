@@ -18721,6 +18721,54 @@ fn package_audit_command_suppresses_human_output_under_quiet() {
 }
 
 #[test]
+fn package_audit_suppresses_human_output_under_quiet_with_inherited_compat_and_thread_context() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  },
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--quiet")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).trim().is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
 fn package_audit_command_emits_json_envelope_under_quiet() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));

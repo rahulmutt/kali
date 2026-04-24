@@ -50,6 +50,7 @@ Remaining goals:
 - Current progress: Deno package corpus coverage now also exercises a canonical `jsr:@std/path` package fixture materialized at `node_modules/@std/path` on the Deno surface, keeping the `jsr:` registry prefix and on-disk path mapping honest in the package-resolution evidence.
 - Current progress: registry-analysis command-shape coverage now also rejects explicit package-version targets for `package-effects` and `package-audit` in both text and JSON output modes, keeping the single-package target contract aligned with the documented `E5508` path.
 - Current progress: `package-audit` now also has pretty-JSON envelope coverage while inheriting a browser analysis context, keeping the envelope-only JSON command honest across formatting mode and inherited context at the same time.
+- Current progress: `package-audit` now also suppresses human output under `--quiet` even when inheriting `eval` plus `wasm-threads`, keeping the context-free registry-analysis row aligned across both quiet and non-quiet surfaces.
 - Batch or richer registry-analysis workflows only after command/schema revisions.
 - Keep native/binary/bootstrap-heavy packages rejected by default unless the specs deliberately change.
 
