@@ -339,7 +339,7 @@ Effective-limit rule:
 
 ### Thread Limits (Later Threaded Profile)
 - `resources.maxThreads` matters only for the later `--wasm-threads` runtime profile
-- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values must still be rejected until the threaded profile exists
+- this field follows the shared **feature-gated zero-capable execution budgets** rule from [SPEC.md](../SPEC.md): `0` is a valid explicit deny/tightening value, while positive values are accepted only when the threaded profile is explicitly active and supported
 - Once threading exists, the runtime must enforce the cap across worker/thread creation
 - A per-invocation thread-limit override may only reduce the effective cap; it must never increase a stricter policy limit
 

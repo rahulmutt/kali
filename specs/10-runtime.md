@@ -196,14 +196,15 @@ Terminology rule:
 - config/embedding use the runtime-profile name `wasm-threads`
 - both refer to the same runtime-profile switch rather than two separate features
 
-Once the threaded profile exists and `--wasm-threads` is enabled:
+Once the threaded profile exists and `--wasm-threads` is enabled on a supported execution path:
 - Each worker/thread runs its own Kali runtime instance with a shared `SharedArrayBuffer`
 - `Atomics` operations map to WASM atomic instructions
 - Workers communicate via message passing (structured clone) or shared memory
 - Each thread has its own stack and allocator; the shared heap region is explicitly managed via `SharedArrayBuffer`
 - Thread count is constrained by sandbox policy (`resources.maxThreads`)
+- positive `resources.maxThreads` / `--max-threads` values are only meaningful when the threaded profile is explicitly active; `0` remains a valid explicit deny/tightening value
 
-Until then, the CLI/runtime must reject `--wasm-threads` with the canonical feature-maturity diagnostic rather than silently degrading to single-threaded execution. Even after the threaded profile lands, unsupported targets/engines must still reject the flag explicitly.
+Unsupported targets or command/profile combinations must still reject `--wasm-threads` explicitly with the canonical feature-maturity diagnostic rather than silently degrading to single-threaded execution.
 
 ## Module System
 

@@ -412,30 +412,18 @@ impl RuntimeCtx {
         &self,
         normalized_runtime_profiles: &[String],
     ) -> Option<Diagnostic> {
-        let mut unavailable = Vec::new();
-
-        if normalized_runtime_profiles
+        let has_threaded_profile = normalized_runtime_profiles
             .iter()
-            .any(|profile| profile == "wasm-threads")
-        {
-            unavailable.push("runtimeProfiles[wasm-threads]");
+            .any(|profile| profile == "wasm-threads");
+
+        if self.max_threads.is_some_and(|count| count > 0) && !has_threaded_profile {
+            return Some(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "selected resource budget `resources.maxThreads` is unavailable without the `--wasm-threads` runtime profile",
+            ));
         }
 
-        if self.max_threads.is_some_and(|count| count > 0) {
-            unavailable.push("resources.maxThreads");
-        }
-
-        if unavailable.is_empty() {
-            return None;
-        }
-
-        Some(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            format!(
-                "selected threaded request(s) {:?} are unavailable in the current runtime contract; Kali does not yet define the opt-in threaded runtime profile",
-                unavailable
-            ),
-        ))
+        None
     }
 
     /// Execute a WASM module.
@@ -3544,6 +3532,21 @@ impl KaliHostState {
 
     #[allow(dead_code)]
     fn begin_thread(&mut self) -> wasmtime::Result<()> {
+        if !self
+            .runtime_profiles
+            .iter()
+            .any(|profile| profile == "wasm-threads")
+        {
+            let diagnostic = Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "threaded runtime profile is unavailable without an explicit `--wasm-threads` opt-in",
+            );
+            self.pending_diagnostic = Some(diagnostic);
+            return Err(wasmtime::Error::msg(
+                "KALI_E5506: threaded runtime profile is unavailable without an explicit `--wasm-threads` opt-in",
+            ));
+        }
+
         if let Some(limit) = self.max_threads {
             if self.active_threads >= limit as usize {
                 let diagnostic = Diagnostic::error(

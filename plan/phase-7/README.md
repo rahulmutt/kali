@@ -21,6 +21,7 @@ Add runtime and host breadth without weakening sandbox honesty or confusing depl
 - Support positive `maxThreads` only when the threaded profile is active and supported.
 - Add tests for zero-capable budgets vs positive thread budgets.
 - Preserve no tracing/background GC and AOT-only compilation.
+- Progress: the runtime and `run`/`test` CLI paths now accept the threaded profile on supported execution contexts, and positive `--max-threads` values are honored when that opt-in is present; analysis/build command widening and actual guest thread-spawn host imports remain follow-up work.
 
 ### 7.2 Standalone browser runtime contract
 

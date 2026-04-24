@@ -377,6 +377,7 @@ fn check_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "check",
         &effective_runtime_profiles,
+        false,
         output,
         None,
         None,
@@ -566,6 +567,7 @@ fn build_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "build",
         &effective_runtime_profiles,
+        false,
         output,
         None,
         None,
@@ -983,13 +985,14 @@ fn reject_unavailable_compat_features(
 fn reject_unavailable_runtime_profiles(
     command: &str,
     runtime_profiles: &[String],
+    allow_threaded_profile: bool,
     output: &CliOutputOptions,
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
     let unavailable: Vec<String> = runtime_profiles
         .iter()
-        .filter(|profile| profile.as_str() == "wasm-threads")
+        .filter(|profile| profile.as_str() == "wasm-threads" && !allow_threaded_profile)
         .cloned()
         .collect();
 
@@ -1044,13 +1047,17 @@ fn reject_unavailable_browser_runtime(
 
 fn reject_unavailable_zero_capable_budgets(
     command: &str,
+    runtime_profiles: &[String],
     max_threads: Option<u64>,
     output: &CliOutputOptions,
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
     let mut unavailable = Vec::new();
-    if max_threads.is_some_and(|count| count > 0) {
+    let has_threaded_profile = runtime_profiles
+        .iter()
+        .any(|profile| profile.as_str() == "wasm-threads");
+    if max_threads.is_some_and(|count| count > 0) && !has_threaded_profile {
         unavailable.push("resources.maxThreads");
     }
 
@@ -2652,14 +2659,24 @@ fn run_command(
             return emit_diagnostics_and_exit("run", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) =
-        reject_unavailable_runtime_profiles("run", &effective_runtime_profiles, output, None, None)
-    {
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "run",
+        &effective_runtime_profiles,
+        true,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
-    if let Err(exit_code) =
-        reject_unavailable_zero_capable_budgets("run", max_threads, output, None, None)
-    {
+    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+        "run",
+        &effective_runtime_profiles,
+        max_threads,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     let max_specializations = match resolve_effective_max_specializations(max_specializations) {
@@ -2835,14 +2852,24 @@ fn test_command(
             return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None)
         }
     };
-    if let Err(exit_code) =
-        reject_unavailable_runtime_profiles("test", &effective_runtime_profiles, output, None, None)
-    {
+    if let Err(exit_code) = reject_unavailable_runtime_profiles(
+        "test",
+        &effective_runtime_profiles,
+        true,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
-    if let Err(exit_code) =
-        reject_unavailable_zero_capable_budgets("test", max_threads, output, None, None)
-    {
+    if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
+        "test",
+        &effective_runtime_profiles,
+        max_threads,
+        output,
+        None,
+        None,
+    ) {
         return Err(exit_code);
     }
     let max_specializations = match resolve_effective_max_specializations(max_specializations) {
@@ -3424,6 +3451,7 @@ fn effects_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "effects",
         &effective_runtime_profiles,
+        false,
         output,
         Some(&source),
         fs::read_to_string(&source).ok().as_deref(),
@@ -3647,6 +3675,7 @@ fn package_effects_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "package-effects",
         &effective_runtime_profiles,
+        false,
         output,
         None,
         None,

@@ -20,7 +20,7 @@ Owners: `specs/09-sandboxing.md`, `specs/10-runtime.md`, `specs/11-standard-apis
 
 Remaining goals:
 
-- `--wasm-threads` / `runtimeProfiles = ["wasm-threads"]` with positive thread budgets.
+- Extend the threaded runtime profile beyond the supported `run`/`test` execution paths into the remaining analysis/build contexts and actual guest thread-spawn host imports.
 - Standalone `run --api browser` / `test --api browser` only after a real browser-runtime contract exists.
 - Late process/working-directory APIs after policy/effect/schema contracts are explicit.
 - Weak references, `Proxy`, `FinalizationRegistry`, broader `Intl`, and other late object-model surfaces only with conformance evidence.

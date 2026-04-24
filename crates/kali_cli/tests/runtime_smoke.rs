@@ -2469,6 +2469,25 @@ fn run_rejects_positive_thread_budget_override() {
 }
 
 #[test]
+fn run_accepts_threaded_profile_with_positive_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("run")
+        .arg("--wasm-threads")
+        .arg("--max-threads")
+        .arg("1")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn run_accepts_zero_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
@@ -2947,7 +2966,7 @@ fn json_run_rejects_inherited_browser_api_surface_with_sandbox_in_phase_one() {
 }
 
 #[test]
-fn run_rejects_wasm_threads_runtime_profile() {
+fn run_accepts_wasm_threads_runtime_profile() {
     let output = Command::new(kali_bin())
         .arg("run")
         .arg("--wasm-threads")
@@ -2955,14 +2974,16 @@ fn run_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
-fn run_rejects_inherited_wasm_threads_runtime_profile() {
+fn run_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('threaded run');").expect("write source");
@@ -2984,10 +3005,14 @@ fn run_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("threaded run"), "stdout: {stdout}");
 }
 
 #[test]
@@ -3250,6 +3275,27 @@ fn test_rejects_positive_thread_budget_override() {
 }
 
 #[test]
+fn test_accepts_threaded_profile_with_positive_thread_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--wasm-threads")
+        .arg("--max-threads")
+        .arg("1")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_accepts_zero_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("test")
@@ -3290,7 +3336,7 @@ fn test_accepts_positive_spawned_process_budget_override() {
 }
 
 #[test]
-fn test_rejects_wasm_threads_runtime_profile() {
+fn test_accepts_wasm_threads_runtime_profile() {
     let output = Command::new(kali_bin())
         .arg("test")
         .arg("--wasm-threads")
@@ -3298,14 +3344,18 @@ fn test_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]
-fn test_rejects_inherited_wasm_threads_runtime_profile() {
+fn test_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(&source_path, "1 + 2;").expect("write source");
@@ -3327,10 +3377,14 @@ fn test_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]
