@@ -19,6 +19,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Read-only `Deno.permissions.query(...)` over the shared descriptor subset (`read`, `write`, `env`, `net`) | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_sandbox/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_api_deno/src/tests.rs` |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Basic arithmetic precedence and array length semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Basic arithmetic precedence and array length semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic function call return semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic async/await sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths) |
 | Basic relational comparison semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
