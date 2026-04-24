@@ -7749,6 +7749,69 @@ fn install_noops_without_manifest_or_dependencies_on_the_cli() {
 }
 
 #[test]
+fn install_noops_without_manifest_or_dependencies_are_deterministic_across_repeated_json_invocations(
+) {
+    let dir = tempdir().expect("tempdir");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("install")
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    assert!(
+        first.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&first.stdout),
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let first_json = parse_json_stdout(&first);
+
+    let second = run();
+    assert!(
+        second.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&second.stdout),
+        String::from_utf8_lossy(&second.stderr)
+    );
+    let second_json = parse_json_stdout(&second);
+
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated install no-op invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated install no-op invocations"
+    );
+    assert_eq!(
+        first_json, second_json,
+        "JSON output should be deterministic across repeated install no-op invocations"
+    );
+    assert_eq!(first_json["command"], "install");
+    assert_eq!(first_json["success"], true);
+    assert_eq!(first_json["exitCode"], 0);
+    assert_eq!(first_json["payload"]["installed"], json!([]));
+    assert_eq!(first_json["payload"]["removed"], json!([]));
+    assert_eq!(first_json["payload"]["updated"], json!([]));
+    assert!(first_json["payload"]["manifestPath"].is_null());
+    assert!(first_json["payload"]["lockPath"].is_null());
+    assert!(
+        !dir.path().join("kali.json").exists(),
+        "install should not scaffold a placeholder manifest"
+    );
+    assert!(
+        !dir.path().join("kali.lock").exists(),
+        "install should not materialize a lockfile on an empty workspace"
+    );
+}
+
+#[test]
 fn install_allow_scripts_rejects_jsr_targets() {
     let dir = tempdir().expect("tempdir");
 
