@@ -1499,6 +1499,65 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
+fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_string_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser string-entry package {package} should resolve its browser override on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-entry package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_through_host() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
@@ -1546,6 +1605,61 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
         assert!(
             build.status.success(),
             "browser string-exports package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_string_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:exports'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser string-exports package {package} should resolve its exports string on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-exports package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
@@ -1665,6 +1779,125 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
         assert!(
             build.status.success(),
             "browser web-baseline package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for package in [
+        "react",
+        "preact",
+        "vue",
+        "solid-js",
+        "date-fns",
+        "dayjs",
+        "d3",
+        "recharts",
+        "luxon",
+        "graphql",
+        "lodash-es",
+        "nanoid",
+        "ramda",
+        "rxjs",
+        "uuid",
+        "clsx",
+        "react-router",
+        "zustand",
+        "zod",
+        "svelte",
+        "lit",
+        "axios",
+        "ajv",
+        "immer",
+        "next",
+        "react-helmet-async",
+        "hono",
+        "@vueuse/core",
+        "@apollo/client",
+        "@emotion/react",
+        "@reduxjs/toolkit",
+        "@floating-ui/react",
+        "@headlessui/react",
+        "@chakra-ui/react",
+        "@mantine/core",
+        "@emotion/styled",
+        "@heroicons/react",
+        "lucide-react",
+        "@storybook/react",
+        "@stripe/react-stripe-js",
+        "@mui/material",
+        "@radix-ui/react-dialog",
+        "@tanstack/react-query",
+        "@tanstack/react-table",
+        "@tanstack/table-core",
+        "@tanstack/react-virtual",
+        "@testing-library/dom",
+        "@testing-library/user-event",
+        "@playwright/test",
+        "mobx",
+        "redux",
+        "recoil",
+        "mitt",
+        "swr",
+        "formik",
+        "jotai",
+        "pinia",
+        "xstate",
+        "valtio",
+        "superjson",
+        "@jridgewell/sourcemap-codec",
+        "@babel/runtime",
+        "@npmcli/package-json",
+        "query-string",
+        "yup",
+        "msw",
+        "yaml",
+        "react-hook-form",
+        "@tanstack/react-form",
+        "@tanstack/router",
+        "@tanstack/react-router",
+        "@tanstack/query-core",
+        "path-to-regexp",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser web-baseline package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser web-baseline package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
@@ -1817,6 +2050,68 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
 }
 
 #[test]
+fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for package in ["solid-js", "lit"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            "import helper from './internal.js';\nexport default function root() { return 'node:' + helper(); }\n",
+            "import helper from './internal.js';\nexport default function root() { return 'browser:' + helper(); }\n",
+            "internal",
+            &format!(
+                "export default function helper() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function helper() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser internal-browser-rewrite package {package} should resolve its browser rewrite chain on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser internal-browser-rewrite package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkable_and_deployable_through_host(
 ) {
     for (package, subpath) in [
@@ -1911,6 +2206,107 @@ fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkabl
         assert!(
             build.status.success(),
             "scoped browser package {package} with browser condition exports should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_scoped_packages_with_browser_condition_exports_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for (package, subpath) in [
+        ("@emotion/react", "jsx-runtime"),
+        ("@apollo/client", "cache"),
+        ("@chakra-ui/react", "system"),
+        ("@floating-ui/react", "dom"),
+        ("@headlessui/react", "dialog"),
+        ("@heroicons/react", "solid"),
+        ("@radix-ui/react-dialog", "dialog"),
+        ("@storybook/react", "preview-api"),
+        ("@mui/material", "styles"),
+        ("@stripe/react-stripe-js", "elements"),
+        ("@mantine/core", "styles"),
+        ("@tanstack/react-query", "query-core"),
+        ("@tanstack/query-core", "core"),
+        ("@tanstack/table-core", "table"),
+        ("@tanstack/router", "router"),
+        ("@tanstack/react-router", "router"),
+        ("zustand", "vanilla"),
+        ("@remix-run/react", "links"),
+        ("@vueuse/core", "index"),
+        ("react-dom", "client"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_condition_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:import'; }}\n",
+                package = package
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function root() {{ return '{package}:require'; }};\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:browser'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function subpath() {{ return '{package}:{subpath}:import'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "scoped browser package {package} with browser condition exports should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "scoped browser package {package} with browser condition exports should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
