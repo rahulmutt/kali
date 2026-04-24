@@ -164,6 +164,14 @@ fn write_deno_host_package(root: &Path, name: &str, body: &str) {
     write_types_stub_package(root, name);
 }
 
+fn write_jsr_package(root: &Path, name: &str, body: &str) {
+    let package_name = name
+        .strip_prefix("jsr:")
+        .expect("canonical jsr package identifier");
+    write_stub_package(root, package_name, body);
+    write_types_stub_package(root, package_name);
+}
+
 fn write_export_map_package(
     root: &Path,
     name: &str,
@@ -3128,6 +3136,67 @@ fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_de
             String::from_utf8_lossy(&run.stderr)
         );
     }
+}
+
+#[test]
+fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("deno"));
+    write_jsr_package(
+        dir.path(),
+        "jsr:@std/path",
+        r#"module.exports = function joinPath(left, right) {
+    return `${left}/${right}`;
+};
+"#,
+    );
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "import joinPath from '@std/path';\nconsole.log(joinPath('alpha', 'beta'));\n",
+    )
+    .expect("write jsr source");
+
+    let check = run_kali(
+        dir.path(),
+        ["check", "--api", "deno", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check.status.success(),
+        "jsr package should be checkable on the Deno surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build_out_dir = dir.path().join("build");
+    let build = run_kali(
+        dir.path(),
+        [
+            "build",
+            "--api",
+            "deno",
+            "--out-dir",
+            build_out_dir.to_str().unwrap(),
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build.status.success(),
+        "jsr package should be buildable on the Deno surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(
+        dir.path(),
+        ["run", "--api", "deno", source_path.to_str().unwrap()],
+    );
+    assert!(
+        run.status.success(),
+        "jsr package should stay executable on the Deno surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
 }
 
 #[test]

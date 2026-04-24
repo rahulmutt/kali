@@ -41,6 +41,7 @@ Remaining goals:
 - Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
 - Current progress: Node package corpus coverage now also exercises the documented Node build surface for the same `node:`-based package set that already has Node `check` / `run` evidence, keeping package compatibility evidence aligned across analysis, build, and execution lanes.
 - Current progress: Deno package corpus coverage now also exercises the documented Deno build surface for the same Deno-host package set that already has Deno `check` / `run` evidence, keeping package compatibility evidence aligned across analysis, build, and execution lanes.
+- Current progress: Deno package corpus coverage now also exercises a canonical `jsr:@std/path` package fixture materialized at `node_modules/@std/path` on the Deno surface, keeping the `jsr:` registry prefix and on-disk path mapping honest in the package-resolution evidence.
 - Batch or richer registry-analysis workflows only after command/schema revisions.
 - Keep native/binary/bootstrap-heavy packages rejected by default unless the specs deliberately change.
 

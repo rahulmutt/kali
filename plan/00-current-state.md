@@ -22,6 +22,7 @@ The current repo has already implemented the historical MVP and several later su
 - Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
 - Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support, while the standalone browser-requested `run`/`test` harness coverage now also exercises inherited browser `apiSurface` configs when `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` is configured.
 - Browser-targeted package-corpus coverage now includes `.js` entrypoints for browser replacement-map packages, including a scoped package case, keeping first-class JavaScript compilation honest in the browser analysis/build lane.
+- Deno package-corpus coverage now also exercises a canonical `jsr:@std/path` package fixture materialized at `node_modules/@std/path` on the Deno surface, keeping the `jsr:` registry prefix and on-disk path mapping honest in the package-resolution evidence.
 - `--compat eval` exists for the documented compatibility path.
 - The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in, and the runtime now also exposes deterministic guest-facing thread-spawn host import plumbing backed by the threaded topology model.
 - Schema-v1 outputs and diagnostic envelopes are first-class contracts.
