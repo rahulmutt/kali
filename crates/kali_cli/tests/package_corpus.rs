@@ -75,6 +75,35 @@ export function minVersion(range) { return { version: '1.2.3' }; }
     .expect("write package bin");
 }
 
+fn write_pi_coding_agent_style_package(root: &Path) {
+    fs::create_dir_all(root.join("dist")).expect("create package dist dir");
+    fs::write(
+        root.join("package.json"),
+        r#"{
+  "name": "@mariozechner/pi-coding-agent",
+  "version": "0.70.0",
+  "main": "dist/index.js",
+  "bin": {
+    "pi": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        root.join("dist/index.js"),
+        "module.exports = function codingAgent() { return 'pi'; };\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        root.join("dist/cli.js"),
+        "#!/usr/bin/env node\nconst pkg = require('../package.json');\nconsole.log(pkg.version);\n",
+    )
+    .expect("write package bin");
+}
+
 fn write_web_baseline_interop_source(path: &Path, package: &str) {
     fs::write(
         path,
@@ -2216,6 +2245,54 @@ fn node_runner_corpus_semver_style_package_bin_executes_on_the_node_surface() {
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+}
+
+#[test]
+fn binary_entrypoint_corpus_pi_coding_agent_style_package_executes_on_the_node_surface_and_is_rejected_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let standalone_run = run_kali(
+        dir.path(),
+        ["run", package_dir.join("dist/cli.js").to_str().unwrap()],
+    );
+    assert!(
+        !standalone_run.status.success(),
+        "pi-coding-agent corpus package bin should stay rejected on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&standalone_run.stdout),
+        String::from_utf8_lossy(&standalone_run.stderr)
+    );
+    let standalone_stderr = String::from_utf8_lossy(&standalone_run.stderr);
+    assert!(
+        standalone_stderr.contains("E5506"),
+        "stderr: {standalone_stderr}"
+    );
+    assert!(
+        standalone_stderr.contains("Node.js CLI features")
+            && standalone_stderr.contains("unavailable on the 'deno' API surface"),
+        "stderr: {standalone_stderr}"
+    );
+
+    let node_run = run_kali(
+        dir.path(),
+        [
+            "run",
+            "--api",
+            "node",
+            package_dir.join("dist/cli.js").to_str().unwrap(),
+        ],
+    );
+    assert!(
+        node_run.status.success(),
+        "pi-coding-agent corpus package bin should execute on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&node_run.stdout),
+        String::from_utf8_lossy(&node_run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node_run.stdout), "0\n");
 }
 
 #[test]
