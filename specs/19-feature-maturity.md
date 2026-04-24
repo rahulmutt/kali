@@ -84,7 +84,7 @@ Reading rule:
 - this snapshot answers the separate question **what is live in the repository today?**
 - expected future widening remains controlled by the exact matrix rows, owning spec chapters, and proof boundary rather than by broad summary prose
 
-Current repository snapshot (2026-04-23):
+Current repository snapshot (2026-04-24):
 
 | Area | Current repository state | Future / remaining boundary |
 |---|---|---|
@@ -93,7 +93,7 @@ Current repository snapshot (2026-04-23):
 | Coverage reporting | `kali test --coverage` ships the stable deterministic function-coverage contract | browser-runtime coverage and any later granularity widening still depend on their own rows |
 | Dynamic compatibility / registry audit | `--compat eval` is implemented for the documented path, and `kali package-audit` is publicly available in its schema-v1 command shape | broader late dynamic/runtime/object-model breadth still follows its later rows |
 | Verification | the repository is **proof-backed for the published boundary** in [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md) | broader proof-backed claims remain limited by future published-boundary widening |
-| Node compatibility breadth | `run` / `test` remain live on the documented Node execution subset, and the Node analysis/build subset is now live for `check` / `build` on the documented Node-compatible sources; representative Node-package runtime cases now exercise both explicit and inherited `apiSurface=node` paths | `effects` / `package-effects` and late host/object-model APIs such as process-control members, `Proxy`, weak/finalization APIs, and broader `Intl` remain phase-gated unless and until their rows are promoted with evidence |
+| Node compatibility breadth | `run` / `test` remain live on the documented Node execution subset, and the Node analysis/build subset is now live for `check` / `build` on the documented Node-compatible sources; representative Node-package runtime cases now exercise both explicit and inherited `apiSurface=node` paths, and the documented Node embedding-build subset now also has explicit and inherited `apiSurface=node` smoke coverage for `build --capi` and `build --component` | `effects` / `package-effects` and late host/object-model APIs such as process-control members, `Proxy`, weak/finalization APIs, and broader `Intl` remain phase-gated unless and until their rows are promoted with evidence |
 | Browser runtime nuance | browser-runtime harness/helper work exists, but default support claims for standalone `run/test --api browser` must still be read from the later browser-runtime rows and their documented gates instead of being inferred from internal harness plumbing alone | widening that runtime contract remains row-by-row and evidence-backed |
 
 ## Phase-1 Shipped Surface Summary
