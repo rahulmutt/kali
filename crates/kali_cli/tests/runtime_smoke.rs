@@ -1862,6 +1862,21 @@ fn run_uses_browser_entrypoint_for_additional_stable_browser_aliases() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_additional_firefox_aliases() {
+    for browser_name in [
+        "firefox",
+        "firefox-beta",
+        "firefox-nightly",
+        "firefox-developer-edition",
+        "firefox developer edition",
+        "firefox beta",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_chrome_for_testing_aliases() {
     for browser_name in [
         "chrome-for-testing",
