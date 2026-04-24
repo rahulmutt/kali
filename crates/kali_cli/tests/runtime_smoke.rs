@@ -1776,6 +1776,12 @@ fn run_uses_browser_entrypoint_for_browser_like_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_google_chrome_stable_executables() {
+    run_browser_entrypoint_smoke("google-chrome-stable");
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_mullvad_browser_executables() {
     run_browser_entrypoint_smoke("mullvad-browser");
 }

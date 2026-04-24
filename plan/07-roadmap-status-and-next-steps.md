@@ -52,6 +52,7 @@ Recent hardening:
 - `kali init` smoke coverage now includes the nested-child-project case under an ancestor manifest, so the documented subdirectory scaffold path is pinned as a real CLI demo instead of only as a spec claim
 - the optimization/PGO lane now also covers browser-bundle JSON builds with attached profile data, so the `build --profile` provenance path is no longer exercised only by the executable/library smoke case
 - Brave stable wrapper spellings (`brave-browser-stable` and `brave browser stable`) now resolve through the shared browser-launcher alias table too, keeping the browser host chooser aligned with another common stable-channel name family without changing the browser-runtime contract
+- the browser entrypoint smoke lane now also covers the Google Chrome stable wrapper spelling (`google-chrome-stable`), so the alias table stays pinned across another common stable-channel name without changing the browser-runtime contract
 - The Brave stable wrapper spellings (`brave-browser-stable` and `brave browser stable`) now have dedicated browser-entrypoint smoke coverage as well, so the alias table stays pinned beyond the existing browser-entrypoint cases.
 
 ### Priority A — finish the Phase-1 critical path
