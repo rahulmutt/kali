@@ -20,7 +20,7 @@ A feature is not supportable merely because code exists. Promotion requires evid
 | Runtime/host API | integration tests, sandbox enforcement tests, resource-budget tests |
 | Browser runtime | real browser harness smoke tests, not only mocks or browser-targeted bundle checks |
 | Package compatibility | package-corpus results by package, command, API surface, and support rung |
-| Registry analysis | target-shape negatives, deterministic version selection, schema-v1 JSON output |
+| Registry analysis | target-shape negatives, explicit package-version rejection, deterministic version selection, schema-v1 JSON output |
 | Optimization | before/after correctness tests, deterministic artifacts, benchmark harness results |
 | PGO | strict profile schema tests, deterministic profile consumption, no build-mode vocabulary drift |
 | Verification | mechanized proofs, `proofs/BOUNDARY.md` theorem/property inventory, proof CI trigger policy |
