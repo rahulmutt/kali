@@ -7537,6 +7537,7 @@ fn build_emits_capi_json_artifacts_for_binding_package_manifest() {
         .current_dir(dir.path())
         .arg("build")
         .arg("--capi")
+        .arg("--validate-ir")
         .arg("--output")
         .arg("json")
         .arg(&source_path)

@@ -161,6 +161,7 @@ Current progress note:
 - package-effects and package-audit now reject missing or multi-package targets with canonical `E5508` command-shape diagnostics, so the fresh-start registry-analysis packet stays single-package honest before the later availability gates even enter the picture
 - `kali build --validate-ir` now runs structural HIR/MIR/LIR validation on demand, so the F4 build lane can catch inconsistent lowered trees before codegen without changing the resulting artifact shape
 - the component build smoke lane now also exercises `--validate-ir` alongside the existing `--component` JSON artifact coverage, keeping the validation pass honest on the public embedding path as well as the browser bundle path
+- the C-ABI build smoke lane now also exercises `--validate-ir` alongside the existing `--capi` JSON artifact coverage, keeping the validation pass honest on the exported-library path as well as the component and browser bundle paths
 - the browser bundle smoke lane now also exercises `--validate-ir` together with `--bundle`, `--api browser`, and a valid sandbox policy, so the F4 artifact-mode packet covers the validation path instead of only the default browser bundle shape
 
 **Shared coordination files**
