@@ -15153,6 +15153,56 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_con
 }
 
 #[test]
+fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_context() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "main.js",
+  "browser": "browser.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("main.js"), "console.log('main entry');").expect("write main entry");
+    fs::write(
+        package_dir.join("browser.js"),
+        "console.log('browser entry');",
+    )
+    .expect("write browser entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("browserpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("runtime profile") || stderr.contains("wasm-threads"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_effects_preserves_browser_resolution_with_top_level_sandbox_config_in_json_output() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
