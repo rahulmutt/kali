@@ -99,6 +99,9 @@ Range clarification:
 - `E5303`: Cannot access before initialization (TDZ)
 - `E5304`: Export not found in module
 
+Clarification:
+- if an unresolved identifier or call target survives into lowering/codegen, Kali must report the undefined-reference diagnostic instead of silently emitting an executable placeholder value; the fallback remains an explicit compatibility escape hatch, not a silent success path
+
 ### Sandbox, Effects, and Policy Errors (E54xx / E9xxx)
 Runtime/effect side:
 - `E5401`: Effect not permitted by sandbox policy during runtime enforcement

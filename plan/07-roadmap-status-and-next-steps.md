@@ -45,6 +45,7 @@ Recent hardening:
 - the browser bundle smoke lane now also exercises the explicit `--api browser` path with `--bundle` + `--sandbox`, so the browser-targeted build evidence no longer relies only on inherited config for its executable and JSON snapshots
 - the standalone browser runtime negative gates for `run --api browser` and `test --api browser` are now explicitly env-hardened in the CLI smoke suite, so the later browser rejection path stays pinned even if a browser harness helper leaks into the test environment
 - the top-level CLI spine now has a dedicated `kali --version` smoke test, keeping the entrypoint contract pinned alongside the other command-shape regressions
+- the semver package bin now has an explicit default-standalone rejection regression, so the package-execution lane keeps the Node-only CLI split honest before the later Node row opens
 - the human diagnostic renderer now emits canonical error-doc links when `--verbose` is enabled, so the richer presentation path stays aligned with the E-code documentation contract instead of only the default concise output
 - sandbox-agnostic `init` / `fmt` / `lint` and profile-agnostic `install` now reject `--sandbox` / `--api` through the canonical `E5508` path instead of Clap's generic unexpected-argument failure, keeping the workflow-command surface aligned with `specs/12-cli.md`
 - the global `--pretty` gate and the `package-audit --pretty` path now report the canonical `E5508` CLI-usage diagnostic, keeping the shared command-shape code aligned with `specs/15-errors.md`

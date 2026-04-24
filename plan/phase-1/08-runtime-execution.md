@@ -146,6 +146,9 @@ while broader CommonJS lowering gaps remain tracked explicitly.
 - `kali run --api node node_modules/semver/bin/semver.js -- 1.2.3` previously parsed `1.2.3` as
   another primary source input; the CLI now treats everything after `--` as guest arguments, and
   the regression suite covers both the no-args help path and the argument-flow path.
+- The semver package bin now also has an explicit default-standalone rejection regression, so the
+  package-execution path stays honest about the Node-only CLI feature split even before the later
+  Node availability row opens.
 - A small consumer program importing `semver` built and ran, but produced incorrect runtime output,
   showing that the package-execution path once allowed unresolved or mis-lowered imported
   functionality to reach execution instead of preserving real package semantics or failing earlier;

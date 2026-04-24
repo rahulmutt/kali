@@ -116,6 +116,9 @@ Current progress note:
 **Guardrail**
 Do not widen host-API, browser, or package claims here. This packet is about local-file closure, not ecosystem breadth.
 
+Current progress note:
+- the semver package bin now has an explicit default-standalone rejection regression, so the F3 handoff keeps the Node-only CLI split honest while the later Node row remains gated
+
 ### F4 — Phase-1 product surface
 
 **Primary code areas**

@@ -7766,6 +7766,34 @@ fn run_executes_semver_style_package_bin_package_json_require_on_node_api_surfac
 }
 
 #[test]
+fn run_rejects_semver_style_package_bin_on_the_default_standalone_surface() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_package_json_probe_fixture(&package_dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(package_dir.join("bin/semver.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "expected the default standalone surface to reject a Node-only package bin\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Node.js CLI features")
+            && stderr.contains("unavailable on the 'deno' API surface"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_executes_semver_package_consumer_calls_on_the_default_surface() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
