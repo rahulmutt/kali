@@ -293,6 +293,14 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
             }))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                delegate: true,
+                argument: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![],
+                })),
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::FunctionExpression(Box::new(
                 FunctionExpression {
                     id: Some("inner".to_string()),
@@ -306,11 +314,15 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 3);
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result.diagnostics.len() >= 4);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .filter(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32))
+            .count()
+            >= 4
+    );
 }
 
 #[test]

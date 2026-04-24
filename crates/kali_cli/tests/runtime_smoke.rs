@@ -5364,10 +5364,56 @@ fn check_rejects_generator_function_lowering() {
 }
 
 #[test]
+fn check_rejects_generator_delegating_yield_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn build_rejects_generator_function_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn build_rejects_generator_delegating_yield_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
