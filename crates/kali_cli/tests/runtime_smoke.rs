@@ -6073,6 +6073,100 @@ fn test_supports_math_sign_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn test_supports_boolean_logic_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        r#"if (true && true) {
+  console.log(1);
+} else {
+  console.log(0);
+}
+if (true || false) {
+  console.log(2);
+} else {
+  console.log(0);
+}
+if (false && true) {
+  console.log(0);
+} else {
+  console.log(3);
+}
+if (false || false) {
+  console.log(0);
+} else {
+  console.log(4);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n3\n4\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_boolean_logic_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"if (true && true) {
+  console.log(1);
+} else {
+  console.log(0);
+}
+if (true || false) {
+  console.log(2);
+} else {
+  console.log(0);
+}
+if (false && true) {
+  console.log(0);
+} else {
+  console.log(3);
+}
+if (false || false) {
+  console.log(0);
+} else {
+  console.log(4);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n3\n4\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_object_keys_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -6743,6 +6837,100 @@ fn run_supports_math_sign_builtin_semantics_in_js_input() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("-1"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_boolean_logic_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"if (true && true) {
+  console.log(1);
+} else {
+  console.log(0);
+}
+if (true || false) {
+  console.log(2);
+} else {
+  console.log(0);
+}
+if (false && true) {
+  console.log(0);
+} else {
+  console.log(3);
+}
+if (false || false) {
+  console.log(0);
+} else {
+  console.log(4);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n3\n4"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_boolean_logic_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"if (true && true) {
+  console.log(1);
+} else {
+  console.log(0);
+}
+if (true || false) {
+  console.log(2);
+} else {
+  console.log(0);
+}
+if (false && true) {
+  console.log(0);
+} else {
+  console.log(3);
+}
+if (false || false) {
+  console.log(0);
+} else {
+  console.log(4);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n3\n4"), "stdout: {stdout}");
 }
 
 #[test]

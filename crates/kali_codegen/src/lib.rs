@@ -347,6 +347,24 @@ impl<'a> FunctionEmitter<'a> {
                         };
                     }
 
+                    match text {
+                        "true" => {
+                            function.instruction(&Instruction::I64Const(1));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Boolean,
+                            };
+                        }
+                        "false" | "null" | "undefined" => {
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Boolean,
+                            };
+                        }
+                        _ => {}
+                    }
+
                     self.push_placeholder_fallback_diagnostic("identifier", text);
                     function.instruction(&Instruction::I64Const(0));
                     EmittedValue {
