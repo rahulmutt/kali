@@ -8391,6 +8391,134 @@ async function enumSmoke(left, right) {
 }
 
 #[test]
+fn build_emits_browser_bundle_overwrite_ordering_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj[\"a\"] = 1;
+  obj[\"b\"] = 2;
+  obj[\"a\"] = 3;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'a' ||
+    keys[1] !== 'b' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'a' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'b' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 3 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected overwrite ordering');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj[\"a\"] = 1;
+  obj[\"b\"] = 2;
+  obj[\"a\"] = 3;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'a' ||
+    keys[1] !== 'b' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'a' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'b' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 3 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected overwrite ordering');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_chunks_for_literal_dynamic_imports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
