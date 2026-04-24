@@ -14,6 +14,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_runtime/src/tests.rs` |
 | Static ESM `import` / `export` | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs` |
 | Async function declarations / expressions and async generator syntax | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
+| Generator function declarations / expressions and `yield` / `yield*` expressions | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Basic arithmetic precedence and array length semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
@@ -33,7 +34,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Mixed CommonJS/ESM package default-import interop | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
 | Literal-string `import()` over the linked graph, including directory-index targets | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
-| Generator lowering / `yield` / `yield*` syntax | Later compatibility | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (`check` and `build` gate coverage, including async generator syntax and async generator function-expression syntax) |
+| Generator lowering | Later compatibility | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (`check` and `build` gate coverage, including async generator syntax and async generator function-expression syntax) |
 
 ## Gated for later phases
 
