@@ -3054,7 +3054,8 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
 }
 
 #[test]
-fn deno_host_corpus_packages_remain_executable_on_the_default_standalone_surface() {
+fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_default_standalone_surface(
+) {
     for (package, body) in [
         (
             "fresh-env",
@@ -3095,6 +3096,25 @@ fn deno_host_corpus_packages_remain_executable_on_the_default_standalone_surface
             "deno host package {package} should be checkable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&check.stdout),
             String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build_out_dir = dir.path().join("build");
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--api",
+                "deno",
+                "--out-dir",
+                build_out_dir.to_str().unwrap(),
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "deno host package {package} should be buildable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
         );
 
         let run = run_kali(
