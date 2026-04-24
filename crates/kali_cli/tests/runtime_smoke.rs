@@ -12100,6 +12100,26 @@ fn package_audit_metadata_body_with_stable_and_prerelease_versions() -> &'static
     )
 }
 
+fn package_audit_metadata_body_with_prerelease_only_versions() -> &'static str {
+    Box::leak(
+        json!({
+            "versions": {
+                "2.0.0-beta.1": {
+                    "name": "lodash",
+                    "version": "2.0.0-beta.1",
+                    "main": "index.js",
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash-prerelease.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                }
+            }
+        })
+        .to_string()
+        .into_boxed_str(),
+    )
+}
+
 #[test]
 fn package_audit_command_emits_envelope() {
     let (registry_url, hits, stop, handle) =
@@ -13864,4 +13884,59 @@ fn package_audit_command_selects_latest_stable_version_over_prerelease() {
         .contains("2.0.0-beta.1"));
     assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
     assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_command_rejects_prerelease_only_versions() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_prerelease_only_versions());
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(!output.status.success(), "stdout: {:?}", output.stdout);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        output.stderr.is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 1);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    assert!(json["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .any(|entry| entry["code"] == "E6001"));
+    assert!(json["stdout"].is_null());
+    assert!(json["warnings"]
+        .as_array()
+        .expect("warnings array")
+        .is_empty());
+    assert!(json["errors"]
+        .as_array()
+        .expect("errors array")
+        .iter()
+        .any(|entry| entry["message"]
+            .as_str()
+            .expect("error message")
+            .contains("has no stable published version")));
 }
