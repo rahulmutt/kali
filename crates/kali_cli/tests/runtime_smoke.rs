@@ -3628,6 +3628,59 @@ fn build_emits_library_artifacts_and_metadata() {
 }
 
 #[test]
+fn build_emits_library_artifacts_with_validate_ir() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    fs::write(&source_path, "function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg("--validate-ir")
+        .arg("--max-specializations")
+        .arg("4")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let wasm_path = dir.path().join("math.lib.wasm");
+    let wit_path = dir.path().join("math.lib.wit");
+    let meta_path = dir.path().join("math.lib.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "lib", 4, None);
+    let exports = metadata["exports"].as_array().expect("exports array");
+    assert!(exports.iter().any(|entry| entry["name"] == "add"));
+
+    let built = fs::read(&wasm_path).expect("read wasm artifact");
+    let mut seen_metadata = false;
+    for payload in Parser::new(0).parse_all(&built) {
+        if let Ok(Payload::CustomSection(section)) = payload {
+            if section.name() == "kali:metadata" {
+                seen_metadata = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        seen_metadata,
+        "custom section 'kali:metadata' was not embedded"
+    );
+}
+
+#[test]
 fn build_rejects_library_sources_without_static_exports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");

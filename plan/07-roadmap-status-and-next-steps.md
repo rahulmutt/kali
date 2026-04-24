@@ -75,6 +75,7 @@ Recent hardening:
 - the host-registered predicate context now carries normalized file, network, process-env, timer, and eval detail keys in addition to the existing process/thread payloads, so programmable-policy callers can inspect the same deterministic capability metadata for path/URL/key-shaped operations without inventing a second policy vocabulary
 - the public README command reference now also calls out `kali test --coverage`, keeping the user-facing summary aligned with the stable function-coverage contract already documented in `specs/12-cli.md`
 - the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
+- the base library build smoke lane now also exercises `--validate-ir`, so the library artifact path shares the same early IR-validation coverage as the component, C-ABI, and browser-bundle lanes
 
 ### Priority A — finish the Phase-1 critical path
 
