@@ -39,7 +39,10 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "WeakSet",
         "FinalizationRegistry",
     ] {
-        assert!(stderr.contains(expected), "missing {expected} in stderr: {stderr}");
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
     }
 }
 
