@@ -925,7 +925,13 @@ impl HirLowerer {
                     .alloc_text(HirNodeKind::Ident, None, param.name.clone())
             );
         }
-        push_child!(self, id, self.lower_expression(&expr.body));
+        push_child!(
+            self,
+            id,
+            self.lower_statement(&Statement::ReturnStatement(ReturnStatement {
+                argument: Some(expr.body.clone()),
+            }))
+        );
         id
     }
 

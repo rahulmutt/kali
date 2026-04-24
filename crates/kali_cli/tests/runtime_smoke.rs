@@ -4917,33 +4917,6 @@ fn run_supports_function_call_return_semantics_in_js_input() {
 }
 
 #[test]
-fn test_supports_function_call_return_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(
-        &source_path,
-        "function add(a, b) { return a + b; } if (add(2, 5) !== 7) { throw new Error('bad function result'); }\nconsole.log('ok');\n",
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("test")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-}
-
-#[test]
 fn run_supports_async_await_sequencing() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

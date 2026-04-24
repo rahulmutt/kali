@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 use kali_ast::{
-    ASTBuilder, ArrayExpression, BinaryExpression, BlockStatement, BreakStatement, CallExpression,
-    CatchClause, ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement,
-    Expression, ExpressionOrSpread, ExpressionStatement, ForInit, ForStatement,
-    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
-    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
-    MemberExpression, ParenthesizedExpression, ReturnStatement, Statement, SwitchCase,
-    SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator,
-    WhileStatement, YieldExpression, AST,
+    ASTBuilder, ArrayExpression, ArrowFunctionExpression, BinaryExpression, BlockStatement,
+    BreakStatement, CallExpression, CatchClause, ClassDeclaration, ContinueStatement,
+    DebuggerStatement, DoWhileStatement, Expression, ExpressionOrSpread, ExpressionStatement,
+    ForInit, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement,
+    ImportDeclaration, ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier,
+    LiteralValue, MemberExpression, ParenthesizedExpression, ReturnStatement, Statement,
+    SwitchCase, SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration,
+    VariableDeclarator, WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -1046,6 +1046,95 @@ impl Parser {
         }))
     }
 
+    fn try_parse_arrow_function_expression(&mut self) -> Option<Expression> {
+        let start = self.stream.position;
+        if self
+            .stream
+            .tokens
+            .get(start)
+            .is_none_or(|token| token.kind != TokenType::LeftParen)
+        {
+            return None;
+        }
+
+        let mut scan = start + 1;
+        let mut params = Vec::new();
+        match self.stream.tokens.get(scan).map(|token| &token.kind) {
+            Some(TokenType::RightParen) => {
+                scan += 1;
+            }
+            Some(TokenType::Identifier) => loop {
+                let token = self.stream.tokens.get(scan)?;
+                params.push(token.value.clone());
+                scan += 1;
+
+                match self.stream.tokens.get(scan).map(|token| &token.kind) {
+                    Some(TokenType::Comma) => {
+                        scan += 1;
+                    }
+                    Some(TokenType::RightParen) => {
+                        scan += 1;
+                        break;
+                    }
+                    _ => return None,
+                }
+            },
+            _ => return None,
+        }
+
+        if self.stream.tokens.get(scan).map(|token| &token.kind) != Some(&TokenType::Arrow) {
+            return None;
+        }
+
+        if self.stream.tokens.get(scan + 1).map(|token| &token.kind) == Some(&TokenType::LeftBrace)
+        {
+            return None;
+        }
+
+        self.stream.position = scan + 1;
+        let body = self.parse_arrow_function_body_expression();
+        Some(Expression::ArrowFunctionExpression(Box::new(
+            ArrowFunctionExpression {
+                params: params
+                    .into_iter()
+                    .map(|name| FunctionParam { name })
+                    .collect(),
+                body,
+                is_async: false,
+                returnType: None,
+            },
+        )))
+    }
+
+    fn parse_arrow_function_body_expression(&mut self) -> Expression {
+        if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+            let _ = self.stream.advance();
+            let mut expressions = Vec::new();
+
+            while !self.stream.eof() && self.stream.current_kind() != Some(&TokenType::RightBrace) {
+                if self.stream.current_kind() == Some(&TokenType::Semicolon) {
+                    let _ = self.stream.advance();
+                    continue;
+                }
+
+                expressions.push(self.parse_expression());
+                let _ = self.stream.accept(TokenType::Semicolon);
+            }
+
+            let _ = self.stream.accept(TokenType::RightBrace);
+
+            match expressions.len() {
+                0 => Expression::Literal(kali_ast::LiteralValue::Null),
+                1 => expressions.pop().unwrap(),
+                _ => Expression::SequenceExpression(Box::new(kali_ast::SequenceExpression {
+                    expressions,
+                })),
+            }
+        } else {
+            self.parse_expression()
+        }
+    }
+
     fn parse_function_expression(&mut self) -> Expression {
         self.parse_function_expression_with_async(false)
     }
@@ -1111,6 +1200,20 @@ impl Parser {
                 let name = token
                     .map(|t| t.value)
                     .unwrap_or_else(|| "unknown".to_string());
+                if self.stream.current_kind() == Some(&TokenType::Arrow)
+                    && self.stream.peek_next_kind() != Some(&TokenType::LeftBrace)
+                {
+                    let _ = self.stream.advance();
+                    let body = self.parse_arrow_function_body_expression();
+                    return Expression::ArrowFunctionExpression(Box::new(
+                        ArrowFunctionExpression {
+                            params: vec![FunctionParam { name }],
+                            body,
+                            is_async: false,
+                            returnType: None,
+                        },
+                    ));
+                }
                 Expression::Identifier(name)
             }
             TokenType::This => {
@@ -1146,6 +1249,10 @@ impl Parser {
                 Expression::Literal(kali_ast::LiteralValue::String(value))
             }
             TokenType::LeftParen => {
+                if let Some(expr) = self.try_parse_arrow_function_expression() {
+                    return expr;
+                }
+
                 let _ = self.stream.advance();
                 let expr = self.parse_expression();
                 // Expect closing paren

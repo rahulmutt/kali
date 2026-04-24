@@ -14,6 +14,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_runtime/src/tests.rs` |
 | Static ESM `import` / `export` | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs` |
 | Async function declarations / expressions and async generator syntax | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
+| Arrow function expressions with concise bodies | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
 | Generator function declarations / expressions and `yield` / `yield*` expressions | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (including browser-targeted `.js` generator-gate fixtures) |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Read-only `Deno.permissions.query(...)` over the shared descriptor subset (`read`, `write`, `env`, `net`) | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_sandbox/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_api_deno/src/tests.rs` |
