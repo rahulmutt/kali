@@ -4640,7 +4640,7 @@ console.log(values.length);
 }
 
 #[test]
-fn run_records_object_enumeration_numeric_key_limit() {
+fn run_supports_object_enumeration_integer_like_key_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -4649,6 +4649,21 @@ fn run_records_object_enumeration_numeric_key_limit() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw 'unexpected numeric-key ordering';
+}
 console.log(keys.length);
 console.log(entries.length);
 console.log(values.length);
@@ -4674,7 +4689,7 @@ console.log(values.length);
 }
 
 #[test]
-fn run_records_object_enumeration_numeric_key_limit_in_js_input() {
+fn run_supports_object_enumeration_integer_like_key_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -4683,6 +4698,21 @@ fn run_records_object_enumeration_numeric_key_limit_in_js_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw 'unexpected numeric-key ordering';
+}
 console.log(keys.length);
 console.log(entries.length);
 console.log(values.length);
