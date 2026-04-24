@@ -147,6 +147,123 @@ fn core_schema_documents_match_current_cli_contracts() {
         .as_bool()
         .unwrap_or(false));
 
+    let check: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/check/v1.json")).expect("read check schema"),
+    )
+    .expect("parse check schema");
+    assert_eq!(check["type"], "object");
+    assert_eq!(
+        check["required"]
+            .as_array()
+            .expect("check required array")
+            .iter()
+            .map(|value| value.as_str().expect("check required string"))
+            .collect::<Vec<_>>(),
+        vec!["filesChecked", "errorCount", "warningCount"]
+    );
+    assert_eq!(check["properties"]["filesChecked"]["type"], "integer");
+    assert_eq!(check["properties"]["errorCount"]["minimum"], 0);
+    assert_eq!(check["properties"]["warningCount"]["minimum"], 0);
+
+    let run: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/run/v1.json")).expect("read run schema"),
+    )
+    .expect("parse run schema");
+    assert_eq!(run["type"], "object");
+    assert_eq!(
+        run["required"]
+            .as_array()
+            .expect("run required array")
+            .iter()
+            .map(|value| value.as_str().expect("run required string"))
+            .collect::<Vec<_>>(),
+        vec!["exitCode", "runtimeMs"]
+    );
+    assert_eq!(run["properties"]["exitCode"]["type"], "integer");
+    assert_eq!(run["properties"]["runtimeMs"]["type"], "integer");
+    assert_eq!(run["properties"]["runtimeMs"]["minimum"], 0);
+
+    let install: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/install/v1.json"))
+            .expect("read install schema"),
+    )
+    .expect("parse install schema");
+    assert_eq!(install["type"], "object");
+    assert_eq!(
+        install["required"]
+            .as_array()
+            .expect("install required array")
+            .iter()
+            .map(|value| value.as_str().expect("install required string"))
+            .collect::<Vec<_>>(),
+        vec!["installed", "updated", "removed"]
+    );
+    for property in ["manifestPath", "lockPath"] {
+        let types = install["properties"][property]["type"]
+            .as_array()
+            .expect("install optional path type array")
+            .iter()
+            .map(|value| value.as_str().expect("install path type string"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            types,
+            vec!["string", "null"],
+            "unexpected {property} type set"
+        );
+    }
+    for property in ["installed", "updated", "removed"] {
+        assert_eq!(install["properties"][property]["type"], "array");
+        assert_eq!(install["properties"][property]["items"]["type"], "string");
+    }
+
+    let fmt: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/fmt/v1.json")).expect("read fmt schema"),
+    )
+    .expect("parse fmt schema");
+    assert_eq!(fmt["type"], "object");
+    assert_eq!(
+        fmt["required"]
+            .as_array()
+            .expect("fmt required array")
+            .iter()
+            .map(|value| value.as_str().expect("fmt required string"))
+            .collect::<Vec<_>>(),
+        vec!["filesFormatted", "filesChecked"]
+    );
+    assert_eq!(fmt["properties"]["filesFormatted"]["type"], "integer");
+    assert_eq!(fmt["properties"]["filesChecked"]["type"], "integer");
+
+    let lint: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/lint/v1.json")).expect("read lint schema"),
+    )
+    .expect("parse lint schema");
+    assert_eq!(lint["type"], "object");
+    assert_eq!(
+        lint["required"]
+            .as_array()
+            .expect("lint required array")
+            .iter()
+            .map(|value| value.as_str().expect("lint required string"))
+            .collect::<Vec<_>>(),
+        vec!["filesLinted", "errorCount", "warningCount", "fixedCount"]
+    );
+    for property in ["filesLinted", "errorCount", "warningCount", "fixedCount"] {
+        assert_eq!(lint["properties"][property]["type"], "integer");
+        assert_eq!(lint["properties"][property]["minimum"], 0);
+    }
+
+    let effects: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/effects/v1.json"))
+            .expect("read effects schema"),
+    )
+    .expect("parse effects schema");
+    assert_eq!(effects["type"], "object");
+    assert!(effects["additionalProperties"].as_bool().unwrap_or(false));
+    assert!(effects["description"]
+        .as_str()
+        .expect("effects description")
+        .contains("Phase-2 native JSON result payload"));
+
     let package_audit: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/package-audit/v1.json"))
             .expect("read package-audit schema"),

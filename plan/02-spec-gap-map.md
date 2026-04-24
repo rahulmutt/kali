@@ -75,4 +75,5 @@ Remaining goals:
 - Connect proof-trigger policy to any implementation/spec paths newly claimed as covered.
 - Add schema conformance checks for every machine-readable success and failure output.
 - Current progress: `schemas/result/package-effects/v1.json` and `schemas/result/package-audit/v1.json` now have explicit contract assertions in `crates/kali_cli/tests/schema_docs.rs`, pinning the registry-analysis payload contract at the schema-document level.
+- Current progress: the same schema-document test now also asserts the core result payloads for `check`, `run`, `install`, `fmt`, `lint`, `effects`, `build`, and `test`, widening the drift net across the main command/result envelopes without changing any public payload shape.
 - Keep proof theorem/property inventories out of plan files; `proofs/BOUNDARY.md` remains the sole theorem/property inventory owner.

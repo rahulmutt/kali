@@ -36,6 +36,7 @@ Widen proof-backed and machine-contract confidence while keeping claim boundarie
 - Add schema validation for all JSON outputs and artifact manifests.
 - Keep deterministic ordering and envelopes stable.
 - Add docs/schema drift tests for CLI examples and result payloads.
+- Progress: schema-document assertions now cover the core result payloads for `check`, `run`, `install`, `fmt`, `lint`, `effects`, `build`, `test`, `package-effects`, and `package-audit`, keeping the result-schema drift net aligned with the current command surface.
 
 ## Exit gate
 
