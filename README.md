@@ -31,6 +31,7 @@ kali build --bundle <file>      # browser-targeted build lane
 kali build --lib <file>         # base library artifact for exact-version consumers
 kali run <file> [-- args...]
 kali test [files...]
+kali test --coverage [files...]
 ```
 
 Additional public commands live in the current repository state:
@@ -64,7 +65,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | `check` | Type-check and statically validate source |
 | `build` | Produce executable artifacts, browser bundles, library artifacts, or embedding artifacts depending on flags |
 | `run` | Compile and execute a source file |
-| `test` | Compile and run tests |
+| `test` | Compile and run tests; `--coverage` adds deterministic function-coverage data through the stable result payload |
 | `effects` | Report conservative effects for a source graph |
 | `package-effects` | Report conservative effects for one registry package |
 | `package-audit` | Run context-free registry analysis / audit for one package |
