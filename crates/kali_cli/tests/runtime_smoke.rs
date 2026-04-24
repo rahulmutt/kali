@@ -5526,6 +5526,121 @@ fn build_rejects_async_generator_lowering() {
 }
 
 #[test]
+fn run_rejects_generator_function_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_generator_delegating_yield_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_async_generator_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "async function* main() { yield 1; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_generator_delegating_yield_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_generator_function_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn build_emits_browser_bundle_chunks_for_simple_string_concat_dynamic_imports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
