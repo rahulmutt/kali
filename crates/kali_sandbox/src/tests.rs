@@ -707,6 +707,33 @@ fn effect_reports_trim_and_deduplicate_semantic_axes_before_serialization() {
 }
 
 #[test]
+fn effect_inference_deduplicates_repeated_roots_before_serialization() {
+    let source = write_source_fixture("console.log('hello');");
+    let inference = infer_effects_from_roots(
+        &[source.clone(), source.clone()],
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(
+        inference.effects.len(),
+        1,
+        "unexpected inferred effects: {inference:?}"
+    );
+    assert_eq!(inference.effects[0].kind, "Console.Write");
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string(), source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert_eq!(report.entry_points, vec![source.display().to_string()]);
+    assert_eq!(report.effects.len(), 1);
+    assert_eq!(report.effects[0].kind, "Console.Write");
+}
+
+#[test]
 fn effect_reports_deduplicate_entry_points_while_preserving_first_seen_order() {
     let report = effect_report_from_inference(
         vec![
