@@ -586,14 +586,32 @@ fn scan_tokens_for_effects(
             continue;
         }
 
-        if let Some((kind, target)) = is_deno_command_constructor(tokens, i) {
-            effects.push(observed_effect(file, token, source, kind, target));
+        if let Some(effect) = is_deno_command_constructor(tokens, i) {
+            if effect.computed_host_access {
+                dynamic_reasons.insert("computed-host-access".to_string());
+            }
+            effects.push(observed_effect(
+                file,
+                token,
+                source,
+                effect.kind,
+                effect.target,
+            ));
             i += 1;
             continue;
         }
 
-        if let Some((kind, target)) = is_deno_host_call(tokens, i) {
-            effects.push(observed_effect(file, token, source, kind, target));
+        if let Some(effect) = is_deno_host_call(tokens, i) {
+            if effect.computed_host_access {
+                dynamic_reasons.insert("computed-host-access".to_string());
+            }
+            effects.push(observed_effect(
+                file,
+                token,
+                source,
+                effect.kind,
+                effect.target,
+            ));
             i += 1;
             continue;
         }
@@ -708,64 +726,116 @@ fn is_console_write_call(tokens: &[Token], index: usize) -> bool {
     }
 }
 
-fn is_deno_command_constructor(
-    tokens: &[Token],
-    index: usize,
-) -> Option<(&'static str, Option<String>)> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EffectMatch {
+    kind: &'static str,
+    target: Option<String>,
+    computed_host_access: bool,
+}
+
+fn read_property_segment(tokens: &[Token], index: usize) -> Option<(String, usize, bool)> {
+    match tokens.get(index)? {
+        token if token.kind == TokenType::Dot => {
+            let property = tokens.get(index + 1)?;
+            if property.kind != TokenType::Identifier {
+                return None;
+            }
+            Some((property.value.clone(), index + 2, false))
+        }
+        token if token.kind == TokenType::LeftBracket => {
+            let property = tokens.get(index + 1)?;
+            let value = match property.kind {
+                TokenType::Identifier => property.value.clone(),
+                TokenType::StringLiteral | TokenType::NumericLiteral => {
+                    unquote_token_value(&property.value)
+                }
+                _ => return None,
+            };
+            if !matches!(
+                tokens.get(index + 2).map(|t| t.kind),
+                Some(TokenType::RightBracket)
+            ) {
+                return None;
+            }
+            Some((value, index + 3, true))
+        }
+        _ => None,
+    }
+}
+
+fn read_deno_root(tokens: &[Token], index: usize) -> Option<(usize, bool)> {
+    match tokens.get(index)? {
+        token if token.kind == TokenType::Identifier && token.value == "Deno" => {
+            Some((index + 1, false))
+        }
+        token if token.kind == TokenType::Identifier && token.value == "globalThis" => {
+            let (root, next, computed) = read_property_segment(tokens, index + 1)?;
+            if root == "Deno" {
+                Some((next, computed))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn is_deno_command_constructor(tokens: &[Token], index: usize) -> Option<EffectMatch> {
     if !matches!(tokens.get(index), Some(token) if token.kind == TokenType::New) {
         return None;
     }
-    if !matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "Deno")
-    {
-        return None;
-    }
-    if !matches!(tokens.get(index + 2).map(|t| t.kind), Some(TokenType::Dot)) {
-        return None;
-    }
-    if !matches!(tokens.get(index + 3), Some(token) if token.kind == TokenType::Identifier && token.value == "Command")
-    {
+
+    let (cursor, computed_host_access) = read_deno_root(tokens, index + 1)?;
+    let (member, next, computed_member_access) = read_property_segment(tokens, cursor)?;
+    if member != "Command" {
         return None;
     }
 
-    Some(("Process.Spawn", call_string_argument(tokens, index + 4)))
+    Some(EffectMatch {
+        kind: "Process.Spawn",
+        target: call_string_argument(tokens, next),
+        computed_host_access: computed_host_access || computed_member_access,
+    })
 }
 
-fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Option<String>)> {
-    if !matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Deno")
-    {
-        return None;
-    }
+fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<EffectMatch> {
+    let (cursor, computed_host_access) = read_deno_root(tokens, index)?;
+    let (member, next, computed_member_access) = read_property_segment(tokens, cursor)?;
+    let computed_host_access = computed_host_access || computed_member_access;
 
-    let dot = tokens.get(index + 1)?;
-    if dot.kind != TokenType::Dot {
-        return None;
-    }
-    let member = tokens.get(index + 2)?;
-    if member.kind != TokenType::Identifier {
-        return None;
-    }
-
-    let kind = match member.value.as_str() {
+    let kind = match member.as_str() {
         "open" | "openSync" | "readTextFile" | "readTextFileSync" | "readDir" | "readDirSync"
         | "stat" | "statSync" | "lstat" | "lstatSync" => Some("FileSystem.Read"),
         "create" | "createSync" | "writeTextFile" | "writeTextFileSync" | "mkdir" | "mkdirSync"
         | "remove" | "removeSync" | "rename" | "renameSync" => Some("FileSystem.Write"),
-        "connect" => return Some(("Network.Connect", call_string_argument(tokens, index + 3))),
+        "connect" => {
+            return Some(EffectMatch {
+                kind: "Network.Connect",
+                target: call_string_argument(tokens, next),
+                computed_host_access,
+            })
+        }
         "listen" | "serve" => {
-            return Some(("Network.Listen", call_string_argument(tokens, index + 3)))
+            return Some(EffectMatch {
+                kind: "Network.Listen",
+                target: call_string_argument(tokens, next),
+                computed_host_access,
+            })
         }
         "env" => {
-            let dot = tokens.get(index + 3)?;
-            if dot.kind != TokenType::Dot {
-                return None;
-            }
-            let method = tokens.get(index + 4)?;
-            if method.kind != TokenType::Identifier {
-                return None;
-            }
-            return match method.value.as_str() {
-                "get" => Some(("Process.EnvRead", call_string_argument(tokens, index + 5))),
-                "set" => Some(("Process.EnvWrite", call_string_argument(tokens, index + 5))),
+            let (method, next, computed_env_access) = read_property_segment(tokens, next)?;
+            let computed_host_access = computed_host_access || computed_env_access;
+            return match method.as_str() {
+                "get" => Some(EffectMatch {
+                    kind: "Process.EnvRead",
+                    target: call_string_argument(tokens, next),
+                    computed_host_access,
+                }),
+                "set" => Some(EffectMatch {
+                    kind: "Process.EnvWrite",
+                    target: call_string_argument(tokens, next),
+                    computed_host_access,
+                }),
                 _ => None,
             };
         }
@@ -774,7 +844,11 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<(&'static str, Op
         _ => None,
     }?;
 
-    Some((kind, call_string_argument(tokens, index + 3)))
+    Some(EffectMatch {
+        kind,
+        target: call_string_argument(tokens, next),
+        computed_host_access,
+    })
 }
 
 fn is_global_effect_call(tokens: &[Token], index: usize) -> Option<(&'static str, Option<String>)> {
@@ -850,7 +924,7 @@ fn is_require_call(tokens: &[Token], index: usize) -> Option<(&'static str, Opti
 fn call_string_argument(tokens: &[Token], mut index: usize) -> Option<String> {
     while let Some(token) = tokens.get(index) {
         match token.kind {
-            TokenType::StringLiteral => return Some(token.value.clone()),
+            TokenType::StringLiteral => return Some(unquote_token_value(&token.value)),
             TokenType::Comma | TokenType::LeftParen | TokenType::RightParen => {
                 index += 1;
             }
@@ -858,6 +932,25 @@ fn call_string_argument(tokens: &[Token], mut index: usize) -> Option<String> {
         }
     }
     None
+}
+
+fn unquote_token_value(value: &str) -> String {
+    let trimmed = value.trim();
+    let Some(first) = trimmed.chars().next() else {
+        return trimmed.to_string();
+    };
+    let Some(last) = trimmed.chars().last() else {
+        return trimmed.to_string();
+    };
+
+    if (first == '"' && last == '"')
+        || (first == '\'' && last == '\'')
+        || (first == '`' && last == '`')
+    {
+        trimmed[1..trimmed.len().saturating_sub(1)].to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn dedupe_effects(mut effects: Vec<ObservedEffect>) -> Vec<ObservedEffect> {

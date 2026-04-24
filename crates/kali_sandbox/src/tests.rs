@@ -488,6 +488,27 @@ Deno.lstat('/workspace/input.txt');
 }
 
 #[test]
+fn effect_analysis_marks_computed_deno_host_access_as_dynamic() {
+    let source = write_source_fixture(
+        r#"
+globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
+"#,
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Process.EnvWrite"));
+}
+
+#[test]
 fn effect_analysis_marks_proxy_constructor_and_revocable_calls_as_dynamic() {
     let source = write_source_fixture(
         r#"

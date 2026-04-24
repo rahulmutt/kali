@@ -81,6 +81,7 @@ The canonical effect-report schema lives in [specs/18-schemas.md](18-schemas.md)
 Conservative-report rule:
 - the public effect report is a conservative upper bound for the selected resolved source graph under the recorded analysis context
 - `dynamicEffects` / `dynamicReasons` explain where the analysis had to stay conservative or incomplete; they do **not** authorize omitting already-known possible effects from the reported `effects` set
+- the canonical `computed-host-access` reason covers bracketed or computed host-root/property access such as `Deno["env"]["set"](...)` and `globalThis["Deno"]["env"]["set"](...)`, so tooling can distinguish dynamic property access from ordinary dot-qualified host calls
 - the command/report may therefore over-approximate, but it must not under-report known built-in sandbox-relevant effects
 
 Scope rule:
