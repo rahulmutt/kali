@@ -2234,6 +2234,29 @@ fn run_uses_browser_entrypoint_for_msedge_stable_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_additional_edge_aliases() {
+    for browser_name in [
+        "msedge-beta",
+        "msedge-dev",
+        "msedge-insider",
+        "edge-canary",
+        "edge-dev",
+        "edge-insider",
+        "microsoft-edge-beta",
+        "microsoft-edge-canary",
+        "microsoft-edge-dev",
+        "microsoft-edge-insider",
+        "microsoft edge beta",
+        "microsoft edge canary",
+        "microsoft edge dev",
+        "microsoft edge insider",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_brave_browser_stable_executables() {
     for browser_name in ["brave-browser-stable", "brave browser stable"] {
         run_browser_entrypoint_smoke(browser_name);
@@ -2242,8 +2265,38 @@ fn run_uses_browser_entrypoint_for_brave_browser_stable_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_additional_brave_aliases() {
+    for browser_name in [
+        "brave-browser-beta",
+        "brave-browser-dev",
+        "brave-browser-nightly",
+        "brave browser beta",
+        "brave browser dev",
+        "brave browser nightly",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_additional_stable_browser_aliases() {
     for browser_name in ["firefox-esr", "opera-stable", "vivaldi-stable"] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_additional_opera_aliases() {
+    for browser_name in [
+        "opera-beta",
+        "opera-developer",
+        "opera-unstable",
+        "opera beta",
+        "opera developer",
+        "opera unstable",
+    ] {
         run_browser_entrypoint_smoke(browser_name);
     }
 }
