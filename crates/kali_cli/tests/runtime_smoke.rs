@@ -8547,6 +8547,85 @@ console.log(quadruple(21));
 }
 
 #[test]
+fn node_cross_module_inference_stays_within_the_phase_3_budget_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let math_path = dir.path().join("math.js");
+    let helper_path = dir.path().join("helper.js");
+    let bridge_path = dir.path().join("bridge.js");
+    let public_path = dir.path().join("public.js");
+    let source_path = dir.path().join("main.js");
+
+    fs::write(
+        &math_path,
+        r#"export function double(value) {
+    return value + value;
+}
+"#,
+    )
+    .expect("write math module");
+    fs::write(
+        &helper_path,
+        r#"import { double } from './math.js';
+
+export function quadruple(value) {
+    return double(double(value));
+}
+"#,
+    )
+    .expect("write helper module");
+    fs::write(
+        &bridge_path,
+        r#"export { quadruple } from './helper.js';
+"#,
+    )
+    .expect("write bridge module");
+    fs::write(
+        &public_path,
+        r#"export { quadruple } from './bridge.js';
+"#,
+    )
+    .expect("write public module");
+    fs::write(
+        &source_path,
+        r#"import { quadruple } from './public.js';
+
+console.log(quadruple(21));
+"#,
+    )
+    .expect("write source");
+
+    let check = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali check");
+
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali build");
+
+    assert!(
+        build.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    assert!(source_path.with_file_name("main.wasm").exists());
+}
+
+#[test]
 fn node_cross_module_inference_with_an_explicit_specialization_cap_stays_within_the_phase_3_budget()
 {
     let dir = tempdir().expect("tempdir");
@@ -8696,6 +8775,97 @@ export function projectValue(value) {
         r#"import { projectValue } from './public.ts';
 
 console.log(projectValue(21));
+"#,
+    )
+    .expect("write source");
+
+    let check = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali check");
+
+    assert!(
+        check.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali build");
+
+    assert!(
+        build.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    assert!(source_path.with_file_name("main.wasm").exists());
+}
+
+#[test]
+fn node_cross_module_inference_with_an_explicit_specialization_cap_stays_within_the_phase_3_budget_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let math_path = dir.path().join("math.js");
+    let helper_path = dir.path().join("helper.js");
+    let bridge_path = dir.path().join("bridge.js");
+    let public_path = dir.path().join("public.js");
+    let source_path = dir.path().join("main.js");
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "maxSpecializations": 1
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    fs::write(
+        &math_path,
+        r#"export function makePair(value) {
+    return { left: value, right: value + value };
+}
+"#,
+    )
+    .expect("write math module");
+    fs::write(
+        &helper_path,
+        r#"import { makePair } from './math.js';
+
+export function projectLeft(value) {
+    return makePair(value).left;
+}
+"#,
+    )
+    .expect("write helper module");
+    fs::write(
+        &bridge_path,
+        r#"export { projectLeft } from './helper.js';
+"#,
+    )
+    .expect("write bridge module");
+    fs::write(
+        &public_path,
+        r#"export { projectLeft } from './bridge.js';
+"#,
+    )
+    .expect("write public module");
+    fs::write(
+        &source_path,
+        r#"import { projectLeft } from './public.js';
+
+console.log(projectLeft(21));
 "#,
     )
     .expect("write source");
