@@ -9875,6 +9875,60 @@ fn package_effects_rejects_package_analysis_specific_flags() {
 }
 
 #[test]
+fn package_effects_rejects_package_analysis_specific_flags_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/flagpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "flagpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", policy_path.to_str().expect("policy path")][..],
+    ] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("package-effects")
+            .args(args)
+            .arg("flagpkg")
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "package-effects");
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 5);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(!errors.is_empty(), "errors: {errors:?}");
+        assert_eq!(errors[0]["code"], "E5508");
+        assert!(
+            errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("package-analysis-specific flags"),
+            "json: {json}"
+        );
+    }
+}
+
+#[test]
 fn package_effects_rejects_missing_or_multiple_package_arguments() {
     let cases: [&[&str]; 2] = [&[], &["lodash", "react"]];
 
