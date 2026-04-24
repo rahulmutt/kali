@@ -4890,6 +4890,114 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         ],
         &browser_first,
     );
+
+    let capi_source = dir.path().join("lib.ts");
+    fs::write(&capi_source, "export function add(a, b) { return a + b; }")
+        .expect("write capi source");
+    let capi_wasm = dir.path().join("lib.capi.wasm");
+    let capi_meta = dir.path().join("lib.capi.meta.json");
+    let capi_wit = dir.path().join("lib.wit");
+    let capi_header = dir.path().join("lib.h");
+    let capi_binding = dir.path().join("lib.binding-package.json");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg(&capi_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let capi_first = read_artifact_bytes(&[
+        capi_wasm.clone(),
+        capi_meta.clone(),
+        capi_wit.clone(),
+        capi_header.clone(),
+        capi_binding.clone(),
+    ]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg(&capi_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[
+            capi_wasm.clone(),
+            capi_meta.clone(),
+            capi_wit.clone(),
+            capi_header.clone(),
+            capi_binding.clone(),
+        ],
+        &capi_first,
+    );
+
+    let component_source = dir.path().join("component.ts");
+    fs::write(
+        &component_source,
+        "export function add(a, b) { return a + b; }",
+    )
+    .expect("write component source");
+    let component_wasm = dir.path().join("component.component.wasm");
+    let component_meta = dir.path().join("component.component.meta.json");
+    let component_wit = dir.path().join("component.wit");
+    let component_binding = dir.path().join("component.binding-package.json");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg(&component_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let component_first = read_artifact_bytes(&[
+        component_wasm.clone(),
+        component_meta.clone(),
+        component_wit.clone(),
+        component_binding.clone(),
+    ]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg(&component_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[
+            component_wasm.clone(),
+            component_meta.clone(),
+            component_wit.clone(),
+            component_binding.clone(),
+        ],
+        &component_first,
+    );
 }
 
 #[test]
