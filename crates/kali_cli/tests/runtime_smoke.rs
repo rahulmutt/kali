@@ -4728,6 +4728,53 @@ fn build_embeds_sandbox_policy_custom_section_for_library_artifact() {
 }
 
 #[test]
+fn build_embeds_sandbox_policy_custom_section_for_library_artifact_is_deterministic_across_repeated_invocations(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    write_valid_policy(&policy_path);
+
+    let wasm_path = dir.path().join("math.lib.wasm");
+    let wit_path = dir.path().join("math.lib.wit");
+    let meta_path = dir.path().join("math.lib.meta.json");
+
+    let build = || {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--lib")
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        read_artifact_bytes(&[wasm_path.clone(), wit_path.clone(), meta_path.clone()])
+    };
+
+    let first = build();
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "lib", 16, None);
+    assert_embeds_policy_custom_section(&wasm_path, &policy_path);
+
+    let second = build();
+    assert_eq!(
+        first, second,
+        "library artifacts should be stable across repeated sandboxed builds"
+    );
+}
+
+#[test]
 fn build_emits_library_artifacts_and_metadata() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");

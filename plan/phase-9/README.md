@@ -18,6 +18,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 
 - Document which `fast`, `release`, and `release-advanced` optimizations are currently real.
 - Add regression tests for existing passes and artifact determinism.
+- Progress: sandboxed `build --lib` repeated-build determinism now has coverage alongside the existing artifact-stability checks.
 
 ### 9.2 Specialization depth
 
