@@ -377,7 +377,7 @@ fn check_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "check",
         &effective_runtime_profiles,
-        false,
+        !matches!(effective_api, kali_cli::ApiSurface::Browser),
         output,
         None,
         None,
@@ -567,7 +567,7 @@ fn build_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "build",
         &effective_runtime_profiles,
-        false,
+        !matches!(effective_api, kali_cli::ApiSurface::Browser),
         output,
         None,
         None,
@@ -3451,7 +3451,7 @@ fn effects_command(
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "effects",
         &effective_runtime_profiles,
-        false,
+        !matches!(effective_api, kali_cli::ApiSurface::Browser),
         output,
         Some(&source),
         fs::read_to_string(&source).ok().as_deref(),

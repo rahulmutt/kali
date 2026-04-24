@@ -785,7 +785,7 @@ console.log('ok');
 }
 
 #[test]
-fn check_rejects_wasm_threads_runtime_profile() {
+fn check_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
@@ -798,10 +798,13 @@ fn check_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -828,7 +831,7 @@ fn check_rejects_browser_api_surface_with_wasm_threads() {
 }
 
 #[test]
-fn check_rejects_inherited_wasm_threads_runtime_profile() {
+fn check_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
@@ -850,10 +853,13 @@ fn check_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -4587,7 +4593,7 @@ fn build_rejects_library_sources_without_static_exports() {
 }
 
 #[test]
-fn build_rejects_wasm_threads_runtime_profile() {
+fn build_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
@@ -4600,15 +4606,20 @@ fn build_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(!dir.path().join("main.wasm").exists());
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        dir.path().join("main.wasm").exists(),
+        "expected build artifact"
+    );
 }
 
 #[test]
-fn build_rejects_inherited_wasm_threads_runtime_profile() {
+fn build_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
@@ -4630,11 +4641,16 @@ fn build_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(!dir.path().join("main.wasm").exists());
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        dir.path().join("main.wasm").exists(),
+        "expected build artifact"
+    );
 }
 
 #[test]
@@ -7241,7 +7257,7 @@ fn json_check_rejects_fix_flag_as_later_compatibility() {
 }
 
 #[test]
-fn json_check_rejects_wasm_threads_runtime_profile() {
+fn json_check_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "let value = 1 + 2; value;").expect("write source");
@@ -7256,14 +7272,18 @@ fn json_check_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -11548,7 +11568,7 @@ fn effects_reports_inherited_node_api_surface() {
 }
 
 #[test]
-fn effects_rejects_wasm_threads_runtime_profile() {
+fn effects_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('ok');").expect("write source");
@@ -11561,14 +11581,29 @@ fn effects_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("parse raw effects json");
+    assert_eq!(
+        json["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
 }
 
 #[test]
-fn effects_rejects_inherited_wasm_threads_runtime_profile() {
+fn effects_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('ok');").expect("write source");
@@ -11590,14 +11625,29 @@ fn effects_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("parse raw effects json");
+    assert_eq!(
+        json["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
 }
 
 #[test]
-fn effects_rejects_inherited_whitespace_padded_wasm_threads_runtime_profile() {
+fn effects_accepts_inherited_whitespace_padded_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('ok');").expect("write source");
@@ -11619,14 +11669,29 @@ fn effects_rejects_inherited_whitespace_padded_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("parse raw effects json");
+    assert_eq!(
+        json["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
 }
 
 #[test]
-fn json_effects_rejects_wasm_threads_runtime_profile() {
+fn json_effects_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('ok');").expect("write source");
@@ -11641,17 +11706,30 @@ fn json_effects_rejects_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["success"], false);
-    assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(
+        json["payload"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
 }
 
 #[test]
-fn json_effects_rejects_inherited_wasm_threads_runtime_profile() {
+fn json_effects_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "console.log('ok');").expect("write source");
@@ -11675,13 +11753,26 @@ fn json_effects_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["success"], false);
-    assert!(!json["errors"].as_array().expect("errors array").is_empty());
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(
+        json["payload"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
 }
 
 #[test]

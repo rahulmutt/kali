@@ -20,7 +20,7 @@ The current repo has already implemented the historical MVP and several later su
 - Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
 - Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support.
 - `--compat eval` exists for the documented compatibility path.
-- The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and positive `--max-threads` values are honored only under that opt-in.
+- The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in.
 - Schema-v1 outputs and diagnostic envelopes are first-class contracts.
 
 ## Planning consequence
