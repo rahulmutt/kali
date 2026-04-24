@@ -28,7 +28,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Add negative tests for annotation-required boundaries.
 - Avoid open-ended cross-module/public-API solver claims until a later evidence-backed packet exists.
 - Current progress: added `.js` fixture coverage for directory-index dynamic import resolution in `crates/kali_types/src/tests.rs`, plus matching build-discovery coverage for `.js` directory-index chunks in `crates/kali_cli/src/build_tests.rs`.
-- Current progress: parser now accepts generator function syntax and `yield` expressions as AST forms, while the checker and CLI smoke tests still gate generator lowering with the canonical `E5506` availability path instead of letting it reach codegen.
+- Current progress: parser now accepts generator function syntax and `yield` expressions as AST forms, while the checker and CLI smoke tests still gate generator lowering with the canonical `E5506` availability path instead of letting it reach codegen; that gate is now covered on both `check` and `build` smoke paths.
 
 ### 6.3 Module and dynamic-loading semantics
 
