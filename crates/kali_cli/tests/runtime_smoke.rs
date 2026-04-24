@@ -6797,6 +6797,113 @@ fn install_reconciles_semver_style_package_without_allow_scripts_on_the_cli() {
 }
 
 #[test]
+fn install_records_registry_targets_in_dev_dependencies_on_a_configless_project() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().expect("tempdir");
+
+    let package_json = json!({
+        "name": "semver",
+        "version": "7.7.4",
+        "main": "index.js",
+        "bin": { "semver": "bin/semver.js" },
+        "scripts": {
+            "test": "tap",
+            "lint": "eslint \"**/*.{js,cjs,ts,mjs,jsx}\"",
+            "postlint": "npm run test -- --ignore-scripts",
+            "posttest": "npm run lint -- --ignore-scripts"
+        }
+    });
+    let package_json_bytes =
+        serde_json::to_vec_pretty(&package_json).expect("serialize package json");
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        ("package/index.js", b"module.exports = {};\n"),
+        (
+            "package/bin/semver.js",
+            b"#!/usr/bin/env node\nconsole.log('semver');\n",
+        ),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_binary_response_server(tarball_bytes, "application/octet-stream");
+    let metadata = json!({
+        "versions": {
+            "7.7.4": {
+                "dist": {
+                    "tarball": format!("{}/semver-7.7.4.tgz", tarball_base),
+                    "integrity": tarball_integrity
+                }
+            }
+        }
+    });
+    let metadata = Box::leak(metadata.to_string().into_boxed_str());
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_registry_metadata_server(metadata);
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg("--dev")
+        .arg("semver")
+        .output()
+        .expect("run kali");
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().expect("join tarball server");
+    registry_handle.join().expect("join registry server");
+
+    assert!(
+        tarball_hits.load(Ordering::SeqCst) > 0,
+        "tarball server should be queried"
+    );
+    assert!(
+        registry_hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["installed"], json!(["semver@7.7.4"]));
+
+    let manifest: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("kali.json")).expect("read manifest"),
+    )
+    .expect("parse manifest");
+    assert_eq!(manifest["schemaVersion"], 1);
+    assert_eq!(manifest["devDependencies"]["semver"], "7.7.4");
+    assert!(
+        manifest["dependencies"].get("semver").is_none(),
+        "semver should be recorded only in devDependencies"
+    );
+    assert!(
+        dir.path().join("kali.lock").exists(),
+        "install should materialize a lockfile"
+    );
+    assert!(
+        dir.path().join("node_modules/semver/package.json").exists(),
+        "semver package should be materialized"
+    );
+}
+
+#[test]
 fn install_dev_requires_an_explicit_registry_target() {
     let dir = tempdir().expect("tempdir");
 
