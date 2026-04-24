@@ -2094,6 +2094,56 @@ console.log(minVersion('^1.2.3')?.version);
 }
 
 #[test]
+fn utility_corpus_date_fns_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_export_map_package(
+        dir.path(),
+        "date-fns",
+        "export function addDays(date, amount) { return 0; }\nexport function format(date) { return 0; }\n",
+        "formatISO",
+        "export function formatISO(date) { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "date-fns");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import { addDays, format } from 'date-fns';
+import { formatISO } from 'date-fns/formatISO';
+console.log(addDays('2024-01-01', 3));
+console.log(format('2024-01-01'));
+console.log(formatISO('2024-01-01'));
+"#,
+    )
+    .expect("write date-fns source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "date-fns corpus package should be checkable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "date-fns corpus package should be buildable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "date-fns corpus package should stay executable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n0\n0\n");
+}
+
+#[test]
 fn utility_corpus_zod_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
