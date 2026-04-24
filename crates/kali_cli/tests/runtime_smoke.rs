@@ -1860,6 +1860,33 @@ fn run_uses_browser_entrypoint_for_additional_stable_browser_aliases() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_chrome_for_testing_aliases() {
+    for browser_name in [
+        "chrome-for-testing",
+        "chromium-for-testing",
+        "google-chrome-for-testing",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_additional_privacy_browser_aliases() {
+    for browser_name in [
+        "librewolf",
+        "waterfox",
+        "zen-browser",
+        "zen browser",
+        "thorium-browser",
+        "thorium browser",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
 #[test]
 fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
