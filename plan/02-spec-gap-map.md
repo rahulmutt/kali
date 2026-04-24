@@ -13,6 +13,7 @@ Remaining goals:
 - Keep open-ended cross-module/public-API inference gated until a later solver/evidence lane exists.
 - Implement literal-string `import()` over the already-linked graph when ready; keep non-literal dynamic import gated.
 - Improve minimized regression fixtures for supported dynamic/object/runtime behavior.
+- Async/await and iterator/generator lowering still need a dedicated implementation packet; current runtime smoke coverage is limited to simpler regression cases such as arithmetic, exceptions, object enumeration, and built-ins.
 
 ## Runtime, host, and platform expansion
 
