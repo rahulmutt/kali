@@ -76,7 +76,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 
 Kali is proof-backed for the published boundary; the current boundary is intentionally narrower than the later Stage 4.2 target.
 
-Phase 1 remains the baseline public contract, and the current repository has also opened selected later-phase surfaces including Node-capable `check` / `build` / `run` / `test`, `effects`, `package-effects`, `package-audit`, and the stable public embedding flows. See [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for the exact command/context availability matrix and current-state notes.
+Phase 1 remains the baseline public contract, and the current repository has also opened selected later-phase surfaces including Node-capable `check` / `build` / `run` / `test`, Node-capable `effects` / `package-effects`, `package-audit`, and the stable public embedding flows. See [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md) for the exact command/context availability matrix and current-state notes.
 
 ## Documentation
 

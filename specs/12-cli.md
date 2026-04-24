@@ -419,7 +419,7 @@ Current-repository-state note:
 ```bash
 kali effects main.ts                       # Compact effect report JSON to stdout (default source-graph analysis context)
 kali effects --api browser main.ts         # Browser-targeted effect analysis once the Phase 2 command exists
-kali effects --api node main.ts            # Phase 3 target: Node API surface remains gated here too
+kali effects --api node main.ts            # Node effect-analysis subset on the documented source-graph reporting surface
 kali effects --compat eval main.ts         # Phase 4 compatibility: dynamic-eval path reflected in effect analysis too
 kali effects --pretty main.ts              # Pretty-printed effect report JSON
 kali effects --output json main.ts         # Command envelope + effect payload
@@ -444,7 +444,7 @@ Input-kind and host-selection rules:
 - `kali effects` accepts only the shared **executable/analyzable source-file class** from [SPEC.md](../SPEC.md); declaration-only files are type inputs, not effect-report primary inputs
 - unless overridden by CLI/config, `kali effects` uses the shared **default source-graph analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - `--api browser` follows the same browser API-surface analysis context as `kali check --api browser`; in Phase 2 this extends browser-targeted analysis to `effects` without implying standalone browser execution
-- `--api node` is supported for the documented Node-compatible check/build/run/test subset, while `effects` and package-analysis commands keep their own explicit gates until their rows open
+- `--api node` is supported for the documented Node-compatible source-graph analysis/execution subset, including `effects`; `package-effects` still keeps semantic context inherited-only, with inherited Node/browser contexts honored from project config where their rows are open
 - `--compat ...` affects effect analysis too: enabled compatibility paths such as `eval` change the reported effect set/dynamic reasons only when that compatibility feature is actually implemented for the selected phase/profile
 - explicit flags and inherited config are equivalent here too: plain `kali effects main.ts` must validate against the full effective analysis context, so inherited `compilerOptions.apiSurface = browser|node`, inherited `compilerOptions.runtimeProfiles = ["wasm-threads"]`, or inherited `compat.features = ["eval"]` must hit the same gates as the corresponding explicit `--api ...`, `--wasm-threads`, or `--compat eval` forms instead of silently falling back to a simpler analysis mode
 
@@ -454,7 +454,7 @@ Inherited analysis-context shorthand:
 |---|---|---|
 | default (`apiSurface = deno`, no extra runtime profiles / compat features) | `kali effects main.ts` | Default standalone-style effect analysis once the Phase 2 command exists |
 | `apiSurface = browser` | `kali effects main.ts` | Same browser-targeted effect-analysis request as explicit `kali effects --api browser main.ts` |
-| `apiSurface = node` | `kali effects main.ts` | Same Node-gated request as explicit `kali effects --api node main.ts`; no silent fallback to `deno` |
+| `apiSurface = node` | `kali effects main.ts` | Same Node-supported request as explicit `kali effects --api node main.ts`; no silent fallback to `deno` |
 | `runtimeProfiles = ["wasm-threads"]` | `kali effects main.ts` | Same threaded-profile gate as explicit `kali effects --wasm-threads main.ts`; no silent profile drop |
 | `compat.features = ["eval"]` | `kali effects main.ts` | Same `eval` compatibility gate as explicit `kali effects --compat eval main.ts`; no silent compat-feature removal |
 
@@ -654,6 +654,7 @@ Analysis rule:
 - it inherits its semantic analysis context through the shared **inherited analysis context** from [SPEC.md](../SPEC.md) rather than taking package-analysis-specific `--api` / runtime-profile / `--compat` flags or `--sandbox` in schema v1; that inherited context changes analysis semantics only and does not alter which package/version was selected
 - in configless mode, that inherited context is just the **default inherited analysis context (schema v1)** from [SPEC.md](../SPEC.md)
 - inherited-context availability follows the shared **axis-aligned inherited analysis gating** rule from [SPEC.md](../SPEC.md); if the inherited context is unavailable, the command fails with `E5506` rather than silently falling back or dropping inherited analysis axes
+- inherited `compilerOptions.apiSurface = node` is honored for `package-effects` in the current repository, so the package-effect report can record the Node analysis context through the inherited axis without opening a second explicit semantic flag family
 - documentation/examples that need a browser, Node, threaded-profile, or `eval` package-analysis case should therefore use inherited-context examples and tables, not imaginary per-command semantic flags that schema v1 intentionally rejects for `package-effects`
 - representative inherited browser / Node / threaded-profile / compatibility rows stay centralized in [19 — Feature Maturity](19-feature-maturity.md) so the CLI chapter does not grow a second shadow matrix
 - the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path

@@ -9650,39 +9650,58 @@ fn effects_command_is_deterministic_across_repeated_pretty_json_envelope_invocat
 }
 
 #[test]
-fn effects_rejects_explicit_node_api_surface() {
+fn effects_reports_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log('node');").expect("write source");
+    fs::write(
+        &source_path,
+        "console.log(process.argv.length);\nconsole.log('node');",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
         .arg("effects")
         .arg("--api")
         .arg("node")
+        .arg("--output")
+        .arg("json")
         .arg(&source_path)
         .output()
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
     );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
 }
 
 #[test]
-fn effects_rejects_inherited_node_api_surface() {
+fn effects_reports_inherited_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log('node');").expect("write source");
+    fs::write(
+        &source_path,
+        "console.log(process.argv.length);\nconsole.log('node');",
+    )
+    .expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -9697,22 +9716,33 @@ fn effects_rejects_inherited_node_api_surface() {
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
         .arg("effects")
+        .arg("--output")
+        .arg("json")
         .arg(&source_path)
         .output()
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
     );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
 }
 
 #[test]
@@ -10036,7 +10066,7 @@ fn package_effects_preserves_browser_resolution_with_top_level_sandbox_config_in
 }
 
 #[test]
-fn package_effects_rejects_inherited_node_analysis_context() {
+fn package_effects_reports_inherited_node_analysis_context() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
     fs::create_dir_all(&package_dir).expect("create package dir");
@@ -10059,7 +10089,11 @@ fn package_effects_rejects_inherited_node_analysis_context() {
 }"#,
     )
     .expect("write package.json");
-    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+    fs::write(
+        package_dir.join("index.js"),
+        "console.log(process.argv.length);\nconsole.log('hello');",
+    )
+    .expect("write package entry");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -10070,12 +10104,28 @@ fn package_effects_rejects_inherited_node_analysis_context() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "purepkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["apiSurface"],
+        "node"
+    );
+    assert_eq!(json["payload"]["report"]["entryPoints"], json!(["purepkg"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
 }
 
 #[test]
@@ -11049,53 +11099,6 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("wasm-threads"), "stderr: {stderr}");
-}
-
-#[test]
-fn package_effects_rejects_inherited_node_api_surface() {
-    let dir = tempdir().expect("tempdir");
-    let package_dir = dir.path().join("node_modules/purepkg");
-    fs::create_dir_all(&package_dir).expect("create package dir");
-    fs::write(
-        package_dir.join("package.json"),
-        r#"{
-  "name": "purepkg",
-  "version": "1.0.0",
-  "main": "index.js"
-}"#,
-    )
-    .expect("write package.json");
-    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
-    fs::write(
-        dir.path().join("kali.json"),
-        r#"{
-  "schemaVersion": 1,
-  "compilerOptions": {
-    "apiSurface": "node"
-  }
-}"#,
-    )
-    .expect("write manifest");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("package-effects")
-        .arg("purepkg")
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("API surface 'node' is unavailable in this phase"),
-        "stderr: {stderr}"
-    );
 }
 
 #[test]
