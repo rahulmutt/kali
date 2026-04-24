@@ -2345,6 +2345,47 @@ console.log(values.length);
 }
 
 #[test]
+fn run_supports_math_suite_semantics_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    assert!(stdout.contains("3\n"), "json: {json}");
+    assert!(stdout.contains("1\n"), "json: {json}");
+    assert!(stdout.contains("-1\n"), "json: {json}");
+}
+
+#[test]
 fn run_supports_math_max_semantics_when_browser_harness_is_configured_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -3863,6 +3904,38 @@ console.log(values.length);
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_suite_semantics_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3\n"), "stdout: {stdout}");
+    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("-1\n"), "stdout: {stdout}");
 }
 
 #[test]
