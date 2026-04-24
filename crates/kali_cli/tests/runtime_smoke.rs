@@ -4282,6 +4282,29 @@ fn run_supports_function_call_return_semantics() {
 }
 
 #[test]
+fn run_supports_relational_comparison_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "if (1 < 2) { console.log(3); }\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "3", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_try_catch_exception_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
