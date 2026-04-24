@@ -8,6 +8,15 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+fn required_fields(schema: &serde_json::Value) -> Vec<String> {
+    schema["required"]
+        .as_array()
+        .expect("required array")
+        .iter()
+        .map(|value| value.as_str().expect("required string").to_owned())
+        .collect()
+}
+
 #[test]
 fn schema_documents_exist_and_parse() {
     let files = [
@@ -75,7 +84,117 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/result/build/v1.json")).expect("read build schema"),
     )
     .expect("parse build schema");
-    assert_eq!(build["anyOf"].as_array().expect("anyOf array").len(), 6);
+    let build_variants = build["anyOf"].as_array().expect("anyOf array");
+    assert_eq!(build_variants.len(), 6);
+
+    assert_eq!(
+        build_variants[0]["properties"]["artifactKind"]["const"],
+        "executable"
+    );
+    assert_eq!(
+        required_fields(&build_variants[0]),
+        [
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+
+    assert_eq!(
+        build_variants[1]["properties"]["artifactKind"]["const"],
+        "lib"
+    );
+    assert_eq!(
+        required_fields(&build_variants[1]),
+        [
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "metadataPath",
+            "exports",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+
+    assert_eq!(
+        build_variants[2]["properties"]["artifactKind"]["const"],
+        "bundle"
+    );
+    assert_eq!(
+        required_fields(&build_variants[2]),
+        [
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "artifacts",
+            "exports",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+
+    assert_eq!(
+        build_variants[3]["properties"]["artifactKind"]["const"],
+        "capi"
+    );
+    assert_eq!(
+        required_fields(&build_variants[3]),
+        [
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "metadataPath",
+            "headerPath",
+            "artifacts",
+            "exports",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+
+    assert_eq!(
+        build_variants[4]["properties"]["artifactKind"]["const"],
+        "component"
+    );
+    assert_eq!(
+        required_fields(&build_variants[4]),
+        [
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "metadataPath",
+            "artifacts",
+            "exports",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+
+    assert_eq!(
+        required_fields(&build_variants[5]),
+        ["artifacts"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
 
     let test_result: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/test/v1.json")).expect("read test schema"),
