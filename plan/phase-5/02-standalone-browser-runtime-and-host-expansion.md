@@ -23,6 +23,7 @@ explicit enough to support broader host deployment needs without forking Kali's 
 ## Progress
 
 - Centralized the browser-launcher alias list behind one shared runtime constant so both the default browser-command chooser and the executable-name classifier stay in sync, and extended the browser shim coverage to exercise the `.com` normalization path as part of the existing alias tests.
+- The browser-launcher normalizer now also strips `.url` Internet-shortcut wrappers before alias matching, so shortcut-style browser shims stay on the same deterministic HTML-entrypoint path as the other wrapper suffixes already covered by the browser harness tests.
 - Added explicit Brave stable alias coverage (`brave-browser-stable` and `brave browser stable`) so the browser host chooser stays aligned with the common stable-channel wrapper spelling in addition to the existing Brave baseline aliases.
 - Added CLI-level browser-entrypoint smoke coverage for `edge-beta` and `msedge-canary` shims so the later browser-runtime path stays honest across additional Chromium/Edge spellings at the command boundary, not only in lower-level alias-unit tests.
 - Added Mullvad Browser alias coverage (`mullvad-browser` and `mullvad browser` / `.app` normalization) so the later browser-runtime harness stays honest for another common privacy-browser launcher family without changing the contract boundary.

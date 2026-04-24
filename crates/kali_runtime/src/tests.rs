@@ -491,6 +491,13 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "microsoft-edge.desktop.cmd"
     ));
     assert!(browser_harness_uses_html_entrypoint("chrome.ps1"));
+    assert!(browser_harness_uses_html_entrypoint("Google Chrome.url"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "google-chrome.url.exe"
+    ));
+    assert!(browser_harness_uses_html_entrypoint(
+        "microsoft-edge.url.cmd"
+    ));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-dev"));
     assert!(browser_harness_uses_html_entrypoint("brave-browser-dev"));
     assert!(browser_harness_uses_html_entrypoint(
@@ -563,6 +570,14 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("Google Chrome.lnk.exe"),
         Some(vec!["google chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("Google Chrome.url"),
+        Some(vec!["google chrome".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google-chrome.url.exe"),
+        Some(vec!["google-chrome".to_string(), "--headless".to_string()])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("brave-browser"),

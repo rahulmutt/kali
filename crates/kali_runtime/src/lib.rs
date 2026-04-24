@@ -2315,7 +2315,8 @@ fn browser_harness_normalized_executable_name(executable: &str) -> String {
             .or_else(|| normalized.strip_suffix(".cmd"))
             .or_else(|| normalized.strip_suffix(".bat"))
             .or_else(|| normalized.strip_suffix(".com"))
-            .or_else(|| normalized.strip_suffix(".ps1"));
+            .or_else(|| normalized.strip_suffix(".ps1"))
+            .or_else(|| normalized.strip_suffix(".url"));
         match next {
             Some(next) => normalized = next.to_string(),
             None => return normalized,
