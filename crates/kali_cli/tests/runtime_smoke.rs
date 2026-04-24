@@ -2678,6 +2678,40 @@ fn run_accepts_browser_api_surface_when_a_browser_harness_command_is_configured(
 }
 
 #[test]
+fn run_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("browser run"), "stdout: {stdout}");
+}
+
+#[test]
 fn json_run_rejects_browser_api_surface_in_phase_one() {
     let output = Command::new(kali_bin())
         .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
@@ -9707,6 +9741,45 @@ fn test_accepts_browser_api_surface_when_a_browser_harness_command_is_configured
         .arg("test")
         .arg("--api")
         .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("browser test"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Kali.test('browser runtime smoke', () => { console.log('browser test'); });",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
         .arg(&source_path)
         .output()
         .expect("run kali");
