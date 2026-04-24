@@ -1970,6 +1970,11 @@ impl std::fmt::Debug for SharedArrayBuffer {
 pub struct Atomics;
 
 impl Atomics {
+    /// Report whether the bytewise shared-memory helpers are lock-free on this target.
+    pub fn is_lock_free() -> bool {
+        cfg!(target_has_atomic = "8")
+    }
+
     /// Load a byte from the provided shared buffer.
     pub fn load(buffer: &SharedArrayBuffer, index: usize) -> Option<u8> {
         buffer.load(index)

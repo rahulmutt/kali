@@ -912,6 +912,7 @@ fn shared_array_buffer_clones_share_mutations() {
     let buffer = SharedArrayBuffer::from_bytes([1, 2, 3, 4]);
     let clone = buffer.clone();
 
+    assert!(Atomics::is_lock_free());
     assert_eq!(buffer.byte_length(), 4);
     assert_eq!(buffer.snapshot(), vec![1, 2, 3, 4]);
     assert_eq!(Atomics::load(&clone, 1), Some(2));

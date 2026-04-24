@@ -54,6 +54,7 @@ Recent hardening:
 - Brave stable wrapper spellings (`brave-browser-stable` and `brave browser stable`) now resolve through the shared browser-launcher alias table too, keeping the browser host chooser aligned with another common stable-channel name family without changing the browser-runtime contract
 - the browser entrypoint smoke lane now also covers the Google Chrome stable wrapper spelling (`google-chrome-stable`), so the alias table stays pinned across another common stable-channel name without changing the browser-runtime contract
 - The Brave stable wrapper spellings (`brave-browser-stable` and `brave browser stable`) now have dedicated browser-entrypoint smoke coverage as well, so the alias table stays pinned beyond the existing browser-entrypoint cases.
+- the browser/runtime compatibility layer now also exposes a deterministic `Atomics::is_lock_free` query helper alongside the existing shared-buffer bytewise operations, keeping the later threaded-profile baseline honest about the host's byte-atomic capability without widening the public maturity claims
 
 ### Priority A — finish the Phase-1 critical path
 
