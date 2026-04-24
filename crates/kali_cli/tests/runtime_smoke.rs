@@ -6714,6 +6714,38 @@ fn run_supports_console_assert_routing_in_js_input() {
 }
 
 #[test]
+fn test_supports_console_level_routing_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("info"), "stdout: {stdout}");
+    assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stderr.contains("err"), "stderr: {stderr}");
+    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn build_embeds_sandbox_policy_custom_section() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
