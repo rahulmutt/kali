@@ -52,6 +52,17 @@ pub fn init_project(root: impl AsRef<Path>, lib: bool) -> Result<InitSummary, Di
         ));
     }
 
+    fs::create_dir_all(root).map_err(|error| {
+        Diagnostic::error(
+            e5::OUTPUT_ERROR as u32,
+            format!(
+                "failed to prepare scaffold directory '{}': {}",
+                root.display(),
+                error
+            ),
+        )
+    })?;
+
     if fs::read_dir(root)
         .map_err(|error| {
             Diagnostic::error(
@@ -71,17 +82,6 @@ pub fn init_project(root: impl AsRef<Path>, lib: bool) -> Result<InitSummary, Di
             format!("init target directory '{}' is not empty", root.display()),
         ));
     }
-
-    fs::create_dir_all(root).map_err(|error| {
-        Diagnostic::error(
-            e5::OUTPUT_ERROR as u32,
-            format!(
-                "failed to prepare scaffold directory '{}': {}",
-                root.display(),
-                error
-            ),
-        )
-    })?;
 
     save_manifest(root, &ProjectManifest::minimal()).map_err(|error| {
         Diagnostic::error(

@@ -91,6 +91,7 @@ Recent hardening:
 - the repeated-build determinism lane now also replays the `--capi` and `--component` artifact modes, keeping the public embedding outputs pinned alongside the executable, library, and browser bundle cases instead of only the lower-footprint build shapes
 - the browser package-corpus baseline now also exercises `Blob.text()` / `File.text()` in addition to the shared stream/blob/web-API surface, so the later browser breadth lane keeps the text-decoding helpers evidence-backed alongside the existing transform-stream and crypto coverage
 - the browser runtime coverage lane now also has a browser-harness JSON smoke regression, so `kali test --coverage` stays pinned on the browser-requested execution contract instead of only the native standalone runner
+- `kali init` now scaffolds missing target directories before the empty-directory check and carries a nested-child current-directory regression, so the workflow-command lane stays aligned with the documented current-directory-scoped init contract
 
 ### Priority A — finish the Phase-1 critical path
 
