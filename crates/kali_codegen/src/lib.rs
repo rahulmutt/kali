@@ -27,8 +27,9 @@ const CONSOLE_INFO_IMPORT_INDEX: u32 = 4;
 const CONSOLE_DEBUG_IMPORT_INDEX: u32 = 5;
 const ARGS_LEN_IMPORT_INDEX: u32 = 6;
 const MATH_MAX_IMPORT_INDEX: u32 = 7;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 8;
-const FUNCTION_INDEX_OFFSET: u32 = 8;
+const MATH_MIN_IMPORT_INDEX: u32 = 8;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 9;
+const FUNCTION_INDEX_OFFSET: u32 = 9;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -631,6 +632,27 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.math_min_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(first_arg) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            let _ = self.emit_node(function, *first_arg, true);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Call(import_index));
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -700,6 +722,17 @@ impl<'a> FunctionEmitter<'a> {
         let object_name = self.node(object).text.as_deref()?;
         if object_name == "Math" && method == "max" {
             Some(MATH_MAX_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
+    fn math_min_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" && method == "min" {
+            Some(MATH_MIN_IMPORT_INDEX)
         } else {
             None
         }
@@ -1053,6 +1086,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "console_debug", EntityType::Function(1));
     import_section.import("kali:rt", "args_len", EntityType::Function(2));
     import_section.import("kali:rt", "math_max", EntityType::Function(3));
+    import_section.import("kali:rt", "math_min", EntityType::Function(3));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

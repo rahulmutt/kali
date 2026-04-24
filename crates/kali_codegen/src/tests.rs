@@ -160,6 +160,25 @@ fn math_max_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_min_member_calls_lower_to_math_host_imports() {
+    let program = parse_and_lower_lir("console.log(Math.min(3, 2, 1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"math_min\""));
+}
+
+#[test]
 fn process_argv_length_lowers_to_runtime_args_length_import() {
     let program = parse_and_lower_lir("console.log(process.argv.length);");
     let mut ctx = CodegenCtx::new(TargetConfig {

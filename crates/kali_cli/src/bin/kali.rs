@@ -2296,6 +2296,9 @@ const defaultImportObject = {{
     math_max(left, right) {{
       return left > right ? left : right;
     }},
+    math_min(left, right) {{
+      return left < right ? left : right;
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2441,6 +2444,9 @@ const defaultImportObject = {{
     args_len() {{ return 0; }},
     math_max(left, right) {{
       return left > right ? left : right;
+    }},
+    math_min(left, right) {{
+      return left < right ? left : right;
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

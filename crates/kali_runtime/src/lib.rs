@@ -1105,6 +1105,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("math_max", error))?;
 
     linker
+        .func_wrap("kali:rt", "math_min", |left: i64, right: i64| -> i64 {
+            left.min(right)
+        })
+        .map_err(|error| host_import_error("math_min", error))?;
+
+    linker
         .func_wrap(
             "kali:rt",
             "args_get",
@@ -2616,6 +2622,9 @@ const importObject = {{
     math_max(left, right) {{
       return left > right ? left : right;
     }},
+    math_min(left, right) {{
+      return left < right ? left : right;
+    }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
     }},
@@ -2886,6 +2895,9 @@ const importObject = {{
     }},
     math_max(left, right) {{
       return left > right ? left : right;
+    }},
+    math_min(left, right) {{
+      return left < right ? left : right;
     }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
