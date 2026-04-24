@@ -10973,6 +10973,83 @@ fn effects_command_is_deterministic_across_repeated_json_envelope_invocations_un
 }
 
 #[test]
+fn effects_command_is_deterministic_across_repeated_json_envelope_invocations_under_inherited_browser_context_and_top_level_sandbox_config(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "sandbox": "./missing.policy.json",
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["schemaVersion"], 1);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_is_deterministic_across_repeated_pretty_json_envelope_invocations_under_quiet_inherited_browser_context(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -12074,6 +12151,100 @@ fn package_effects_command_emits_json_envelope_under_quiet_inherited_browser_con
 
 #[test]
 fn package_effects_command_is_deterministic_across_repeated_json_envelope_invocations_under_inherited_browser_context(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  },
+  "sandbox": "./missing.policy.json"
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "main.js",
+  "browser": "browser.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("main.js"), "console.log('main entry');\n")
+        .expect("write main entry");
+    fs::write(
+        package_dir.join("browser.js"),
+        "fetch('https://example.com/data');\n",
+    )
+    .expect("write browser entry");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("package-effects")
+            .arg("--output")
+            .arg("json")
+            .arg("browserpkg")
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "browserpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["apiSurface"],
+        "browser"
+    );
+    assert_eq!(
+        json["payload"]["report"]["entryPoints"],
+        json!(["browserpkg"])
+    );
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+    assert!(
+        !kinds.contains(&"Console.Write"),
+        "browser resolution should analyze the browser entrypoint, not the main entrypoint"
+    );
+}
+
+#[test]
+fn package_effects_command_is_deterministic_across_repeated_json_envelope_invocations_under_inherited_browser_context_and_top_level_sandbox_config(
 ) {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
