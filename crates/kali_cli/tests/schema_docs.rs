@@ -241,6 +241,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Budgeted local/intra-module constraint solving inside the shared bounded inference contract",
         "CommonJS module lowering",
         "`require(\"literal\")`",
+        "Basic `Math.sign()` built-in semantics",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Non-literal `import(expr)`",

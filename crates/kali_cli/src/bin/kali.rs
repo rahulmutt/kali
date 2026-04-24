@@ -2302,6 +2302,12 @@ const defaultImportObject = {{
     math_abs(value) {{
       return value < 0n ? -value : value;
     }},
+    math_sign(value) {{
+      if (value === 0n) {{
+        return 0n;
+      }}
+      return value < 0n ? -1n : 1n;
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2453,6 +2459,12 @@ const defaultImportObject = {{
     }},
     math_abs(value) {{
       return value < 0n ? -value : value;
+    }},
+    math_sign(value) {{
+      if (value === 0n) {{
+        return 0n;
+      }}
+      return value < 0n ? -1n : 1n;
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

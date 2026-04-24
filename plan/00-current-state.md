@@ -16,7 +16,7 @@ The current repo has already implemented the historical MVP and several later su
 - `kali init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`.
 - `kali build --validate-ir`, `--bundle`, `--lib`, `--capi`, and `--component`.
 - `kali test --coverage`.
-- Runtime smoke coverage includes `Object.keys()`, `Object.entries()`, and `Object.values()` enumeration semantics alongside the earlier arithmetic, async/await, and built-in regressions, now including integer-like key ordering plus `Math.abs()` alongside the existing `Math.max()` / `Math.min()` coverage.
+- Runtime smoke coverage includes `Object.keys()`, `Object.entries()`, and `Object.values()` enumeration semantics alongside the earlier arithmetic, async/await, and built-in regressions, now including integer-like key ordering plus `Math.abs()` and `Math.sign()` alongside the existing `Math.max()` / `Math.min()` coverage.
 - The parser now accepts async function declarations/expressions and async generator syntax as AST forms, plus generator function syntax and `yield` expressions, while typechecking still gates generator lowering with the canonical `E5506` path until a real lowering packet lands; that rejection is now covered on the `check`, `build`, `run`, and `test` CLI smoke paths, including async generator syntax and mirrored async-generator `.js` fixtures, and the browser-targeted `check` / `build --bundle` smoke lane now also pins the same generator-lowering rejection in the browser analysis/build context.
 - `kali effects`, `kali package-effects`, and `kali package-audit`.
 - Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
