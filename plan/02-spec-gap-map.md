@@ -46,7 +46,7 @@ Owners: `specs/07-specialization.md`, `specs/08-wasm-codegen.md`, `specs/16-test
 
 Remaining goals:
 
-- Deterministic build-only PGO input (`--profile`) with strict schema validation if not fully promoted.
+- Deterministic build-only PGO input (`--profile`) with strict schema validation if not fully promoted; CLI integration now covers version and unknown-field rejection in text and JSON build modes.
 - Deeper release and release-advanced passes: specialization, inlining, layout-aware lowering, peepholes, and LTO-like whole-graph cleanup.
 - Version-pinned benchmarks before public performance claims.
 - No optimization that weakens sandbox, diagnostics, or AOT-only constraints.
