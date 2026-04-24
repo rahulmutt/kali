@@ -8,7 +8,7 @@ Owners: `specs/02-lexer-parser.md`, `specs/03-ast.md`, `specs/04-type-system.md`
 
 Remaining goals:
 
-- Expand ECMA-262 conformance for supported syntax and runtime semantics; async/await sequencing now has a dedicated runtime-smoke regression, array iteration now has a minimized gated `for...of` rejection fixture, minimized mixed CommonJS/ESM package interop fixtures now cover the default standalone surface — including an exports-map variant — and `.js` base-library artifact coverage now exercises the first-class JavaScript build lane; the default standalone `test` corpus now also has a minimized mixed-format interop fixture, but broader generator and CJS/ESM interop coverage still need more minimized fixtures.
+- Expand ECMA-262 conformance for supported syntax and runtime semantics; async/await sequencing now has a dedicated runtime-smoke regression, array iteration now has a minimized gated `for...of` rejection fixture, minimized mixed CommonJS/ESM package interop fixtures now cover the default standalone surface — including an exports-map variant — and `.js` base-library artifact coverage now exercises the first-class JavaScript build lane; the default standalone `test` corpus now also has a minimized mixed-format interop fixture, and browser-targeted `.js` entrypoints now have a minimized mixed CommonJS/ESM interop fixture too, but broader generator coverage still needs more minimized fixtures.
 - Strengthen TypeScript/JavaScript inference within the bounded inference contract.
 - Keep open-ended cross-module/public-API inference gated until a later solver/evidence lane exists.
 - Implement literal-string `import()` over the already-linked graph when ready; keep non-literal dynamic import gated.
