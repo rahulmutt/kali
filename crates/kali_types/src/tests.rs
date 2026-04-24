@@ -1,9 +1,10 @@
 use super::*;
 use kali_ast::{
-    BinaryExpression, BlockStatement, CallExpression, Expression, ExpressionStatement,
-    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
-    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    TypeAliasDeclaration, VariableDeclarator, YieldExpression,
+    BinaryExpression, BlockStatement, CallExpression, ExportNamedDeclaration, ExportSpecifier,
+    Expression, ExpressionStatement, FunctionDeclaration, FunctionExpression, LiteralValue,
+    MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ParenthesizedExpression, PropertyName, TypeAliasDeclaration, VariableDeclarator,
+    YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -158,6 +159,30 @@ fn test_resolution_reports_duplicate_bindings() {
         .diagnostics
         .iter()
         .any(|diag| diag.code == Some(e3::DUPLICATE_BINDING as u32)));
+}
+
+#[test]
+fn test_resolution_reports_unresolved_public_exports() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExportNamed(ExportNamedDeclaration {
+        specifiers: vec![ExportSpecifier {
+            local: "missing".to_string(),
+            exported: "missing".to_string(),
+        }],
+        source: None,
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e3::UNDEFINED_IDENTIFIER as u32)
+    );
+    assert!(
+        result.diagnostics[0].message.contains("missing"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]

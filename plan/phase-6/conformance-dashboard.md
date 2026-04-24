@@ -43,7 +43,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 
 | Feature | Status | Evidence |
 |---|---|---|
-| Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md` |
+| Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md`; public export-boundary negative coverage in `crates/kali_types/src/tests.rs` |
 | Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`); `crates/kali_types/src/tests.rs`; `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input coverage on `check` / `build`) |
 | Unsupported `Deno.permissions.query(...)` descriptor kinds (for example `ffi` / `sys`-style names) | Rejected by default | Canonical Phase-1 Deno permission-facade gate (`E5506`) |
 | `eval` | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
