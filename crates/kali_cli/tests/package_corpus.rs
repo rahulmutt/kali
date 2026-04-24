@@ -4198,6 +4198,144 @@ fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_sur
 }
 
 #[test]
+fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface_in_js_input(
+) {
+    for (package, body) in [
+        (
+            "fresh-env",
+            "export default function mutate() {\n  Deno.env.set('KALI_CORPUS_FLAG', 'set');\n  return Deno.env.get('KALI_CORPUS_FLAG');\n}\n",
+        ),
+        (
+            "spawn-tools",
+            "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+        ),
+        (
+            "listen-tools",
+            "export default function listen() {\n  Deno.listen('127.0.0.1', 0);\n  return 'listen';\n}\n",
+        ),
+        (
+            "serve-tools",
+            "export default function serve() {\n  Deno.serve('127.0.0.1', 0);\n  return 'serve';\n}\n",
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("deno"));
+        write_deno_host_package(dir.path(), package, body);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write deno host JS source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "deno", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "deno host package {package} should be checkable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build_out_dir = dir.path().join("build");
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--api",
+                "deno",
+                "--out-dir",
+                build_out_dir.to_str().unwrap(),
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "deno host package {package} should be buildable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
+        let run = run_kali(
+            dir.path(),
+            ["run", "--api", "deno", source_path.to_str().unwrap()],
+        );
+        assert!(
+            run.status.success(),
+            "deno host package {package} should stay executable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("deno"));
+    write_jsr_package(
+        dir.path(),
+        "jsr:@std/path",
+        r#"module.exports = function joinPath(left, right) {
+    return `${left}/${right}`;
+};
+"#,
+    );
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import joinPath from '@std/path';\nconsole.log(joinPath('alpha', 'beta'));\n",
+    )
+    .expect("write jsr JS source");
+
+    let check = run_kali(
+        dir.path(),
+        ["check", "--api", "deno", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check.status.success(),
+        "jsr package should be checkable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build_out_dir = dir.path().join("build");
+    let build = run_kali(
+        dir.path(),
+        [
+            "build",
+            "--api",
+            "deno",
+            "--out-dir",
+            build_out_dir.to_str().unwrap(),
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build.status.success(),
+        "jsr package should be buildable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(
+        dir.path(),
+        ["run", "--api", "deno", source_path.to_str().unwrap()],
+    );
+    assert!(
+        run.status.success(),
+        "jsr package should stay executable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+}
+
+#[test]
 fn node_runner_corpus_packages_remain_gated_on_the_node_surface() {
     for package in ["vitest", "jest", "mocha", "ava"] {
         let dir = tempdir().expect("tempdir");
