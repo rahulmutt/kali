@@ -787,6 +787,35 @@ fn install_rejects_dev_for_raw_url_targets() {
 }
 
 #[test]
+fn install_rejects_versioned_registry_targets() {
+    for target in ["lodash@1.2.3", "jsr:@std/path@1.0.0"] {
+        let dir = tempdir().unwrap();
+
+        let error = install_project(
+            dir.path(),
+            InstallOptions {
+                target: Some(target.to_string()),
+                ..InstallOptions::default()
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error[0].code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert!(error[0]
+            .message
+            .contains("accepts only registry package identifiers, not explicit versions"));
+        assert!(
+            !dir.path().join("kali.json").exists(),
+            "kali.json should not be created"
+        );
+        assert!(
+            !dir.path().join("kali.lock").exists(),
+            "kali.lock should not be created"
+        );
+    }
+}
+
+#[test]
 fn ensure_project_ready_rejects_missing_raw_url_cache() {
     let dir = tempdir().unwrap();
     let raw_url = start_raw_url_server("export default 1;");

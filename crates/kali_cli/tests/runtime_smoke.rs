@@ -6772,6 +6772,44 @@ fn install_allow_scripts_rejects_jsr_targets() {
 }
 
 #[test]
+fn install_rejects_versioned_registry_targets() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let (registry_base, hits, stop, handle) = start_registry_metadata_server(
+        r#"{"versions":{"1.2.3":{"dist":{"tarball":"https://example.com/lodash-1.2.3.tgz"}}}}"#,
+    );
+    let dir = tempdir().expect("tempdir");
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .arg("lodash@1.2.3")
+        .output()
+        .expect("run kali");
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().unwrap();
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "versioned install target should not hit the registry"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(stderr.contains("explicit versions"), "stderr: {stderr}");
+}
+
+#[test]
 fn install_allow_scripts_rejects_when_no_npm_work_exists() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");

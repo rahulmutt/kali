@@ -858,6 +858,19 @@ pub fn install_project(
         None => None,
     };
 
+    if matches!(
+        parsed_target.as_ref(),
+        Some(PackageTarget::Registry {
+            version: Some(_),
+            ..
+        })
+    ) {
+        return Err(vec![Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            "`kali install` accepts only registry package identifiers, not explicit versions",
+        )]);
+    }
+
     if options.dev {
         match parsed_target.as_ref() {
             None => {
