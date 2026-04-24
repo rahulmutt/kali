@@ -88,13 +88,13 @@ If a request touches more than one surface, update the relevant docs together in
 - When Lean files change, rerun `mise run lean-proofs` so Lake rebuilds the affected modules.
 
 ### Conformance expectations
-Phase 1 evidence hardening (`stage 1.14`) requires:
+Active evidence hardening (see `plan/03-evidence-and-release-gates.md`) requires:
 - unit and integration coverage
 - TypeScript / JavaScript checker baselines
 - package-corpus checks under the linked-artifact model
 - browser-targeted smoke tests for browser-targeted commands
 - determinism checks for CLI outputs and generated artifacts
-- proof-ready CI pipeline
+- proof CI appropriate to the published boundary
 - Rust unit tests in sibling `*tests.rs` files, not inline `#[cfg(test)]` modules
 
 ### Verification discipline
@@ -102,7 +102,7 @@ Phase 1 evidence hardening (`stage 1.14`) requires:
 - Public availability always comes from `specs/19-feature-maturity.md`.
 - Proof-backed status requires a non-empty published boundary in `proofs/BOUNDARY.md`.
 - `proofs/BOUNDARY.md` is the source of truth for the proof-backed boundary, theorem/property inventory, covered-path list, proof-CI trigger scope, and canonical short verification summary.
-- Do not duplicate or independently evolve the proof-boundary inventory in `plan/phase-4/02-formal-verification-depth.md`; keep that file as a reference back to `proofs/BOUNDARY.md`.
+- Do not duplicate or independently evolve the proof-boundary inventory in plan files; keep `proofs/BOUNDARY.md` as the sole source of truth for theorem/property inventory and covered paths.
 - Do not claim proof-backed status until the boundary is non-empty.
 
 ## 6) Schema, diagnostics, and CLI rules
@@ -150,7 +150,7 @@ Before marking work complete, ensure:
 - no regressions to previously working commands
 - any verification or schema claim changes were updated in the right files
 
-Use descriptive commit messages that reference the stage when relevant, e.g. `feat: implement lexer [stage 1.2]`.
+Use descriptive commit messages that reference the active plan phase when relevant, e.g. `feat: add browser runtime smoke harness [phase 7]`.
 
 ## 9) Repository structure
 

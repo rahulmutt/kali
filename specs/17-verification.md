@@ -127,7 +127,8 @@ This chapter does **not** claim:
 
 ## Practical implementation note
 
-Concrete proof milestones, Lean-project staging, and deeper verification expansion belong to the plan set, primarily:
+Concrete proof milestones, Lean-project staging, and deeper verification expansion belong to the active plan set, primarily:
 - [`PLAN.md`](../PLAN.md)
-- [`plan/phase-2/04-lean-model-foundation.md`](../plan/phase-2/04-lean-model-foundation.md)
-- [`plan/phase-4/02-formal-verification-depth.md`](../plan/phase-4/02-formal-verification-depth.md)
+- [`plan/phase-10/README.md`](../plan/phase-10/README.md)
+
+The theorem/property inventory itself remains owned only by [`proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).

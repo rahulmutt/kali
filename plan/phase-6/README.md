@@ -1,0 +1,46 @@
+# Phase 6 — Semantic Conformance and Frontend Depth
+
+## Goal
+
+Move from broad working coverage to measurable language conformance for the surfaces Kali already claims or intends to claim next.
+
+## Owning specs
+
+- `specs/02-lexer-parser.md`
+- `specs/03-ast.md`
+- `specs/04-type-system.md`
+- `specs/05-ir.md`
+- `specs/10-runtime.md`
+- `specs/16-testing.md`
+- `specs/19-feature-maturity.md`
+
+## Work packets
+
+### 6.1 Conformance inventory
+
+- Build a dashboard of supported, gated, and rejected ECMA/TS features.
+- Tie each row to tests or an explicit diagnostic gate.
+- Keep draft TC39 proposals rejected by default unless a specific opt-in is specified.
+
+### 6.2 Checker and inference hardening
+
+- Expand JS inference fixtures within the bounded inference contract.
+- Add negative tests for annotation-required boundaries.
+- Avoid open-ended cross-module/public-API solver claims until a later evidence-backed packet exists.
+
+### 6.3 Module and dynamic-loading semantics
+
+- Implement literal-string `import()` over the linked graph when ready.
+- Preserve the one-linked-payload rule.
+- Keep non-literal `import(expr)` on the later compatibility path.
+
+### 6.4 Runtime semantic regressions
+
+- Add minimized tests for exceptions, async/await, iterators/generators, built-ins, CJS/ESM interop, and object semantics.
+- Ensure unsupported dynamic features produce canonical availability diagnostics rather than silent placeholders.
+
+## Exit gate
+
+- Conformance dashboard exists and is deterministic.
+- New supported semantics have tests and schema/diagnostic coverage where relevant.
+- Maturity rows are updated only for surfaces with evidence.

@@ -1,0 +1,39 @@
+# Current Implementation Baseline
+
+This file records the planning baseline observed before cleaning up the old completed plan phases.
+
+## Repository evidence
+
+- `cargo test --workspace` passes in the current workspace.
+- `cargo run -q -p kali_cli --bin kali -- --help` exposes the current CLI command set.
+- The workspace contains implementation crates for CLI, frontend, IR, codegen, runtime, sandbox/effects, package management, optimization, host API surfaces, embedding, C ABI, and bindings.
+- The proof tree exists under `proofs/` and `proofs/BOUNDARY.md` states that Kali is proof-backed for the published boundary.
+
+## Live surface described by specs and README
+
+The current repo has already implemented the historical MVP and several later surfaces:
+
+- `kali init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`.
+- `kali build --validate-ir`, `--bundle`, `--lib`, `--capi`, and `--component`.
+- `kali test --coverage`.
+- `kali effects`, `kali package-effects`, and `kali package-audit`.
+- Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
+- Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support.
+- `--compat eval` exists for the documented compatibility path.
+- Schema-v1 outputs and diagnostic envelopes are first-class contracts.
+
+## Planning consequence
+
+The old phase documents were historical implementation records. Keeping them as active checklists caused stale references to completed tasks. Active planning now starts from the current baseline and focuses on remaining spec-owned work only.
+
+## Non-negotiable guardrails
+
+Future phases must preserve:
+
+- AOT-only guest-language compilation.
+- Pure Rust implementation contract.
+- No tracing/background GC.
+- Sandbox-first honesty.
+- Deterministic machine contracts.
+- Public availability discipline from `specs/19-feature-maturity.md`.
+- Proof-backed claim discipline from `proofs/BOUNDARY.md`.

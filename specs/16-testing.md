@@ -172,7 +172,7 @@ If a release/support claim changes, update:
 
 ## Practical implementation note
 
-Concrete CI layout, directory structure, benchmark automation, and staged evidence expansion belong to the implementation plan, primarily:
+Concrete CI layout, directory structure, benchmark automation, and staged evidence expansion belong to the active implementation plan, primarily:
 - [`PLAN.md`](../PLAN.md)
-- [`plan/phase-1/14-evidence-hardening.md`](../plan/phase-1/14-evidence-hardening.md)
-- later phase plan files when new evidence lanes open
+- [`plan/03-evidence-and-release-gates.md`](../plan/03-evidence-and-release-gates.md)
+- active phase files under [`plan/`](../plan/) when new evidence lanes open
