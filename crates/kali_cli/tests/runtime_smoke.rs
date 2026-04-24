@@ -4817,6 +4817,37 @@ console.log(seen.join(','));
 }
 
 #[test]
+fn run_rejects_array_iteration_semantics_for_now_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const seen = [];
+for (const value of [1, 2, 3]) {
+  seen.push(value);
+}
+console.log(seen.join(','));
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("undefined identifier 'value'"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_supports_math_max_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
