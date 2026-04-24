@@ -16,6 +16,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Basic arithmetic precedence and array length semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Basic function call return semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic try/catch exception handling | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
