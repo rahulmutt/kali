@@ -428,9 +428,20 @@ impl TypeContext {
                 self.resolve_block_statement(body);
                 self.resolve_expression(test);
             }
-            Statement::FunctionDeclaration(FunctionDeclaration { name, params, body }) => {
+            Statement::FunctionDeclaration(FunctionDeclaration {
+                name,
+                params,
+                body,
+                generator,
+            }) => {
                 self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Function);
+                if *generator {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                    ));
+                }
                 self.bind_name_list(params);
                 self.resolve_block_body(body);
                 self.pop_scope();
@@ -612,6 +623,10 @@ impl TypeContext {
             }
             Expression::ParenthesizedExpression(expr) => self.resolve_expression(&expr.expression),
             Expression::YieldExpression(expr) => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "yield expressions are unavailable in the current phase; generator lowering is not yet implemented",
+                ));
                 if let Some(argument) = &expr.argument {
                     self.resolve_expression(argument);
                 }
@@ -956,6 +971,12 @@ impl TypeContext {
 
     fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
         self.push_scope(ScopeType::Function);
+        if expr.generator {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+            ));
+        }
         if let Some(name) = &expr.id {
             self.bind_current_scope(name.clone());
         }

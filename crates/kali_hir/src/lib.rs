@@ -476,7 +476,9 @@ impl HirLowerer {
                 push_child!(self, id, self.lower_expression(test));
                 id
             }
-            Statement::FunctionDeclaration(FunctionDeclaration { name, params, body }) => {
+            Statement::FunctionDeclaration(FunctionDeclaration {
+                name, params, body, ..
+            }) => {
                 let id = self
                     .builder
                     .alloc_text(HirNodeKind::FunctionDecl, None, name.clone());

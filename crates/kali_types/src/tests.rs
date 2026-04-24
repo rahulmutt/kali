@@ -1,7 +1,8 @@
 use super::*;
 use kali_ast::{
-    BinaryExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
-    VariableDeclarator,
+    BinaryExpression, BlockStatement, Expression, ExpressionStatement, FunctionDeclaration,
+    FunctionExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
+    VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -268,6 +269,43 @@ fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
 
     let result = ctx.resolve_statements(&statements);
     assert_eq!(result.diagnostics.len(), 4);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+}
+
+#[test]
+fn test_resolution_reports_generator_lowering_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::FunctionDeclaration(FunctionDeclaration {
+            name: "main".to_string(),
+            params: vec![],
+            body: Box::new(BlockStatement { body: vec![] }),
+            generator: true,
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                delegate: false,
+                argument: None,
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::FunctionExpression(Box::new(
+                FunctionExpression {
+                    id: Some("inner".to_string()),
+                    params: vec![],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: false,
+                    generator: true,
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 3);
     assert!(result
         .diagnostics
         .iter()

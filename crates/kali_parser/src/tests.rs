@@ -146,34 +146,91 @@ fn test_parse_optional_chain_index_expression() {
 }
 
 #[test]
-fn test_parse_generator_function_declaration_is_gated() {
-    let tokens = lex("function* main() { return 1; }");
+fn test_parse_generator_function_declaration() {
+    let tokens = lex("function* main() { yield 1; }");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(5506)
-                && diag.message.contains("generator function lowering")),
+        output.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::FunctionDeclaration(decl) => {
+            assert!(decl.generator, "expected generator flag to be preserved");
+            assert_eq!(decl.name, "main");
+            assert_eq!(decl.params.len(), 0);
+            assert_eq!(decl.body.body.len(), 1);
+            match &decl.body.body[0] {
+                Statement::ExpressionStatement(expr_stmt) => match expr_stmt.expression.as_ref() {
+                    Expression::YieldExpression(yield_expr) => {
+                        assert!(!yield_expr.delegate);
+                        let argument = yield_expr.argument.as_ref().expect("yield argument");
+                        match argument {
+                            Expression::Literal(kali_ast::LiteralValue::Number(value)) => {
+                                assert_eq!(*value, 1.0)
+                            }
+                            other => panic!("unexpected yield argument: {other:?}"),
+                        }
+                    }
+                    other => panic!("Expected YieldExpression, got {other:?}"),
+                },
+                other => panic!("Expected ExpressionStatement, got {other:?}"),
+            }
+        }
+        other => panic!("Expected FunctionDeclaration, got {other:?}"),
+    }
 }
 
 #[test]
-fn test_parse_yield_expression_is_gated() {
-    let tokens = lex("yield value;");
+fn test_parse_generator_function_expression() {
+    let tokens = lex("const make = function*() { yield 1; };");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(5506) && diag.message.contains("yield expressions")),
+        output.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::VariableDeclaration(decl) => {
+            let init = decl.declarations[0].init.as_ref().expect("initializer");
+            match init {
+                Expression::FunctionExpression(func) => {
+                    assert!(func.generator, "expected generator flag to be preserved");
+                    assert!(func.body.as_ref().is_some());
+                }
+                other => panic!("Expected FunctionExpression, got {other:?}"),
+            }
+        }
+        other => panic!("Expected VariableDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_yield_expression_outside_generator_remains_identifier() {
+    let tokens = lex("yield;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExpressionStatement(expr_stmt) => match expr_stmt.expression.as_ref() {
+            Expression::Identifier(name) => assert_eq!(name, "yield"),
+            other => panic!("Expected Identifier, got {other:?}"),
+        },
+        other => panic!("Expected ExpressionStatement, got {other:?}"),
+    }
 }

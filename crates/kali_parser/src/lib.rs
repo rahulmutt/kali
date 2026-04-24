@@ -7,7 +7,7 @@ use kali_ast::{
     ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
     MemberExpression, ParenthesizedExpression, ReturnStatement, Statement, SwitchCase,
     SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration, VariableDeclarator,
-    WhileStatement, AST,
+    WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -78,6 +78,7 @@ pub struct Parser {
     stream: TokenStream,
     diagnostics: Vec<Diagnostic>,
     jsx_mode: bool,
+    in_generator_function: bool,
 }
 
 impl Parser {
@@ -87,6 +88,7 @@ impl Parser {
             stream: TokenStream::new(tokens),
             diagnostics: Vec::new(),
             jsx_mode: false,
+            in_generator_function: false,
         }
     }
 
@@ -244,12 +246,12 @@ impl Parser {
 
     fn parse_function_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
-        if self.stream.current_kind() == Some(&TokenType::Star) {
+        let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
-            self.push_feature_unavailable(
-                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
-            );
-        }
+            true
+        } else {
+            false
+        };
         let name_token = self.stream.advance()?;
         let name = name_token.value;
         let _ = self.stream.advance();
@@ -266,15 +268,19 @@ impl Parser {
             }
         }
 
+        let previous_generator = self.in_generator_function;
+        self.in_generator_function = generator;
         let body_block = match self.parse_block_statement() {
             Some(Statement::BlockStatement(bs)) => bs,
             _ => BlockStatement { body: Vec::new() },
         };
+        self.in_generator_function = previous_generator;
 
         Some(Statement::FunctionDeclaration(FunctionDeclaration {
             name,
             params,
             body: Box::new(body_block),
+            generator,
         }))
     }
 
@@ -875,6 +881,22 @@ impl Parser {
         left
     }
 
+    fn parse_yield_expression(&mut self) -> Expression {
+        let _ = self.stream.advance();
+        let delegate = self.stream.accept(TokenType::Star);
+        let argument = match self.stream.current_kind() {
+            Some(TokenType::Semicolon)
+            | Some(TokenType::RightParen)
+            | Some(TokenType::RightBracket)
+            | Some(TokenType::RightBrace)
+            | Some(TokenType::Comma)
+            | Some(TokenType::Eof) => None,
+            _ => Some(self.parse_expression()),
+        };
+
+        Expression::YieldExpression(Box::new(YieldExpression { delegate, argument }))
+    }
+
     fn parse_call_expression(&mut self) -> Expression {
         let mut expr = self.parse_primary_expression();
 
@@ -1008,12 +1030,12 @@ impl Parser {
 
     fn parse_function_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
-        if self.stream.current_kind() == Some(&TokenType::Star) {
+        let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
-            self.push_feature_unavailable(
-                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
-            );
-        }
+            true
+        } else {
+            false
+        };
 
         let id = if self.stream.current_kind() == Some(&TokenType::Identifier)
             && self.stream.peek_next_kind() == Some(&TokenType::LeftParen)
@@ -1030,11 +1052,14 @@ impl Parser {
             .map(|p| FunctionParam { name: p })
             .collect();
 
+        let previous_generator = self.in_generator_function;
+        self.in_generator_function = generator;
         let body = self
             .parse_block_statement()
             .unwrap_or(Statement::BlockStatement(BlockStatement {
                 body: Vec::new(),
             }));
+        self.in_generator_function = previous_generator;
         let func_body = match body {
             Statement::BlockStatement(bs) => Some(Box::new(bs)),
             _ => Some(Box::new(BlockStatement { body: Vec::new() })),
@@ -1045,7 +1070,7 @@ impl Parser {
             params,
             body: func_body,
             is_async: false,
-            generator: false,
+            generator,
         }))
     }
 
@@ -1125,11 +1150,15 @@ impl Parser {
                 Expression::ArrayExpression(ArrayExpression { elements })
             }
             TokenType::Yield => {
-                let _ = self.stream.advance();
-                self.push_feature_unavailable(
-                    "yield expressions are unavailable in the current phase; generator lowering is not yet implemented",
-                );
-                Expression::Identifier("unknown".to_string())
+                if self.in_generator_function {
+                    self.parse_yield_expression()
+                } else {
+                    let token = self.stream.advance();
+                    let name = token
+                        .map(|t| t.value)
+                        .unwrap_or_else(|| "yield".to_string());
+                    Expression::Identifier(name)
+                }
             }
             TokenType::Function => self.parse_function_expression(),
             TokenType::Import => {
