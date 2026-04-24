@@ -4151,6 +4151,52 @@ fn run_evaluates_dynamic_function_constructor_sources_when_compat_eval_is_enable
 }
 
 #[test]
+fn run_supports_arithmetic_precedence() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1 + 2 * 3);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('7'), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_array_literal_length() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log([1, 2, 3].length);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('3'), "stdout: {stdout}");
+}
+
+#[test]
 fn build_embeds_sandbox_policy_custom_section() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
