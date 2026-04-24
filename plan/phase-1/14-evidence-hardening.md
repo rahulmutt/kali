@@ -42,6 +42,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
 - Added raw-URL install idempotence coverage so repeated `kali install` runs over the same raw URL graph now assert lockfile byte stability.
 - Added a semver package-corpus regression that proves plain `kali install semver` succeeds without `--allow-scripts` when the package only carries non-install lifecycle metadata.
 - Added a configless-project `kali install --dev semver` regression that records the package in `devDependencies` and materializes the lockfile, so the documented dev-dependency install path now has the same corpus-style evidence as the regular dependency path.
+- Added a CLI smoke regression for `kali install --allow-scripts semver` with empty lifecycle scripts so the evidence suite now pins the documented no-op allow-scripts path on the explicit registry-target form as well.
 - Added a default-standalone rejection regression for the semver package bin, so the evidence suite now pins the honest failure path for the Node-only CLI entrypoint alongside the documented Node-path smoke.
 - Added package-shape coverage for `exports`-backed native addon entrypoints so install/audit rejection stays aligned with the pure JS/TS package contract instead of only checking `main` and `bin`.
 - Added a companion `kali install --allow-scripts semver` regression so the evidence suite now
