@@ -1,8 +1,9 @@
 use super::*;
 use kali_ast::{
-    BinaryExpression, BlockStatement, Expression, ExpressionStatement, FunctionDeclaration,
-    FunctionExpression, LiteralValue, ParenthesizedExpression, TypeAliasDeclaration,
-    VariableDeclarator, YieldExpression,
+    BinaryExpression, BlockStatement, CallExpression, Expression, ExpressionStatement,
+    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
+    TypeAliasDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -498,6 +499,62 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
             result.diagnostics
         );
     }
+}
+
+#[test]
+fn test_resolution_rejects_unsupported_permission_query_descriptors() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "query".to_string(),
+                })),
+                args: vec![Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("name".to_string()),
+                        value: Expression::Literal(LiteralValue::String("env".to_string())),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "query".to_string(),
+                })),
+                args: vec![Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::String("name".to_string()),
+                        value: Expression::Literal(LiteralValue::String("ffi".to_string())),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("permission query descriptor 'ffi'"));
 }
 
 #[test]

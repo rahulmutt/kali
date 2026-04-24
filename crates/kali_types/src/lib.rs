@@ -13,10 +13,10 @@ use kali_ast::{
     ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam,
     IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier, InterfaceDeclaration,
     JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue, MemberExpression, NodeId,
-    ObjectExpression, ObjectProperty, OptionalChainExpression, OptionalChainInner, PropertyName,
-    ReturnStatement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement,
-    TryStatement, TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement,
-    WithStatement,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
+    OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
+    TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
+    VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
@@ -801,6 +801,7 @@ impl TypeContext {
         for arg in &expr.args {
             self.resolve_expression(arg);
         }
+        self.resolve_permission_query_call(expr);
     }
 
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
@@ -816,6 +817,67 @@ impl TypeContext {
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
         self.resolve_late_permission_escalation_member(expr);
+    }
+
+    fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = Self::member_access_name(match &expr.callee {
+            Expression::MemberExpression(member) => member,
+            _ => return,
+        }) else {
+            return;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "Deno.permissions.query" | "globalThis.Deno.permissions.query"
+        ) {
+            return;
+        }
+
+        let Some(descriptor_name) = expr
+            .args
+            .first()
+            .and_then(|expr| self.resolve_permissions_query_descriptor_name(expr))
+        else {
+            return;
+        };
+
+        if matches!(descriptor_name.as_str(), "read" | "write" | "net" | "env") {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "permission query descriptor '{}' is unavailable in the Phase-1 Deno permission facade",
+                descriptor_name
+            ),
+        ));
+    }
+
+    fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {
+        let Expression::ObjectExpression(ObjectExpression { properties }) = expr else {
+            return None;
+        };
+
+        for property in properties {
+            if !matches!(property.kind, ObjectPropertyKind::Init) {
+                continue;
+            }
+
+            let key_name = match &property.key {
+                PropertyName::Identifier(name) | PropertyName::String(name) => name.as_str(),
+                PropertyName::Number(_) => continue,
+            };
+
+            if key_name != "name" {
+                continue;
+            }
+
+            return self.resolve_static_string_expression(&property.value);
+        }
+
+        None
     }
 
     fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {

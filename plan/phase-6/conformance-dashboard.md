@@ -16,6 +16,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Async function declarations / expressions and async generator syntax | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
 | Generator function declarations / expressions and `yield` / `yield*` expressions | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
+| Read-only `Deno.permissions.query(...)` over the shared descriptor subset (`read`, `write`, `env`, `net`) | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_sandbox/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_api_deno/src/tests.rs` |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Basic arithmetic precedence and array length semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic function call return semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
@@ -42,6 +43,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 |---|---|---|
 | Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md` |
 | Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
+| Unsupported `Deno.permissions.query(...)` descriptor kinds (for example `ffi` / `sys`-style names) | Rejected by default | Canonical Phase-1 Deno permission-facade gate (`E5506`) |
 | `eval` | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Function()` constructor | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Proxy` | Later compatibility | Canonical availability gate (`E5506`) |
