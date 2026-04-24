@@ -29,6 +29,9 @@
         },
         "sourceHash": {
           "type": "string"
+        },
+        "profileDataHash": {
+          "type": "string"
         }
       }
     },
@@ -64,6 +67,12 @@
         "metadataPath": {
           "type": "string"
         },
+        "witPath": {
+          "type": "string"
+        },
+        "profileDataHash": {
+          "type": "string"
+        },
         "exports": {
           "type": "array"
         }
@@ -96,6 +105,9 @@
           "type": "string"
         },
         "sourceHash": {
+          "type": "string"
+        },
+        "profileDataHash": {
           "type": "string"
         },
         "artifacts": {
@@ -156,7 +168,13 @@
         "metadataPath": {
           "type": "string"
         },
+        "witPath": {
+          "type": "string"
+        },
         "headerPath": {
+          "type": "string"
+        },
+        "profileDataHash": {
           "type": "string"
         },
         "artifacts": {
@@ -198,6 +216,15 @@
           "type": "string"
         },
         "metadataPath": {
+          "type": "string"
+        },
+        "witPath": {
+          "type": "string"
+        },
+        "bindingPackagePath": {
+          "type": "string"
+        },
+        "profileDataHash": {
           "type": "string"
         },
         "artifacts": {

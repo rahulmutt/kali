@@ -196,6 +196,23 @@ fn core_schema_documents_match_current_cli_contracts() {
             .collect::<Vec<_>>()
     );
 
+    for (variant_index, expected_properties) in [
+        (0, vec!["profileDataHash"]),
+        (1, vec!["witPath", "profileDataHash"]),
+        (2, vec!["profileDataHash"]),
+        (3, vec!["witPath", "profileDataHash"]),
+        (4, vec!["witPath", "bindingPackagePath", "profileDataHash"]),
+    ] {
+        for property in expected_properties {
+            assert!(
+                build_variants[variant_index]["properties"]
+                    .get(property)
+                    .is_some(),
+                "missing build schema property: variant {variant_index} property {property}"
+            );
+        }
+    }
+
     let test_result: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/test/v1.json")).expect("read test schema"),
     )
