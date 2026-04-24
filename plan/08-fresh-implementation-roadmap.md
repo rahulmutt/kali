@@ -123,6 +123,7 @@ Current progress note:
 - that same package-corpus probe now also asserts Node argv passthrough on the package bin entrypoint, so the fresh-start published-CLI evidence lane covers both execution and argument delivery on the documented Node surface
 - `kali install --dev semver` now has a configless-project regression that records the package in `devDependencies` and materializes the lockfile, so the F4b package/install lane now has corpus-style evidence for the documented dev-dependency path too
 - `kali install --allow-scripts semver` now has a CLI smoke regression with empty lifecycle scripts, so the F4b package/install lane now also pins the explicit registry-target no-op allow-scripts path
+- `kali install` on an empty workspace now has a CLI JSON-envelope regression that proves the command stays a clean no-op without scaffolding `kali.json` or `kali.lock`, so the F5 evidence packet keeps the configless install split honest at the operator boundary
 
 ### F4 — Phase-1 product surface
 

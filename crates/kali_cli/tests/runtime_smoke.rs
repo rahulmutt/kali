@@ -7029,6 +7029,44 @@ fn install_prunes_stale_registry_layout_without_repairing() {
 }
 
 #[test]
+fn install_noops_without_manifest_or_dependencies_on_the_cli() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["installed"], json!([]));
+    assert_eq!(json["payload"]["removed"], json!([]));
+    assert_eq!(json["payload"]["updated"], json!([]));
+    assert!(json["payload"]["manifestPath"].is_null());
+    assert!(json["payload"]["lockPath"].is_null());
+    assert!(
+        !dir.path().join("kali.json").exists(),
+        "install should not scaffold a placeholder manifest"
+    );
+    assert!(
+        !dir.path().join("kali.lock").exists(),
+        "install should not materialize a lockfile on an empty workspace"
+    );
+}
+
+#[test]
 fn install_allow_scripts_rejects_jsr_targets() {
     let dir = tempdir().expect("tempdir");
 
