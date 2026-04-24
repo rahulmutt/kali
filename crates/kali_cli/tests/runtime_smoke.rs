@@ -8878,6 +8878,54 @@ fn effects_uses_inherited_browser_api_surface() {
 }
 
 #[test]
+fn effects_command_uses_explicit_browser_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["schemaVersion"], 1);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_is_deterministic_across_repeated_pretty_json_envelope_invocations_under_quiet_inherited_browser_context(
 ) {
     let dir = tempdir().expect("tempdir");

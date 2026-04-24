@@ -41,6 +41,7 @@ Recent hardening:
 - package-effects now also pins quiet-mode JSON output under inherited `eval` compatibility, so the analysis envelope remains stable even when dynamic-effect metadata comes from `kali.json`
 - package-effects now preserves inherited compat features in its reported analysis context, so inherited `compat.features` like `eval` stay visible to the JSON payload instead of being silently dropped
 - the public `effects` lane now carries the same inherited-context hardening for `compat.features = ["eval"]` and Node API-surface rejection, keeping the effect-report and analysis-gating paths aligned across explicit and inherited configs
+- the public `effects` lane now also has explicit `--api browser` JSON-envelope coverage, matching the inherited-browser hardening so explicit and inherited browser analysis stay aligned in the smoke suite
 - browser-targeted static policy-validation coverage now exercises inherited browser API surfaces for both `check` and `build --bundle`, including the sandbox-attached variants that keep the browser-targeted command set aligned with inherited config
 - the browser-targeted `check` lane now also has explicit `--api browser` + `--sandbox` JSON-envelope coverage, so the static policy-validation surface keeps its machine contract pinned in both human and schema-v1 output modes
 - the browser bundle smoke lane now also exercises the explicit `--api browser` path with `--bundle` + `--sandbox`, so the browser-targeted build evidence no longer relies only on inherited config for its executable and JSON snapshots
