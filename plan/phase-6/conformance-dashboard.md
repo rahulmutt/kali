@@ -27,7 +27,6 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic `Object.keys()` enumeration semantics, including overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.entries()` enumeration semantics, including overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.values()` enumeration semantics, including overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
-| Basic `Array.prototype.pop()` / `Array.prototype.unshift()` mutation semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.max()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.min()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.abs()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
@@ -45,6 +44,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md` |
 | Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
 | Unsupported `Deno.permissions.query(...)` descriptor kinds (for example `ffi` / `sys`-style names) | Rejected by default | Canonical Phase-1 Deno permission-facade gate (`E5506`) |
+| Integer-like key ordering in `Object.keys()` / `Object.entries()` / `Object.values()` | Phase 6 follow-up | `crates/kali_cli/tests/runtime_smoke.rs` (minimized numeric-key limitation fixture) |
 | `eval` | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Function()` constructor | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Proxy` | Later compatibility | Canonical availability gate (`E5506`) |
