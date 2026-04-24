@@ -23,7 +23,7 @@ Owners: `specs/09-sandboxing.md`, `specs/10-runtime.md`, `specs/11-standard-apis
 
 Remaining goals:
 
-- Extend the threaded runtime profile beyond the supported `run`/`test` execution paths into the remaining analysis/build contexts; guest-facing thread-spawn host import plumbing is now in place, browser-targeted `effects` and inherited-browser-context `package-effects` now have regression coverage for the remaining `--wasm-threads` gates, while fuller lowering / multi-worker execution semantics still need follow-up work.
+- Extend the threaded runtime profile beyond the supported `run`/`test` execution paths into the remaining analysis/build contexts; guest-facing thread-spawn host import plumbing is now in place, browser-targeted `effects` and inherited-browser-context `package-effects` now have regression coverage for the remaining `--wasm-threads` gates, and browser-build smoke coverage now pins the remaining browser-targeted rejection paths in both text and JSON output modes, while fuller lowering / multi-worker execution semantics still need follow-up work.
 - Standalone `run --api browser` / `test --api browser` only after a real browser-runtime contract exists.
 - Late process/working-directory APIs after policy/effect/schema contracts are explicit.
 - Weak references, `Proxy`, `FinalizationRegistry`, broader `Intl`, and other late object-model surfaces only with conformance evidence.
