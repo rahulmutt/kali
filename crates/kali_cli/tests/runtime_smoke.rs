@@ -12511,7 +12511,7 @@ fn package_effects_normalizes_inherited_compat_features_in_json_output() {
     "evalpkg": "1.0.0"
   },
   "compat": {
-    "features": [" eval ", "eval"]
+    "features": [" eval "]
   }
 }"#,
     )
@@ -12586,6 +12586,35 @@ fn package_effects_normalizes_inherited_compat_features_in_json_output() {
         .map(|entry| entry["kind"].as_str().expect("kind string"))
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
+fn effects_rejects_duplicate_compat_features_in_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "eval('1 + 2');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval", "eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
 }
 
 #[test]

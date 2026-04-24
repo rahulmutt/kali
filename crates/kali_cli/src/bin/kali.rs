@@ -831,7 +831,7 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
         )]);
     };
 
-    let mut normalized = Vec::new();
+    let mut normalized = BTreeSet::new();
     for feature in features {
         let Some(feature) = feature.as_str() else {
             return Err(vec![Diagnostic::error(
@@ -839,10 +839,28 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
                 "`compat.features` entries must be strings",
             )]);
         };
-        normalized.push(feature.to_string());
+
+        let feature = feature.trim();
+        if feature.is_empty() {
+            continue;
+        }
+
+        if !matches!(feature, "eval") {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!("unsupported compat.feature '{}' in kali.json", feature),
+            )]);
+        }
+
+        if !normalized.insert(feature.to_string()) {
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!("duplicate compat.feature '{}' in kali.json", feature),
+            )]);
+        }
     }
 
-    Ok(normalized)
+    Ok(normalized.into_iter().collect())
 }
 
 fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, Vec<Diagnostic>> {
