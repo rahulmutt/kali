@@ -2975,6 +2975,54 @@ fn test_reports_function_coverage_in_json_output_when_browser_api_surface_is_con
 }
 
 #[test]
+fn test_reports_function_coverage_in_json_output_when_browser_api_surface_is_inherited() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    let fixture = fs::read_to_string(fixture_path("tests/smoke.test.ts")).expect("read fixture");
+    fs::write(&source_path, fixture).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--coverage")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["payload"]["coverage"]["mode"], "function");
+    assert!(
+        json["payload"]["coverage"]["summary"]["functionsTotal"]
+            .as_u64()
+            .expect("functionsTotal")
+            >= 1
+    );
+}
+
+#[test]
 fn test_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
