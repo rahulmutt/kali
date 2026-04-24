@@ -34,7 +34,7 @@ Move from broad working coverage to measurable language conformance for the surf
 
 - Literal-string `import()` over the linked graph is implemented in the current snapshot; keep the one-linked-payload rule and preserve the linked-graph lowering path.
 - Directory-style linked targets now resolve through `index.*` entries so `import("./dir")` can lower the same way as `import("./dir/index.ts")` when the directory is part of the linked graph.
-- Current progress: added a minimized package-corpus regression for mixed CommonJS/ESM default-import interop on the default standalone surface.
+- Current progress: added minimized package-corpus regressions for mixed CommonJS/ESM default-import interop on the default standalone surface, including an exports-map variant that keeps the interop path honest under the package resolver.
 - Current progress: added `.js` negative coverage for directory dynamic imports without an `index.*` target in `crates/kali_types/src/tests.rs`.
 - Preserve the one-linked-payload rule.
 - Keep non-literal `import(expr)` on the later compatibility path and reject it with the canonical `E5506` gate.
