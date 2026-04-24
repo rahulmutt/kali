@@ -4839,9 +4839,9 @@ console.log(values.length);
 }
 
 #[test]
-fn run_supports_object_enumeration_semantics_with_overwrite_ordering_in_js_input() {
+fn test_supports_object_enumeration_semantics_with_overwrite_ordering() {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
         r#"const obj = { "a": 1, "b": 2 };
@@ -4871,7 +4871,7 @@ console.log(values.length);
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .arg("run")
+        .arg("test")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -4883,7 +4883,55 @@ console.log(values.length);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_enumeration_semantics_with_overwrite_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+obj["a"] = 3;
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'a' ||
+  keys[1] !== 'b' ||
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 3 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 3 ||
+  values[1] !== 2
+) {
+  throw 'unexpected overwrite ordering';
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
@@ -4936,9 +4984,9 @@ console.log(values.length);
 }
 
 #[test]
-fn run_supports_object_enumeration_integer_like_key_ordering_in_js_input() {
+fn test_supports_object_enumeration_integer_like_key_ordering() {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
         r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
@@ -4969,7 +5017,7 @@ console.log(values.length);
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .arg("run")
+        .arg("test")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -4981,7 +5029,56 @@ console.log(values.length);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+    assert!(stdout.contains("2\n2\n2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_enumeration_integer_like_key_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw 'unexpected numeric-key ordering';
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\n2\n2\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
