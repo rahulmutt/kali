@@ -84,7 +84,8 @@ fn write_pi_coding_agent_style_package(root: &Path) {
   "version": "0.70.0",
   "main": "dist/index.js",
   "bin": {
-    "pi": "dist/cli.js"
+    "pi": "dist/cli.js",
+    "pi-argv": "dist/argv.js"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -102,6 +103,11 @@ fn write_pi_coding_agent_style_package(root: &Path) {
         "#!/usr/bin/env node\nconst pkg = require('../package.json');\nconsole.log(pkg.version);\n",
     )
     .expect("write package bin");
+    fs::write(
+        root.join("dist/argv.js"),
+        "#!/usr/bin/env node\nconsole.log(process.argv.slice(2).length);\n",
+    )
+    .expect("write package argv bin");
 }
 
 fn write_web_baseline_interop_source(path: &Path, package: &str) {
@@ -2293,6 +2299,51 @@ fn binary_entrypoint_corpus_pi_coding_agent_style_package_executes_on_the_node_s
         String::from_utf8_lossy(&node_run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&node_run.stdout), "0\n");
+}
+
+#[test]
+fn binary_entrypoint_corpus_pi_coding_agent_style_package_preserves_node_arguments_on_the_node_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let standalone_run = run_kali(
+        dir.path(),
+        ["run", package_dir.join("dist/argv.js").to_str().unwrap()],
+    );
+    assert!(
+        !standalone_run.status.success(),
+        "pi-coding-agent argv probe should stay rejected on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&standalone_run.stdout),
+        String::from_utf8_lossy(&standalone_run.stderr)
+    );
+    let standalone_stderr = String::from_utf8_lossy(&standalone_run.stderr);
+    assert!(
+        standalone_stderr.contains("E5506"),
+        "stderr: {standalone_stderr}"
+    );
+
+    let node_run = run_kali(
+        dir.path(),
+        [
+            "run",
+            "--api",
+            "node",
+            package_dir.join("dist/argv.js").to_str().unwrap(),
+            "--",
+            "alpha",
+        ],
+    );
+    assert!(
+        node_run.status.success(),
+        "pi-coding-agent argv probe should preserve Node arguments on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&node_run.stdout),
+        String::from_utf8_lossy(&node_run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&node_run.stdout), "1\n");
 }
 
 #[test]
