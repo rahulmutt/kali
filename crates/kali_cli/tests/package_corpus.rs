@@ -999,6 +999,77 @@ fn browser_corpus_packages_with_typed_export_branches_remain_checkable_and_deplo
 }
 
 #[test]
+fn browser_corpus_packages_with_typed_export_branches_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("solid-js", "web"),
+        ("@apollo/client", "cache"),
+        ("@emotion/react", "jsx-runtime"),
+        ("@emotion/styled", "styled"),
+        ("@floating-ui/react", "dom"),
+        ("@reduxjs/toolkit", "query"),
+        ("@tanstack/react-query", "query-core"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_typed_export_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser package {package} with typed export branches should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser package {package} with typed export branches should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_dual_exports_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("react", "jsx-runtime"),
