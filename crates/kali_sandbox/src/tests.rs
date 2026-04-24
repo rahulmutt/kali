@@ -627,3 +627,97 @@ fn effect_reports_treat_permissions_query_as_effect_free() {
     assert!(report.dynamic_reasons.is_empty());
     assert!(report.effects.is_empty());
 }
+
+#[test]
+fn effect_reports_sort_effect_groups_and_locations_deterministically() {
+    let report = effect_report_from_inference(
+        vec!["src/main.ts".to_string()],
+        EffectAnalysisContext::new("deno"),
+        EffectInference {
+            effects: vec![
+                ObservedEffect {
+                    kind: "Network.Fetch".to_string(),
+                    location: EffectLocation {
+                        file: "b.ts".to_string(),
+                        line: 2,
+                        column: 3,
+                        function: None,
+                    },
+                    target: None,
+                },
+                ObservedEffect {
+                    kind: "Console.Write".to_string(),
+                    location: EffectLocation {
+                        file: "a.ts".to_string(),
+                        line: 1,
+                        column: 10,
+                        function: None,
+                    },
+                    target: None,
+                },
+                ObservedEffect {
+                    kind: "Console.Write".to_string(),
+                    location: EffectLocation {
+                        file: "a.ts".to_string(),
+                        line: 1,
+                        column: 2,
+                        function: None,
+                    },
+                    target: None,
+                },
+                ObservedEffect {
+                    kind: "Network.Fetch".to_string(),
+                    location: EffectLocation {
+                        file: "a.ts".to_string(),
+                        line: 3,
+                        column: 1,
+                        function: None,
+                    },
+                    target: None,
+                },
+            ],
+            dynamic_reasons: Vec::new(),
+        },
+    );
+
+    assert_eq!(
+        report
+            .effects
+            .iter()
+            .map(|effect| effect.kind.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Console.Write", "Network.Fetch"]
+    );
+
+    assert_eq!(
+        report.effects[0]
+            .locations
+            .iter()
+            .map(|location| {
+                (
+                    location.file.as_str(),
+                    location.line,
+                    location.column,
+                    location.function.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![("a.ts", 1, 2, None), ("a.ts", 1, 10, None)]
+    );
+
+    assert_eq!(
+        report.effects[1]
+            .locations
+            .iter()
+            .map(|location| {
+                (
+                    location.file.as_str(),
+                    location.line,
+                    location.column,
+                    location.function.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![("a.ts", 3, 1, None), ("b.ts", 2, 3, None)]
+    );
+}
