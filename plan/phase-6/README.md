@@ -48,6 +48,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Current progress: `try/finally` sequencing now has a dedicated runtime-smoke regression alongside the existing try/catch case.
 - Ensure unsupported dynamic features produce canonical availability diagnostics rather than silent placeholders.
 - Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, async/await sequencing, relational comparison semantics, try/catch exception semantics, try/finally sequencing, BigInt addition semantics, a gated `for...of` array-iteration rejection fixture, generator and async generator lowering gates, `Object.keys()` / `Object.entries()` / `Object.values()` object-enumeration semantics including overwrite ordering, `Math.max()` / `Math.min()` / `Math.abs()` built-in lowering, and `console.error()` / `console.warn()` / `console.info()` / `console.debug()` routing in `crates/kali_cli/tests/runtime_smoke.rs`.
+- Current progress: the default standalone package corpus now also has a minimized mixed-format interop fixture for `test`, complementing the existing `run` coverage for the same package shape.
 - Follow-up: generator lowering still needs a dedicated implementation packet for real lowering; the current snapshot keeps that surface gated at resolution/check time rather than miscompiling it.
 
 ## Exit gate

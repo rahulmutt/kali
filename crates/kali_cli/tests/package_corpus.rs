@@ -2897,6 +2897,41 @@ fn utility_corpus_packages_with_exports_map_and_minimized_cjs_esm_interop_remain
 }
 
 #[test]
+fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_testable_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_mixed_format_package(
+        dir.path(),
+        "interop-demo-test",
+        "module.exports = function root() { return 0; }\n",
+        "export default function root() { return 0; }\n",
+        "feature",
+        "module.exports = function feature() { return 0; }\n",
+        "export default function feature() { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "interop-demo-test");
+    let test_source = dir.path().join("tests").join("interop-demo.test.ts");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        "import root from 'interop-demo-test';\nimport feature from 'interop-demo-test/feature';\nKali.test('interop-demo-test corpus', () => {\n  if (root() !== 0 || feature() !== 0) { throw new Error('interop-demo-test export mismatch'); }\n  console.log(root() + feature());\n});\n",
+    )
+    .expect("write utility test source");
+
+    let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "utility mixed-format package interop-demo-test should be testable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
 fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_surface() {
     for package in [
         "@babel/runtime",
