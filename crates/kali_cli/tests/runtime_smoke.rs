@@ -13006,6 +13006,89 @@ fn package_audit_command_is_deterministic_across_repeated_json_envelope_invocati
 }
 
 #[test]
+fn package_audit_command_is_deterministic_across_repeated_pretty_json_envelope_invocations_under_quiet_inherited_browser_context(
+) {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_REGISTRY", &registry_url)
+            .arg("package-audit")
+            .arg("--quiet")
+            .arg("--pretty")
+            .arg("--output")
+            .arg("json")
+            .arg("lodash")
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) >= 2,
+        "registry server should be queried for each invocation"
+    );
+    assert_eq!(first.status.code(), Some(1));
+    assert_eq!(second.status.code(), Some(1));
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+
+    let stdout = String::from_utf8_lossy(&first.stdout);
+    assert!(stdout.contains("\n  \"schemaVersion\""), "stdout: {stdout}");
+
+    let first_json = parse_json_stdout(&first);
+    let second_json = parse_json_stdout(&second);
+    assert_eq!(
+        first_json, second_json,
+        "JSON output should be deterministic across repeated invocations"
+    );
+    assert_eq!(first_json["schemaVersion"], 1);
+    assert_eq!(first_json["command"], "package-audit");
+    assert_eq!(first_json["success"], false);
+    assert_eq!(first_json["payload"], serde_json::Value::Null);
+    assert!(first_json["stdout"]
+        .as_str()
+        .expect("stdout string")
+        .contains("4 error(s), 1 warning(s)"));
+    assert_eq!(
+        first_json["errors"].as_array().expect("errors array").len(),
+        4
+    );
+    assert_eq!(
+        first_json["warnings"]
+            .as_array()
+            .expect("warnings array")
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn package_audit_command_is_deterministic_in_human_output() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body_with_multiple_findings());

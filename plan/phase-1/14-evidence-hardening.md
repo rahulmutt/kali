@@ -57,6 +57,7 @@ closing gaps in the test/CI coverage that previous stages may have left.
   work can begin.
 - Added a dedicated Linux runtime-smoke CI lane for the browser smoke, determinism, and negative-gating regressions, plus a nightly package-corpus lane that runs the heavier corpus suite outside the per-commit path.
 - Added a package-audit regression that confirms inherited Node API-surface context is ignored just like the browser and threaded-profile contexts, keeping the registry-analysis command's context-free contract explicit in the evidence suite.
+- Added package-audit quiet pretty-JSON determinism under inherited browser analysis so the browser-context registry-audit lane now stays pinned across repeated pretty envelope runs as well, not just the plain JSON envelope path.
 - Added parser/lexer regression coverage for the semver probe's optional-chaining and multiline-template cases so `minVersion(... )?.version` and multi-line template bodies stay covered by the evidence suite.
 - Added a default-surface semver consumer smoke test so `valid`, `satisfies`, and `minVersion` now stay covered by an end-to-end package/runtime regression with exact stdout assertions instead of only by package-bin probes.
 - Refined codegen fallback guidance so unresolved imported bindings/call targets keep an explicit placeholder-fallback note, now with source-path context when available, instead of leaving that behavior implicit, and kept regression coverage on the warning path.
