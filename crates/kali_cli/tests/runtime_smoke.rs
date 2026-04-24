@@ -6050,6 +6050,83 @@ fn build_emits_browser_bundle_chunks_for_literal_dynamic_imports() {
 }
 
 #[test]
+fn build_emits_browser_bundle_chunks_for_literal_dynamic_imports_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    let chunk_path = dir.path().join("lazy.js");
+    fs::write(
+        &source_path,
+        "const lazy = import(\"./lazy.js\");\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    let chunk_dirs: Vec<_> = fs::read_dir(&chunk_root)
+        .expect("read chunk root")
+        .map(|entry| entry.expect("chunk entry").path())
+        .collect();
+    assert!(
+        !chunk_dirs.is_empty(),
+        "expected at least one emitted chunk"
+    );
+    for chunk_dir in chunk_dirs {
+        assert!(
+            chunk_dir.is_dir(),
+            "chunk entry should be a directory: {}",
+            chunk_dir.display()
+        );
+    }
+}
+
+#[test]
 fn check_rejects_non_literal_dynamic_import_targets() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
