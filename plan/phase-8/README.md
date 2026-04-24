@@ -27,6 +27,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Expand Node built-ins and package-resolution behavior where package-corpus evidence demands it.
 - Keep late Node modules and process-control APIs gated until Phase 7 contracts exist.
 - Progress: the Node package corpus now also exercises the documented Node build surface for the same `node:`-based package set that already has Node `check` / `run` coverage, so analysis, build, and execution evidence stays aligned for the current Node compatibility slice.
+- Progress: the Node package corpus now also exercises the canonical pure-JS `semver` probe on `.js` input across the documented Node `check` / `build` / `run` lanes, keeping the Node-first-class-JavaScript evidence aligned with the browser and standalone corpus lanes.
 - Progress: the Deno package corpus now also exercises the documented Deno build surface for the same Deno-host package set that already has Deno `check` / `run` coverage, so analysis, build, and execution evidence stays aligned for the current Deno compatibility slice.
 - Progress: the Deno package corpus now also exercises a canonical `jsr:@std/path` package fixture materialized at `node_modules/@std/path` on the Deno surface, keeping the `jsr:` registry prefix and on-disk path mapping honest in the package-resolution evidence.
 
