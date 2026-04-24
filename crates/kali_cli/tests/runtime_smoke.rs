@@ -8398,6 +8398,33 @@ fn check_rejects_async_generator_function_expression_lowering() {
 }
 
 #[test]
+fn check_rejects_async_generator_function_expression_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const main = async function*() { yield* other(); };\nmain();",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn build_rejects_non_literal_dynamic_import_targets_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -8449,6 +8476,33 @@ fn build_rejects_async_generator_function_expression_lowering() {
 }
 
 #[test]
+fn build_rejects_async_generator_function_expression_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const main = async function*() { yield* other(); };\nmain();",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn run_rejects_async_generator_function_expression_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -8476,9 +8530,63 @@ fn run_rejects_async_generator_function_expression_lowering() {
 }
 
 #[test]
+fn run_rejects_async_generator_function_expression_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const main = async function*() { yield* other(); };\nmain();",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_rejects_async_generator_function_expression_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "const main = async function*() { yield* other(); };\nmain();",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_async_generator_function_expression_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
         "const main = async function*() { yield* other(); };\nmain();",
