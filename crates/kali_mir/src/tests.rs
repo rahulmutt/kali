@@ -486,6 +486,48 @@ fn test_layout_fingerprints_are_deterministic_and_reusable() {
         captured_by: Vec::new(),
     };
     assert_eq!(binding.layout_fingerprint(), "Closure(captures=a|z)");
+    assert_eq!(
+        binding.representation_fingerprint(),
+        "ownership=stack;layout=Closure(captures=a|z)"
+    );
+}
+
+#[test]
+fn test_representation_fingerprints_distinguish_ownership_classes() {
+    let base_layout = LayoutDescriptor::scalar("number");
+    let stack_binding = MirBinding {
+        name: "value".to_string(),
+        kind: MirBindingKind::Local,
+        ownership: OwnershipClass::Stack,
+        layout: base_layout.clone(),
+        escapes: false,
+        captured_by: Vec::new(),
+    };
+    let shared_binding = MirBinding {
+        name: "value".to_string(),
+        kind: MirBindingKind::Local,
+        ownership: OwnershipClass::SharedHeap,
+        layout: base_layout,
+        escapes: true,
+        captured_by: vec!["inner".to_string()],
+    };
+
+    assert_eq!(
+        stack_binding.layout_fingerprint(),
+        shared_binding.layout_fingerprint()
+    );
+    assert_ne!(
+        stack_binding.representation_fingerprint(),
+        shared_binding.representation_fingerprint()
+    );
+    assert_eq!(
+        stack_binding.representation_fingerprint(),
+        "ownership=stack;layout=Scalar(number)"
+    );
+    assert_eq!(
+        shared_binding.representation_fingerprint(),
+        "ownership=shared-heap;layout=Scalar(number)"
+    );
 }
 
 #[test]

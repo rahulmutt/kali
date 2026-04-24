@@ -22,6 +22,7 @@ Current repository note:
 - use this page as a prioritization overlay for future spec-led work, not as an open todo list for the closed stage packets
 
 Recent hardening:
+- the MIR crate now also publishes an ownership-sensitive representation fingerprint helper alongside the canonical layout fingerprint helper, so later MIR-aware lowering and analysis passes can reuse one deterministic layout/ownership summary instead of reconstructing it ad hoc
 - a dedicated determinism smoke lane now runs through `scripts/check-determinism.sh` and a matching CI job, so the repeated-build evidence is exercised separately from the larger runtime smoke suite; the lane also pins the repeated-invocation envelopes for `effects`, `package-effects`, and `package-audit`, including the quiet-mode pretty JSON variants that keep the browser-context effects path and the package-analysis reporting lanes deterministic, not just the build artifacts
 - package-audit now also carries a repeated JSON-envelope regression under inherited browser analysis context, so the context-free registry-audit lane stays deterministically pinned even when the browser-context inheritance path is present in the workspace config
 - the public effect-report surface now also honors the documented Node analysis context, so Node-aware source-graph and package-analysis effect reports can stay aligned with the broader Node compatibility row instead of stopping at `check` / `build` / `run` / `test` only

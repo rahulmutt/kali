@@ -98,6 +98,16 @@ impl OwnershipClass {
         }
     }
 
+    /// Return the canonical fingerprint tag for this ownership class.
+    pub fn fingerprint_tag(self) -> &'static str {
+        match self {
+            OwnershipClass::Stack => "stack",
+            OwnershipClass::OwnedHeap => "owned-heap",
+            OwnershipClass::SharedHeap => "shared-heap",
+            OwnershipClass::Borrowed => "borrowed",
+        }
+    }
+
     /// Whether this ownership class may cross thread boundaries in the later threaded profile.
     pub fn is_thread_shareable(self) -> bool {
         matches!(
@@ -228,6 +238,15 @@ impl MirBinding {
     /// Return the canonical layout/representation fingerprint for this binding.
     pub fn layout_fingerprint(&self) -> String {
         self.layout.fingerprint()
+    }
+
+    /// Return the canonical ownership-sensitive representation fingerprint for this binding.
+    pub fn representation_fingerprint(&self) -> String {
+        format!(
+            "ownership={};layout={}",
+            self.ownership.fingerprint_tag(),
+            self.layout.fingerprint()
+        )
     }
 }
 
