@@ -2991,6 +2991,46 @@ fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_on_t
 }
 
 #[test]
+fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_on_the_default_standalone_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_mixed_format_package(
+        dir.path(),
+        "interop-demo",
+        "module.exports = function root() { return 0; }\n",
+        "export default function root() { return 0; }\n",
+        "feature",
+        "module.exports = function feature() { return 0; }\n",
+        "export default function feature() { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "interop-demo");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import root from 'interop-demo';\nimport feature from 'interop-demo/feature';\nif (feature() !== 0) { throw new Error('interop-demo feature export mismatch'); }\nconsole.log(root());\n",
+    )
+    .expect("write utility source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "utility mixed-format package interop-demo should be checkable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "utility mixed-format package interop-demo should stay executable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+}
+
+#[test]
 fn utility_corpus_packages_with_exports_map_and_minimized_cjs_esm_interop_remain_executable_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -3044,6 +3084,41 @@ fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_testable_on_the
     );
     write_types_stub_package(dir.path(), "interop-demo-test");
     let test_source = dir.path().join("tests").join("interop-demo.test.ts");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        "import root from 'interop-demo-test';\nimport feature from 'interop-demo-test/feature';\nKali.test('interop-demo-test corpus', () => {\n  if (root() !== 0 || feature() !== 0) { throw new Error('interop-demo-test export mismatch'); }\n  console.log(root() + feature());\n});\n",
+    )
+    .expect("write utility test source");
+
+    let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "utility mixed-format package interop-demo-test should be testable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
+fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_testable_on_the_default_standalone_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_mixed_format_package(
+        dir.path(),
+        "interop-demo-test",
+        "module.exports = function root() { return 0; }\n",
+        "export default function root() { return 0; }\n",
+        "feature",
+        "module.exports = function feature() { return 0; }\n",
+        "export default function feature() { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "interop-demo-test");
+    let test_source = dir.path().join("tests").join("interop-demo.test.js");
     fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
     fs::write(
         &test_source,
