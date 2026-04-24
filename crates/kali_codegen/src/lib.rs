@@ -515,8 +515,17 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
-            "==" => {
+            "==" | "===" => {
                 function.instruction(&Instruction::I64Eq);
+                function.instruction(&Instruction::I64ExtendI32U);
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                }
+            }
+            "!=" | "!==" => {
+                function.instruction(&Instruction::I64Eq);
+                function.instruction(&Instruction::I32Eqz);
                 function.instruction(&Instruction::I64ExtendI32U);
                 EmittedValue {
                     produced: true,

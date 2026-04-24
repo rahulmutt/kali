@@ -838,7 +838,8 @@ impl Parser {
                 TokenType::Caret => Some(4),
                 TokenType::And => Some(5),
                 TokenType::EqEquals
-                | TokenType::Not
+                | TokenType::Neq
+                | TokenType::NeqNeq
                 | TokenType::Lt
                 | TokenType::Gt
                 | TokenType::LtEq
@@ -866,7 +867,8 @@ impl Parser {
                     TokenType::Caret => "^",
                     TokenType::And => "&",
                     TokenType::EqEquals => "==",
-                    TokenType::Not => "!=",
+                    TokenType::Neq => "!=",
+                    TokenType::NeqNeq => "!==",
                     TokenType::Lt => "<",
                     TokenType::Gt => ">",
                     TokenType::LtEq => "<=",
