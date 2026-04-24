@@ -423,6 +423,7 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data_and_validati
     .map(|output| output.wasm_bytes)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compile_source_file_uncached(
     source_path: impl AsRef<Path>,
     mode: BuildMode,
@@ -434,8 +435,6 @@ fn compile_source_file_uncached(
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let analyzed = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
-    let validate_ir = validate_ir;
-
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
     let mut diagnostics = analyzed.diagnostics;

@@ -1825,6 +1825,14 @@ fn run_uses_browser_entrypoint_for_brave_browser_stable_executables() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn run_uses_browser_entrypoint_for_additional_stable_browser_aliases() {
+    for browser_name in ["firefox-esr", "opera-stable", "vivaldi-stable"] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
 #[test]
 fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
