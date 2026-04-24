@@ -1157,7 +1157,11 @@ fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_de
 #[test]
 fn browser_corpus_js_entrypoints_with_browser_replacement_maps_remain_checkable_and_deployable_through_host(
 ) {
-    for (package, subpath) in [("react", "jsx-runtime"), ("preact", "hooks")] {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("@reduxjs/toolkit", "query"),
+    ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
         write_browser_replacement_map_package(

@@ -37,7 +37,7 @@ Remaining goals:
 - Broader pure JS/TS npm/JSR package compatibility by support rung.
 - Larger package corpus covering Deno, browser-targeted, and Node contexts separately.
 - More Node built-ins and package-resolution cases when evidence justifies them.
-- Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, closing one of the first-class-JavaScript evidence gaps in the browser surface.
+- Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
 - Batch or richer registry-analysis workflows only after command/schema revisions.
 - Keep native/binary/bootstrap-heavy packages rejected by default unless the specs deliberately change.
 
