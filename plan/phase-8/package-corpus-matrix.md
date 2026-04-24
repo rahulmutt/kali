@@ -35,6 +35,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | pure JS utility packages (`date-fns`, `zod`, `plimit`, `ms`) | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | pure JS package with `test` coverage (`semver`) | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) | default standalone | `check`, `build` | checkable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | default standalone | `check`, `build` | checkable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | scoped packages | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |
 
 ## Node corpus
