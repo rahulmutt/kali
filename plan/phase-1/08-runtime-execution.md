@@ -156,9 +156,9 @@ while broader CommonJS lowering gaps remain tracked explicitly.
 
 ### Systematic fix plan
 
-1. Tighten the compile→run handoff so unresolved imported bindings/call targets are no longer
-   silently lowered into executable placeholder values; they must either lower faithfully or stop
-   the run with a hard diagnostic before WASM emission.
+1. Keep unresolved imported bindings/call targets tracked explicitly; the current codegen still
+   lowers them through the compatibility warning path, so any future faithful-lowering pass must
+   either resolve them correctly or stop the run with a hard diagnostic before WASM emission.
 2. Add an end-to-end package execution regression using the real `semver` consumer/library case so
    runtime output is compared against known-good behavior rather than only checking exit success.
 3. Extend the package-bin regression for `semver/bin/semver.js` to cover the remaining Node-path

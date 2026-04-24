@@ -4701,6 +4701,21 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
     );
     assert_artifact_bytes_stable(std::slice::from_ref(&executable_output), &executable_first);
 
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--validate-ir")
+        .arg(&executable_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(std::slice::from_ref(&executable_output), &executable_first);
+
     let library_source = dir.path().join("lib.ts");
     fs::write(
         &library_source,
