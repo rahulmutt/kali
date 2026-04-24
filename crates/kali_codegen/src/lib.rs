@@ -584,6 +584,66 @@ impl<'a> FunctionEmitter<'a> {
         let callee_name = callee_node.text.as_deref().unwrap_or_default();
         let resolved = self.functions.get(callee_name).copied();
 
+        if self.is_console_assert(&callee_node) {
+            let message_args: Vec<LirNodeId> = node.children.iter().skip(2).copied().collect();
+            let Some(condition) = node.children.get(1).copied() else {
+                function.instruction(&Instruction::I64Const(0));
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::I32Eqz);
+                function.instruction(&Instruction::If(BlockType::Empty));
+                function.instruction(&Instruction::Else);
+                let (offset, len) = self.strings.intern("Assertion failed");
+                function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+                function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
+                function.instruction(&Instruction::End);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let condition_result = self.emit_node(function, condition, true);
+            if !condition_result.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            match condition_result.shape {
+                ValueShape::Boolean => {
+                    function.instruction(&Instruction::I32WrapI64);
+                }
+                ValueShape::Scalar | ValueShape::Unknown => {
+                    function.instruction(&Instruction::I64Eqz);
+                    function.instruction(&Instruction::I32Eqz);
+                }
+            }
+            function.instruction(&Instruction::If(BlockType::Empty));
+            function.instruction(&Instruction::Else);
+            if !message_args.is_empty() {
+                if let Some(rendered) = self.render_console_arguments(&message_args) {
+                    let (offset, len) = self.strings.intern(&rendered);
+                    let handle = encode_string_handle(offset, len);
+                    function.instruction(&Instruction::I64Const(handle));
+                    function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
+                } else if let Some(first_arg) = message_args.first().copied() {
+                    let _ = self.emit_node(function, first_arg, true);
+                    function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
+                    for arg in message_args.iter().skip(1) {
+                        let _ = self.emit_node(function, *arg, true);
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+            } else {
+                let (offset, len) = self.strings.intern("Assertion failed");
+                let handle = encode_string_handle(offset, len);
+                function.instruction(&Instruction::I64Const(handle));
+                function.instruction(&Instruction::Call(CONSOLE_ERROR_IMPORT_INDEX));
+            }
+            function.instruction(&Instruction::End);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(import_index) = self.console_import_index(&callee_node) {
             if let Some(rendered) = self.render_console_call(node) {
                 let (offset, len) = self.strings.intern(&rendered);
@@ -762,6 +822,16 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn is_console_assert(&self, callee_node: &LirNode) -> bool {
+        let Some(method) = callee_node.text.as_deref() else {
+            return false;
+        };
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        self.node(object).text.as_deref() == Some("console") && method == "assert"
+    }
+
     fn math_max_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         let object = callee_node.children.first().copied()?;
@@ -807,8 +877,13 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn render_console_call(&self, node: &LirNode) -> Option<String> {
+        let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
+        self.render_console_arguments(&args)
+    }
+
+    fn render_console_arguments(&self, args: &[LirNodeId]) -> Option<String> {
         let mut rendered = Vec::new();
-        for arg in node.children.iter().skip(1) {
+        for arg in args {
             rendered.push(self.render_static_value(*arg)?);
         }
         Some(rendered.join(" "))

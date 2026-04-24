@@ -655,6 +655,53 @@ fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
 }
 
 #[test]
+fn browser_corpus_semver_style_package_remains_checkable_and_deployable_through_host_on_js_input() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "semver");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write browser source");
+
+    let check = run_kali(
+        dir.path(),
+        ["check", "--api", "browser", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check.status.success(),
+        "browser semver package should be checkable on the browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(
+        dir.path(),
+        [
+            "build",
+            "--bundle",
+            "--api",
+            "browser",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build.status.success(),
+        "browser semver package should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+}
+
+#[test]
 fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("react", "jsx-runtime"),

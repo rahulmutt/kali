@@ -89,7 +89,7 @@ Interpretation rule:
 - this baseline list describes the JS-visible API contract, not a one-host-import-per-item requirement: some entries are expected to be implemented in Kali's guest/runtime support library rather than as dedicated host imports (for example `queueMicrotask`, `URL`, `TextEncoder`, `TextDecoder`, `AbortController`, `structuredClone`, and event primitives)
 
 **Phase 1 MVP baseline**
-- `console` (`log`, `warn`, `error`, `debug`, `info`)
+- `console` (`log`, `warn`, `error`, `debug`, `info`, `assert`)
 - `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`
 - `queueMicrotask`
 - `fetch`, `Headers`, `Request`, `Response`
