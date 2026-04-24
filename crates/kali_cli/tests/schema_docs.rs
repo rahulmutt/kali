@@ -136,6 +136,23 @@ fn core_schema_documents_match_current_cli_contracts() {
         .expect("binding package required array")
         .iter()
         .any(|value| value == "glue"));
+
+    let package_effects: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/package-effects/v1.json"))
+            .expect("read package-effects schema"),
+    )
+    .expect("parse package-effects schema");
+    assert_eq!(package_effects["type"], "object");
+    assert!(package_effects["additionalProperties"]
+        .as_bool()
+        .unwrap_or(false));
+
+    let package_audit: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/package-audit/v1.json"))
+            .expect("read package-audit schema"),
+    )
+    .expect("parse package-audit schema");
+    assert_eq!(package_audit["type"], "null");
 }
 
 #[test]

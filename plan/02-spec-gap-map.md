@@ -73,4 +73,5 @@ Remaining goals:
 - Widen Lean models beyond the current published boundary only with mechanized theorem inventory.
 - Connect proof-trigger policy to any implementation/spec paths newly claimed as covered.
 - Add schema conformance checks for every machine-readable success and failure output.
+- Current progress: `schemas/result/package-effects/v1.json` and `schemas/result/package-audit/v1.json` now have explicit contract assertions in `crates/kali_cli/tests/schema_docs.rs`, pinning the registry-analysis payload contract at the schema-document level.
 - Keep proof theorem/property inventories out of plan files; `proofs/BOUNDARY.md` remains the sole theorem/property inventory owner.
