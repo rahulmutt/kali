@@ -2476,7 +2476,7 @@ console.log(minVersion('^1.2.3')?.version);
 }
 
 #[test]
-fn utility_corpus_semver_style_package_remains_checkable_buildable_and_executable_on_the_node_surface_on_js_input(
+fn utility_corpus_semver_style_package_remains_checkable_buildable_executable_and_testable_on_the_node_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
@@ -2492,6 +2492,18 @@ console.log(minVersion('^1.2.3')?.version);
 "#,
     )
     .expect("write semver source");
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &test_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+Kali.test('semver corpus', () => {
+  console.log(valid('1.2.3'));
+  console.log(satisfies('1.2.3', '^1.0.0'));
+  console.log(minVersion('^1.2.3')?.version);
+});
+"#,
+    )
+    .expect("write semver test source");
 
     let check = run_kali(
         dir.path(),
@@ -2534,6 +2546,20 @@ console.log(minVersion('^1.2.3')?.version);
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "1.2.3\n1\n1.2.3\n");
+
+    let test = run_kali(
+        dir.path(),
+        ["test", "--api", "node", test_path.to_str().unwrap()],
+    );
+    assert!(
+        test.status.success(),
+        "semver corpus package should be testable on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("1.2.3"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
 }
 
 #[test]
