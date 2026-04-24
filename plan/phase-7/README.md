@@ -28,6 +28,7 @@ Add runtime and host breadth without weakening sandbox honesty or confusing depl
 - Decide whether Kali will support `run --api browser` / `test --api browser` through a real browser host contract.
 - If yes, specify runtime ownership, sandbox/effect limits, test harness behavior, and JSON outputs before implementation.
 - Keep browser bundle/check support separate from standalone browser execution.
+- Progress: the standalone browser-requested run/test path is wired behind `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` and now has regression coverage for the opt-in success path; the default rejection path remains when the harness command is absent.
 
 ### 7.3 Late host APIs
 

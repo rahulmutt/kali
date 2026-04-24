@@ -239,7 +239,7 @@ kali run --max-open-files 32 main.ts        # Open-file-handle limit
 kali run --max-spawned-processes 0 main.ts  # Disallow child processes for this run
 kali run --api node main.ts -- 1.2.3        # Use Node.js API surface (supported for the documented execution subset)
 kali run --api deno main.ts -- 1.2.3        # Use Deno API surface (default)
-kali run --api browser main.ts              # Later compatibility; unavailable in early standalone phases because browser is a browser-targeted context first
+kali run --api browser main.ts              # Later compatibility (opt-in only); available when KALI_BROWSER_BUNDLE_HARNESS_COMMAND is configured, otherwise rejected because browser is a browser-targeted context first
 kali run --wasm-threads main.ts             # Enable WASM threads (SharedArrayBuffer, Atomics; opt-in only)
 ```
 
@@ -505,7 +505,7 @@ kali test --sandbox kali.policy.json       # Run tests in sandbox
 kali test --coverage                       # Emits the stable function-coverage report alongside the ordinary test summary
 kali test --api deno                       # Supported early standalone test profile
 kali test --api node                       # Use Node.js test-runtime surface (supported for the documented execution subset)
-kali test --api browser                    # Later compatibility; unavailable in early phases because browser support is limited to the shared Phase-1 browser-targeted command set first
+kali test --api browser                    # Later compatibility (opt-in only); available when KALI_BROWSER_BUNDLE_HARNESS_COMMAND is configured, otherwise rejected because browser support is limited to the shared Phase-1 browser-targeted command set first
 ```
 
 Canonical discovery rule:
