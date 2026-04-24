@@ -12948,6 +12948,44 @@ globalThis["Deno"]["permissions"].query({ name: "net" });
 }
 
 #[test]
+fn check_accepts_permissions_query_subset_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"
+globalThis["Deno"]["permissions"].query({ "name": "read" });
+globalThis["Deno"]["permissions"].query({ "name": "write" });
+globalThis["Deno"]["permissions"].query({ "name": "env" });
+globalThis["Deno"]["permissions"].query({ "name": "net" });
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn effects_rejects_sandbox_flag_as_invalid_usage() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
