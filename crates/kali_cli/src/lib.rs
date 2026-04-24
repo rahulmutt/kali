@@ -308,6 +308,9 @@ pub enum Commands {
         /// Scaffold a library-oriented project template
         #[arg(long)]
         lib: bool,
+        /// Hidden API selector rejected by the command handler with E5508
+        #[arg(long, hide = true, value_enum)]
+        api: Option<ApiSurface>,
         /// Hidden sandbox selector rejected by the command handler with E5508
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
@@ -336,6 +339,9 @@ pub enum Commands {
         /// Check formatting without writing files
         #[arg(long)]
         check: bool,
+        /// Hidden API selector rejected by the command handler with E5508
+        #[arg(long, hide = true, value_enum)]
+        api: Option<ApiSurface>,
         /// Hidden sandbox selector rejected by the command handler with E5508
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,
@@ -348,6 +354,9 @@ pub enum Commands {
         /// Automatically apply safe fixes
         #[arg(long)]
         fix: bool,
+        /// Hidden API selector rejected by the command handler with E5508
+        #[arg(long, hide = true, value_enum)]
+        api: Option<ApiSurface>,
         /// Hidden sandbox selector rejected by the command handler with E5508
         #[arg(long, hide = true)]
         sandbox: Option<PathBuf>,

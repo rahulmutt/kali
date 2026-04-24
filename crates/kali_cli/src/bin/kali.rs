@@ -188,8 +188,8 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
-        Commands::Init { lib, sandbox } => {
-            if let Err(exit_code) = reject_sandbox_agnostic_command("init", sandbox, &output) {
+        Commands::Init { lib, api, sandbox } => {
+            if let Err(exit_code) = reject_workflow_context_flags("init", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             match init::init_current_directory(lib) {
@@ -263,10 +263,11 @@ fn main() {
         }
         Commands::Fmt {
             check,
+            api,
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = reject_sandbox_agnostic_command("fmt", sandbox, &output) {
+            if let Err(exit_code) = reject_workflow_context_flags("fmt", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = fmt_command(files, check, &output) {
@@ -275,10 +276,11 @@ fn main() {
         }
         Commands::Lint {
             fix,
+            api,
             sandbox,
             files,
         } => {
-            if let Err(exit_code) = reject_sandbox_agnostic_command("lint", sandbox, &output) {
+            if let Err(exit_code) = reject_workflow_context_flags("lint", api, sandbox, &output) {
                 std::process::exit(exit_code);
             }
             if let Err(exit_code) = lint_command(files, fix, &output) {
@@ -3826,15 +3828,19 @@ fn package_audit_command(
     }
 }
 
-fn reject_sandbox_agnostic_command(
+fn reject_workflow_context_flags(
     command: &str,
+    api: Option<kali_cli::ApiSurface>,
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    if sandbox.is_some() {
+    if api.is_some() || sandbox.is_some() {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
-            format!("`{}` does not accept `--sandbox` in early phases", command),
+            format!(
+                "`{}` does not accept `--api` or `--sandbox` in early phases",
+                command
+            ),
         );
         return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
     }

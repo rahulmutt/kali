@@ -344,6 +344,9 @@ Examples:
 - `kali run --max-memory 0 main.ts`
 - `kali run --max-cpu 0 main.ts`
 - `kali run --max-open-files 0 main.ts`
+- `kali init --api browser`
+- `kali fmt --api browser`
+- `kali lint --api browser`
 - `kali package-effects`
 - `kali package-effects lodash react`
 - `kali package-effects https://example.com/mod.ts`

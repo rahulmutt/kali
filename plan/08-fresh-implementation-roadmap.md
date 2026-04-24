@@ -151,6 +151,7 @@ Recommended substreams:
 
 Current progress note:
 - sandbox-agnostic `init`, `fmt`, and `lint` plus profile-agnostic `install` now reject `--sandbox` / `--api` through the canonical `E5508` path instead of Clap's generic unexpected-argument failure, so the workflow-command packet stays aligned with the documented CLI contract
+- the workflow-command packet now also keeps `--api` rejection pinned in the smoke suite for `init`, `fmt`, and `lint`, so the early-phase command-shape guardrails stay explicit instead of parser-only
 - the browser-targeted `check` lane now also has explicit `--api browser` + `--sandbox` JSON-envelope coverage, keeping the F4a/F4e handoff honest in schema-v1 output as well as human output
 - the public `effects` lane now also ignores a top-level `sandbox` config path in JSON output, so the source-graph analysis path stays decoupled from policy attachment the same way the package-analysis hardening does
 - the query-only `Deno.permissions.query(...)` facade now stays effect-free in the same source-graph effect lane, so observation-only permission checks do not manufacture a synthetic effect or dynamic-reason row

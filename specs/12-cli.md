@@ -139,6 +139,7 @@ Sandbox-flag clarification:
 - the canonical default policy filename is `kali.policy.json`, but the flag accepts any explicit policy-file path; relative CLI paths resolve from the current working directory, while top-level `kali.json#sandbox` remains config-relative
 - commands that merely ignore top-level `kali.json#sandbox` still do **not** accept a CLI `--sandbox` flag in early phases
 - therefore `kali effects --sandbox ...`, `kali package-effects --sandbox ...`, `kali package-audit --sandbox ...`, `kali install --sandbox ...`, `kali fmt --sandbox ...`, `kali lint --sandbox ...`, and `kali init --sandbox ...` are all invalid command usage (`E5508`) unless a later spec explicitly adds such a mode
+- the same workflow-owner commands also do not accept `--api` in early phases; `kali init --api ...`, `kali fmt --api ...`, and `kali lint --api ...` are invalid command usage (`E5508`) rather than a second workflow-analysis surface
 
 Build-mode continuity rule:
 - these three build-mode names are stable from Phase 1 onward

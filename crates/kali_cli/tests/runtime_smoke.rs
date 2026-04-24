@@ -2918,7 +2918,29 @@ fn fmt_rejects_sandbox_flag_with_usage_code() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
-        stderr.contains("does not accept `--sandbox`"),
+        stderr.contains("does not accept `--api` or `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn fmt_rejects_api_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("fmt")
+        .arg("--api")
+        .arg("browser")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--api` or `--sandbox`"),
         "stderr: {stderr}"
     );
 }
@@ -2960,7 +2982,29 @@ fn lint_rejects_sandbox_flag_with_usage_code() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
-        stderr.contains("does not accept `--sandbox`"),
+        stderr.contains("does not accept `--api` or `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn lint_rejects_api_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("lint")
+        .arg("--api")
+        .arg("browser")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--api` or `--sandbox`"),
         "stderr: {stderr}"
     );
 }
@@ -7001,7 +7045,29 @@ fn init_rejects_sandbox_flag_with_usage_code() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
-        stderr.contains("does not accept `--sandbox`"),
+        stderr.contains("does not accept `--api` or `--sandbox`"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn init_rejects_api_flag_with_usage_code() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("init")
+        .arg("--api")
+        .arg("browser")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept `--api` or `--sandbox`"),
         "stderr: {stderr}"
     );
 }
