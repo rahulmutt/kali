@@ -29,6 +29,7 @@ optional coverage object instead of inventing a second runner or a separate ad h
 - Added a filter-aware coverage regression so `kali test --coverage --filter ...` now has command-level evidence that the coverage payload only reports the selected test files instead of widening to the full discovered set.
 - Added an empty-match coverage regression so the deterministic zero-result envelope for `kali test --coverage --filter ...` stays explicit when discovery yields no matching files.
 - Added a repeated-run JSON regression so identical `kali test --coverage` invocations now have evidence that the normalized coverage payload stays byte-for-byte stable across consecutive runs.
+- Added a browser-harness JSON smoke regression for `kali test --coverage` so the coverage lane now stays pinned on the configured browser runtime contract as well as the native standalone contract.
 - Kept ordinary `kali test` lean by making the coverage instrumentation opt-in at compile time.
 - Aligned the `kali test --coverage` CLI help text with the stable function-coverage contract so the user-facing flag description now matches the shipped semantics.
 

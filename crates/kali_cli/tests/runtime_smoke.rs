@@ -2515,6 +2515,40 @@ fn test_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
 }
 
 #[test]
+fn test_reports_function_coverage_in_json_output_when_browser_api_surface_is_configured() {
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--coverage")
+        .arg("--output")
+        .arg("json")
+        .arg("--api")
+        .arg("browser")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(json["payload"]["coverage"]["mode"], "function");
+    assert!(
+        json["payload"]["coverage"]["summary"]["functionsTotal"]
+            .as_u64()
+            .expect("functionsTotal")
+            >= 1
+    );
+}
+
+#[test]
 fn test_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
