@@ -3875,31 +3875,33 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
             ),
         );
         write_types_stub_package(dir.path(), package);
-        let source_path = dir.path().join("main.ts");
-        fs::write(
-            &source_path,
-            format!(
-                "import root from '{package}';\nconsole.log(root());\n",
-                package = package
-            ),
-        )
-        .expect("write utility source");
+        for source_name in ["main.ts", "main.js"] {
+            let source_path = dir.path().join(source_name);
+            fs::write(
+                &source_path,
+                format!(
+                    "import root from '{package}';\nconsole.log(root());\n",
+                    package = package
+                ),
+            )
+            .expect("write utility source");
 
-        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
-        assert!(
-            check.status.success(),
-            "utility module-only package {package} should be checkable\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&check.stdout),
-            String::from_utf8_lossy(&check.stderr)
-        );
+            let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+            assert!(
+                check.status.success(),
+                "utility module-only package {package} should be checkable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&check.stdout),
+                String::from_utf8_lossy(&check.stderr)
+            );
 
-        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
-        assert!(
-            run.status.success(),
-            "utility module-only package {package} should stay executable\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&run.stdout),
-            String::from_utf8_lossy(&run.stderr)
-        );
+            let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+            assert!(
+                run.status.success(),
+                "utility module-only package {package} should stay executable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&run.stdout),
+                String::from_utf8_lossy(&run.stderr)
+            );
+        }
     }
 }
 
@@ -3934,31 +3936,33 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
             ),
         )
         .expect("write utility internal module");
-        let source_path = dir.path().join("main.ts");
-        fs::write(
-            &source_path,
-            format!(
-                "import root from '{package}';\nconsole.log(root());\n",
-                package = package
-            ),
-        )
-        .expect("write utility source");
+        for source_name in ["main.ts", "main.js"] {
+            let source_path = dir.path().join(source_name);
+            fs::write(
+                &source_path,
+                format!(
+                    "import root from '{package}';\nconsole.log(root());\n",
+                    package = package
+                ),
+            )
+            .expect("write utility source");
 
-        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
-        assert!(
-            check.status.success(),
-            "utility module-chain package {package} should resolve its internal module dependency\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&check.stdout),
-            String::from_utf8_lossy(&check.stderr)
-        );
+            let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+            assert!(
+                check.status.success(),
+                "utility module-chain package {package} should resolve its internal module dependency on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&check.stdout),
+                String::from_utf8_lossy(&check.stderr)
+            );
 
-        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
-        assert!(
-            run.status.success(),
-            "utility module-chain package {package} should stay executable\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&run.stdout),
-            String::from_utf8_lossy(&run.stderr)
-        );
+            let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+            assert!(
+                run.status.success(),
+                "utility module-chain package {package} should stay executable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&run.stdout),
+                String::from_utf8_lossy(&run.stderr)
+            );
+        }
     }
 }
 

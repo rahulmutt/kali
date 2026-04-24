@@ -32,7 +32,10 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 |---|---|---|---|---|---|
 | npm-style package corpus | mixed CommonJS/ESM interop packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | exports-map packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
-| npm-style package corpus | module-entry packages and module-entry chains | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages with `.js` entrypoints | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages and module-entry chains | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages and module-entry chains with `.js` entrypoints | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | web-baseline primitive packages | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | string-export packages | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | pure JS utility packages (`date-fns`, `zod`, `plimit`, `ms`) | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
