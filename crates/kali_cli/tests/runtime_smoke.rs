@@ -348,6 +348,59 @@ fn browser_bundle_harness_command_parts() -> Vec<String> {
     )
 }
 
+fn browser_runtime_object_enumeration_source() -> &'static str {
+    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw new Error('unexpected numeric-key ordering');
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#
+}
+
+fn browser_runtime_object_enumeration_test_source() -> &'static str {
+    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw new Error('unexpected numeric-key ordering');
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+Kali.test('browser runtime smoke', () => {});
+"#
+}
+
 fn write_browser_runtime_package_fixture(package_dir: &Path, package_name: &str) {
     fs::create_dir_all(package_dir).expect("create browser package dir");
     fs::write(
@@ -2835,6 +2888,68 @@ fn run_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_c
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("browser run"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, browser_runtime_object_enumeration_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+}
+
+#[test]
+fn run_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, browser_runtime_object_enumeration_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
 }
 
 #[test]
@@ -12319,6 +12434,78 @@ fn test_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     assert!(stdout.contains("browser test"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        browser_runtime_object_enumeration_test_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        browser_runtime_object_enumeration_test_source(),
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
 }
 
 #[test]
