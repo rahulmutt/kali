@@ -156,6 +156,7 @@ Current progress note:
 - package-effects and package-audit now keep pretty JSON formatting stable when `--quiet` is combined with `--pretty`, so the registry-analysis packet preserves its machine-readable presentation contract across the supported control flags
 - package-effects and package-audit now reject missing or multi-package targets with canonical `E5508` command-shape diagnostics, so the fresh-start registry-analysis packet stays single-package honest before the later availability gates even enter the picture
 - `kali build --validate-ir` now runs structural HIR/MIR/LIR validation on demand, so the F4 build lane can catch inconsistent lowered trees before codegen without changing the resulting artifact shape
+- the browser bundle smoke lane now also exercises `--validate-ir` together with `--bundle`, `--api browser`, and a valid sandbox policy, so the F4 artifact-mode packet covers the validation path instead of only the default browser bundle shape
 
 **Shared coordination files**
 - `specs/12-cli.md`

@@ -3859,6 +3859,52 @@ fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact() {
 }
 
 #[test]
+fn build_embeds_sandbox_policy_custom_section_for_browser_bundle_artifact_with_validate_ir() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--validate-ir")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let wasm_path = bundle_dir.join("app.wasm");
+    let meta_path = bundle_dir.join("app.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_embeds_policy_custom_section(&wasm_path, &policy_path);
+    assert_browser_bundle_executes(&bundle_dir, "greet");
+}
+
+#[test]
 fn build_trees_shakes_unused_browser_bundle_exports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
