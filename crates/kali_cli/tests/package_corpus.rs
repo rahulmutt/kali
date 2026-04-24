@@ -4526,3 +4526,213 @@ fn node_runner_corpus_packages_with_inherited_api_surface_remain_executable_on_t
         assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
     }
 }
+
+#[test]
+fn node_runner_corpus_packages_with_exports_maps_remain_executable_on_the_node_surface_in_js_input()
+{
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+        ("ava", "config"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_export_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let run_source = dir.path().join("main.js");
+        fs::write(
+            &run_source,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write node run source");
+
+        let run = run_kali(
+            dir.path(),
+            ["run", "--api", "node", run_source.to_str().unwrap()],
+        );
+        assert!(
+            run.status.success(),
+            "node package {package} with exports map should execute on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert_eq!(run_stdout.trim(), "0", "stdout: {run_stdout}");
+
+        let test_source = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.js", package));
+        fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_source,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write node test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_source.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node package {package} with exports map should be testable on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    }
+}
+
+#[test]
+fn node_runner_corpus_packages_with_mixed_format_entries_remain_executable_on_the_node_surface() {
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+        ("ava", "config"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function root() {{ assert.ok(true); return '{package}:cjs'; }};\n",
+                package = package
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:esm'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function subpath() {{ assert.ok(true); return '{package}:{subpath}:cjs'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}:esm'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let test_path = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.ts", package));
+        fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write node test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_path.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node mixed-format package {package} should execute on the Node surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&test.stdout), "0\nok 1\n");
+    }
+}
+
+#[test]
+fn node_runner_corpus_packages_with_mixed_format_entries_remain_executable_on_the_node_surface_in_js_input(
+) {
+    for (package, subpath) in [
+        ("vitest", "config"),
+        ("jest", "globals"),
+        ("mocha", "reporter"),
+        ("ava", "config"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function root() {{ assert.ok(true); return '{package}:cjs'; }};\n",
+                package = package
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:esm'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "const assert = require(\"node:assert\");\nmodule.exports = function subpath() {{ assert.ok(true); return '{package}:{subpath}:cjs'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}:esm'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let test_path = dir
+            .path()
+            .join("tests")
+            .join(format!("{}.test.js", package));
+        fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write node test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_path.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node mixed-format package {package} should execute on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&test.stdout), "0\nok 1\n");
+    }
+}
