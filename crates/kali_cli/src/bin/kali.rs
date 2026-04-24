@@ -2299,6 +2299,9 @@ const defaultImportObject = {{
     math_min(left, right) {{
       return left < right ? left : right;
     }},
+    math_abs(value) {{
+      return value < 0n ? -value : value;
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2447,6 +2450,9 @@ const defaultImportObject = {{
     }},
     math_min(left, right) {{
       return left < right ? left : right;
+    }},
+    math_abs(value) {{
+      return value < 0n ? -value : value;
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

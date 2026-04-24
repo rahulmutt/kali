@@ -28,8 +28,9 @@ const CONSOLE_DEBUG_IMPORT_INDEX: u32 = 5;
 const ARGS_LEN_IMPORT_INDEX: u32 = 6;
 const MATH_MAX_IMPORT_INDEX: u32 = 7;
 const MATH_MIN_IMPORT_INDEX: u32 = 8;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 9;
-const FUNCTION_INDEX_OFFSET: u32 = 9;
+const MATH_ABS_IMPORT_INDEX: u32 = 9;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 10;
+const FUNCTION_INDEX_OFFSET: u32 = 10;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -653,6 +654,28 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.math_abs_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(first_arg) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            let _ = self.emit_node(function, *first_arg, true);
+            function.instruction(&Instruction::Call(import_index));
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -733,6 +756,17 @@ impl<'a> FunctionEmitter<'a> {
         let object_name = self.node(object).text.as_deref()?;
         if object_name == "Math" && method == "min" {
             Some(MATH_MIN_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
+    fn math_abs_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" && method == "abs" {
+            Some(MATH_ABS_IMPORT_INDEX)
         } else {
             None
         }
@@ -1077,6 +1111,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I64, ValType::I64], vec![ValType::I64]);
+    type_section
+        .ty()
+        .function(vec![ValType::I64], vec![ValType::I64]);
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -1087,6 +1124,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "args_len", EntityType::Function(2));
     import_section.import("kali:rt", "math_max", EntityType::Function(3));
     import_section.import("kali:rt", "math_min", EntityType::Function(3));
+    import_section.import("kali:rt", "math_abs", EntityType::Function(4));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
@@ -1098,7 +1136,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 4;
+            let idx = function_types.len() as u32 + 5;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
