@@ -222,6 +222,72 @@ fn collect_proof_sources(root: &Path) -> BTreeSet<String> {
     files
 }
 
+#[test]
+fn phase_six_conformance_dashboard_is_present_and_deterministic() {
+    let root = repo_root();
+    let dashboard = fs::read_to_string(root.join("plan/phase-6/conformance-dashboard.md"))
+        .expect("read conformance dashboard");
+
+    for expected in [
+        "# Phase 6 Conformance Dashboard",
+        "## Supported today",
+        "## Gated for later phases",
+        "## Rejected by default",
+        "Latest published ECMA-262 lexical grammar (tokenization)",
+        "Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile",
+        "Static ESM `import` / `export`",
+        "First-class JavaScript compilation with bounded inference",
+        "Budgeted local/intra-module constraint solving inside the shared bounded inference contract",
+        "CommonJS module lowering",
+        "`require(\"literal\")`",
+        "Open-ended or unstable cross-module/public-API constraint solving",
+        "Literal-string `import()`",
+        "Non-literal `import(expr)`",
+        "`eval`",
+        "`Function()` constructor",
+        "`Proxy`",
+        "`WeakMap` / `WeakSet`",
+        "`FinalizationRegistry`",
+        "Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition",
+        "Dynamic `require()`",
+    ] {
+        assert!(dashboard.contains(expected), "dashboard missing expected row or heading: {expected}");
+    }
+
+    let supported = dashboard
+        .find("## Supported today")
+        .expect("supported heading");
+    let gated = dashboard
+        .find("## Gated for later phases")
+        .expect("gated heading");
+    let rejected = dashboard
+        .find("## Rejected by default")
+        .expect("rejected heading");
+    assert!(
+        supported < gated && gated < rejected,
+        "dashboard buckets should remain ordered deterministically"
+    );
+
+    let supported_rows = [
+        "Latest published ECMA-262 lexical grammar (tokenization)",
+        "Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile",
+        "Static ESM `import` / `export`",
+        "First-class JavaScript compilation with bounded inference",
+        "Budgeted local/intra-module constraint solving inside the shared bounded inference contract",
+        "CommonJS module lowering",
+        "`require(\"literal\")`",
+    ];
+    let mut last = 0;
+    for row in supported_rows {
+        let pos = dashboard.find(row).expect("supported row");
+        assert!(
+            pos >= last,
+            "supported rows should be stable and sorted in their section"
+        );
+        last = pos;
+    }
+}
+
 fn collect_proof_theorem_names(root: &Path) -> BTreeSet<String> {
     fn visit(dir: &Path, names: &mut BTreeSet<String>) {
         for entry in fs::read_dir(dir).expect("read proof directory") {

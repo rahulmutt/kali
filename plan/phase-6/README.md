@@ -18,8 +18,8 @@ Move from broad working coverage to measurable language conformance for the surf
 
 ### 6.1 Conformance inventory
 
-- Build a dashboard of supported, gated, and rejected ECMA/TS features.
-- Tie each row to tests or an explicit diagnostic gate.
+- Status: delivered in the current repository snapshot as [`conformance-dashboard.md`](./conformance-dashboard.md).
+- The dashboard groups supported, gated, and rejected ECMA/TS features and ties each row to tests or canonical diagnostic gates.
 - Keep draft TC39 proposals rejected by default unless a specific opt-in is specified.
 
 ### 6.2 Checker and inference hardening
