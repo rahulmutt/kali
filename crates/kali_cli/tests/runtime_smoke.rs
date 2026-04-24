@@ -8108,6 +8108,128 @@ function catchSmoke() {
 }
 
 #[test]
+fn build_emits_browser_bundle_string_enumeration_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const keys = Object.keys('abc');
+  const entries = Object.entries('ab');
+  const values = Object.values('ab');
+  if (
+    keys.length !== 3 ||
+    keys[0] !== '0' ||
+    keys[1] !== '1' ||
+    keys[2] !== '2' ||
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b' ||
+    values.length !== 2 ||
+    values[0] !== 'a' ||
+    values[1] !== 'b'
+  ) {
+    throw new Error('unexpected enumeration');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const keys = Object.keys('abc');
+  const entries = Object.entries('ab');
+  const values = Object.values('ab');
+  if (
+    keys.length !== 3 ||
+    keys[0] !== '0' ||
+    keys[1] !== '1' ||
+    keys[2] !== '2' ||
+    entries.length !== 2 ||
+    entries[0][0] !== '0' ||
+    entries[0][1] !== 'a' ||
+    entries[1][0] !== '1' ||
+    entries[1][1] !== 'b' ||
+    values.length !== 2 ||
+    values[0] !== 'a' ||
+    values[1] !== 'b'
+  ) {
+    throw new Error('unexpected enumeration');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "enumSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_chunks_for_literal_dynamic_imports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
