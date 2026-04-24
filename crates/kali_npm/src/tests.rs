@@ -694,6 +694,56 @@ fn install_noops_without_manifest_or_dependencies() {
 }
 
 #[test]
+fn install_stops_at_nested_child_project_roots() {
+    let dir = tempdir().unwrap();
+    let root_raw_url = start_raw_url_server("export default 'root';\n");
+    let child_raw_url = start_raw_url_server("export default 'child';\n");
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1
+}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.ts"),
+        format!("import '{}';\n", root_raw_url),
+    )
+    .unwrap();
+
+    let child_dir = dir.path().join("child");
+    fs::create_dir(&child_dir).unwrap();
+    fs::write(child_dir.join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();
+    fs::write(
+        child_dir.join("main.ts"),
+        format!("import '{}';\n", child_raw_url),
+    )
+    .unwrap();
+
+    let manifest = load_manifest(dir.path()).unwrap().unwrap();
+    let discovered = discover_install_time_raw_urls(dir.path(), &manifest).unwrap();
+    assert!(
+        discovered.contains(&root_raw_url),
+        "discovered: {discovered:?}"
+    );
+    assert!(
+        !discovered.contains(&child_raw_url),
+        "discovered: {discovered:?}"
+    );
+
+    let summary = install_project(dir.path(), InstallOptions::default()).unwrap();
+    assert!(summary.lock_path.is_some());
+
+    let lock = load_lock(dir.path()).unwrap().unwrap();
+    assert!(lock.raw_urls.contains_key(&root_raw_url), "lock: {lock:#?}");
+    assert!(
+        !lock.raw_urls.contains_key(&child_raw_url),
+        "lock: {lock:#?}"
+    );
+}
+
+#[test]
 fn install_rejects_allow_scripts_without_effective_npm_work() {
     let dir = tempdir().unwrap();
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).unwrap();

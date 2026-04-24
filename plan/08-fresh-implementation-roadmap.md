@@ -200,6 +200,7 @@ Current progress note:
 - the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
 - the base library build smoke lane now also exercises `--validate-ir`, so the library artifact path shares the same early IR-validation coverage as the component, C-ABI, and browser-bundle lanes
 - raw-URL `install` now has a configless-project smoke regression that materializes `kali.lock` and the raw cache without scaffolding a placeholder `kali.json`, so the fresh-start package-install lane now covers the explicit URL branch of the configless install split too
+- install-time raw-URL discovery now also stops at nested child projects with their own `kali.json`, so the parent install scan stays bounded to the effective project root instead of pulling in child-project dependency graphs
 - the repeated-build determinism lane now also replays the `--capi` and `--component` artifact modes, so the fresh-start artifact packet keeps the public embedding outputs pinned alongside the executable, library, and browser bundle cases
 
 **Shared coordination files**
