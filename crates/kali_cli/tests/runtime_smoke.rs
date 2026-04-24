@@ -8285,6 +8285,44 @@ fn build_emits_browser_bundle_crypto_web_apis() {
 }
 
 #[test]
+fn build_emits_browser_bundle_crypto_web_apis_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_async_await_sequencing() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
