@@ -4434,6 +4434,39 @@ console.log(entries.length);
 }
 
 #[test]
+fn run_supports_object_values_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const values = Object.values(obj);
+if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+  throw 'unexpected values';
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_math_max_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

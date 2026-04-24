@@ -16,7 +16,7 @@ The current repo has already implemented the historical MVP and several later su
 - `kali init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`.
 - `kali build --validate-ir`, `--bundle`, `--lib`, `--capi`, and `--component`.
 - `kali test --coverage`.
-- Runtime smoke coverage includes `Object.keys()` and `Object.entries()` enumeration semantics alongside the earlier arithmetic/built-in regressions.
+- Runtime smoke coverage includes `Object.keys()`, `Object.entries()`, and `Object.values()` enumeration semantics alongside the earlier arithmetic/built-in regressions.
 - `kali effects`, `kali package-effects`, and `kali package-audit`.
 - Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
 - Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support.
