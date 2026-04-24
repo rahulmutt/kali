@@ -4234,6 +4234,52 @@ fn utility_corpus_packages_with_exports_map_and_minimized_cjs_esm_interop_remain
 }
 
 #[test]
+fn utility_corpus_packages_with_exports_map_and_minimized_cjs_esm_interop_remain_executable_on_the_default_standalone_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_export_map_package(
+        dir.path(),
+        "interop-export-map-demo",
+        "module.exports = function root() { return 0; }\n",
+        "feature",
+        "export default function feature() { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "interop-export-map-demo");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import root from 'interop-export-map-demo';\nimport feature from 'interop-export-map-demo/feature';\nif (root() !== 0 || feature() !== 0) { throw new Error('interop-export-map-demo export mismatch'); }\nconsole.log(root() + feature());\n",
+    )
+    .expect("write utility source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "utility export-map mixed-format package interop-export-map-demo should be checkable on js input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "utility export-map mixed-format package interop-export-map-demo should be buildable on js input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "utility export-map mixed-format package interop-export-map-demo should stay executable on js input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+}
+
+#[test]
 fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_testable_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
