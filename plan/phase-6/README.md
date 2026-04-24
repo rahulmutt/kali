@@ -28,6 +28,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Add negative tests for annotation-required boundaries.
 - Avoid open-ended cross-module/public-API solver claims until a later evidence-backed packet exists.
 - Current progress: added `.js` fixture coverage for directory-index dynamic import resolution in `crates/kali_types/src/tests.rs`, plus matching build-discovery coverage for `.js` directory-index chunks in `crates/kali_cli/src/build_tests.rs`.
+- Current progress: parser and CLI smoke tests now gate generator function and `yield` lowering with the canonical `E5506` availability path instead of silently accepting them as ordinary syntax.
 
 ### 6.3 Module and dynamic-loading semantics
 
@@ -41,7 +42,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Add minimized tests for exceptions, async/await, iterators/generators, built-ins, CJS/ESM interop, and object semantics.
 - Ensure unsupported dynamic features produce canonical availability diagnostics rather than silent placeholders.
 - Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, relational comparison semantics, try/catch exception semantics, BigInt addition semantics, `Object.keys()` object-enumeration semantics, and `Math.max()` built-in lowering in `crates/kali_cli/tests/runtime_smoke.rs`.
-- Follow-up: async/await and iterator/generator lowering still need a dedicated implementation packet; the current snapshot does not yet cover those semantics.
+- Follow-up: generator lowering still needs a dedicated implementation packet for real lowering; the current snapshot now rejects generator forms explicitly rather than miscompiling them.
 
 ## Exit gate
 

@@ -10,7 +10,7 @@ use kali_ast::{
     WhileStatement, AST,
 };
 use kali_common::FileId;
-use kali_error::diagnostic::Diagnostic;
+use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 use kali_lexer::{Token, TokenType};
 use std::boxed::Box;
 
@@ -97,6 +97,13 @@ impl Parser {
         }
     }
 
+    fn push_feature_unavailable(&mut self, message: impl Into<String>) {
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            message.into(),
+        ));
+    }
+
     fn parse_parameter_list(&mut self) -> Vec<String> {
         let mut params = Vec::new();
         if self.stream.accept(TokenType::RightParen) {
@@ -169,6 +176,7 @@ impl Parser {
                     self.parse_import_declaration()
                 }
             }
+            TokenType::Yield => self.parse_expression_statement(),
             TokenType::Identifier
             | TokenType::This
             | TokenType::True
@@ -236,6 +244,12 @@ impl Parser {
 
     fn parse_function_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
+        if self.stream.current_kind() == Some(&TokenType::Star) {
+            let _ = self.stream.advance();
+            self.push_feature_unavailable(
+                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+            );
+        }
         let name_token = self.stream.advance()?;
         let name = name_token.value;
         let _ = self.stream.advance();
@@ -994,6 +1008,12 @@ impl Parser {
 
     fn parse_function_expression(&mut self) -> Expression {
         let _ = self.stream.advance();
+        if self.stream.current_kind() == Some(&TokenType::Star) {
+            let _ = self.stream.advance();
+            self.push_feature_unavailable(
+                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+            );
+        }
 
         let id = if self.stream.current_kind() == Some(&TokenType::Identifier)
             && self.stream.peek_next_kind() == Some(&TokenType::LeftParen)
@@ -1103,6 +1123,13 @@ impl Parser {
                     }
                 }
                 Expression::ArrayExpression(ArrayExpression { elements })
+            }
+            TokenType::Yield => {
+                let _ = self.stream.advance();
+                self.push_feature_unavailable(
+                    "yield expressions are unavailable in the current phase; generator lowering is not yet implemented",
+                );
+                Expression::Identifier("unknown".to_string())
             }
             TokenType::Function => self.parse_function_expression(),
             TokenType::Import => {

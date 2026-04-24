@@ -144,3 +144,36 @@ fn test_parse_optional_chain_index_expression() {
         other => panic!("Expected ExpressionStatement, got {other:?}"),
     }
 }
+
+#[test]
+fn test_parse_generator_function_declaration_is_gated() {
+    let tokens = lex("function* main() { return 1; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(5506)
+                && diag.message.contains("generator function lowering")),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn test_parse_yield_expression_is_gated() {
+    let tokens = lex("yield value;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(5506) && diag.message.contains("yield expressions")),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+}
