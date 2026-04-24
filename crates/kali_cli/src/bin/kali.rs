@@ -2293,6 +2293,9 @@ const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
+    math_max(left, right) {{
+      return left > right ? left : right;
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2436,6 +2439,9 @@ const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
+    math_max(left, right) {{
+      return left > right ? left : right;
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));

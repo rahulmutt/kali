@@ -20,6 +20,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic relational comparison semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic try/catch exception handling | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.keys()` enumeration semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Basic `Math.max()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
 | Literal-string `import()` over the linked graph, including directory-index targets | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
