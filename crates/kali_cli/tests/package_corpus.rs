@@ -3546,6 +3546,82 @@ Kali.test('date-fns corpus', () => {
 }
 
 #[test]
+fn utility_corpus_date_fns_style_package_remains_checkable_buildable_executable_and_testable_on_the_default_standalone_surface_on_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    write_export_map_package(
+        dir.path(),
+        "date-fns",
+        "export function addDays(date, amount) { return 0; }\nexport function format(date) { return 0; }\n",
+        "formatISO",
+        "export function formatISO(date) { return 0; }\n",
+    );
+    write_types_stub_package(dir.path(), "date-fns");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import { addDays, format } from 'date-fns';
+import { formatISO } from 'date-fns/formatISO';
+console.log(addDays('2024-01-01', 3));
+console.log(format('2024-01-01'));
+console.log(formatISO('2024-01-01'));
+"#,
+    )
+    .expect("write date-fns JS source");
+    let test_path = dir.path().join("tests").join("date-fns.test.js");
+    fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_path,
+        r#"import { addDays, format } from 'date-fns';
+import { formatISO } from 'date-fns/formatISO';
+Kali.test('date-fns corpus', () => {
+  console.log(addDays('2024-01-01', 3));
+  console.log(format('2024-01-01'));
+  console.log(formatISO('2024-01-01'));
+});
+"#,
+    )
+    .expect("write date-fns test source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "date-fns corpus package should be checkable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "date-fns corpus package should be buildable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "date-fns corpus package should stay executable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n0\n0\n");
+
+    let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "date-fns corpus package should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
+}
+
+#[test]
 fn utility_corpus_zod_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
