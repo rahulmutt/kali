@@ -138,17 +138,20 @@ Reject them with the canonical invalid-entrypoint diagnostic before execution be
 A real `semver` execution attempt exposed runtime-path gaps that should be tracked explicitly.
 One of them — the `--` guest-argument split for `kali run` — is now fixed and regression-covered;
 package-execution semantics now also have a dedicated Node-path semver package-json/version smoke,
-and the unresolved imported bindings/call-target placeholder fallback remains tracked explicitly,
-while broader CommonJS lowering gaps remain tracked explicitly.
+the semver package-bin path now also pins the exact help-path output shape alongside the
+package-json require and guest-argument counting slices, and the unresolved imported
+bindings/call-target placeholder fallback remains tracked explicitly while broader CommonJS
+lowering gaps remain tracked explicitly.
 
 ### Semver-specific regression surfaces
 
 - `kali run --api node node_modules/semver/bin/semver.js -- 1.2.3` previously parsed `1.2.3` as
   another primary source input; the CLI now treats everything after `--` as guest arguments, and
   the regression suite covers both the no-args help path and the argument-flow path.
-- The semver package bin now also has an explicit default-standalone rejection regression, so the
-  package-execution path stays honest about the Node-only CLI feature split even before the later
-  Node availability row opens.
+- The semver package bin now also has an explicit default-standalone rejection regression, and
+  the Node-path smoke now pins the exact help-path output shape plus the package-json require and
+  guest-argument counting slices, so the package-execution path stays honest about the Node-only
+  CLI feature split even before the later Node availability row opens.
 - A small consumer program importing `semver` built and ran, but produced incorrect runtime output,
   showing that the package-execution path once allowed unresolved or mis-lowered imported
   functionality to reach execution instead of preserving real package semantics or failing earlier;

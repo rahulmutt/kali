@@ -8483,9 +8483,14 @@ fn run_executes_semver_style_package_bin_help_path_on_node_api_surface() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Usage: semver [options] <version> [<version> [...]]"),
+    assert_eq!(
+        stdout, "Usage: semver [options] <version> [<version> [...]]\n",
         "stdout: {stdout}"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 
