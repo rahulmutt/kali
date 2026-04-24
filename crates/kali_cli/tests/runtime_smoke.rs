@@ -1811,6 +1811,25 @@ fn run_uses_browser_entrypoint_for_google_chrome_stable_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_additional_chrome_aliases() {
+    for browser_name in [
+        "chrome",
+        "chrome-beta",
+        "chrome-canary",
+        "chrome-dev",
+        "chrome-unstable",
+        "google-chrome",
+        "google-chrome-beta",
+        "google-chrome-canary",
+        "google-chrome-dev",
+        "google-chrome-unstable",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_mullvad_browser_executables() {
     run_browser_entrypoint_smoke("mullvad-browser");
 }
