@@ -166,6 +166,7 @@ Current progress note:
 - the component build smoke lane now also exercises `--validate-ir` alongside the existing `--component` JSON artifact coverage, keeping the validation pass honest on the public embedding path as well as the browser bundle path
 - the C-ABI build smoke lane now also exercises `--validate-ir` alongside the existing `--capi` JSON artifact coverage, keeping the validation pass honest on the exported-library path as well as the component and browser bundle paths
 - the browser bundle smoke lane now also exercises `--validate-ir` together with `--bundle`, `--api browser`, and a valid sandbox policy, so the F4 artifact-mode packet covers the validation path instead of only the default browser bundle shape
+- the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
 
 **Shared coordination files**
 - `specs/12-cli.md`

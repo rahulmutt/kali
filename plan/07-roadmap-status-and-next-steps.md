@@ -74,6 +74,7 @@ Recent hardening:
 - the browser/runtime compatibility layer now also exposes a deterministic `Atomics::is_lock_free` query helper alongside the existing shared-buffer bytewise operations, keeping the later threaded-profile baseline honest about the host's byte-atomic capability without widening the public maturity claims; the regression suite now pins that helper directly so the capability probe stays explicit rather than only being covered through indirect buffer mutations
 - the host-registered predicate context now carries normalized file, network, process-env, timer, and eval detail keys in addition to the existing process/thread payloads, so programmable-policy callers can inspect the same deterministic capability metadata for path/URL/key-shaped operations without inventing a second policy vocabulary
 - the public README command reference now also calls out `kali test --coverage`, keeping the user-facing summary aligned with the stable function-coverage contract already documented in `specs/12-cli.md`
+- the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
 
 ### Priority A — finish the Phase-1 critical path
 

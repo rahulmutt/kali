@@ -65,7 +65,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | `fmt` | Format files or a discovered project |
 | `lint` | Run lint diagnostics and optional safe fixes |
 | `check` | Type-check and statically validate source |
-| `build` | Produce executable artifacts, browser bundles, library artifacts, or embedding artifacts depending on flags |
+| `build` | Produce executable artifacts, browser bundles, library artifacts, embedding artifacts, or an explicit IR validation pass depending on flags |
 | `run` | Compile and execute a source file |
 | `test` | Compile and run tests; `--coverage` adds deterministic function-coverage data through the stable result payload |
 | `effects` | Report conservative effects for a source graph |
