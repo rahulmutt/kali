@@ -21,6 +21,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic try/catch exception handling | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic BigInt addition semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.keys()` enumeration semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Basic `Object.entries()` enumeration semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.max()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |

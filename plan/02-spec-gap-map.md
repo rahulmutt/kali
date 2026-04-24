@@ -14,6 +14,7 @@ Remaining goals:
 - Implement literal-string `import()` over the already-linked graph when ready; keep non-literal dynamic import gated.
 - Improve minimized regression fixtures for supported dynamic/object/runtime behavior.
 - Generator lowering still needs a dedicated implementation packet; current runtime smoke coverage is limited to simpler regression cases such as arithmetic, exceptions, object enumeration, and built-ins.
+- `Object.values()` remains an uncovered object-enumeration variant and needs a separate packet before it can be promoted alongside the already-covered `Object.keys()` / `Object.entries()` pair.
 
 ## Runtime, host, and platform expansion
 
