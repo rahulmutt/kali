@@ -4532,6 +4532,54 @@ console.log(values.length);
 }
 
 #[test]
+fn run_supports_object_enumeration_semantics_with_overwrite_ordering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+obj["a"] = 3;
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'a' ||
+  keys[1] !== 'b' ||
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 3 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 3 ||
+  values[1] !== 2
+) {
+  throw 'unexpected overwrite ordering';
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
 fn run_rejects_array_iteration_semantics_for_now() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

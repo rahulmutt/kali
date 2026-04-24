@@ -5,7 +5,7 @@ use kali_api_node::{
     NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
     NodeUtil,
 };
-use kali_api_web::{fill_random_values, performance_now, random_uuid};
+use kali_api_web::{fill_random_values, performance_now, random_uuid, ThreadRuntimeTopology};
 use kali_error::{
     _error_codes::{e4, e5},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
@@ -83,6 +83,8 @@ pub struct KaliHostState {
     pub pending_microtasks: VecDeque<i32>,
     /// Timer ids that were cleared while a callback was firing.
     pub cancelled_timers: HashSet<u32>,
+    /// Deterministic worker/thread topology used by the threaded runtime plumbing.
+    pub thread_topology: ThreadRuntimeTopology,
     /// Monotonic timer id counter.
     pub next_timer_id: u32,
     /// Registered test callbacks collected from guest-side `Kali.test(...)` calls.
@@ -515,6 +517,7 @@ impl RuntimeCtx {
                 pending_timers: BTreeMap::new(),
                 pending_microtasks: VecDeque::new(),
                 cancelled_timers: HashSet::new(),
+                thread_topology: ThreadRuntimeTopology::default(),
                 next_timer_id: 0,
                 registered_tests: Vec::new(),
                 coverage_hits: BTreeSet::new(),
@@ -858,6 +861,21 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             },
         )
         .map_err(|error| host_import_error("cryptoRandomUUID", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
+            "thread_spawn",
+            |mut caller: Caller<'_, KaliHostState>,
+             script_url_ptr: i32,
+             script_url_len: i32|
+             -> wasmtime::Result<i32> {
+                let script_url = read_guest_string(&mut caller, script_url_ptr, script_url_len)?;
+                let instance_id = caller.data_mut().spawn_thread_instance(script_url)?;
+                Ok(instance_id as i32)
+            },
+        )
+        .map_err(|error| host_import_error("thread_spawn", error))?;
 
     linker
         .func_wrap(
@@ -3438,6 +3456,7 @@ impl Default for KaliHostState {
             pending_timers: BTreeMap::new(),
             pending_microtasks: VecDeque::new(),
             cancelled_timers: HashSet::new(),
+            thread_topology: ThreadRuntimeTopology::default(),
             next_timer_id: 0,
             registered_tests: Vec::new(),
             coverage_hits: BTreeSet::new(),
@@ -3564,6 +3583,33 @@ impl KaliHostState {
 
     fn finish_spawn(&mut self) {
         self.active_spawned_processes = self.active_spawned_processes.saturating_sub(1);
+    }
+
+    /// Register one deterministic guest-requested thread instance.
+    pub fn spawn_thread_instance(
+        &mut self,
+        script_url: impl AsRef<str>,
+    ) -> wasmtime::Result<usize> {
+        let script_url = script_url.as_ref().trim().to_string();
+        let active_threads = self.active_threads;
+        enforce_operation(self, HostOperation::ThreadSpawn { active_threads })?;
+        self.begin_thread()?;
+        match self.thread_topology.spawn_worker(&script_url) {
+            Ok(instance_id) => Ok(instance_id),
+            Err(error) => {
+                self.finish_thread();
+                Err(wasmtime::Error::msg(error.to_string()))
+            }
+        }
+    }
+
+    /// Release one deterministic guest-requested thread instance.
+    pub fn release_thread_instance(&mut self, instance_id: usize) -> bool {
+        let was_live = self.thread_topology.is_live(instance_id);
+        if was_live && self.thread_topology.terminate(instance_id) {
+            self.finish_thread();
+        }
+        was_live
     }
 
     #[allow(dead_code)]

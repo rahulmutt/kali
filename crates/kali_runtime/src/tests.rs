@@ -2046,6 +2046,81 @@ fn runtime_host_state_tracks_thread_budget_bookkeeping() {
 }
 
 #[test]
+fn runtime_host_state_spawns_and_releases_thread_instances() {
+    let mut state = KaliHostState::default();
+    state.runtime_profiles = vec!["wasm-threads".to_string()];
+    state.max_threads = Some(2);
+
+    let first = state
+        .spawn_thread_instance("https://e.co/t.js")
+        .expect("first thread instance");
+    assert_eq!(first, 0);
+    assert_eq!(state.active_threads, 1);
+    assert_eq!(state.thread_topology.total_instances(), 1);
+
+    let second = state
+        .spawn_thread_instance("https://e.co/u.js")
+        .expect("second thread instance");
+    assert_eq!(second, 1);
+    assert_eq!(state.active_threads, 2);
+    assert_eq!(state.thread_topology.total_instances(), 2);
+
+    let diagnostic = state
+        .spawn_thread_instance("https://e.co/v.js")
+        .expect_err("thread budget should cap guest thread spawns");
+    assert_eq!(
+        state
+            .pending_diagnostic
+            .as_ref()
+            .and_then(|diagnostic| diagnostic.code),
+        Some(kali_error::_error_codes::e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+    assert!(diagnostic.to_string().contains("KALI_E4003"));
+
+    assert!(state.release_thread_instance(second));
+    assert_eq!(state.active_threads, 1);
+    assert!(state.release_thread_instance(first));
+    assert_eq!(state.active_threads, 0);
+    assert!(!state.release_thread_instance(first));
+}
+
+#[test]
+fn runtime_host_state_rolls_back_failed_thread_spawns() {
+    let mut state = KaliHostState::default();
+    state.runtime_profiles = vec!["wasm-threads".to_string()];
+    state.max_threads = Some(1);
+
+    let _error = state
+        .spawn_thread_instance("not-a-valid-thread-url")
+        .expect_err("invalid URLs should be rejected before they leak bookkeeping");
+    assert_eq!(state.active_threads, 0);
+    assert_eq!(state.thread_topology.total_instances(), 0);
+}
+
+#[test]
+fn runtime_executes_thread_spawn_host_imports() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()])
+        .with_max_threads(Some(1));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://e.co/t.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 17
+                    call $thread_spawn
+                    drop))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("thread spawn host import");
+    assert_eq!(outcome.runtime_profiles, vec!["wasm-threads".to_string()]);
+}
+
+#[test]
 fn runtime_exposes_environment_variables() {
     let mut env = BTreeMap::new();
     env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());

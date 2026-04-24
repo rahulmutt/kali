@@ -23,7 +23,7 @@ The current repo has already implemented the historical MVP and several later su
 - Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support.
 - Browser-targeted package-corpus coverage now includes `.js` entrypoints for browser replacement-map packages, including a scoped package case, keeping first-class JavaScript compilation honest in the browser analysis/build lane.
 - `--compat eval` exists for the documented compatibility path.
-- The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in.
+- The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in, and the runtime now also exposes deterministic guest-facing thread-spawn host import plumbing backed by the threaded topology model.
 - Schema-v1 outputs and diagnostic envelopes are first-class contracts.
 
 ## Planning consequence

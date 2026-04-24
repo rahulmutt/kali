@@ -14,7 +14,7 @@ Remaining goals:
 - Implement literal-string `import()` over the already-linked graph when ready; keep non-literal dynamic import gated.
 - Improve minimized regression fixtures for supported dynamic/object/runtime behavior.
 - Generator lowering still needs a dedicated implementation packet; the parser now accepts async function declarations/expressions, async generator syntax, and generator syntax, including delegated `yield*`, but lowering remains gated at resolution/check time. Current runtime smoke coverage now includes both sync and async generator gate coverage across `check`, `build`, `run`, and `test`, including async generator function-expression coverage, while other regression cases remain limited to simpler examples such as arithmetic, exceptions (including try/finally sequencing), object enumeration, and built-ins.
-- `Object.values()` is now covered alongside the already-covered `Object.keys()` / `Object.entries()` pair; keep it in the runtime-smoke regression set while other object-enumeration gaps are pursued.
+- `Object.values()` is now covered alongside the already-covered `Object.keys()` / `Object.entries()` pair, and the runtime-smoke regression set now also checks overwrite ordering for that trio; keep it in the runtime-smoke regression set while other object-enumeration gaps are pursued.
 - `Math.abs()` now rounds out the existing `Math.max()` / `Math.min()` built-in math coverage on the runtime-smoke path; keep the three-function built-in regression set in sync with the corresponding codegen import tests.
 
 ## Runtime, host, and platform expansion
@@ -23,7 +23,7 @@ Owners: `specs/09-sandboxing.md`, `specs/10-runtime.md`, `specs/11-standard-apis
 
 Remaining goals:
 
-- Extend the threaded runtime profile beyond the supported `run`/`test` execution paths into the remaining analysis/build contexts and actual guest thread-spawn host imports.
+- Extend the threaded runtime profile beyond the supported `run`/`test` execution paths into the remaining analysis/build contexts; guest-facing thread-spawn host import plumbing is now in place, while fuller lowering / multi-worker execution semantics still need follow-up work.
 - Standalone `run --api browser` / `test --api browser` only after a real browser-runtime contract exists.
 - Late process/working-directory APIs after policy/effect/schema contracts are explicit.
 - Weak references, `Proxy`, `FinalizationRegistry`, broader `Intl`, and other late object-model surfaces only with conformance evidence.
