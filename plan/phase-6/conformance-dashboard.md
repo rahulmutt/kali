@@ -43,7 +43,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Feature | Status | Evidence |
 |---|---|---|
 | Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md` |
-| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
+| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`); `crates/kali_types/src/tests.rs`; `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input coverage on `check` / `build`) |
 | Unsupported `Deno.permissions.query(...)` descriptor kinds (for example `ffi` / `sys`-style names) | Rejected by default | Canonical Phase-1 Deno permission-facade gate (`E5506`) |
 | `eval` | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Function()` constructor | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
@@ -57,7 +57,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 |---|---|---|
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Canonical rejected-by-default row in `specs/19-feature-maturity.md` |
 | Dynamic `require()` | Rejected by default | Canonical rejected-by-default row and `E5506`/unsupported-dynamic-loading diagnostics |
-| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
+| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`); `crates/kali_types/src/tests.rs`; `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input coverage on `check` / `build`) |
 
 ## Reading note
 

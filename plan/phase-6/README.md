@@ -38,7 +38,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Directory-style linked targets now resolve through `index.*` entries so `import("./dir")` can lower the same way as `import("./dir/index.ts")` when the directory is part of the linked graph.
 - Current progress: added minimized package-corpus regressions for mixed CommonJS/ESM default-import interop on the default standalone surface, including an exports-map variant that keeps the interop path honest under the package resolver.
 - Current progress: browser-targeted package-corpus regressions now also cover `.js` entrypoints for browser replacement-map packages, including a scoped package case, and now add a minimized mixed CommonJS/ESM browser interop fixture too, so first-class JavaScript compilation stays exercised in the browser analysis/build lane without dropping the mixed-format resolver path.
-- Current progress: added `.js` negative coverage for directory dynamic imports without an `index.*` target in `crates/kali_types/src/tests.rs`.
+- Current progress: added `.js` negative coverage for directory dynamic imports without an `index.*` target in `crates/kali_types/src/tests.rs`, and mirrored the non-literal dynamic import rejection onto the `check` / `build` JS input lane in `crates/kali_cli/tests/runtime_smoke.rs`.
 - Preserve the one-linked-payload rule.
 - Keep non-literal `import(expr)` on the later compatibility path and reject it with the canonical `E5506` gate.
 
