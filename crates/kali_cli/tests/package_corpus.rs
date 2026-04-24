@@ -1155,6 +1155,77 @@ fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_de
 }
 
 #[test]
+fn browser_corpus_js_entrypoints_with_browser_replacement_maps_remain_checkable_and_deployable_through_host(
+) {
+    for (package, subpath) in [("react", "jsx-runtime"), ("preact", "hooks")] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function subpath() {{ return '{package}:{subpath}:node'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:browser'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser JS entrypoint package {package} should resolve its browser branch\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser JS entrypoint package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host(
 ) {
     for package in ["react", "preact", "vue"] {
