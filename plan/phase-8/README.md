@@ -21,6 +21,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Track packages by source kind, package shape, host/API fit, command, and support rung.
 - Include Deno-oriented, browser-targeted, and Node contexts separately.
 - Record expected failures for native/binary/bootstrap-heavy packages.
+- Progress: the deterministic package-corpus matrix now lives in [`package-corpus-matrix.md`](./package-corpus-matrix.md) and groups the current corpus evidence by browser-targeted, default-standalone, Node, and Deno slices so the rung/context split stays explicit.
 
 ### 8.2 Node ecosystem breadth
 

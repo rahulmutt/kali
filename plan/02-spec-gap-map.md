@@ -39,6 +39,7 @@ Remaining goals:
 - Broader pure JS/TS npm/JSR package compatibility by support rung.
 - Larger package corpus covering Deno, browser-targeted, and Node contexts separately.
 - More Node built-ins and package-resolution cases when evidence justifies them.
+- Current progress: the deterministic package-corpus matrix now records the active browser-targeted, default-standalone, Node, and Deno corpus slices in `plan/phase-8/package-corpus-matrix.md`, keeping the source-kind / host-fit / command / rung split explicit for the existing evidence set.
 - Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case and a `vue/runtime-dom` browser replacement-map JS-entrypoint case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
 - Current progress: browser-targeted exports-map package corpus coverage now also mirrors the same package set onto `.js` input, keeping the browser analysis/build lane aligned with first-class JavaScript compilation instead of only the TypeScript lane.
 - Current progress: the browser package corpus now also exercises the canonical pure-JS `semver` probe on `.js` input, so the browser package-support evidence now spans the browser-targeted first-class-JavaScript path instead of only the TypeScript lane.
