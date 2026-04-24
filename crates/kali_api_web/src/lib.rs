@@ -13,7 +13,7 @@ use std::{
 
 use kali_common::bytewise_shared_memory_is_lock_free;
 use sha1::Sha1;
-use sha2::{Digest, Sha256, Sha384, Sha512};
+use sha2::{Digest, Sha224, Sha256, Sha384, Sha512};
 use url::{form_urlencoded, Url};
 
 static TIME_ORIGIN: OnceLock<Instant> = OnceLock::new();
@@ -1506,6 +1506,7 @@ impl SubtleCrypto {
 
         match normalized.as_str() {
             "SHA1" => Ok(Sha1::digest(data.as_ref()).to_vec()),
+            "SHA224" => Ok(Sha224::digest(data.as_ref()).to_vec()),
             "SHA256" => Ok(Sha256::digest(data.as_ref()).to_vec()),
             "SHA384" => Ok(Sha384::digest(data.as_ref()).to_vec()),
             "SHA512" => Ok(Sha512::digest(data.as_ref()).to_vec()),
