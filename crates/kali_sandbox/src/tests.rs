@@ -189,6 +189,50 @@ fn predicate_context_records_process_spawn_details() {
 }
 
 #[test]
+fn predicate_context_records_file_network_and_env_details() {
+    let file_read = PolicyPredicateContext::from_operation(&HostOperation::FileRead {
+        path: PathBuf::from("/workspace/input.txt"),
+    });
+    assert_eq!(file_read.capability, "effects.fileSystem.read");
+    assert_eq!(file_read.subject, "/workspace/input.txt");
+    assert_eq!(
+        file_read.details.get("path").map(String::as_str),
+        Some("/workspace/input.txt")
+    );
+
+    let network_fetch = PolicyPredicateContext::from_operation(&HostOperation::NetworkFetch {
+        url: "https://example.com/api".to_string(),
+    });
+    assert_eq!(network_fetch.capability, "effects.network.fetch");
+    assert_eq!(network_fetch.subject, "https://example.com/api");
+    assert_eq!(
+        network_fetch.details.get("url").map(String::as_str),
+        Some("https://example.com/api")
+    );
+
+    let env_write = PolicyPredicateContext::from_operation(&HostOperation::EnvironmentWrite {
+        key: "KALI_FLAG".to_string(),
+    });
+    assert_eq!(env_write.capability, "effects.process.envWrite");
+    assert_eq!(env_write.subject, "KALI_FLAG");
+    assert_eq!(
+        env_write.details.get("key").map(String::as_str),
+        Some("KALI_FLAG")
+    );
+
+    let process_env_write =
+        PolicyPredicateContext::from_operation(&HostOperation::ProcessEnvWrite {
+            key: "KALI_FLAG".to_string(),
+        });
+    assert_eq!(process_env_write.capability, "effects.process.envWrite");
+    assert_eq!(process_env_write.subject, "KALI_FLAG");
+    assert_eq!(
+        process_env_write.details.get("key").map(String::as_str),
+        Some("KALI_FLAG")
+    );
+}
+
+#[test]
 fn predicate_context_records_thread_spawn_details() {
     let operation = HostOperation::ThreadSpawn { active_threads: 3 };
     let context = PolicyPredicateContext::from_operation(&operation);

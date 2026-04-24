@@ -167,6 +167,49 @@ fn embedding_operation_context_uses_process_spawn_resource_alias_and_details() {
 }
 
 #[test]
+fn embedding_operation_context_carries_file_network_and_env_details() {
+    let file_read = OperationContext::from_operation(&HostOperation::FileRead {
+        path: std::path::PathBuf::from("/workspace/input.txt"),
+    });
+    assert_eq!(file_read.capability, "effects.fileSystem.read");
+    assert_eq!(file_read.resource, "/workspace/input.txt");
+    assert_eq!(
+        file_read.details.get("path").map(String::as_str),
+        Some("/workspace/input.txt")
+    );
+
+    let network_fetch = OperationContext::from_operation(&HostOperation::NetworkFetch {
+        url: "https://example.com/api".to_string(),
+    });
+    assert_eq!(network_fetch.capability, "effects.network.fetch");
+    assert_eq!(network_fetch.resource, "https://example.com/api");
+    assert_eq!(
+        network_fetch.details.get("url").map(String::as_str),
+        Some("https://example.com/api")
+    );
+
+    let env_write = OperationContext::from_operation(&HostOperation::EnvironmentWrite {
+        key: "KALI_FLAG".to_string(),
+    });
+    assert_eq!(env_write.capability, "effects.process.envWrite");
+    assert_eq!(env_write.resource, "KALI_FLAG");
+    assert_eq!(
+        env_write.details.get("key").map(String::as_str),
+        Some("KALI_FLAG")
+    );
+
+    let process_env_write = OperationContext::from_operation(&HostOperation::ProcessEnvWrite {
+        key: "KALI_FLAG".to_string(),
+    });
+    assert_eq!(process_env_write.capability, "effects.process.envWrite");
+    assert_eq!(process_env_write.resource, "KALI_FLAG");
+    assert_eq!(
+        process_env_write.details.get("key").map(String::as_str),
+        Some("KALI_FLAG")
+    );
+}
+
+#[test]
 fn embedding_operation_context_uses_the_resource_alias_and_details_for_threads() {
     let operation = HostOperation::ThreadSpawn { active_threads: 5 };
     let context = OperationContext::from_operation(&operation);

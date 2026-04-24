@@ -56,6 +56,7 @@ Recent hardening:
 - the browser entrypoint smoke lane now also covers the Google Chrome stable wrapper spelling (`google-chrome-stable`), so the alias table stays pinned across another common stable-channel name without changing the browser-runtime contract
 - The Brave stable wrapper spellings (`brave-browser-stable` and `brave browser stable`) now have dedicated browser-entrypoint smoke coverage as well, so the alias table stays pinned beyond the existing browser-entrypoint cases.
 - the browser/runtime compatibility layer now also exposes a deterministic `Atomics::is_lock_free` query helper alongside the existing shared-buffer bytewise operations, keeping the later threaded-profile baseline honest about the host's byte-atomic capability without widening the public maturity claims
+- the host-registered predicate context now carries normalized file, network, and process-env detail keys in addition to the existing process/thread payloads, so programmable-policy callers can inspect the same deterministic capability metadata for path/URL/key-shaped operations without inventing a second policy vocabulary
 - the public README command reference now also calls out `kali test --coverage`, keeping the user-facing summary aligned with the stable function-coverage contract already documented in `specs/12-cli.md`
 
 ### Priority A — finish the Phase-1 critical path

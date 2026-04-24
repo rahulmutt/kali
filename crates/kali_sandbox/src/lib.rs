@@ -186,16 +186,33 @@ impl PolicyPredicateContext {
             HostOperation::Console => ("effects.console", "stdout".to_string()),
             HostOperation::Random => ("effects.random", "random".to_string()),
             HostOperation::FileRead { path } => {
+                details.insert("path".to_string(), path.display().to_string());
                 ("effects.fileSystem.read", path.display().to_string())
             }
             HostOperation::FileWrite { path } => {
+                details.insert("path".to_string(), path.display().to_string());
                 ("effects.fileSystem.write", path.display().to_string())
             }
-            HostOperation::NetworkFetch { url } => ("effects.network.fetch", url.clone()),
-            HostOperation::NetworkConnect { target } => ("effects.network.connect", target.clone()),
-            HostOperation::NetworkListen { target } => ("effects.network.listen", target.clone()),
-            HostOperation::EnvironmentRead { key } => ("effects.process.envRead", key.clone()),
-            HostOperation::EnvironmentWrite { key } => ("effects.process.envWrite", key.clone()),
+            HostOperation::NetworkFetch { url } => {
+                details.insert("url".to_string(), url.clone());
+                ("effects.network.fetch", url.clone())
+            }
+            HostOperation::NetworkConnect { target } => {
+                details.insert("target".to_string(), target.clone());
+                ("effects.network.connect", target.clone())
+            }
+            HostOperation::NetworkListen { target } => {
+                details.insert("target".to_string(), target.clone());
+                ("effects.network.listen", target.clone())
+            }
+            HostOperation::EnvironmentRead { key } => {
+                details.insert("key".to_string(), key.clone());
+                ("effects.process.envRead", key.clone())
+            }
+            HostOperation::EnvironmentWrite { key } => {
+                details.insert("key".to_string(), key.clone());
+                ("effects.process.envWrite", key.clone())
+            }
             HostOperation::TimerSchedule {
                 delay_ms,
                 active_timers,
@@ -212,7 +229,10 @@ impl PolicyPredicateContext {
                 details.insert("activeThreads".to_string(), active_threads.to_string());
                 ("resources.maxThreads", active_threads.to_string())
             }
-            HostOperation::ProcessEnvWrite { key } => ("effects.process.envWrite", key.clone()),
+            HostOperation::ProcessEnvWrite { key } => {
+                details.insert("key".to_string(), key.clone());
+                ("effects.process.envWrite", key.clone())
+            }
             HostOperation::Eval => ("effects.eval", "eval".to_string()),
         };
 
