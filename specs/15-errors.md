@@ -155,9 +155,10 @@ Use `E6001` for module/package-not-found-or-no-selectable-stable-release problem
 - a referenced module or package cannot be found under the documented resolution rules
 - an identity-only registry-target workflow (`kali install <pkg>`, `kali install --dev <pkg>`, `kali package-effects <pkg>`, `kali package-audit <pkg>`) found the package identity, but no non-yanked stable release exists to satisfy the shared **stable-release selection rule (schema v1)** from [SPEC.md](../SPEC.md)
 
-Use `E6005` for resolution ambiguity problems such as:
+Use `E6005` for resolution ambiguity or package-shape/host-fit conflicts such as:
 - two candidate package/module edges remaining equally valid after applying the documented resolution rules
 - a manifest/import setup that would require two distinct registry identities to collapse onto the same early-phase `node_modules` package path
+- a published package whose shape or host assumptions are incompatible with the selected early-phase package-analysis/install path, for example a native addon, a Node-only host-API requirement, or another package-shape conflict that cannot be reconciled without inventing extra precedence rules
 - any other situation where Kali cannot pick one faithful resolution target without inventing extra precedence rules not defined by the spec
 
 ### Canonical Feature-Maturity Diagnostic

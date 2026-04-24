@@ -18,8 +18,8 @@ use kali_cli::{
     Args, BundleFormat, Commands,
 };
 use kali_error::{
-    _error_codes::e5, set_verbose_diagnostics, Diagnostic, DiagnosticContext,
-    DiagnosticContextOrigin,
+    _error_codes::{e5, e6},
+    set_verbose_diagnostics, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
 use kali_fmt::format_source;
 use kali_lint::lint_with_options;
@@ -3592,7 +3592,7 @@ fn package_effects_command(
         Some(path) => path,
         None => {
             let diagnostic = Diagnostic::error(
-                e5::DEPENDENCY_STATE_MISSING as u32,
+                e6::DEPENDENCY_STATE_MISSING as u32,
                 format!(
                     "package '{}' is not materialized in the current project",
                     target
@@ -3613,7 +3613,7 @@ fn package_effects_command(
         Some(root) => root,
         None => {
             let diagnostic = Diagnostic::error(
-                e5::DEPENDENCY_STATE_MISSING as u32,
+                e6::DEPENDENCY_STATE_MISSING as u32,
                 format!("unable to locate package root for '{}'", target),
             );
             return emit_diagnostics_and_exit(
@@ -4281,7 +4281,7 @@ fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
     let path = package_root.join("package.json");
     let raw = fs::read_to_string(&path).map_err(|error| {
         Diagnostic::error(
-            e5::DEPENDENCY_STATE_MISSING as u32,
+            e6::DEPENDENCY_STATE_MISSING as u32,
             format!(
                 "failed to read package metadata '{}': {}",
                 path.display(),
@@ -4291,7 +4291,7 @@ fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
     })?;
     let package_json: Value = serde_json::from_str(&raw).map_err(|error| {
         Diagnostic::error(
-            e5::DEPENDENCY_STATE_MISSING as u32,
+            e6::DEPENDENCY_STATE_MISSING as u32,
             format!(
                 "failed to parse package metadata '{}': {}",
                 path.display(),
@@ -4305,7 +4305,7 @@ fn read_package_version(package_root: &Path) -> Result<String, Diagnostic> {
         .map(|value| value.to_string())
         .ok_or_else(|| {
             Diagnostic::error(
-                e5::DEPENDENCY_STATE_MISSING as u32,
+                e6::DEPENDENCY_STATE_MISSING as u32,
                 format!("package metadata '{}' is missing a version", path.display()),
             )
         })

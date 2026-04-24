@@ -10165,6 +10165,27 @@ fn package_effects_command_emits_pretty_json_payload_under_quiet() {
 }
 
 #[test]
+fn package_effects_rejects_missing_dependency_state() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E6004"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("package 'purepkg' is not materialized in the current project"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_effects_command_emits_json_envelope() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
@@ -12666,7 +12687,7 @@ fn package_audit_command_reports_error_findings() {
         .contains("1 error(s), 0 warning(s)"));
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0]["code"], "E6004");
+    assert_eq!(errors[0]["code"], "E6005");
     assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
 }
 

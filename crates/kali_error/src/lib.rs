@@ -109,7 +109,6 @@ pub mod _error_codes {
         pub const MISSING_REQUIRED_ARGUMENT: u16 = 5001;
         pub const UNKNOWN_COMMAND: u16 = 5002;
         pub const INVALID_MODULE_SPECIFIER: u16 = 5003;
-        pub const DEPENDENCY_STATE_MISSING: u16 = 5004;
         pub const FEATURE_UNAVAILABLE: u16 = 5506;
         pub const INVALID_PRIMARY_INPUT_KIND: u16 = 5507;
         pub const INVALID_CLI_USAGE: u16 = 5508;
@@ -131,7 +130,8 @@ pub mod _error_codes {
         pub const NOT_FOUND: u16 = 6001;
         pub const VERSION_MISMATCH: u16 = 6002;
         pub const INTEGRITY_VERIFICATION_FAILED: u16 = 6003;
-        pub const INCOMPATIBLE_PACKAGE: u16 = 6004;
+        pub const DEPENDENCY_STATE_MISSING: u16 = 6004;
+        pub const INCOMPATIBLE_PACKAGE: u16 = 6005;
         pub const NODE_ONLY_HOST_APIS: u16 = 6005;
         pub const LIFECYCLE_SCRIPT_REJECTED: u16 = 6006;
         pub const INSTALL_REQUIRED: u16 = 6007;
