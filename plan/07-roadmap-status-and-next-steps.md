@@ -45,6 +45,7 @@ Recent hardening:
 - the browser bundle smoke lane now also exercises the explicit `--api browser` path with `--bundle` + `--sandbox`, so the browser-targeted build evidence no longer relies only on inherited config for its executable and JSON snapshots
 - the standalone browser runtime negative gates for `run --api browser` and `test --api browser` are now explicitly env-hardened in the CLI smoke suite, so the later browser rejection path stays pinned even if a browser harness helper leaks into the test environment
 - the top-level CLI spine now has a dedicated `kali --version` smoke test, keeping the entrypoint contract pinned alongside the other command-shape regressions
+- `kali build --validate-ir` now runs structural HIR/MIR/LIR validation on demand, so the build lane can fail early on inconsistent lowered trees without changing the emitted artifact shape
 - the semver package bin now has an explicit default-standalone rejection regression, so the package-execution lane keeps the Node-only CLI split honest before the later Node row opens
 - `kali install --dev semver` now has a configless-project regression that records the package in `devDependencies` and materializes the lockfile without inventing a placeholder manifest, so the registry-install lane covers the documented dev-dependency path as well
 - the human diagnostic renderer now emits canonical error-doc links when `--verbose` is enabled, so the richer presentation path stays aligned with the E-code documentation contract instead of only the default concise output

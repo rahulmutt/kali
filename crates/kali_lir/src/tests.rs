@@ -22,6 +22,7 @@ fn test_lir_lowering_preserves_root() {
 
     assert_eq!(lir.nodes[lir.root.0 as usize].kind, LirNodeKind::Program);
     assert_eq!(lir.nodes[lir.root.0 as usize].children.len(), 1);
+    assert!(lir.validate().is_ok());
 }
 
 #[test]
@@ -40,4 +41,22 @@ fn test_lir_lowering_preserves_child_order_and_text_payloads() {
         .nodes
         .iter()
         .any(|node| node.text.as_deref() == Some("foo")));
+}
+
+#[test]
+fn test_lir_validation_rejects_out_of_bounds_children() {
+    let lir = LirProgram {
+        root: LirNodeId::new(0),
+        nodes: vec![LirNode {
+            kind: LirNodeKind::Program,
+            text: None,
+            children: vec![LirNodeId::new(1)],
+        }],
+    };
+
+    let error = lir
+        .validate()
+        .expect_err("invalid LIR should fail validation");
+    assert!(error.contains("LIR"), "error: {error}");
+    assert!(error.contains("child node id 1"), "error: {error}");
 }

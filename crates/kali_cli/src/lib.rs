@@ -214,6 +214,9 @@ pub enum Commands {
         /// Override the specialization fan-out cap for this build
         #[arg(long = "max-specializations")]
         max_specializations: Option<usize>,
+        /// Run internal IR validators as a debugging/developer aid
+        #[arg(long = "validate-ir")]
+        validate_ir: bool,
         /// Opt into the later threaded runtime profile
         #[arg(long = "wasm-threads", action = ArgAction::SetTrue)]
         wasm_threads: bool,

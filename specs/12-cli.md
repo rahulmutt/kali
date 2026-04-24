@@ -156,7 +156,7 @@ To keep the shared-flag table small and avoid implying that every convenience fl
 | `--lib` | `build`, `init` | For `build`: select the library-oriented artifact mode. In Phase 1 this is the **base library artifact** path, and from the Phase 2 target onward the same selector becomes the stable public **WIT-first** library contract. For `init`: scaffold a library-oriented project template only |
 | `--capi` | `build` | Select the later public C-embedding artifact flow over the same exported-library contract; once that Phase-2 flow exists, it emits `wasm-module` + `wit` + `c-header` + `cabi-metadata` |
 | `--component` | `build` | Select the later Component Model packaging flow over the same exported-library contract; once that Phase-2 flow exists, it emits the linked library core plus the outer `wasm-component` wrapper |
-| `--validate-ir` | `build` | Run internal IR validators as a debugging/developer aid |
+| `--validate-ir` | `build` | Run internal HIR/MIR/LIR structural validators as a debugging/developer aid; release builds can force it on when a developer wants an explicit validation pass |
 | `--max-specializations N` | `build`, `run`, `test` | Override the specialization fan-out cap upper bound for a single invocation; this is an upper bound, not a promise that the current build mode will spend the full budget, and `--fast` may still skip most user-authored generic specialization entirely |
 | `--profile <file>` | `build` | Load deterministic PGO profile data from a JSON file as an explicit build-only additive optimization input; it does not change the stable `fast` / `release` / `release-advanced` vocabulary |
 | `--fix` | `lint` | Apply only structured, tool-generated safe fixes for lint diagnostics in the selected file/project set |
@@ -348,7 +348,7 @@ kali build --component --api node lib.ts   # Supported Node build subset for the
 kali build --component --api browser lib.ts # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser component artifact modes
 kali build --sandbox kali.policy.json main.ts # Phase 1: policy-schema/config validation; from the Phase 2 target onward also validate inferred effects
 kali build --bundle --api browser --sandbox kali.policy.json main.ts # Phase 1: browser-targeted static policy-schema/config validation only; no automatic browser-runtime enforcement is implied after deployment
-kali build --validate-ir main.ts           # Run IR validators (debug aid)
+kali build --validate-ir main.ts           # Run HIR/MIR/LIR validators (debug aid)
 kali build --max-specializations 32 main.ts # Override specialization cap
 kali build --profile pgo-profile.json main.ts # Load deterministic PGO profile data and record its normalized hash in build metadata sidecars and JSON output
 ```

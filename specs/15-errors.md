@@ -390,6 +390,7 @@ Clarification:
 - `E8001`: Uncaught exception
 - `E8002`: Stack overflow
 - `E8003`: Out of memory
+- `E8100`: Internal compiler/runtime invariant failure, including failed IR structural validation in developer-debug mode
 
 ### Memory/Ownership Errors (E7xxx)
 - `E7001`: Value used after move

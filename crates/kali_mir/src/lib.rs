@@ -387,6 +387,17 @@ impl MirProgram {
             .find(|function| function.kind == MirFunctionKind::Module)
     }
 
+    /// Validate the structural consistency of the lowered MIR tree.
+    pub fn validate(&self) -> Result<(), String> {
+        validate_tree(
+            "MIR",
+            self.root,
+            &self.nodes,
+            |node| &node.children,
+            |id| id.0 as usize,
+        )
+    }
+
     pub fn function(&self, name: &str) -> Option<&MirFunction> {
         self.functions
             .iter()
@@ -456,6 +467,43 @@ impl MirProgram {
         }
         profile.finalize()
     }
+}
+
+fn validate_tree<Node, Id>(
+    label: &str,
+    root: Id,
+    nodes: &[Node],
+    children: impl Fn(&Node) -> &[Id],
+    to_index: impl Fn(Id) -> usize,
+) -> Result<(), String>
+where
+    Id: Copy,
+{
+    if nodes.is_empty() {
+        return Err(format!("{label} tree contains no nodes"));
+    }
+
+    let root_index = to_index(root);
+    if root_index >= nodes.len() {
+        return Err(format!(
+            "{label} root node id {root_index} is out of bounds for {} nodes",
+            nodes.len()
+        ));
+    }
+
+    for (index, node) in nodes.iter().enumerate() {
+        for child in children(node) {
+            let child_index = to_index(*child);
+            if child_index >= nodes.len() {
+                return Err(format!(
+                    "{label} node {index} references child node id {child_index} outside the node table of {} nodes",
+                    nodes.len()
+                ));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn function_scope_name(function: &MirFunction) -> String {

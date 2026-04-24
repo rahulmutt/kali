@@ -31,6 +31,7 @@ fn test_lower_statements_to_hir() {
         HirNodeKind::Program
     );
     assert_eq!(result.nodes[result.root.0 as usize].children.len(), 2);
+    assert!(result.validate().is_ok());
 
     let var_decl = &result.nodes[result.nodes[result.root.0 as usize].children[0].0 as usize];
     assert_eq!(var_decl.kind, HirNodeKind::VarDecl);
@@ -82,4 +83,24 @@ fn test_object_literal_lowers_to_stable_property_shape() {
     let value = &lowerer.builder.nodes[property.children[1].0 as usize];
     assert_eq!(value.kind, HirNodeKind::Ident);
     assert_eq!(value.text.as_deref(), Some("value"));
+}
+
+#[test]
+fn test_hir_validation_rejects_out_of_bounds_children() {
+    let hir = LoweringResult {
+        root: HirNodeId::new(0),
+        nodes: vec![HirNode {
+            kind: HirNodeKind::Program,
+            span: None,
+            text: None,
+            children: vec![HirNodeId::new(1)],
+        }],
+        diagnostics: Vec::new(),
+    };
+
+    let error = hir
+        .validate()
+        .expect_err("invalid HIR should fail validation");
+    assert!(error.contains("HIR"), "error: {error}");
+    assert!(error.contains("child node id 1"), "error: {error}");
 }

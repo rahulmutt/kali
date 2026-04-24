@@ -3405,6 +3405,7 @@ fn build_embeds_sandbox_policy_custom_section() {
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
         .arg("build")
+        .arg("--validate-ir")
         .arg("--sandbox")
         .arg(&policy_path)
         .arg(&source_path)

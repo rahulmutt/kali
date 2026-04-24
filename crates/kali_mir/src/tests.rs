@@ -29,6 +29,7 @@ fn test_mir_lowering_preserves_program_shape() {
         mir.nodes[mir.nodes[mir.root.0 as usize].children[0].0 as usize].kind,
         MirNodeKind::Decl
     );
+    assert!(mir.validate().is_ok());
 }
 
 #[test]
@@ -485,6 +486,25 @@ fn test_layout_fingerprints_are_deterministic_and_reusable() {
         captured_by: Vec::new(),
     };
     assert_eq!(binding.layout_fingerprint(), "Closure(captures=a|z)");
+}
+
+#[test]
+fn test_mir_validation_rejects_out_of_bounds_children() {
+    let mir = MirProgram {
+        root: MirNodeId::new(0),
+        nodes: vec![MirNode {
+            kind: MirNodeKind::Program,
+            text: None,
+            children: vec![MirNodeId::new(1)],
+        }],
+        functions: Vec::new(),
+    };
+
+    let error = mir
+        .validate()
+        .expect_err("invalid MIR should fail validation");
+    assert!(error.contains("MIR"), "error: {error}");
+    assert!(error.contains("child node id 1"), "error: {error}");
 }
 
 #[test]

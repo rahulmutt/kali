@@ -27,6 +27,7 @@ kali fmt
 kali lint
 kali check [files...]
 kali build <file>
+kali build --validate-ir <file>  # run internal HIR/MIR/LIR validators
 kali build --bundle <file>      # browser-targeted build lane
 kali build --lib <file>         # base library artifact for exact-version consumers
 kali run <file> [-- args...]
@@ -47,6 +48,7 @@ kali package-audit <package>
 Helpful flags you will see often:
 
 - `--api deno|node|browser` *(Phase 1 ships the Deno-oriented default plus the browser-targeted `check` / `build --bundle` context; `check` / `build` now also accept the documented Node analysis/build subset, while `run` / `test` support the documented Node execution subset and broader effect/registry-analysis breadth remains later)*
+- `--validate-ir` *(debug aid for `build`; validates the lowered HIR/MIR/LIR tree and can be forced on when you want an explicit validation pass)*
 - `--sandbox <policy>`
 - `--output json`
 - `--verbose` / `--quiet` *(verbose adds extra context and error docs links in human output)*

@@ -97,6 +97,7 @@ fn main() {
             api,
             compat,
             profile,
+            validate_ir,
             wasm_threads,
             files,
             fast,
@@ -116,6 +117,7 @@ fn main() {
                 api,
                 compat,
                 profile,
+                validate_ir,
                 wasm_threads,
                 fast,
                 release,
@@ -482,6 +484,7 @@ fn build_command(
     api: Option<kali_cli::ApiSurface>,
     compat: Vec<String>,
     profile: Option<PathBuf>,
+    validate_ir: bool,
     wasm_threads: bool,
     fast: bool,
     release: bool,
@@ -603,6 +606,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            validate_ir,
             profile_data.as_ref(),
             &effective_runtime_profiles,
         ),
@@ -614,6 +618,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            validate_ir,
             profile_data.as_ref(),
             &effective_runtime_profiles,
         ),
@@ -625,6 +630,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            validate_ir,
             profile_data.as_ref(),
             &effective_runtime_profiles,
         ),
@@ -636,6 +642,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            validate_ir,
             profile_data.as_ref(),
             &effective_runtime_profiles,
         ),
@@ -647,6 +654,7 @@ fn build_command(
             policy.as_ref(),
             effective_api,
             compat_eval,
+            validate_ir,
             profile_data.as_ref(),
             &effective_runtime_profiles,
             bundle_format,
@@ -1326,20 +1334,23 @@ fn build_executable_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file_with_specialization_cap_and_profile_data(
-        &source,
-        mode,
-        max_specializations,
-        api_surface,
-        profile_data,
-        runtime_profiles,
-        compat_eval,
-        false,
-    )?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+            &source,
+            mode,
+            max_specializations,
+            api_surface,
+            profile_data,
+            runtime_profiles,
+            compat_eval,
+            validate_ir,
+            false,
+        )?;
     let metadata = build::build_artifact_metadata(
         &source,
         "executable",
@@ -1404,20 +1415,23 @@ fn build_library_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file_with_specialization_cap_and_profile_data(
-        &source,
-        mode,
-        max_specializations,
-        api_surface,
-        profile_data,
-        runtime_profiles,
-        compat_eval,
-        false,
-    )?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+            &source,
+            mode,
+            max_specializations,
+            api_surface,
+            profile_data,
+            runtime_profiles,
+            compat_eval,
+            validate_ir,
+            false,
+        )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -1509,20 +1523,23 @@ fn build_capi_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let mut wasm_bytes = build::compile_source_file_with_specialization_cap_and_profile_data(
-        &source,
-        mode,
-        max_specializations,
-        api_surface,
-        profile_data,
-        runtime_profiles,
-        compat_eval,
-        false,
-    )?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+            &source,
+            mode,
+            max_specializations,
+            api_surface,
+            profile_data,
+            runtime_profiles,
+            compat_eval,
+            validate_ir,
+            false,
+        )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -1695,20 +1712,23 @@ fn build_component_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
 ) -> Result<BuildResult, Vec<Diagnostic>> {
     let source = PathBuf::from(file);
-    let wasm_bytes = build::compile_source_file_with_specialization_cap_and_profile_data(
-        &source,
-        mode,
-        max_specializations,
-        api_surface,
-        profile_data,
-        runtime_profiles,
-        compat_eval,
-        false,
-    )?;
+    let wasm_bytes =
+        build::compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+            &source,
+            mode,
+            max_specializations,
+            api_surface,
+            profile_data,
+            runtime_profiles,
+            compat_eval,
+            validate_ir,
+            false,
+        )?;
     let exports = build::collect_library_exports(&source)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
@@ -1852,6 +1872,7 @@ fn build_browser_bundle_artifact(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     format: BundleFormat,
@@ -1868,6 +1889,7 @@ fn build_browser_bundle_artifact(
         policy,
         api_surface,
         compat_eval,
+        validate_ir,
         profile_data,
         runtime_profiles,
         format,
@@ -1881,6 +1903,7 @@ fn build_browser_bundle_artifact(
         policy,
         api_surface,
         compat_eval,
+        validate_ir,
         profile_data,
         runtime_profiles,
         format,
@@ -1909,21 +1932,24 @@ fn write_browser_bundle_files(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     format: BundleFormat,
     tree_shake_exports: bool,
 ) -> Result<BrowserBundleBuild, Vec<Diagnostic>> {
-    let mut wasm_bytes = build::compile_source_file_with_specialization_cap_and_profile_data(
-        source,
-        mode,
-        max_specializations,
-        api_surface,
-        profile_data,
-        runtime_profiles,
-        compat_eval,
-        false,
-    )?;
+    let mut wasm_bytes =
+        build::compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+            source,
+            mode,
+            max_specializations,
+            api_surface,
+            profile_data,
+            runtime_profiles,
+            compat_eval,
+            validate_ir,
+            false,
+        )?;
     let exports =
         build::collect_browser_bundle_exports(source, tree_shake_exports).unwrap_or_default();
     let metadata = build::build_artifact_metadata(
@@ -2063,6 +2089,7 @@ fn collect_browser_bundle_chunk_artifacts(
     policy: Option<&SandboxPolicy>,
     api_surface: kali_cli::ApiSurface,
     compat_eval: bool,
+    validate_ir: bool,
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     format: BundleFormat,
@@ -2093,6 +2120,7 @@ fn collect_browser_bundle_chunk_artifacts(
             policy,
             api_surface,
             compat_eval,
+            validate_ir,
             profile_data,
             runtime_profiles,
             format,
@@ -2123,6 +2151,7 @@ fn collect_browser_bundle_chunk_artifacts(
             policy,
             api_surface,
             compat_eval,
+            validate_ir,
             profile_data,
             runtime_profiles,
             format,
@@ -2660,13 +2689,14 @@ fn run_command(
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
 
-    let wasm_bytes = match build::compile_source_file_with_specialization_cap(
+    let wasm_bytes = match build::compile_source_file_with_specialization_cap_and_validation(
         &source,
         build::BuildMode::Fast,
         max_specializations,
         effective_api,
         &effective_runtime_profiles,
         compat_eval,
+        false,
         false,
     ) {
         Ok(bytes) => bytes,
@@ -2930,13 +2960,14 @@ fn test_command(
 
     for file in filtered_files {
         let source = PathBuf::from(&file);
-        let wasm_bytes = match build::compile_source_file_with_specialization_cap(
+        let wasm_bytes = match build::compile_source_file_with_specialization_cap_and_validation(
             &source,
             build::BuildMode::Fast,
             max_specializations,
             effective_api,
             &effective_runtime_profiles,
             compat_eval,
+            false,
             coverage,
         ) {
             Ok(bytes) => bytes,

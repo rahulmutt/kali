@@ -177,7 +177,7 @@ pub fn compile_source_file_with_cache_state(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state_and_profile_data(
+    compile_source_file_with_cache_state_and_profile_data_and_validation(
         source_path,
         mode,
         max_specializations,
@@ -185,6 +185,7 @@ pub fn compile_source_file_with_cache_state(
         None,
         runtime_profiles,
         compat_eval,
+        false,
         coverage,
     )
 }
@@ -200,6 +201,31 @@ pub fn compile_source_file_with_cache_state_and_profile_data(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state_and_profile_data_and_validation(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        profile_data,
+        runtime_profiles,
+        compat_eval,
+        false,
+        coverage,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    validate_ir: bool,
+    coverage: bool,
+) -> Result<CompileOutput, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
     let runtime_profiles = validate_runtime_profiles(
         runtime_profiles,
@@ -207,16 +233,20 @@ pub fn compile_source_file_with_cache_state_and_profile_data(
     )?;
     let profile_data = profile_data.cloned().map(ProfileData::normalized);
 
-    if let Some(cache_path) = incremental_cache_path(
-        source_path,
-        mode,
-        max_specializations,
-        api_surface,
-        &runtime_profiles,
-        profile_data.as_ref(),
-        compat_eval,
-        coverage,
-    )? {
+    if let Some(cache_path) = if validate_ir {
+        None
+    } else {
+        incremental_cache_path(
+            source_path,
+            mode,
+            max_specializations,
+            api_surface,
+            &runtime_profiles,
+            profile_data.as_ref(),
+            compat_eval,
+            coverage,
+        )?
+    } {
         match fs::read(&cache_path) {
             Ok(wasm_bytes) => {
                 return Ok(CompileOutput {
@@ -245,6 +275,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data(
             api_surface,
             profile_data.as_ref(),
             compat_eval,
+            validate_ir,
             coverage,
         )?;
 
@@ -266,6 +297,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data(
             api_surface,
             profile_data.as_ref(),
             compat_eval,
+            validate_ir,
             coverage,
         )?;
         Ok(CompileOutput {
@@ -304,7 +336,7 @@ pub fn compile_source_file_with_specialization_cap(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_specialization_cap_and_profile_data(
+    compile_source_file_with_specialization_cap_and_profile_data_and_validation(
         source_path,
         mode,
         max_specializations,
@@ -312,6 +344,31 @@ pub fn compile_source_file_with_specialization_cap(
         None,
         runtime_profiles,
         compat_eval,
+        false,
+        coverage,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compile_source_file_with_specialization_cap_and_validation(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    validate_ir: bool,
+    coverage: bool,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        None,
+        runtime_profiles,
+        compat_eval,
+        validate_ir,
         coverage,
     )
 }
@@ -327,7 +384,7 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data(
     compat_eval: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    compile_source_file_with_cache_state_and_profile_data(
+    compile_source_file_with_specialization_cap_and_profile_data_and_validation(
         source_path,
         mode,
         max_specializations,
@@ -335,6 +392,32 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data(
         profile_data,
         runtime_profiles,
         compat_eval,
+        false,
+        coverage,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compile_source_file_with_specialization_cap_and_profile_data_and_validation(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    validate_ir: bool,
+    coverage: bool,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_with_cache_state_and_profile_data_and_validation(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        profile_data,
+        runtime_profiles,
+        compat_eval,
+        validate_ir,
         coverage,
     )
     .map(|output| output.wasm_bytes)
@@ -347,9 +430,11 @@ fn compile_source_file_uncached(
     api_surface: ApiSurface,
     profile_data: Option<&ProfileData>,
     compat_eval: bool,
+    validate_ir: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let analyzed = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
+    let validate_ir = validate_ir;
 
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
@@ -358,9 +443,18 @@ fn compile_source_file_uncached(
     if has_errors(&diagnostics) {
         return Err(diagnostics);
     }
+    if validate_ir {
+        validate_hir_tree(&hir)?;
+    }
 
     let mir = MirLowerer::new().lower_hir_result(&hir);
+    if validate_ir {
+        validate_mir_program(&mir)?;
+    }
     let mut lir = LirLowerer::new().lower_program(&mir);
+    if validate_ir {
+        validate_lir_program(&lir)?;
+    }
 
     let optimization_level = match mode {
         BuildMode::Fast => OptimizationLevel::Fast,
@@ -389,6 +483,28 @@ fn compile_source_file_uncached(
     }
 
     Ok(result.wasm_bytes)
+}
+
+fn validation_diagnostic(stage: &str, error: String) -> Vec<Diagnostic> {
+    vec![Diagnostic::error(
+        e8::INTERNAL_ERROR as u32,
+        format!("{stage} validation failed: {error}"),
+    )]
+}
+
+fn validate_hir_tree(hir: &kali_hir::LoweringResult) -> Result<(), Vec<Diagnostic>> {
+    hir.validate()
+        .map_err(|error| validation_diagnostic("HIR", error))
+}
+
+fn validate_mir_program(mir: &kali_mir::MirProgram) -> Result<(), Vec<Diagnostic>> {
+    mir.validate()
+        .map_err(|error| validation_diagnostic("MIR", error))
+}
+
+fn validate_lir_program(lir: &kali_lir::LirProgram) -> Result<(), Vec<Diagnostic>> {
+    lir.validate()
+        .map_err(|error| validation_diagnostic("LIR", error))
 }
 
 #[allow(clippy::too_many_arguments)]
