@@ -1212,6 +1212,61 @@ fn browser_corpus_packages_with_module_entries_remain_checkable_and_deployable_t
 }
 
 #[test]
+fn browser_corpus_packages_with_module_entries_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_module_only_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:module'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser module-only package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser module-only package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_deployable_through_host(
 ) {
     for (package, subpath) in [
