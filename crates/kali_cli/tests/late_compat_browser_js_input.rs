@@ -42,6 +42,43 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
     }
 }
 
+fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors
+            .iter()
+            .all(|error| matches!(error["code"].as_str(), Some("E3100") | Some("E5506"))),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["code"] == "E3100"),
+        "expected at least one E3100 error: {errors:?}"
+    );
+    for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
+        "globalThis.Deno.cwd",
+        "Deno.chdir",
+        "globalThis.Deno.chdir",
+        "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "process.chdir",
+        "globalThis.process.chdir",
+        "process.exit",
+        "undefined identifier 'process'",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
+}
+
 fn assert_browser_late_object_model_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in [
@@ -106,6 +143,61 @@ fn build_rejects_late_process_control_members_in_browser_bundle_js_input() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_browser_late_process_control_rejection(&stderr);
+}
+
+#[test]
+fn check_rejects_late_process_control_members_in_browser_api_surface_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_process_control_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_process_control_rejection_json(errors);
+}
+
+#[test]
+fn build_rejects_late_process_control_members_in_browser_bundle_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_process_control_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_process_control_rejection_json(errors);
 }
 
 #[test]
