@@ -283,6 +283,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
             name: "main".to_string(),
             params: vec![],
             body: Box::new(BlockStatement { body: vec![] }),
+            is_async: false,
             generator: true,
         }),
         Statement::ExpressionStatement(ExpressionStatement {

@@ -158,7 +158,14 @@ impl Parser {
         match kind {
             TokenType::Var | TokenType::Let | TokenType::Const => self.parse_variable_declaration(),
             TokenType::LeftBrace => self.parse_block_statement(),
-            TokenType::Function => self.parse_function_declaration(),
+            TokenType::Async => {
+                if self.stream.peek_next_kind() == Some(&TokenType::Function) {
+                    self.parse_function_declaration_with_async(true)
+                } else {
+                    self.parse_expression_statement()
+                }
+            }
+            TokenType::Function => self.parse_function_declaration_with_async(false),
             TokenType::Class => self.parse_class_declaration(),
             TokenType::If => self.parse_if_statement(),
             TokenType::While => self.parse_while_statement(),
@@ -245,6 +252,13 @@ impl Parser {
     }
 
     fn parse_function_declaration(&mut self) -> Option<Statement> {
+        self.parse_function_declaration_with_async(false)
+    }
+
+    fn parse_function_declaration_with_async(&mut self, is_async: bool) -> Option<Statement> {
+        if is_async {
+            let _ = self.stream.advance();
+        }
         let _ = self.stream.advance();
         let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
@@ -280,6 +294,7 @@ impl Parser {
             name,
             params,
             body: Box::new(body_block),
+            is_async,
             generator,
         }))
     }
@@ -1030,6 +1045,13 @@ impl Parser {
     }
 
     fn parse_function_expression(&mut self) -> Expression {
+        self.parse_function_expression_with_async(false)
+    }
+
+    fn parse_function_expression_with_async(&mut self, is_async: bool) -> Expression {
+        if is_async {
+            let _ = self.stream.advance();
+        }
         let _ = self.stream.advance();
         let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
@@ -1070,7 +1092,7 @@ impl Parser {
             id,
             params,
             body: func_body,
-            is_async: false,
+            is_async,
             generator,
         }))
     }
@@ -1161,7 +1183,18 @@ impl Parser {
                     Expression::Identifier(name)
                 }
             }
-            TokenType::Function => self.parse_function_expression(),
+            TokenType::Async => {
+                if self.stream.peek_next_kind() == Some(&TokenType::Function) {
+                    self.parse_function_expression_with_async(true)
+                } else {
+                    let token = self.stream.advance();
+                    let name = token
+                        .map(|t| t.value)
+                        .unwrap_or_else(|| "async".to_string());
+                    Expression::Identifier(name)
+                }
+            }
+            TokenType::Function => self.parse_function_expression_with_async(false),
             TokenType::Import => {
                 let _ = self.stream.advance();
                 if self.stream.accept(TokenType::LeftParen) {

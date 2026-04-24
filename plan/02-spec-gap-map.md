@@ -13,7 +13,7 @@ Remaining goals:
 - Keep open-ended cross-module/public-API inference gated until a later solver/evidence lane exists.
 - Implement literal-string `import()` over the already-linked graph when ready; keep non-literal dynamic import gated.
 - Improve minimized regression fixtures for supported dynamic/object/runtime behavior.
-- Generator lowering still needs a dedicated implementation packet; the parser now accepts generator syntax, but lowering remains gated at resolution/check time and current runtime smoke coverage is still limited to simpler regression cases such as arithmetic, exceptions (including try/finally sequencing), object enumeration, and built-ins.
+- Generator lowering still needs a dedicated implementation packet; the parser now accepts async function declarations/expressions, async generator syntax, and generator syntax, but lowering remains gated at resolution/check time and current runtime smoke coverage is still limited to simpler regression cases such as arithmetic, exceptions (including try/finally sequencing), object enumeration, and built-ins.
 - `Object.values()` is now covered alongside the already-covered `Object.keys()` / `Object.entries()` pair; keep it in the runtime-smoke regression set while other object-enumeration gaps are pursued.
 
 ## Runtime, host, and platform expansion

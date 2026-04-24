@@ -201,6 +201,7 @@ pub struct FunctionDeclaration {
     pub name: String,
     pub params: Vec<String>,
     pub body: Box<BlockStatement>,
+    pub is_async: bool,
     pub generator: bool,
 }
 

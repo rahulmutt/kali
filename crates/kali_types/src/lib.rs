@@ -433,6 +433,7 @@ impl TypeContext {
                 params,
                 body,
                 generator,
+                ..
             }) => {
                 self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Function);
