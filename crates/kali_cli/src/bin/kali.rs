@@ -2377,8 +2377,10 @@ function formatConsoleValue(val) {{
     if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
       const offset = Number((val >> 32n) & 0x7fffffffn);
       const length = Number(val & 0xffffffffn);
-      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
-      return new TextDecoder().decode(bytes);
+      if (offset >= 0 && length >= 0 && offset + length <= wasmMemory.buffer.byteLength) {{
+        const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+        return new TextDecoder().decode(bytes);
+      }}
     }}
     return val.toString();
   }}
@@ -2535,8 +2537,10 @@ function formatConsoleValue(val) {{
     if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
       const offset = Number((val >> 32n) & 0x7fffffffn);
       const length = Number(val & 0xffffffffn);
-      const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
-      return new TextDecoder().decode(bytes);
+      if (offset >= 0 && length >= 0 && offset + length <= wasmMemory.buffer.byteLength) {{
+        const bytes = new Uint8Array(wasmMemory.buffer, offset, length);
+        return new TextDecoder().decode(bytes);
+      }}
     }}
     return val.toString();
   }}
