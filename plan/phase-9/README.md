@@ -39,6 +39,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 - Add version-pinned benchmarks and fixtures.
 - Require repeatability before any public performance wording changes.
 - Keep package benchmark anecdotes separate from compatibility claims.
+- Progress: the optimization benchmark smoke now uses a checked-in, hash-validated fixture pair (`math-benchmark-v1.ts` / `math-benchmark-v1.json`) so the compile-time size/speed comparison lane is pinned to deterministic inputs instead of an ad-hoc inline source string.
 
 ## Exit gate
 

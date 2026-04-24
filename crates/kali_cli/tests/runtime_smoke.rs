@@ -2144,7 +2144,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 3 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 4 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -10936,26 +10936,29 @@ fn release_hot_paths_stay_unboxed_without_tag_checks() {
 #[test]
 fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("math.ts");
-    fs::write(
-        &source_path,
-        r#"
-function dead0(x) { return (x + 0) + (0 + x); }
-function dead1(x) { return (x + 0) + (0 + x); }
-function dead2(x) { return (x + 0) + (0 + x); }
-function dead3(x) { return (x + 0) + (0 + x); }
-function dead4(x) { return (x + 0) + (0 + x); }
-function dead5(x) { return (x + 0) + (0 + x); }
-
-function hot(x, y) {
-  const folded = (1 + 2) + (3 + 4) + (5 + 6);
-  return ((x + 0) + (y + 0)) + folded;
-}
-
-hot(1, 2);
-"#,
+    let source_fixture = fixture_path("benchmarks/math-benchmark-v1.ts");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(fixture_path("benchmarks/math-benchmark-v1.json"))
+            .expect("read benchmark metadata"),
     )
-    .expect("write source");
+    .expect("parse benchmark metadata");
+    let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
+    let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
+
+    assert_eq!(metadata["benchmark"], "folded-arithmetic");
+    assert_eq!(metadata["version"], 1);
+    assert_eq!(metadata["sourceFile"], "math-benchmark-v1.ts");
+    assert_eq!(metadata["sourceSha256"], source_hash);
+    assert_eq!(
+        metadata["buildModes"],
+        json!(["--fast", "--release", "--release-advanced"])
+    );
+
+    let source_file_name = metadata["sourceFile"]
+        .as_str()
+        .expect("benchmark source file name");
+    let source_path = dir.path().join(source_file_name);
+    fs::write(&source_path, source).expect("write benchmark source");
 
     let benchmark = |mode_flag: &str, out_dir_name: &str| {
         let out_dir = dir.path().join(out_dir_name);
@@ -10976,7 +10979,13 @@ hot(1, 2);
             String::from_utf8_lossy(&output.stderr)
         );
 
-        let wasm_path = out_dir.join("math.wasm");
+        let wasm_path = out_dir.join(format!(
+            "{}.wasm",
+            source_path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .expect("benchmark source stem")
+        ));
         let wasm_bytes = fs::read(&wasm_path).expect("read benchmark wasm");
         let compile_ms = started.elapsed().as_millis();
         let wasm_size = wasm_bytes.len();
