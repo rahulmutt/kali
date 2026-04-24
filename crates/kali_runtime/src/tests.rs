@@ -523,6 +523,9 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("librewolf"));
     assert!(browser_harness_uses_html_entrypoint("waterfox"));
     assert!(browser_harness_uses_html_entrypoint("mullvad-browser"));
+    assert!(browser_harness_uses_html_entrypoint("mullvad browser"));
+    assert!(browser_harness_uses_html_entrypoint("opera"));
+    assert!(browser_harness_uses_html_entrypoint("vivaldi"));
     assert!(browser_harness_uses_html_entrypoint("Mullvad Browser.app"));
     assert!(browser_harness_uses_html_entrypoint("zen-browser"));
     assert!(browser_harness_uses_html_entrypoint("zen browser"));
@@ -597,6 +600,14 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
             "brave browser stable".to_string(),
             "--headless".to_string()
         ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("opera"),
+        Some(vec!["opera".to_string(), "--headless".to_string()])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("vivaldi"),
+        Some(vec!["vivaldi".to_string(), "--headless".to_string()])
     );
     assert_eq!(
         browser_harness_command_parts_for_browser_executable("google chrome stable"),
