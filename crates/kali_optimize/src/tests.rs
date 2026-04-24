@@ -1521,6 +1521,113 @@ fn release_specializes_tagged_parameters_from_concrete_arguments() {
 }
 
 #[test]
+fn release_respects_zero_specialization_budget_for_tagged_parameters() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let function = builder.alloc_text(LirNodeKind::Instruction, "add_pair");
+    let param_left = builder.alloc_text(LirNodeKind::Value, "left");
+    let param_right = builder.alloc_text(LirNodeKind::Value, "right");
+    let block = builder.alloc(LirNodeKind::Block);
+    let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add8 = builder.alloc_text(LirNodeKind::Value, "+");
+    let one = literal(&mut builder, "1");
+    let two = literal(&mut builder, "2");
+    let three = literal(&mut builder, "3");
+    let four = literal(&mut builder, "4");
+    let five = literal(&mut builder, "5");
+    let six = literal(&mut builder, "6");
+    let seven = literal(&mut builder, "7");
+    let eight = literal(&mut builder, "8");
+    builder.node_mut(add1).unwrap().children = vec![param_left, param_right];
+    builder.node_mut(add2).unwrap().children = vec![add1, one];
+    builder.node_mut(add3).unwrap().children = vec![add2, two];
+    builder.node_mut(add4).unwrap().children = vec![add3, three];
+    builder.node_mut(add5).unwrap().children = vec![add4, four];
+    builder.node_mut(add6).unwrap().children = vec![add5, five];
+    builder.node_mut(add7).unwrap().children = vec![add6, six];
+    builder.node_mut(add8).unwrap().children = vec![add7, seven];
+    builder.node_mut(ret).unwrap().children = vec![add8, eight];
+    builder.node_mut(block).unwrap().children = vec![ret];
+    builder.node_mut(function).unwrap().children = vec![param_left, param_right, block];
+
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "add_pair");
+    let left = literal(&mut builder, "2");
+    let right = literal(&mut builder, "3");
+    builder.node_mut(call).unwrap().children = vec![callee, left, right];
+
+    builder.node_mut(root).unwrap().children = vec![function, call];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![kali_mir::MirFunction {
+            name: Some("add_pair".to_string()),
+            kind: kali_mir::MirFunctionKind::Function,
+            bindings: vec![
+                kali_mir::MirBinding {
+                    name: "left".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                },
+                kali_mir::MirBinding {
+                    name: "right".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                },
+            ],
+        }],
+    };
+
+    Optimizer::with_max_specializations(OptimizationLevel::Release, 0)
+        .optimize_program_with_mir(&mut program, &mir);
+
+    let call_node = &program.nodes[call.0 as usize];
+    let callee_name = call_node
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("call target should remain the original function when the specialization budget is zero");
+    assert_eq!(callee_name, "add_pair");
+    assert!(
+        !program.nodes.iter().any(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.starts_with("add_pair$spec$"))
+        }),
+        "zero specialization budget should not clone tagged-parameter call sites"
+    );
+    assert!(
+        !program
+            .nodes
+            .iter()
+            .any(|node| node.kind == LirNodeKind::Literal && node.text.as_deref() == Some("33")),
+        "zero specialization budget should not create a specialized folded literal"
+    );
+}
+
+#[test]
 fn release_specializes_tagged_parameters_for_non_inlined_functions() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);

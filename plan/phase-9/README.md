@@ -25,6 +25,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 - Improve layout/representation fingerprinting.
 - Respect `--max-specializations` exactly as an upper bound.
 - Ensure fallback paths preserve JavaScript semantics.
+- Progress: zero-budget tagged-parameter MIR specialization now has a regression that keeps the original call target in place and prevents speculative `add_pair$spec$...` clones.
 
 ### 9.3 PGO input
 
