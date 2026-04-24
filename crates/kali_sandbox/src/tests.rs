@@ -310,6 +310,64 @@ fn predicate_context_records_remaining_host_specific_details() {
 }
 
 #[test]
+fn predicate_context_records_late_process_control_details() {
+    let process_pid =
+        PolicyPredicateContext::from_operation(&HostOperation::ProcessPid { pid: 42 });
+    assert_eq!(process_pid.capability, "effects.process.pid");
+    assert_eq!(process_pid.subject, "42");
+    assert_eq!(process_pid.operation, HostOperation::ProcessPid { pid: 42 });
+    assert_eq!(
+        process_pid.details.get("pid").map(String::as_str),
+        Some("42")
+    );
+
+    let process_cwd = PolicyPredicateContext::from_operation(&HostOperation::ProcessCwd {
+        cwd: PathBuf::from("/workspace/project"),
+    });
+    assert_eq!(process_cwd.capability, "effects.process.cwd");
+    assert_eq!(process_cwd.subject, "/workspace/project");
+    assert_eq!(
+        process_cwd.operation,
+        HostOperation::ProcessCwd {
+            cwd: PathBuf::from("/workspace/project"),
+        }
+    );
+    assert_eq!(
+        process_cwd.details.get("cwd").map(String::as_str),
+        Some("/workspace/project")
+    );
+
+    let process_chdir = PolicyPredicateContext::from_operation(&HostOperation::ProcessChdir {
+        path: PathBuf::from("/workspace/project/nested"),
+    });
+    assert_eq!(process_chdir.capability, "effects.process.chdir");
+    assert_eq!(process_chdir.subject, "/workspace/project/nested");
+    assert_eq!(
+        process_chdir.operation,
+        HostOperation::ProcessChdir {
+            path: PathBuf::from("/workspace/project/nested"),
+        }
+    );
+    assert_eq!(
+        process_chdir.details.get("path").map(String::as_str),
+        Some("/workspace/project/nested")
+    );
+
+    let process_exit =
+        PolicyPredicateContext::from_operation(&HostOperation::ProcessExit { code: 3 });
+    assert_eq!(process_exit.capability, "effects.process.exit");
+    assert_eq!(process_exit.subject, "3");
+    assert_eq!(
+        process_exit.operation,
+        HostOperation::ProcessExit { code: 3 }
+    );
+    assert_eq!(
+        process_exit.details.get("code").map(String::as_str),
+        Some("3")
+    );
+}
+
+#[test]
 fn predicate_context_records_thread_spawn_details() {
     let operation = HostOperation::ThreadSpawn { active_threads: 3 };
     let context = PolicyPredicateContext::from_operation(&operation);
@@ -321,6 +379,39 @@ fn predicate_context_records_thread_spawn_details() {
         context.details.get("activeThreads").map(String::as_str),
         Some("3")
     );
+}
+
+#[test]
+fn late_process_control_operations_remain_feature_gated() {
+    let policy = valid_policy();
+
+    let pid = policy
+        .check_operation(HostOperation::ProcessPid { pid: 1234 })
+        .expect_err("process pid should remain gated in the current phase");
+    assert_eq!(pid.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(pid.message.contains("effects.process.pid"));
+
+    let cwd = policy
+        .check_operation(HostOperation::ProcessCwd {
+            cwd: PathBuf::from("/workspace/project"),
+        })
+        .expect_err("process cwd should remain gated in the current phase");
+    assert_eq!(cwd.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(cwd.message.contains("effects.process.cwd"));
+
+    let chdir = policy
+        .check_operation(HostOperation::ProcessChdir {
+            path: PathBuf::from("/workspace/project/nested"),
+        })
+        .expect_err("process chdir should remain gated in the current phase");
+    assert_eq!(chdir.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(chdir.message.contains("effects.process.chdir"));
+
+    let exit = policy
+        .check_operation(HostOperation::ProcessExit { code: 3 })
+        .expect_err("process exit should remain gated in the current phase");
+    assert_eq!(exit.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(exit.message.contains("effects.process.exit"));
 }
 
 #[test]

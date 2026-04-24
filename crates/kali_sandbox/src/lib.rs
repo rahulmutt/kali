@@ -155,6 +155,18 @@ pub enum HostOperation {
     ProcessSpawn {
         executable: String,
     },
+    ProcessPid {
+        pid: u32,
+    },
+    ProcessCwd {
+        cwd: PathBuf,
+    },
+    ProcessChdir {
+        path: PathBuf,
+    },
+    ProcessExit {
+        code: i32,
+    },
     /// Thread creation request with the current active thread count.
     ThreadSpawn {
         active_threads: usize,
@@ -224,6 +236,24 @@ impl PolicyPredicateContext {
             HostOperation::ProcessSpawn { executable } => {
                 details.insert("executable".to_string(), executable.clone());
                 ("effects.process.spawn", executable.clone())
+            }
+            HostOperation::ProcessPid { pid } => {
+                details.insert("pid".to_string(), pid.to_string());
+                ("effects.process.pid", pid.to_string())
+            }
+            HostOperation::ProcessCwd { cwd } => {
+                let cwd = cwd.display().to_string();
+                details.insert("cwd".to_string(), cwd.clone());
+                ("effects.process.cwd", cwd)
+            }
+            HostOperation::ProcessChdir { path } => {
+                let path = path.display().to_string();
+                details.insert("path".to_string(), path.clone());
+                ("effects.process.chdir", path)
+            }
+            HostOperation::ProcessExit { code } => {
+                details.insert("code".to_string(), code.to_string());
+                ("effects.process.exit", code.to_string())
             }
             HostOperation::ThreadSpawn { active_threads } => {
                 details.insert("activeThreads".to_string(), active_threads.to_string());
@@ -576,6 +606,14 @@ impl SandboxPolicy {
             }
             HostOperation::ProcessSpawn { executable } => {
                 self.check_exact_access(&self.effects.process.spawn, &executable, "Process.Spawn")
+            }
+            HostOperation::ProcessPid { .. } => Err(unavailable_capability("effects.process.pid")),
+            HostOperation::ProcessCwd { .. } => Err(unavailable_capability("effects.process.cwd")),
+            HostOperation::ProcessChdir { .. } => {
+                Err(unavailable_capability("effects.process.chdir"))
+            }
+            HostOperation::ProcessExit { .. } => {
+                Err(unavailable_capability("effects.process.exit"))
             }
             HostOperation::ThreadSpawn { active_threads } => match self.resources.max_threads {
                 Some(limit) => {
