@@ -40,6 +40,7 @@ Remaining goals:
 - Larger package corpus covering Deno, browser-targeted, and Node contexts separately.
 - More Node built-ins and package-resolution cases when evidence justifies them.
 - Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case and a `vue/runtime-dom` browser replacement-map JS-entrypoint case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
+- Current progress: browser-targeted exports-map package corpus coverage now also mirrors the same package set onto `.js` input, keeping the browser analysis/build lane aligned with first-class JavaScript compilation instead of only the TypeScript lane.
 - Current progress: the browser package corpus now also exercises the canonical pure-JS `semver` probe on `.js` input, so the browser package-support evidence now spans the browser-targeted first-class-JavaScript path instead of only the TypeScript lane.
 - Current progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, keeping the browser-requested execution surface aligned with first-class JavaScript compilation.
 - Current progress: browser-targeted `check` / `build --bundle` coverage now also rejects late Deno/process host-control members on mirrored `.js` input, keeping the browser ambient surface separated from later standalone host-control APIs.

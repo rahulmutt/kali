@@ -37,6 +37,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Expand browser-targeted package checks and `build --bundle` smoke tests.
 - Keep deployable-through-host claims distinct from standalone browser executable claims.
 - Progress: browser-targeted `.js` package entrypoint coverage now includes the minimized mixed CommonJS/ESM interop slice plus the `vue/runtime-dom` browser branch and browser replacement-map JS-entrypoint coverage, so the browser corpus keeps the first-class-JavaScript path honest across both replacement-map and interop cases.
+- Progress: browser-targeted exports-map package corpus coverage now also mirrors the same package set onto `.js` input, keeping the browser analysis/build lane aligned with first-class JavaScript compilation instead of only the TypeScript lane.
 - Progress: the browser package corpus now also exercises the canonical pure-JS `semver` probe on `.js` input, keeping the support-rung evidence aligned with the browser-targeted first-class-JavaScript path instead of only the TypeScript lane.
 - Progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, keeping browser deployability evidence aligned across the JS and TS lanes.
 
