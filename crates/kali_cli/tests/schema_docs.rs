@@ -82,6 +82,47 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse test schema");
     assert!(test_result["properties"]["coverage"].is_object());
+    assert_eq!(
+        test_result["properties"]["coverage"]["required"]
+            .as_array()
+            .expect("coverage required array")
+            .iter()
+            .map(|value| value.as_str().expect("coverage required string"))
+            .collect::<Vec<_>>(),
+        vec!["mode", "files", "summary"]
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["mode"]["const"],
+        "function"
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["files"]["items"]["required"]
+            .as_array()
+            .expect("coverage file required array")
+            .iter()
+            .map(|value| value.as_str().expect("coverage file required string"))
+            .collect::<Vec<_>>(),
+        vec![
+            "file",
+            "functionsTotal",
+            "functionsCovered",
+            "functionsMissed"
+        ]
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["summary"]["required"]
+            .as_array()
+            .expect("coverage summary required array")
+            .iter()
+            .map(|value| value.as_str().expect("coverage summary required string"))
+            .collect::<Vec<_>>(),
+        vec![
+            "functionsTotal",
+            "functionsCovered",
+            "functionsMissed",
+            "coveragePercent"
+        ]
+    );
 
     let artifact_meta: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/v1.json"))
