@@ -10594,6 +10594,91 @@ fn package_effects_preserves_browser_resolution_with_top_level_sandbox_config_in
 }
 
 #[test]
+fn package_effects_preserves_browser_resolution_with_inherited_eval_context_and_top_level_sandbox_config_in_json_output(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  },
+  "compat": {
+    "features": ["eval"]
+  },
+  "sandbox": "./missing.policy.json"
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "main.js",
+  "browser": "browser.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("main.js"), "console.log('main entry');\n")
+        .expect("write main entry");
+    fs::write(
+        package_dir.join("browser.js"),
+        "fetch('https://example.com/data');\neval('1 + 2');\n",
+    )
+    .expect("write browser entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--output")
+        .arg("json")
+        .arg("browserpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "browserpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["apiSurface"],
+        "browser"
+    );
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(
+        json["payload"]["report"]["entryPoints"],
+        json!(["browserpkg"])
+    );
+    assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+    assert!(
+        !kinds.contains(&"Console.Write"),
+        "browser resolution should analyze the browser entrypoint, not the main entrypoint"
+    );
+}
+
+#[test]
 fn package_effects_reports_inherited_node_analysis_context() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
