@@ -16989,6 +16989,104 @@ fn effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context() {
 }
 
 #[test]
+fn json_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('ok');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg("--api")
+        .arg("browser")
+        .arg("--wasm-threads")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("runtime profile")
+            || errors[0]["message"]
+                .as_str()
+                .expect("error message")
+                .contains("wasm-threads"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('ok');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("runtime profile")
+            || errors[0]["message"]
+                .as_str()
+                .expect("error message")
+                .contains("wasm-threads"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn effects_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
