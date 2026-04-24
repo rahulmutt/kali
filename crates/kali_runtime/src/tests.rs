@@ -443,6 +443,7 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
         "/usr/bin/google-chrome-stable"
     ));
     assert!(browser_harness_uses_html_entrypoint("google chrome canary"));
+    assert!(browser_harness_uses_html_entrypoint("google chrome stable"));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-stable"));
     assert!(browser_harness_uses_html_entrypoint(
         "google-chrome-headless-shell"
@@ -594,6 +595,13 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         browser_harness_command_parts_for_browser_executable("brave browser stable"),
         Some(vec![
             "brave browser stable".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome stable"),
+        Some(vec![
+            "google chrome stable".to_string(),
             "--headless".to_string()
         ])
     );

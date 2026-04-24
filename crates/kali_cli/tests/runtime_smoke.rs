@@ -1804,7 +1804,9 @@ fn run_uses_browser_entrypoint_for_browser_like_executables() {
 #[cfg(unix)]
 #[test]
 fn run_uses_browser_entrypoint_for_google_chrome_stable_executables() {
-    run_browser_entrypoint_smoke("google-chrome-stable");
+    for browser_name in ["google-chrome-stable", "google chrome stable"] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
 }
 
 #[cfg(unix)]
