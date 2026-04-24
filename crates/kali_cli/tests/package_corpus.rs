@@ -3334,6 +3334,25 @@ export default function dotenv() {
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let build_out_dir = dir.path().join("build");
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--api",
+                "node",
+                "--out-dir",
+                build_out_dir.to_str().unwrap(),
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "node package {package} should build on the Node surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
         let run = run_kali(
             dir.path(),
             ["run", "--api", "node", source_path.to_str().unwrap()],

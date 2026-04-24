@@ -26,6 +26,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 
 - Expand Node built-ins and package-resolution behavior where package-corpus evidence demands it.
 - Keep late Node modules and process-control APIs gated until Phase 7 contracts exist.
+- Progress: the Node package corpus now also exercises the documented Node build surface for the same `node:`-based package set that already has Node `check` / `run` coverage, so analysis, build, and execution evidence stays aligned for the current Node compatibility slice.
 
 ### 8.3 Browser package deployability
 

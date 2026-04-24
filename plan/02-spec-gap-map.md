@@ -39,6 +39,7 @@ Remaining goals:
 - Larger package corpus covering Deno, browser-targeted, and Node contexts separately.
 - More Node built-ins and package-resolution cases when evidence justifies them.
 - Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
+- Current progress: Node package corpus coverage now also exercises the documented Node build surface for the same `node:`-based package set that already has Node `check` / `run` evidence, keeping package compatibility evidence aligned across analysis, build, and execution lanes.
 - Batch or richer registry-analysis workflows only after command/schema revisions.
 - Keep native/binary/bootstrap-heavy packages rejected by default unless the specs deliberately change.
 
