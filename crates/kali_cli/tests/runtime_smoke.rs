@@ -2105,6 +2105,46 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
     );
 }
 
+#[test]
+fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser run"),
+        "json: {json}"
+    );
+}
+
 #[cfg(unix)]
 fn shell_quote_path(path: &Path) -> String {
     let rendered = path.to_string_lossy().replace('\'', "'\\''");
@@ -3260,6 +3300,27 @@ fn test_accepts_the_browser_api_surface_when_a_harness_command_is_configured() {
 }
 
 #[test]
+fn test_accepts_the_browser_api_surface_when_a_harness_command_is_configured_in_js_input() {
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(fixture_path("tests/smoke.test.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_reports_function_coverage_in_json_output_when_browser_api_surface_is_configured() {
     let output = Command::new(kali_bin())
         .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
@@ -3663,7 +3724,7 @@ fn test_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("ok 2"), "stdout: {stdout}");
 }
 
 #[test]
