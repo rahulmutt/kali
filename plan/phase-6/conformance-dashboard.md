@@ -42,6 +42,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Web Crypto randomness subset (`crypto.getRandomValues`, mapping to the canonical `Random.GetBytes` effect / `effects.random` policy key) | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_api_web/src/tests.rs`, `crates/kali_api_deno/src/tests.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | Mixed CommonJS/ESM package default-import interop | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
+| Canonical `semver` package corpus probe on `.js` input for the default standalone surface | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
 | Literal-string `import()` over the linked graph, including directory-index targets | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Generator lowering | Later compatibility | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (`check` and `build` gate coverage, including async generator syntax, async generator function-expression syntax, minimized `.js` input fixtures, and browser-targeted `.js` mirrors) |

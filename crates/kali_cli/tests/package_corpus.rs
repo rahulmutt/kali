@@ -2554,6 +2554,50 @@ console.log(minVersion('^1.2.3')?.version);
 }
 
 #[test]
+fn utility_corpus_semver_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface_on_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "semver");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write semver source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "semver corpus package should be checkable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "semver corpus package should be buildable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "semver corpus package should stay executable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "1.2.3\n1\n1.2.3\n");
+}
+
+#[test]
 fn utility_corpus_semver_style_package_remains_checkable_buildable_executable_and_testable_on_the_node_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
