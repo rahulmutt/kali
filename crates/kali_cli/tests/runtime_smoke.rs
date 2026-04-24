@@ -2197,6 +2197,25 @@ fn run_uses_browser_entrypoint_for_additional_chrome_aliases() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_remaining_browser_aliases() {
+    for browser_name in [
+        "chromium-browser",
+        "chromium-headless-shell",
+        "google chrome",
+        "brave",
+        "brave-browser",
+        "brave browser",
+        "vivaldi snapshot",
+        "microsoft-edge",
+        "microsoft edge",
+        "mullvad browser",
+    ] {
+        run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_mullvad_browser_executables() {
     run_browser_entrypoint_smoke("mullvad-browser");
 }
