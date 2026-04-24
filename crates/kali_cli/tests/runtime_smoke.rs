@@ -9029,6 +9029,48 @@ globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
 }
 
 #[test]
+fn effects_command_treats_permissions_query_as_effect_free() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"
+Deno.permissions.query({ name: "env" });
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    assert!(
+        json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .is_empty(),
+        "unexpected effects: {json}"
+    );
+}
+
+#[test]
 fn effects_rejects_sandbox_flag_as_invalid_usage() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

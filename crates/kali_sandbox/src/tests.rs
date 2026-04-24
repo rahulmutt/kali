@@ -598,3 +598,32 @@ fn effect_reports_deduplicate_entry_points_while_preserving_first_seen_order() {
         vec!["src/main.ts", "src/helper.ts", "src/other.ts"]
     );
 }
+
+#[test]
+fn effect_reports_treat_permissions_query_as_effect_free() {
+    let source = write_source_fixture(r#"Deno.permissions.query({ name: "env" });"#);
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert!(
+        inference.effects.is_empty(),
+        "unexpected observed effects: {inference:?}"
+    );
+    assert!(
+        inference.dynamic_reasons.is_empty(),
+        "unexpected dynamic reasons: {inference:?}"
+    );
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert!(!report.dynamic_effects);
+    assert!(report.dynamic_reasons.is_empty());
+    assert!(report.effects.is_empty());
+}
