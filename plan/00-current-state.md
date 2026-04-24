@@ -27,7 +27,7 @@ The current repo has already implemented the historical MVP and several later su
 - Deno package-corpus coverage now also exercises a canonical `jsr:@std/path` package fixture materialized at `node_modules/@std/path` on the Deno surface, keeping the `jsr:` registry prefix and on-disk path mapping honest in the package-resolution evidence.
 - `--compat eval` exists for the documented compatibility path.
 - The threaded runtime profile is now accepted on supported `run`/`test` execution paths when explicitly opted in with `--wasm-threads`, and `check` / `build` / `effects` now also accept that opt-in on the supported non-browser analysis/build paths; positive `--max-threads` values are honored only under that opt-in, and the runtime now also exposes deterministic guest-facing thread-spawn host import plumbing backed by the threaded topology model.
-- Schema-v1 outputs and diagnostic envelopes are first-class contracts.
+- Schema-v1 outputs and diagnostic envelopes are first-class contracts, including combined inherited analysis-context normalization for `effects` JSON output across `compat.features` and `compilerOptions.runtimeProfiles`.
 
 ## Planning consequence
 

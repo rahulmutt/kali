@@ -14410,6 +14410,63 @@ fn json_effects_accepts_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn json_effects_normalizes_combined_inherited_analysis_context_axes() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "eval('1 + 2');\nconsole.log('ok');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": [" eval "]
+  },
+  "compilerOptions": {
+    "runtimeProfiles": [" wasm-threads "]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(
+        json["payload"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(
+        json["payload"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(json["payload"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_command_emits_native_json_payload() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
