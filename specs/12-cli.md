@@ -292,7 +292,7 @@ Artifact-mode quick summary:
 | `--capi` | library | Phase 2 target | public embedding artifact flow over the same **statically known export surface** |
 | `--component` | library | Phase 2 target | Component Model packaging over the same **statically known export surface** |
 
-`--profile <file>` is the explicit build-only opt-in PGO input for `build`: it loads deterministic profile data, may influence optimization decisions, and leaves the build-mode and artifact-mode selector vocabulary unchanged.
+`--profile <file>` is the explicit build-only opt-in PGO input for `build`: it loads deterministic profile data, may influence optimization decisions, leaves the build-mode and artifact-mode selector vocabulary unchanged, and rejects unknown JSON fields so the input contract stays schema-backed.
 
 Reading rule:
 - this table is a CLI-local summary only

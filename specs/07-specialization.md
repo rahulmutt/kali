@@ -124,4 +124,5 @@ In `--fast` mode, user-authored generics normally use the `Tagged` representatio
 
 - Runtime profiling data from `--profile` runs
 - Feed back into compiler for better inlining, specialization, and branch prediction hints
+- PGO profile inputs are strict JSON documents: unknown fields are rejected so the additive build-only contract stays schema-backed and deterministic
 - Not in initial implementation

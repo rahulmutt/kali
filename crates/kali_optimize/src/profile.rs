@@ -16,6 +16,7 @@ pub enum ProfileSampleKind {
 
 /// One deterministic profile sample.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProfileSample {
     pub kind: ProfileSampleKind,
     pub key: String,
@@ -35,6 +36,7 @@ impl ProfileSample {
 
 /// Stable PGO profile data with deterministic normalization rules.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProfileData {
     pub version: u32,
     #[serde(default)]
@@ -184,6 +186,15 @@ mod tests {
                 ProfileSample::new(ProfileSampleKind::Branch, "branch:0", 4),
             ]
         );
+    }
+
+    #[test]
+    fn profile_data_rejects_unknown_fields() {
+        let error =
+            serde_json::from_str::<ProfileData>(r#"{"version":1,"samples":[],"unexpected":true}"#)
+                .expect_err("unknown fields should be rejected");
+
+        assert!(error.to_string().contains("unexpected"));
     }
 
     #[test]

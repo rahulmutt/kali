@@ -73,7 +73,8 @@ Finish the spec surfaces that are intentionally beyond the early optimization an
 - The Rust binding-package manifest parser and summary helper now also validate the optional `hostContract` and `runtimeBackend` provenance fields, keeping malformed binding-package metadata from slipping past the same deterministic contract that the generators emit.
 - Added the first deterministic profile-data format to `kali_optimize`, including stable versioning,
   normalization, aggregation, and JSON round-trip coverage so the later PGO lane has one canonical
-  collection shape to build on.
+  collection shape to build on. The profile loader now also rejects unknown JSON fields so the
+  build-only PGO input stays schema-backed instead of quietly accepting ad hoc extensions.
 - Wired the optimizer to carry normalized profile data as an explicit optional input, keeping the
   future profile-guided decision points isolated from the existing release/release-advanced
   vocabulary.
