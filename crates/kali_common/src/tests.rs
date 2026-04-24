@@ -30,3 +30,11 @@ fn test_source_registry_interning() {
     let fid3 = registry.intern_path(Path::new("/test/other.ts"));
     assert_ne!(fid1, fid3);
 }
+
+#[test]
+fn test_bytewise_shared_memory_lock_free_probe_matches_target_atomic_support() {
+    assert_eq!(
+        bytewise_shared_memory_is_lock_free(),
+        cfg!(target_has_atomic = "8")
+    );
+}

@@ -11,6 +11,7 @@ use std::{
     time::Instant,
 };
 
+use kali_common::bytewise_shared_memory_is_lock_free;
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 use url::{form_urlencoded, Url};
@@ -1972,7 +1973,7 @@ pub struct Atomics;
 impl Atomics {
     /// Report whether the bytewise shared-memory helpers are lock-free on this target.
     pub fn is_lock_free() -> bool {
-        cfg!(target_has_atomic = "8")
+        bytewise_shared_memory_is_lock_free()
     }
 
     /// Load a byte from the provided shared buffer.

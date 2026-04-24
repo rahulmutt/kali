@@ -18,6 +18,15 @@ use std::sync::Mutex;
 pub use interner::{InternedString, Interner};
 pub use span::Span;
 
+/// Report whether the bytewise shared-memory helpers are lock-free on this target.
+///
+/// The helper is intentionally tiny and deterministic so browser/runtime compatibility layers
+/// can share one capability probe without repeating target-specific atomic checks at each call
+/// site.
+pub const fn bytewise_shared_memory_is_lock_free() -> bool {
+    cfg!(target_has_atomic = "8")
+}
+
 /// Global string interner used throughout the compiler.
 /// Provides thread-safe string interning for identifiers and literals.
 pub static GLOBAL_INTERNER: Lazy<Interner> = Lazy::new(Interner::default);
