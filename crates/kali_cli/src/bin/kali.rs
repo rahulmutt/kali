@@ -759,9 +759,7 @@ fn resolve_effective_compat_features(
 
     let mut features = normalize_compat_features(explicit_compat);
     features.extend(manifest_compat_features(&manifest)?);
-    features.sort();
-    features.dedup();
-    Ok(features)
+    Ok(normalize_compat_features(features))
 }
 
 fn resolve_effective_runtime_profiles(
@@ -784,9 +782,7 @@ fn resolve_effective_runtime_profiles(
         Vec::new()
     });
     profiles.extend(manifest_runtime_profiles(&manifest)?);
-    profiles.sort();
-    profiles.dedup();
-    Ok(profiles)
+    Ok(normalize_runtime_profiles(profiles))
 }
 
 fn resolve_effective_max_specializations(

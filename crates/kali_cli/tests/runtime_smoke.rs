@@ -10577,6 +10577,42 @@ fn effects_tracks_inherited_eval_compatibility_from_manifest() {
 }
 
 #[test]
+fn effects_normalizes_explicit_compat_features_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, r#"eval("1 + 2");"#).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--compat")
+        .arg(" eval ")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["analysisContext"]["compatFeatures"], json!(["eval"]));
+    assert_eq!(json["dynamicEffects"], true);
+    assert_eq!(json["dynamicReasons"], json!(["eval"]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_tracks_inherited_function_constructor_compatibility_from_manifest() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -11251,6 +11287,35 @@ fn effects_rejects_inherited_wasm_threads_runtime_profile() {
   "schemaVersion": 1,
   "compilerOptions": {
     "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+}
+
+#[test]
+fn effects_rejects_inherited_whitespace_padded_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('ok');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": [" wasm-threads "]
   }
 }"#,
     )
@@ -12379,6 +12444,129 @@ fn package_effects_tracks_eval_compatibility_from_manifest() {
     assert!(
         output.status.success(),
         "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "evalpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "effects: {kinds:?}");
+}
+
+#[test]
+fn package_effects_normalizes_inherited_compat_features_in_json_output() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().expect("tempdir");
+
+    let package_json = serde_json::json!({
+        "name": "evalpkg",
+        "version": "1.0.0",
+        "main": "index.js",
+    });
+    let package_json_bytes =
+        serde_json::to_vec_pretty(&package_json).expect("serialize package json");
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        (
+            "package/index.js",
+            b"eval('1 + 2');\nconsole.log('package eval');\n",
+        ),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_binary_response_server(tarball_bytes, "application/octet-stream");
+    let metadata = serde_json::json!({
+        "versions": {
+            "1.0.0": {
+                "dist": {
+                    "tarball": format!("{}/evalpkg-1.0.0.tgz", tarball_base),
+                    "integrity": tarball_integrity,
+                }
+            }
+        }
+    });
+    let metadata = Box::leak(metadata.to_string().into_boxed_str());
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_registry_metadata_server(metadata);
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "dependencies": {
+    "evalpkg": "1.0.0"
+  },
+  "compat": {
+    "features": [" eval ", "eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let install_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("install")
+        .output()
+        .expect("run kali install");
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().expect("join tarball server");
+    registry_handle.join().expect("join registry server");
+
+    assert!(
+        install_output.status.success(),
+        "install stderr: {}",
+        String::from_utf8_lossy(&install_output.stderr)
+    );
+    assert!(
+        tarball_hits.load(Ordering::SeqCst) > 0,
+        "tarball server should be queried"
+    );
+    assert!(
+        registry_hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        dir.path()
+            .join("node_modules/evalpkg/package.json")
+            .exists(),
+        "evalpkg should be materialized"
+    );
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--output")
+        .arg("json")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
