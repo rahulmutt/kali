@@ -1243,6 +1243,7 @@ fn browser_corpus_js_entrypoints_with_minimized_cjs_esm_interop_remain_checkable
     for (package, subpath) in [
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
+        ("vue", "runtime-dom"),
         ("@reduxjs/toolkit", "query"),
     ] {
         let dir = tempdir().expect("tempdir");

@@ -34,6 +34,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 
 - Expand browser-targeted package checks and `build --bundle` smoke tests.
 - Keep deployable-through-host claims distinct from standalone browser executable claims.
+- Progress: browser-targeted `.js` package entrypoint coverage now includes the minimized mixed CommonJS/ESM interop slice plus the `vue/runtime-dom` browser branch, so the browser corpus keeps the first-class-JavaScript path honest across both replacement-map and interop cases.
 
 ### 8.4 Registry-analysis evolution
 
