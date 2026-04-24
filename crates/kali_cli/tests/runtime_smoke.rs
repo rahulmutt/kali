@@ -10148,6 +10148,77 @@ eval("1 + 2");
 }
 
 #[test]
+fn effects_command_is_deterministic_across_repeated_default_invocations_under_inherited_browser_context(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let run = || {
+        Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg(&source_path)
+            .output()
+            .expect("run kali")
+    };
+
+    let first = run();
+    let second = run();
+
+    assert!(
+        first.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert!(
+        second.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(
+        first.stdout, second.stdout,
+        "stdout should be deterministic across repeated invocations"
+    );
+    assert_eq!(
+        first.stderr, second.stderr,
+        "stderr should be deterministic across repeated invocations"
+    );
+
+    let json = parse_json_stdout(&first);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["dynamicEffects"], false);
+    assert_eq!(json["dynamicReasons"], json!([]));
+    assert_eq!(
+        json["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_reports_computed_deno_host_access() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
