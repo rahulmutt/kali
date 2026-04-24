@@ -12531,6 +12531,36 @@ fn effects_accepts_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log('ok');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--api")
+        .arg("browser")
+        .arg("--wasm-threads")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("runtime profile") || stderr.contains("wasm-threads"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn effects_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -12889,6 +12919,72 @@ fn package_effects_uses_inherited_browser_analysis_context() {
     assert_eq!(json["report"]["analysisContext"]["apiSurface"], "browser");
     assert_eq!(json["package"]["name"], "purepkg");
     assert_eq!(json["report"]["entryPoints"], json!(["purepkg"]));
+}
+
+#[test]
+fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_context_in_json_output(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "main.js",
+  "browser": "browser.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("main.js"), "console.log('main entry');").expect("write main entry");
+    fs::write(
+        package_dir.join("browser.js"),
+        "console.log('browser entry');",
+    )
+    .expect("write browser entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("package-effects")
+        .arg("browserpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("runtime profile")
+            || errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("wasm-threads"),
+        "json: {json}"
+    );
 }
 
 #[test]
