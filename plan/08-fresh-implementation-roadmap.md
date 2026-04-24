@@ -172,6 +172,7 @@ Current progress note:
 - the browser bundle smoke lane now also exercises `--validate-ir` together with `--bundle`, `--api browser`, and a valid sandbox policy, so the F4 artifact-mode packet covers the validation path instead of only the default browser bundle shape
 - the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
 - the base library build smoke lane now also exercises `--validate-ir`, so the library artifact path shares the same early IR-validation coverage as the component, C-ABI, and browser-bundle lanes
+- raw-URL `install` now has a configless-project smoke regression that materializes `kali.lock` and the raw cache without scaffolding a placeholder `kali.json`, so the fresh-start package-install lane now covers the explicit URL branch of the configless install split too
 
 **Shared coordination files**
 - `specs/12-cli.md`

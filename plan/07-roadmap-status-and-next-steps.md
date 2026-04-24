@@ -81,6 +81,7 @@ Recent hardening:
 - the public README command reference now also calls out `kali test --coverage`, keeping the user-facing summary aligned with the stable function-coverage contract already documented in `specs/12-cli.md`
 - the public README command reference now also names `kali build --validate-ir`, keeping the user-facing build summary aligned with the documented structural-validation aid in `specs/12-cli.md`
 - the base library build smoke lane now also exercises `--validate-ir`, so the library artifact path shares the same early IR-validation coverage as the component, C-ABI, and browser-bundle lanes
+- raw-URL `install` now has a configless-project smoke regression that materializes `kali.lock` and the raw cache without scaffolding a placeholder `kali.json`, so the configless install split stays honest for explicit URL targets too
 
 ### Priority A — finish the Phase-1 critical path
 

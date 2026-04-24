@@ -7242,6 +7242,65 @@ fn install_dev_requires_an_explicit_registry_target() {
 }
 
 #[test]
+fn install_materializes_raw_url_targets_without_scaffolding_a_placeholder_manifest() {
+    let dir = tempdir().expect("tempdir");
+    let (raw_url_base, hits, stop, handle) =
+        start_binary_response_server(b"export default 1;".to_vec(), "application/typescript");
+    let raw_url = format!("{raw_url_base}/mod.ts");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg(&raw_url)
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join raw-url server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "raw URL should be fetched during install"
+    );
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["installed"], json!([raw_url]));
+    assert!(
+        json["payload"]["manifestPath"].is_null(),
+        "install should not scaffold a placeholder manifest"
+    );
+    assert!(json["payload"]["lockPath"].is_string());
+
+    assert!(
+        !dir.path().join("kali.json").exists(),
+        "raw URL install should not create a placeholder manifest"
+    );
+    let lock: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.path().join("kali.lock")).expect("read lock"))
+            .expect("parse lock");
+    let cached = lock["rawUrls"]
+        .get(&raw_url)
+        .and_then(|entry| entry.get("cached"))
+        .and_then(|cached| cached.as_str())
+        .expect("raw URL cache entry");
+    assert!(
+        Path::new(cached).exists(),
+        "cached raw URL was not materialized"
+    );
+}
+
+#[test]
 fn install_allow_scripts_rejects_raw_url_targets() {
     let dir = tempdir().expect("tempdir");
     let (raw_url_base, hits, stop, handle) =
