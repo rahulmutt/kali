@@ -437,6 +437,43 @@ fn core_schema_documents_match_current_cli_contracts() {
     .expect("parse package-audit schema");
     assert_eq!(package_audit["type"], "null");
 }
+
+#[test]
+fn specialized_artifact_metadata_schemas_share_the_base_artifact_contract() {
+    let root = repo_root();
+
+    let expected = [
+        (
+            "schemas/artifact-meta/lib-wit/v1.json",
+            "Kali Library WIT Artifact Metadata v1",
+        ),
+        (
+            "schemas/artifact-meta/capi/v1.json",
+            "Kali C ABI Artifact Metadata v1",
+        ),
+        (
+            "schemas/artifact-meta/component/v1.json",
+            "Kali Component Artifact Metadata v1",
+        ),
+    ];
+
+    for (relative, title) in expected {
+        let schema: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join(relative)).expect("read specialized artifact schema"),
+        )
+        .expect("parse specialized artifact schema");
+        assert_eq!(schema["title"], title);
+        assert_eq!(
+            schema["description"],
+            "Reserved schema shape for a later embedding projection."
+        );
+        assert_eq!(schema["allOf"].as_array().expect("allOf array").len(), 1);
+        assert_eq!(
+            schema["allOf"][0]["$ref"],
+            "https://kali-lang.org/schemas/artifact-meta/v1"
+        );
+    }
+}
 #[test]
 fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     let root = repo_root();
