@@ -4640,6 +4640,46 @@ console.log(values.length);
 }
 
 #[test]
+fn run_supports_array_mutation_semantics_with_pop_and_unshift() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const seen = [1, 2, 3];
+const popped = seen.pop();
+seen.unshift(0);
+if (
+  popped !== 3 ||
+  seen.length !== 3 ||
+  seen[0] !== 0 ||
+  seen[1] !== 1 ||
+  seen[2] !== 2
+) {
+  throw 'unexpected array mutation semantics';
+}
+console.log(seen.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "3", "stdout: {stdout}");
+}
+
+#[test]
 fn run_rejects_array_iteration_semantics_for_now() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
