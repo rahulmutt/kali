@@ -759,6 +759,33 @@ fn effect_reports_treat_permissions_query_as_effect_free() {
 }
 
 #[test]
+fn effect_reports_treat_computed_permissions_query_as_effect_free() {
+    let source =
+        write_source_fixture(r#"globalThis["Deno"]["permissions"].query({ name: "env" });"#);
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert!(
+        inference.effects.is_empty(),
+        "unexpected observed effects: {inference:?}"
+    );
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert!(report.dynamic_effects);
+    assert_eq!(report.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(report.effects.is_empty());
+}
+
+#[test]
 fn effect_reports_sort_effect_groups_and_locations_deterministically() {
     let report = effect_report_from_inference(
         vec!["src/main.ts".to_string()],

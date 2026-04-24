@@ -601,6 +601,14 @@ fn scan_tokens_for_effects(
             continue;
         }
 
+        if let Some(computed_host_access) = is_deno_permissions_query(tokens, i) {
+            if computed_host_access {
+                dynamic_reasons.insert("computed-host-access".to_string());
+            }
+            i += 1;
+            continue;
+        }
+
         if let Some(effect) = is_deno_host_call(tokens, i) {
             if effect.computed_host_access {
                 dynamic_reasons.insert("computed-host-access".to_string());
@@ -796,6 +804,25 @@ fn is_deno_command_constructor(tokens: &[Token], index: usize) -> Option<EffectM
         target: call_string_argument(tokens, next),
         computed_host_access: computed_host_access || computed_member_access,
     })
+}
+
+fn is_deno_permissions_query(tokens: &[Token], index: usize) -> Option<bool> {
+    let (cursor, computed_host_access) = read_deno_root(tokens, index)?;
+    let (member, next, computed_member_access) = read_property_segment(tokens, cursor)?;
+    if member != "permissions" {
+        return None;
+    }
+
+    let (method, next, computed_query_access) = read_property_segment(tokens, next)?;
+    if method != "query" {
+        return None;
+    }
+
+    if !matches!(tokens.get(next).map(|t| t.kind), Some(TokenType::LeftParen)) {
+        return None;
+    }
+
+    Some(computed_host_access || computed_member_access || computed_query_access)
 }
 
 fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<EffectMatch> {

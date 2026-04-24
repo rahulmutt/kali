@@ -10029,6 +10029,51 @@ Deno.permissions.query({ name: "env" });
 }
 
 #[test]
+fn effects_command_marks_computed_permissions_query_as_dynamic_but_effect_free() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"
+globalThis["Deno"]["permissions"].query({ name: "env" });
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["dynamicEffects"], true);
+    assert_eq!(
+        json["payload"]["dynamicReasons"],
+        json!(["computed-host-access"])
+    );
+    assert!(
+        json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .is_empty(),
+        "unexpected effects: {json}"
+    );
+}
+
+#[test]
 fn effects_rejects_sandbox_flag_as_invalid_usage() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -11020,6 +11065,56 @@ fn package_effects_reports_computed_deno_host_access() {
         .map(|entry| entry["kind"].as_str().expect("kind string"))
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Process.EnvWrite"), "effects: {kinds:?}");
+}
+
+#[test]
+fn package_effects_marks_computed_permissions_query_as_dynamic_but_effect_free() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"globalThis["Deno"]["permissions"].query({ name: "env" });
+"#,
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["dynamicEffects"], true);
+    assert_eq!(
+        json["report"]["dynamicReasons"],
+        json!(["computed-host-access"])
+    );
+    assert!(
+        json["report"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .is_empty(),
+        "unexpected effects: {json}"
+    );
 }
 
 #[test]
