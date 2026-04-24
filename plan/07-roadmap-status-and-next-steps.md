@@ -86,6 +86,7 @@ Recent hardening:
 - the base library build smoke lane now also exercises `--validate-ir`, so the library artifact path shares the same early IR-validation coverage as the component, C-ABI, and browser-bundle lanes
 - raw-URL `install` now has a configless-project smoke regression that materializes `kali.lock` and the raw cache without scaffolding a placeholder `kali.json`, so the configless install split stays honest for explicit URL targets too
 - the repeated-build determinism lane now also replays the `--capi` and `--component` artifact modes, keeping the public embedding outputs pinned alongside the executable, library, and browser bundle cases instead of only the lower-footprint build shapes
+- the browser package-corpus baseline now also exercises `Blob.text()` / `File.text()` in addition to the shared stream/blob/web-API surface, so the later browser breadth lane keeps the text-decoding helpers evidence-backed alongside the existing transform-stream and crypto coverage
 
 ### Priority A — finish the Phase-1 critical path
 
