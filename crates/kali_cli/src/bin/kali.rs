@@ -4333,7 +4333,7 @@ fn diagnostics_exit_code(diagnostics: &[Diagnostic]) -> i32 {
     if diagnostics.iter().any(|diagnostic| {
         matches!(
             diagnostic.code,
-            Some(code) if matches!(code, 5001 | 5507 | 5508 | 5509 | 5510 | 5511)
+            Some(code) if matches!(code, 5001 | 5506 | 5507 | 5508 | 5509 | 5510 | 5511)
         )
     }) {
         5
@@ -4482,5 +4482,12 @@ mod tests {
                 Span::new(FileId::new(4), 20, 24),
             ]
         );
+    }
+
+    #[test]
+    fn diagnostics_exit_code_treats_feature_availability_as_usage_error() {
+        let diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, "feature unavailable");
+
+        assert_eq!(super::diagnostics_exit_code(&[diagnostic]), 5);
     }
 }
