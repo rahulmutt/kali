@@ -138,7 +138,7 @@ pub fn infer_effects_from_roots(
 
 /// Convert inferred effects into the public reusable effect-report payload.
 pub fn effect_report_from_inference(
-    entry_points: Vec<String>,
+    mut entry_points: Vec<String>,
     context: EffectAnalysisContext,
     inference: EffectInference,
 ) -> EffectReport {
@@ -147,6 +147,8 @@ pub fn effect_report_from_inference(
         dynamic_reasons,
     } = inference;
     let context = context.normalized();
+
+    normalize_entry_points(&mut entry_points);
 
     let mut grouped = BTreeMap::<String, Vec<EffectLocation>>::new();
     for effect in effects {
@@ -276,6 +278,11 @@ fn normalize_semantic_axis(values: Vec<String>) -> Vec<String> {
         }
     }
     normalized.into_iter().collect()
+}
+
+fn normalize_entry_points(entry_points: &mut Vec<String>) {
+    let mut seen = HashSet::<String>::new();
+    entry_points.retain(|entry_point| seen.insert(entry_point.clone()));
 }
 
 fn effect_allowed(effect: &ObservedEffect, policy: &SandboxPolicy) -> bool {

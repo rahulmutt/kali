@@ -376,6 +376,7 @@ Early-phase interpretation rule:
 - `entryPoints` is a historical stable field name for logical roots, not a promise that every producer is describing a runtime entrypoint
 - for the Phase 2 CLI command `kali effects <file>`, `entryPoints` normally contains exactly one element because schema v1 keeps that command at one explicit primary analysis root
 - for direct CLI source-graph analysis inputs, the canonical label should be the normalized user-facing root path (preferably project-root-relative when that root is known) rather than an implementation-specific symbol ID or opaque internal module handle
+- if a producer receives repeated logical-root labels, it should deduplicate them in first-seen order before serialization so repeated invocations remain deterministic without changing the user-facing root spelling
 - `analysisContext` records the semantic knobs that materially affect the report: selected `apiSurface`, enabled `runtimeProfiles`, and enabled `compatFeatures`
 - the report covers the producer's full analysis graph under that recorded analysis context, not a file-local AST scan of only one named file or manifest
 - for source-graph producers such as `kali effects`, that graph is the same **resolved source graph** defined in [SPEC.md](../SPEC.md)

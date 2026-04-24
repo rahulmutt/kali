@@ -554,3 +554,26 @@ fn effect_reports_normalize_dynamic_reasons_and_analysis_context_axes() {
         vec!["alpha", "beta"]
     );
 }
+
+#[test]
+fn effect_reports_deduplicate_entry_points_while_preserving_first_seen_order() {
+    let report = effect_report_from_inference(
+        vec![
+            "src/main.ts".to_string(),
+            "src/helper.ts".to_string(),
+            "src/main.ts".to_string(),
+            "src/other.ts".to_string(),
+            "src/helper.ts".to_string(),
+        ],
+        EffectAnalysisContext::new("deno"),
+        EffectInference {
+            effects: Vec::new(),
+            dynamic_reasons: Vec::new(),
+        },
+    );
+
+    assert_eq!(
+        report.entry_points,
+        vec!["src/main.ts", "src/helper.ts", "src/other.ts"]
+    );
+}

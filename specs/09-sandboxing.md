@@ -86,6 +86,7 @@ Conservative-report rule:
 Scope rule:
 - `analysisContext` records the semantic knobs that materially affect the report: `apiSurface`, `runtimeProfiles`, and emitted JSON field `compatFeatures` (the flattened report form of config key `compat.features`; see [SPEC.md](../SPEC.md))
 - schema v1 keeps the shared field name `entryPoints`, but it names the report's logical roots rather than promising runtime entrypoints in every producer
+- when a producer can receive repeated logical roots, it should deduplicate them in first-seen order before serialization so repeated invocations stay deterministic
 - for `kali effects`, those `entryPoints` are the analysis-root labels
 - the summarized `effects` cover the command's **resolved source graph** under that recorded analysis context
 - the report is therefore a conservative whole-program summary for that **resolved source graph**, not a file-local listing of only the syntax inside the directly named source file
