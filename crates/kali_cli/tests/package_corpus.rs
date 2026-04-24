@@ -2747,6 +2747,41 @@ fn node_runner_corpus_semver_style_package_bin_executes_on_the_node_surface() {
 }
 
 #[test]
+fn utility_corpus_pi_coding_agent_style_package_remains_checkable_and_buildable_on_the_default_standalone_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write pi-coding-agent source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "pi-coding-agent corpus package content should be checkable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "pi-coding-agent corpus package content should be buildable on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+}
+
+#[test]
 fn binary_entrypoint_corpus_pi_coding_agent_style_package_executes_on_the_node_surface_and_is_rejected_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
