@@ -4887,6 +4887,111 @@ console.log(values.length);
 }
 
 #[test]
+fn run_supports_object_keys_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const keys = Object.keys(obj);
+if (keys.length !== 2 || keys[0] !== 'a' || keys[1] !== 'b') {
+  throw 'unexpected keys';
+}
+console.log(keys.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_object_entries_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const entries = Object.entries(obj);
+if (
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 1 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2
+) {
+  throw 'unexpected entries';
+}
+console.log(entries.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_object_values_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const values = Object.values(obj);
+if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+  throw 'unexpected values';
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_bigint_addition_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -4907,6 +5012,111 @@ fn test_supports_bigint_addition_semantics_in_js_input() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("3\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_keys_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const keys = Object.keys(obj);
+if (keys.length !== 2 || keys[0] !== 'a' || keys[1] !== 'b') {
+  throw 'unexpected keys';
+}
+console.log(keys.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_entries_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const entries = Object.entries(obj);
+if (
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 1 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2
+) {
+  throw 'unexpected entries';
+}
+console.log(entries.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_values_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+const values = Object.values(obj);
+if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+  throw 'unexpected values';
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
