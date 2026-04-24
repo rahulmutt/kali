@@ -14775,6 +14775,74 @@ fn effects_uses_inherited_browser_api_surface() {
 }
 
 #[test]
+fn effects_uses_explicit_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["dynamicEffects"], false);
+}
+
+#[test]
+fn effects_uses_inherited_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log('hello');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(json["dynamicEffects"], false);
+}
+
+#[test]
 fn effects_ignores_top_level_sandbox_config_in_json_output() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
