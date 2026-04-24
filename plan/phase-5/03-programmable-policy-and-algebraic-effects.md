@@ -30,14 +30,17 @@ This stage must preserve two guardrails:
   registry for embedding-side narrowing predicates, and the public embedding crate re-exports that
   context so embedding callers can inspect the same capability/subject payload that sandbox
   enforcement uses. The canonical context now also carries host-specific detail for file-system,
-  network, process-env, `ProcessSpawn`, and threaded-budget operations (`effects.fileSystem.read`
-  / `path`, `effects.network.fetch` / `url`, `effects.process.envWrite` / `key`,
-  `effects.process.spawn` / `executable`, `resources.maxThreads` / `activeThreads`), and the
-  embedding tests pin that detail through the re-exported context, through direct file/network/env,
-  `ProcessSpawn`, and `ThreadSpawn` narrowing regressions, and through registration-order coverage
-  for the embedding façade. Predicate denials now also carry deterministic capability/resource/detail
-  notes so the machine-readable diagnostic trail preserves the host-specific context without
-  replacing the stable schema.
+  network, process-env, timer, `ProcessSpawn`, and threaded-budget operations (`effects.fileSystem.read`
+  / `path`, `effects.fileSystem.write` / `path`, `effects.network.fetch` / `url`,
+  `effects.network.connect` / `target`, `effects.network.listen` / `target`,
+  `effects.process.envRead` / `key`, `effects.process.envWrite` / `key`, `effects.timer.schedule`
+  / `activeTimers` + `delayMs`, `effects.process.spawn` / `executable`,
+  `resources.maxThreads` / `activeThreads`, plus empty-detail baselines for `effects.console`,
+  `effects.random`, and `effects.eval`), and the embedding tests pin that detail through the
+  re-exported context, through direct file/network/env/timer/eval narrowing regressions, and through
+  registration-order coverage for the embedding façade. Predicate denials now also carry
+  deterministic capability/resource/detail notes so the machine-readable diagnostic trail preserves
+  the host-specific context without replacing the stable schema.
 - Declarative policy remains primary: the sandbox check helper applies the declarative decision
   first and only then evaluates host-registered predicates, with deterministic registration order and
   explicit rejection when the predicate registry is disabled.

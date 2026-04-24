@@ -233,6 +233,83 @@ fn predicate_context_records_file_network_and_env_details() {
 }
 
 #[test]
+fn predicate_context_records_remaining_host_specific_details() {
+    let file_write = PolicyPredicateContext::from_operation(&HostOperation::FileWrite {
+        path: PathBuf::from("/workspace/output.txt"),
+    });
+    assert_eq!(file_write.capability, "effects.fileSystem.write");
+    assert_eq!(file_write.subject, "/workspace/output.txt");
+    assert_eq!(
+        file_write.details.get("path").map(String::as_str),
+        Some("/workspace/output.txt")
+    );
+
+    let network_connect = PolicyPredicateContext::from_operation(&HostOperation::NetworkConnect {
+        target: "127.0.0.1:80".to_string(),
+    });
+    assert_eq!(network_connect.capability, "effects.network.connect");
+    assert_eq!(network_connect.subject, "127.0.0.1:80");
+    assert_eq!(
+        network_connect.details.get("target").map(String::as_str),
+        Some("127.0.0.1:80")
+    );
+
+    let network_listen = PolicyPredicateContext::from_operation(&HostOperation::NetworkListen {
+        target: "127.0.0.1:0".to_string(),
+    });
+    assert_eq!(network_listen.capability, "effects.network.listen");
+    assert_eq!(network_listen.subject, "127.0.0.1:0");
+    assert_eq!(
+        network_listen.details.get("target").map(String::as_str),
+        Some("127.0.0.1:0")
+    );
+
+    let environment_read =
+        PolicyPredicateContext::from_operation(&HostOperation::EnvironmentRead {
+            key: "PATH".to_string(),
+        });
+    assert_eq!(environment_read.capability, "effects.process.envRead");
+    assert_eq!(environment_read.subject, "PATH");
+    assert_eq!(
+        environment_read.details.get("key").map(String::as_str),
+        Some("PATH")
+    );
+
+    let timer_schedule = PolicyPredicateContext::from_operation(&HostOperation::TimerSchedule {
+        delay_ms: 250,
+        active_timers: 2,
+    });
+    assert_eq!(timer_schedule.capability, "effects.timer.schedule");
+    assert_eq!(timer_schedule.subject, "250");
+    assert_eq!(
+        timer_schedule
+            .details
+            .get("activeTimers")
+            .map(String::as_str),
+        Some("2")
+    );
+    assert_eq!(
+        timer_schedule.details.get("delayMs").map(String::as_str),
+        Some("250")
+    );
+
+    let console = PolicyPredicateContext::from_operation(&HostOperation::Console);
+    assert_eq!(console.capability, "effects.console");
+    assert_eq!(console.subject, "stdout");
+    assert!(console.details.is_empty());
+
+    let random = PolicyPredicateContext::from_operation(&HostOperation::Random);
+    assert_eq!(random.capability, "effects.random");
+    assert_eq!(random.subject, "random");
+    assert!(random.details.is_empty());
+
+    let eval = PolicyPredicateContext::from_operation(&HostOperation::Eval);
+    assert_eq!(eval.capability, "effects.eval");
+    assert_eq!(eval.subject, "eval");
+    assert!(eval.details.is_empty());
+}
+
+#[test]
 fn predicate_context_records_thread_spawn_details() {
     let operation = HostOperation::ThreadSpawn { active_threads: 3 };
     let context = PolicyPredicateContext::from_operation(&operation);
