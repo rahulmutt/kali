@@ -4872,6 +4872,30 @@ fn build_emits_browser_bundle_chunks_for_literal_dynamic_imports() {
 }
 
 #[test]
+fn check_rejects_non_literal_dynamic_import_targets() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let specifier; import(specifier);").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("non-literal dynamic import()")
+            || stderr.contains("statically known import specifier"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn build_emits_browser_bundle_chunks_for_simple_string_concat_dynamic_imports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");

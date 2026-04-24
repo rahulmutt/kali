@@ -657,6 +657,16 @@ impl TypeContext {
                 }
                 Err(diagnostic) => self.diagnostics.push(diagnostic),
             }
+        } else {
+            self.diagnostics.push(
+                Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "non-literal dynamic import() is unavailable in the current phase; use a statically known import specifier that can be resolved in the linked graph".to_string(),
+                )
+                .with_suggestion(
+                    "rewrite the import() target so the compiler can determine a linked-graph module at compile time",
+                ),
+            );
         }
     }
 

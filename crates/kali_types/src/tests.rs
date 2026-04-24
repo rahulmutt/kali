@@ -905,6 +905,43 @@ fn test_resolution_reports_unknown_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_rejects_non_literal_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "let specifier; import(specifier);").unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "specifier".to_string(),
+                init: None,
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::Identifier("specifier".to_string()),
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message.contains("non-literal dynamic import()")
+            || diag.message.contains("statically known import specifier")
+    }));
+}
+
+#[test]
 fn test_resolution_uses_project_root_for_materialized_packages() {
     let dir = tempdir().unwrap();
     fs::write(

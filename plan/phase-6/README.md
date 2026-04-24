@@ -30,9 +30,9 @@ Move from broad working coverage to measurable language conformance for the surf
 
 ### 6.3 Module and dynamic-loading semantics
 
-- Implement literal-string `import()` over the linked graph when ready.
+- Literal-string `import()` over the linked graph is implemented in the current snapshot; keep the one-linked-payload rule and preserve the linked-graph lowering path.
 - Preserve the one-linked-payload rule.
-- Keep non-literal `import(expr)` on the later compatibility path.
+- Keep non-literal `import(expr)` on the later compatibility path and reject it with the canonical `E5506` gate.
 
 ### 6.4 Runtime semantic regressions
 

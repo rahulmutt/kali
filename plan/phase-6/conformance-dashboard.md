@@ -17,14 +17,14 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
+| Literal-string `import()` | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 
 ## Gated for later phases
 
 | Feature | Status | Evidence |
 |---|---|---|
 | Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Canonical `E5506`/annotation-required boundary in `specs/04-type-system.md` and `specs/19-feature-maturity.md` |
-| Literal-string `import()` | Phase 3 target | Canonical `E5506` gate until the already-linked-graph lowering path is promoted |
-| Non-literal `import(expr)` | Later compatibility | Canonical dynamic-import compatibility gate (`E5506`) |
+| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
 | `eval` | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Function()` constructor | Phase 4 compatibility | Canonical `--compat eval` gate and `E5506` until enabled |
 | `Proxy` | Later compatibility | Canonical availability gate (`E5506`) |
@@ -37,6 +37,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 |---|---|---|
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Canonical rejected-by-default row in `specs/19-feature-maturity.md` |
 | Dynamic `require()` | Rejected by default | Canonical rejected-by-default row and `E5506`/unsupported-dynamic-loading diagnostics |
+| Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`) |
 
 ## Reading note
 
