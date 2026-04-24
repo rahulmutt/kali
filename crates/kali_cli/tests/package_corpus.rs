@@ -3041,6 +3041,14 @@ fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_on_t
         String::from_utf8_lossy(&check.stderr)
     );
 
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "utility mixed-format package interop-demo should be buildable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
     let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
     assert!(
         run.status.success(),
@@ -3081,6 +3089,14 @@ fn utility_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_on_t
         String::from_utf8_lossy(&check.stderr)
     );
 
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "utility mixed-format package interop-demo should be buildable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
     let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
     assert!(
         run.status.success(),
@@ -3117,6 +3133,14 @@ fn utility_corpus_packages_with_exports_map_and_minimized_cjs_esm_interop_remain
         "utility export-map mixed-format package interop-export-map-demo should be checkable\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&check.stdout),
         String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "utility export-map mixed-format package interop-export-map-demo should be buildable\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
     );
 
     let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
