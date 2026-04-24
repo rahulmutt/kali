@@ -38,7 +38,7 @@ Remaining goals:
 - Broader pure JS/TS npm/JSR package compatibility by support rung.
 - Larger package corpus covering Deno, browser-targeted, and Node contexts separately.
 - More Node built-ins and package-resolution cases when evidence justifies them.
-- Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case and a `vue` interop case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
+- Current progress: browser-targeted package corpus coverage now also exercises `.js` entrypoints for browser replacement-map packages, including a scoped package case and a `vue/runtime-dom` browser replacement-map JS-entrypoint case, closing one of the first-class-JavaScript evidence gaps in the browser surface.
 - Current progress: browser bundle chunk smoke coverage now also exercises literal dynamic imports from `.js` input, keeping the linked-graph lowering path aligned with first-class JavaScript compilation on the browser build lane.
 - Current progress: the runtime-smoke regression set now also mirrors arithmetic precedence and array literal length handling into `.js` input, alongside async/await sequencing on both the `run` and `test` paths, keeping those core supported semantics aligned with first-class JavaScript compilation evidence.
 - Current progress: Node package corpus coverage now also exercises the documented Node build surface for the same `node:`-based package set that already has Node `check` / `run` evidence, keeping package compatibility evidence aligned across analysis, build, and execution lanes.

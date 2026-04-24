@@ -1168,6 +1168,7 @@ fn browser_corpus_js_entrypoints_with_browser_replacement_maps_remain_checkable_
     for (package, subpath) in [
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
+        ("vue", "runtime-dom"),
         ("@reduxjs/toolkit", "query"),
     ] {
         let dir = tempdir().expect("tempdir");
