@@ -27,6 +27,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Expand JS inference fixtures within the bounded inference contract.
 - Add negative tests for annotation-required boundaries.
 - Avoid open-ended cross-module/public-API solver claims until a later evidence-backed packet exists.
+- Current progress: added `.js` fixture coverage for directory-index dynamic import resolution in `crates/kali_types/src/tests.rs`.
 
 ### 6.3 Module and dynamic-loading semantics
 
