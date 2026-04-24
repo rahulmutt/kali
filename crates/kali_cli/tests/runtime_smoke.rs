@@ -18538,6 +18538,64 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn json_package_effects_rejects_inherited_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("runtime profile")
+            || errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("wasm-threads"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn check_with_sandbox_rejects_inferred_effects() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

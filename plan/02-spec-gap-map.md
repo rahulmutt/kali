@@ -61,6 +61,7 @@ Remaining goals:
 - Current progress: registry-analysis command-shape coverage now also rejects explicit package-version targets for `package-effects` and `package-audit` in both text and JSON output modes, keeping the single-package target contract aligned with the documented `E5508` path.
 - Current progress: `package-audit` now also has pretty-JSON envelope coverage while inheriting a browser analysis context, keeping the envelope-only JSON command honest across formatting mode and inherited context at the same time.
 - Current progress: `package-audit` now also suppresses human output under `--quiet` even when inheriting `eval` plus `wasm-threads`, keeping the context-free registry-analysis row aligned across both quiet and non-quiet surfaces.
+- Current progress: `package-effects` now also has JSON-output rejection coverage for an inherited threaded runtime profile in the default standalone package-analysis context, keeping the inherited-only registry-analysis gate aligned with the command's schema-v1 context model.
 - Batch or richer registry-analysis workflows only after command/schema revisions.
 - Keep native/binary/bootstrap-heavy packages rejected by default unless the specs deliberately change.
 
