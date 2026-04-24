@@ -28,7 +28,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Add negative tests for annotation-required boundaries.
 - Avoid open-ended cross-module/public-API solver claims until a later evidence-backed packet exists.
 - Current progress: added `.js` fixture coverage for directory-index and parenthesized const-bound dynamic import resolution in `crates/kali_types/src/tests.rs`, plus matching build-discovery coverage for `.js` directory-index and parenthesized const-bound chunks in `crates/kali_cli/src/build_tests.rs`.
-- Current progress: parser now accepts async function declarations/expressions and async generator syntax as AST forms, plus generator function syntax and `yield` / `yield*` expressions, while the checker and CLI smoke tests still gate generator lowering with the canonical `E5506` availability path instead of letting it reach codegen; that gate is now covered on both `check` and `build` smoke paths, including delegated yield syntax.
+- Current progress: parser now accepts async function declarations/expressions and async generator syntax as AST forms, plus generator function syntax and `yield` / `yield*` expressions, while the checker and CLI smoke tests still gate generator lowering with the canonical `E5506` availability path instead of letting it reach codegen; that gate is now covered on both `check` and `build` smoke paths, including delegated yield syntax and async generator syntax.
 
 ### 6.3 Module and dynamic-loading semantics
 
@@ -44,7 +44,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Add minimized tests for exceptions, async/await, iterators/generators, built-ins, CJS/ESM interop, and object semantics.
 - Current progress: `try/finally` sequencing now has a dedicated runtime-smoke regression alongside the existing try/catch case.
 - Ensure unsupported dynamic features produce canonical availability diagnostics rather than silent placeholders.
-- Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, async/await sequencing, relational comparison semantics, try/catch exception semantics, try/finally sequencing, BigInt addition semantics, a gated `for...of` array-iteration rejection fixture, `Object.keys()` / `Object.entries()` / `Object.values()` object-enumeration semantics, and `Math.max()` built-in lowering in `crates/kali_cli/tests/runtime_smoke.rs`.
+- Current progress: added regression coverage for arithmetic precedence, array literal length handling, function call return semantics, async/await sequencing, relational comparison semantics, try/catch exception semantics, try/finally sequencing, BigInt addition semantics, a gated `for...of` array-iteration rejection fixture, generator and async generator lowering gates, `Object.keys()` / `Object.entries()` / `Object.values()` object-enumeration semantics, and `Math.max()` built-in lowering in `crates/kali_cli/tests/runtime_smoke.rs`.
 - Follow-up: generator lowering still needs a dedicated implementation packet for real lowering; the current snapshot keeps that surface gated at resolution/check time rather than miscompiling it.
 
 ## Exit gate

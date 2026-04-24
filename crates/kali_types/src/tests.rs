@@ -311,17 +311,35 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
                 },
             ))),
         }),
+        Statement::FunctionDeclaration(FunctionDeclaration {
+            name: "asyncMain".to_string(),
+            params: vec![],
+            body: Box::new(BlockStatement { body: vec![] }),
+            is_async: true,
+            generator: true,
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::FunctionExpression(Box::new(
+                FunctionExpression {
+                    id: Some("asyncInner".to_string()),
+                    params: vec![],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: true,
+                    generator: true,
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.len() >= 4);
+    assert!(result.diagnostics.len() >= 6);
     assert!(
         result
             .diagnostics
             .iter()
             .filter(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32))
             .count()
-            >= 4
+            >= 6
     );
 }
 

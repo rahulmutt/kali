@@ -17,7 +17,7 @@ The current repo has already implemented the historical MVP and several later su
 - `kali build --validate-ir`, `--bundle`, `--lib`, `--capi`, and `--component`.
 - `kali test --coverage`.
 - Runtime smoke coverage includes `Object.keys()`, `Object.entries()`, and `Object.values()` enumeration semantics alongside the earlier arithmetic, async/await, and built-in regressions.
-- The parser now accepts async function declarations/expressions and async generator syntax as AST forms, plus generator function syntax and `yield` expressions, while typechecking still gates generator lowering with the canonical `E5506` path until a real lowering packet lands; that rejection is now covered on both the `check` and `build` CLI smoke paths.
+- The parser now accepts async function declarations/expressions and async generator syntax as AST forms, plus generator function syntax and `yield` expressions, while typechecking still gates generator lowering with the canonical `E5506` path until a real lowering packet lands; that rejection is now covered on both the `check` and `build` CLI smoke paths, including async generator syntax.
 - `kali effects`, `kali package-effects`, and `kali package-audit`.
 - Deno-oriented baseline plus documented Node subsets for source-graph and effect/reporting workflows.
 - Browser-targeted `check` and `build --bundle` remain distinct from standalone browser runtime support.
