@@ -213,7 +213,7 @@ Initial implementation strategy:
 - Resolve `import`/`export` in the compiler
 - Lower the whole program/package graph into one linked WASM module as the core payload of each build artifact *(for browser builds, this may be accompanied by JS glue, but not by runtime WASM module linking)*
 - Static imports become direct internal calls or data references after linking
-- Literal-string `import()` may later be lowered to an async lookup over the already-linked graph
+- Literal-string `import()` may later be lowered to an async lookup over the already-linked graph, including directory-index targets that resolve to the linked module entrypoint
 - Non-literal dynamic `import()` remains a host-mediated compatibility path and is treated as a dynamic effect boundary
 
 This deliberately avoids depending on the WebAssembly module-linking proposal in early phases.

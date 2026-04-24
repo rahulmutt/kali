@@ -5067,6 +5067,51 @@ fn browser_bundle_js_exposes_runtime_dynamic_import_loader() {
 }
 
 #[test]
+fn browser_bundle_js_exposes_runtime_dynamic_import_loader_for_directory_index_targets() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let chunk_dir = dir.path().join("lazy");
+    fs::create_dir(&chunk_dir).expect("create chunk dir");
+    fs::write(
+        chunk_dir.join("index.ts"),
+        "export function lazyValue() { return 7; }",
+    )
+    .expect("write chunk source");
+    fs::write(
+        &source_path,
+        "const lazy = import(\"./lazy\");\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let js = fs::read_to_string(bundle_dir.join("app.js")).expect("read bundle js");
+    assert!(js.contains("loadDynamicImport"), "bundle js: {js}");
+    assert!(js.contains("loadWithImports"), "bundle js: {js}");
+    assert!(js.contains("lazy"), "bundle js: {js}");
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy");
+}
+
+#[test]
 fn browser_bundle_js_normalizes_runtime_dynamic_import_specifiers() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");

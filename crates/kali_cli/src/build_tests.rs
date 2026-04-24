@@ -563,3 +563,29 @@ fn discover_dynamic_import_targets_ignores_comment_and_string_substrings() {
         lazy_path.canonicalize().expect("canonical lazy path")
     );
 }
+
+#[test]
+fn discover_dynamic_import_targets_resolves_directory_index_chunks() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    let lazy_dir = dir.path().join("lazy");
+    fs::create_dir(&lazy_dir).expect("create lazy dir");
+    fs::write(lazy_dir.join("index.ts"), "export const lazy = true;").expect("write lazy index");
+    fs::write(&source_path, "const lazy = import('./lazy');").expect("write source");
+
+    let targets = discover_dynamic_import_targets(
+        &source_path,
+        &fs::read_to_string(&source_path).expect("read source"),
+    )
+    .expect("discover dynamic import targets");
+
+    assert_eq!(targets.len(), 1, "targets: {targets:?}");
+    assert_eq!(targets[0].specifier, "./lazy");
+    assert_eq!(
+        targets[0].target,
+        lazy_dir
+            .join("index.ts")
+            .canonicalize()
+            .expect("canonical lazy index path")
+    );
+}

@@ -925,6 +925,7 @@ fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathB
     if !(specifier.starts_with("./") || specifier.starts_with("../")) {
         return None;
     }
+
     let parent = source.parent()?;
     let candidate = parent.join(specifier);
     let try_paths = std::iter::once(candidate.clone()).chain([
@@ -938,10 +939,36 @@ fn resolve_dynamic_import_target(source: &Path, specifier: &str) -> Option<PathB
         candidate.with_extension("cjs"),
     ]);
     for path in try_paths {
-        if let Ok(canonical) = fs::canonicalize(&path) {
+        if let Some(canonical) = canonicalize_dynamic_import_candidate(&path) {
             return Some(canonical);
         }
     }
+    None
+}
+
+fn canonicalize_dynamic_import_candidate(candidate: &Path) -> Option<PathBuf> {
+    if candidate.is_file() {
+        return fs::canonicalize(candidate).ok();
+    }
+
+    if candidate.is_dir() {
+        for index_name in [
+            "index.ts",
+            "index.tsx",
+            "index.js",
+            "index.jsx",
+            "index.mts",
+            "index.mjs",
+            "index.cts",
+            "index.cjs",
+        ] {
+            let index_candidate = candidate.join(index_name);
+            if index_candidate.is_file() {
+                return fs::canonicalize(index_candidate).ok();
+            }
+        }
+    }
+
     None
 }
 

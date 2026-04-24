@@ -1203,6 +1203,52 @@ impl TypeContext {
         }
     }
 
+    fn resolve_relative_import_source(&self, base_dir: &Path, source: &str) -> bool {
+        let candidate = base_dir.join(source);
+        if candidate.is_file() {
+            return true;
+        }
+
+        if candidate.is_dir() && self.resolve_directory_index_candidate(&candidate) {
+            return true;
+        }
+
+        let extensions = [
+            "ts", "tsx", "js", "jsx", "mts", "cts", "d.ts", "d.mts", "d.cts",
+        ];
+        extensions.iter().any(|extension| {
+            let candidate = if source.ends_with(extension) {
+                base_dir.join(source)
+            } else {
+                base_dir.join(format!("{}.{}", source, extension))
+            };
+            candidate.is_file()
+                || (candidate.is_dir() && self.resolve_directory_index_candidate(&candidate))
+        })
+    }
+
+    fn resolve_directory_index_candidate(&self, directory: &Path) -> bool {
+        for index_name in [
+            "index.ts",
+            "index.tsx",
+            "index.js",
+            "index.jsx",
+            "index.mts",
+            "index.mjs",
+            "index.cts",
+            "index.cjs",
+            "index.d.ts",
+            "index.d.mts",
+            "index.d.cts",
+        ] {
+            if directory.join(index_name).is_file() {
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn resolve_import_source(&self, source: &str) -> Result<bool, Diagnostic> {
         if self.api_surface == "node" && is_node_builtin_specifier(source) {
             return Ok(true);
@@ -1217,22 +1263,7 @@ impl TypeContext {
         let project_root =
             kali_npm::discover_project_root(&base_dir).unwrap_or_else(|| base_dir.clone());
 
-        let candidate = base_dir.join(source);
-        if candidate.exists() {
-            return Ok(true);
-        }
-
-        let extensions = [
-            "ts", "tsx", "js", "jsx", "mts", "cts", "d.ts", "d.mts", "d.cts",
-        ];
-        if extensions.iter().any(|extension| {
-            let candidate = if source.ends_with(extension) {
-                base_dir.join(source)
-            } else {
-                base_dir.join(format!("{}.{}", source, extension))
-            };
-            candidate.exists()
-        }) {
+        if self.resolve_relative_import_source(&base_dir, source) {
             return Ok(true);
         }
 

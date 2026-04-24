@@ -866,6 +866,52 @@ fn test_resolution_allows_parenthesized_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_accepts_directory_index_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let lazy_dir = dir.path().join("lazy");
+    fs::create_dir(&lazy_dir).unwrap();
+    fs::write(lazy_dir.join("index.ts"), "export const lazy = 7;").unwrap();
+    fs::write(&source_path, "import(\"./lazy\");").unwrap();
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+            source: Expression::Literal(LiteralValue::String("./lazy".to_string())),
+        }))),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_directory_dynamic_import_targets_without_index() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let lazy_dir = dir.path().join("lazy");
+    fs::create_dir(&lazy_dir).unwrap();
+    fs::write(&source_path, "import(\"./lazy\");").unwrap();
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+            source: Expression::Literal(LiteralValue::String("./lazy".to_string())),
+        }))),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e4::DYNAMIC_IMPORT_NOT_IN_LINKED_GRAPH as u32)
+    );
+}
+
+#[test]
 fn test_resolution_reports_unknown_dynamic_import_targets() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
