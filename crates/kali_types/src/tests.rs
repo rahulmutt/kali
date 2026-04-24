@@ -1,10 +1,10 @@
 use super::*;
 use kali_ast::{
     BinaryExpression, BlockStatement, CallExpression, ExportDefaultDeclaration,
-    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, FunctionDeclaration,
-    FunctionExpression, LiteralValue, MemberExpression, ObjectExpression, ObjectProperty,
-    ObjectPropertyKind, ParenthesizedExpression, PropertyName, TypeAliasDeclaration,
-    VariableDeclarator, YieldExpression,
+    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
+    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
+    TypeAliasDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -1285,6 +1285,63 @@ fn test_resolution_rejects_non_literal_dynamic_import_targets() {
     assert!(result.diagnostics.iter().any(|diag| {
         diag.message.contains("non-literal dynamic import()")
             || diag.message.contains("statically known import specifier")
+    }));
+}
+
+#[test]
+fn test_resolution_rejects_for_of_array_iteration() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+            elements: vec![
+                Some(kali_ast::ExpressionOrSpread::Expression(
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                )),
+                Some(kali_ast::ExpressionOrSpread::Expression(
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                )),
+            ],
+        }),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("value".to_string())],
+                }))),
+            })],
+        })),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message.contains("for-of array iteration")
+            || diag.message.contains("later compatibility")
     }));
 }
 

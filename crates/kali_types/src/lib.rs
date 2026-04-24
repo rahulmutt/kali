@@ -9,14 +9,13 @@ use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, BlockStatement, BreakStatement, CallExpression,
     CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement,
     DecoratedExpression, DoWhileStatement, EnumDeclaration, EnumMember, Expression,
-    ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForOfLefthand,
-    ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam,
-    IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier, InterfaceDeclaration,
-    JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue, MemberExpression, NodeId,
-    ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
-    OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
-    TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
-    VariableDeclaration, WhileStatement, WithStatement,
+    ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForStatement,
+    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
+    ImportExpression, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement, JsxFragment,
+    LabeledStatement, LiteralValue, MemberExpression, NodeId, ObjectExpression, ObjectProperty,
+    ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement,
+    Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
+    TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
@@ -408,17 +407,11 @@ impl TypeContext {
                 self.resolve_loop_body(body);
                 self.pop_scope();
             }
-            Statement::ForOfStatement(ForOfStatement { left, right, body }) => {
-                self.push_scope(ScopeType::Block);
-                match left {
-                    ForOfLefthand::VariableDeclaration(decl) => {
-                        self.resolve_variable_declaration(decl)
-                    }
-                    ForOfLefthand::Expression(expr) => self.resolve_expression(expr),
-                }
-                self.resolve_expression(right);
-                self.resolve_loop_body(body);
-                self.pop_scope();
+            Statement::ForOfStatement(_) => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
+                ));
             }
             Statement::WhileStatement(WhileStatement { test, body }) => {
                 self.resolve_expression(test);

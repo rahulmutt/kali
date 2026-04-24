@@ -3,11 +3,11 @@ use kali_ast::{
     ASTBuilder, ArrayExpression, ArrowFunctionExpression, BinaryExpression, BlockStatement,
     BreakStatement, CallExpression, CatchClause, ClassDeclaration, ContinueStatement,
     DebuggerStatement, DoWhileStatement, Expression, ExpressionOrSpread, ExpressionStatement,
-    ForInit, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement,
-    ImportDeclaration, ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier,
-    LiteralValue, MemberExpression, ParenthesizedExpression, ReturnStatement, Statement,
-    SwitchCase, SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration,
-    VariableDeclarator, WhileStatement, YieldExpression, AST,
+    ForInit, ForOfLefthand, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression,
+    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
+    ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ParenthesizedExpression,
+    ReturnStatement, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
+    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -389,10 +389,44 @@ impl Parser {
         let _ = self.stream.advance();
         let _ = self.stream.accept(TokenType::LeftParen);
 
-        let init = if self.stream.current_kind() == Some(&TokenType::Semicolon) {
+        if self.stream.current_kind() == Some(&TokenType::Semicolon) {
             let _ = self.stream.advance();
-            None
-        } else if matches!(
+            let test = if self.stream.current_kind() != Some(&TokenType::Semicolon)
+                && self.stream.current_kind() != Some(&TokenType::RightParen)
+                && !self.stream.eof()
+            {
+                Some(self.parse_expression())
+            } else {
+                None
+            };
+
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            let update = if self.stream.current_kind() != Some(&TokenType::RightParen)
+                && !self.stream.eof()
+            {
+                Some(self.parse_expression())
+            } else {
+                None
+            };
+
+            let _ = self.stream.accept(TokenType::RightParen);
+
+            let body_stmt = self
+                .parse_statement()
+                .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body = Box::new(Self::wrap_statement_as_block(body_stmt));
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            return Some(Statement::ForStatement(ForStatement {
+                init: None,
+                test,
+                update,
+                body,
+            }));
+        }
+
+        if matches!(
             self.stream.current_kind(),
             Some(TokenType::Var | TokenType::Let | TokenType::Const)
         ) {
@@ -407,20 +441,99 @@ impl Parser {
             } else {
                 None
             };
+
+            if init_expr.is_none() && self.stream.current_kind() == Some(&TokenType::Of) {
+                let _ = self.stream.advance();
+                let right = self.parse_expression();
+                let _ = self.stream.accept(TokenType::RightParen);
+
+                let body_stmt = self
+                    .parse_statement()
+                    .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+                let body = Box::new(Statement::BlockStatement(Self::wrap_statement_as_block(
+                    body_stmt,
+                )));
+                let _ = self.stream.accept(TokenType::Semicolon);
+
+                return Some(Statement::ForOfStatement(ForOfStatement {
+                    left: ForOfLefthand::VariableDeclaration(VariableDeclaration {
+                        kind,
+                        declarations: vec![VariableDeclarator {
+                            id: name,
+                            init: None,
+                        }],
+                    }),
+                    right,
+                    body,
+                }));
+            }
+
             let _ = self.stream.accept(TokenType::Semicolon);
-            Some(ForInit::VariableDeclaration(VariableDeclaration {
+            let init = Some(ForInit::VariableDeclaration(VariableDeclaration {
                 kind,
                 declarations: vec![VariableDeclarator {
                     id: name,
                     init: init_expr,
                 }],
-            }))
-        } else {
-            let expr = self.parse_expression();
-            let _ = self.stream.accept(TokenType::Semicolon);
-            Some(ForInit::Expression(expr))
-        };
+            }));
 
+            let test = if self.stream.current_kind() != Some(&TokenType::Semicolon)
+                && self.stream.current_kind() != Some(&TokenType::RightParen)
+                && !self.stream.eof()
+            {
+                Some(self.parse_expression())
+            } else {
+                None
+            };
+
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            let update = if self.stream.current_kind() != Some(&TokenType::RightParen)
+                && !self.stream.eof()
+            {
+                Some(self.parse_expression())
+            } else {
+                None
+            };
+
+            let _ = self.stream.accept(TokenType::RightParen);
+
+            let body_stmt = self
+                .parse_statement()
+                .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body = Box::new(Self::wrap_statement_as_block(body_stmt));
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            return Some(Statement::ForStatement(ForStatement {
+                init,
+                test,
+                update,
+                body,
+            }));
+        }
+
+        let expr = self.parse_expression();
+        if self.stream.current_kind() == Some(&TokenType::Of) {
+            let _ = self.stream.advance();
+            let right = self.parse_expression();
+            let _ = self.stream.accept(TokenType::RightParen);
+
+            let body_stmt = self
+                .parse_statement()
+                .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] }));
+            let body = Box::new(Statement::BlockStatement(Self::wrap_statement_as_block(
+                body_stmt,
+            )));
+            let _ = self.stream.accept(TokenType::Semicolon);
+
+            return Some(Statement::ForOfStatement(ForOfStatement {
+                left: ForOfLefthand::Expression(expr),
+                right,
+                body,
+            }));
+        }
+
+        let _ = self.stream.accept(TokenType::Semicolon);
         let test = if self.stream.current_kind() != Some(&TokenType::Semicolon)
             && self.stream.current_kind() != Some(&TokenType::RightParen)
             && !self.stream.eof()
@@ -448,7 +561,7 @@ impl Parser {
         let _ = self.stream.accept(TokenType::Semicolon);
 
         Some(Statement::ForStatement(ForStatement {
-            init,
+            init: Some(ForInit::Expression(expr)),
             test,
             update,
             body,

@@ -6617,9 +6617,10 @@ console.log(seen.join(','));
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("undefined identifier 'value'"),
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
         "stderr: {stderr}"
     );
 }
@@ -6648,9 +6649,10 @@ console.log(seen.join(','));
 
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("undefined identifier 'value'"),
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
         "stderr: {stderr}"
     );
 }
@@ -9236,6 +9238,62 @@ fn check_rejects_async_generator_function_expression_lowering_in_js_input() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn check_rejects_for_of_array_iteration_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn check_rejects_for_of_array_iteration_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
         "stderr: {stderr}"
     );
 }

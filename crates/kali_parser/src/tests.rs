@@ -24,6 +24,38 @@ fn test_parse_var_declaration() {
 }
 
 #[test]
+fn test_parse_for_of_statement() {
+    let tokens = lex("for (const value of items) { console.log(value); }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ForOfStatement(stmt) => {
+            match &stmt.left {
+                kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+                    assert_eq!(decl.kind, "const");
+                    assert_eq!(decl.declarations.len(), 1);
+                    assert_eq!(decl.declarations[0].id, "value");
+                    assert!(decl.declarations[0].init.is_none());
+                }
+                other => panic!("Expected variable declaration left-hand, got {other:?}"),
+            }
+            match &stmt.right {
+                Expression::Identifier(name) => assert_eq!(name, "items"),
+                other => panic!("Expected identifier right-hand, got {other:?}"),
+            }
+        }
+        other => panic!("Expected ForOfStatement, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_side_effect_import_declaration() {
     let tokens = lex("import \"mod\";");
     let mut parser = Parser::new(FileId::new(0), tokens);
