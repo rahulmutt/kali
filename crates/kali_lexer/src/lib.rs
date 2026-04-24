@@ -227,6 +227,7 @@ impl Lexer {
             "throw" => TokenType::Throw,
             "try" => TokenType::Try,
             "catch" => TokenType::Catch,
+            "finally" => TokenType::Finally,
             "debugger" => TokenType::Debugger,
             "new" => TokenType::New,
             "function" => TokenType::Function,

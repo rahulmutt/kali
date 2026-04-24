@@ -234,3 +234,31 @@ fn test_parse_yield_expression_outside_generator_remains_identifier() {
         other => panic!("Expected ExpressionStatement, got {other:?}"),
     }
 }
+
+#[test]
+fn test_parse_try_finally_statement() {
+    let tokens = lex("try { value; } finally { other; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::TryStatement(stmt) => {
+            assert!(
+                stmt.handler.is_none(),
+                "unexpected catch clause: {:?}",
+                stmt.handler
+            );
+            assert!(stmt.finalizer.is_some(), "expected finally block");
+            assert_eq!(stmt.block.body.len(), 1);
+            assert_eq!(stmt.finalizer.as_ref().unwrap().body.len(), 1);
+        }
+        other => panic!("Expected TryStatement, got {other:?}"),
+    }
+}

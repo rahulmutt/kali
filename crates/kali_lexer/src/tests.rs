@@ -16,6 +16,13 @@ fn test_lexer_function() {
 }
 
 #[test]
+fn test_lexer_finally() {
+    let mut lexer = Lexer::new(FileId::new(0), "finally".to_string());
+    let token = lexer.next_token().unwrap();
+    assert_eq!(token.kind, TokenType::Finally);
+}
+
+#[test]
 fn test_lexer_identifier() {
     let mut lexer = Lexer::new(FileId::new(0), "x".to_string());
     let token = lexer.next_token().unwrap();

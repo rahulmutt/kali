@@ -609,6 +609,7 @@ impl Parser {
         };
 
         let finalizer = if self.stream.current_kind() == Some(&TokenType::Finally) {
+            let _ = self.stream.advance();
             Some(
                 self.parse_block_statement()
                     .unwrap_or(Statement::BlockStatement(BlockStatement { body: vec![] })),

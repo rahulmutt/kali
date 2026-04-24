@@ -368,31 +368,50 @@ impl HirLowerer {
                 handler,
                 finalizer,
             }) => {
-                let id = self.builder.alloc(HirNodeKind::TryStmt, None);
-                push_child!(
-                    self,
-                    id,
-                    self.lower_statement(&Statement::BlockStatement((**block).clone()))
-                );
-                if let Some(CatchClause { param, body }) = handler {
-                    let catch_id = self
-                        .builder
-                        .alloc_text(HirNodeKind::Block, None, param.clone());
-                    push_child!(
-                        self,
-                        catch_id,
-                        self.lower_statement(&Statement::BlockStatement((**body).clone()))
-                    );
-                    push_child!(self, id, catch_id);
-                }
-                if let Some(finalizer) = finalizer {
+                if handler.is_none() {
+                    if let Some(finalizer) = finalizer {
+                        let id = self.builder.alloc(HirNodeKind::Block, None);
+                        push_child!(
+                            self,
+                            id,
+                            self.lower_statement(&Statement::BlockStatement((**block).clone()))
+                        );
+                        push_child!(
+                            self,
+                            id,
+                            self.lower_statement(&Statement::BlockStatement(finalizer.clone()))
+                        );
+                        id
+                    } else {
+                        self.lower_statement(&Statement::BlockStatement((**block).clone()))
+                    }
+                } else {
+                    let id = self.builder.alloc(HirNodeKind::TryStmt, None);
                     push_child!(
                         self,
                         id,
-                        self.lower_statement(&Statement::BlockStatement(finalizer.clone()))
+                        self.lower_statement(&Statement::BlockStatement((**block).clone()))
                     );
+                    if let Some(CatchClause { param, body }) = handler {
+                        let catch_id =
+                            self.builder
+                                .alloc_text(HirNodeKind::Block, None, param.clone());
+                        push_child!(
+                            self,
+                            catch_id,
+                            self.lower_statement(&Statement::BlockStatement((**body).clone()))
+                        );
+                        push_child!(self, id, catch_id);
+                    }
+                    if let Some(finalizer) = finalizer {
+                        push_child!(
+                            self,
+                            id,
+                            self.lower_statement(&Statement::BlockStatement(finalizer.clone()))
+                        );
+                    }
+                    id
                 }
-                id
             }
             Statement::DebuggerStatement(DebuggerStatement {}) => {
                 self.builder.alloc(HirNodeKind::DebuggerStmt, None)
