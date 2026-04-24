@@ -4609,6 +4609,37 @@ fn run_supports_math_min_builtin_semantics() {
 }
 
 #[test]
+fn run_supports_console_level_routing() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("info"), "stdout: {stdout}");
+    assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stderr.contains("err"), "stderr: {stderr}");
+    assert!(stderr.contains("[warn] warn"), "stderr: {stderr}");
+}
+
+#[test]
 fn build_embeds_sandbox_policy_custom_section() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
