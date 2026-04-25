@@ -12128,6 +12128,118 @@ fn check_rejects_for_of_array_iteration_lowering_in_js_input() {
 }
 
 #[test]
+fn build_rejects_for_of_array_iteration_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn build_rejects_for_of_array_iteration_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_for_of_array_iteration_lowering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_rejects_for_of_array_iteration_lowering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("for-of array iteration lowering")
+            || stderr.contains("later compatibility"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn build_rejects_non_literal_dynamic_import_targets_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
