@@ -6231,6 +6231,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "import path from \"node:path\";\nexport default function root() { path.basename(\"/tmp/node-corpus.txt\"); return 0; }\n",
             "0",
         ),
+        (
+            "node-crypto-corpus",
+            "import { createHash } from \"node:crypto\";\nexport default function root() { createHash(\"sha256\").update(\"node-corpus\").digest(\"hex\"); return 0; }\n",
+            "0",
+        ),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
