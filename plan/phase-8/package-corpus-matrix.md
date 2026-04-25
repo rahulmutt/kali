@@ -57,8 +57,8 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) | default standalone | `check`, `build` | checkable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and test coverage | default standalone | `check`, `build`, `test` | checkable / buildable / testable | `crates/kali_cli/tests/package_corpus.rs` |
-| npm-style package corpus | scoped packages | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
-| npm-style package corpus | scoped packages with `.js` input | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | scoped packages | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | scoped packages with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints | default standalone | `run` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
 
 ## Node corpus

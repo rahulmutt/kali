@@ -5217,6 +5217,14 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+        assert!(
+            build.status.success(),
+            "scoped utility package {package} should be buildable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
         let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
         assert!(
             run.status.success(),
@@ -5263,6 +5271,14 @@ fn utility_corpus_scoped_packages_remain_checkable_and_executable_on_the_default
             "scoped utility package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&check.stdout),
             String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+        assert!(
+            build.status.success(),
+            "scoped utility package {package} should be buildable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
         );
 
         let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);

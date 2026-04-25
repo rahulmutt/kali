@@ -1139,6 +1139,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "default standalone semver corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | scoped packages with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone scoped corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser condition preference corpus row should be recorded in the package corpus matrix",
         ),
