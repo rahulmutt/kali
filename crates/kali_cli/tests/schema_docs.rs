@@ -1140,6 +1140,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime browser-condition / browser-deno TS row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser dual-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime dual-exports corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime web-baseline corpus row should be recorded in the package corpus matrix",
         ),
@@ -1168,8 +1172,8 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node semver corpus row should be recorded in the package corpus matrix",
         ),
         (
-            "| npm-style package corpus | Node built-in package (`node:buffer`) on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
-            "node buffer corpus row should be recorded in the package corpus matrix",
+            "| npm-style package corpus | Node built-in packages (`node:buffer`, `node:path`) on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node built-in corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | node-assuming packages with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",

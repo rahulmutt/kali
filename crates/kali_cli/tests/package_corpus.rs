@@ -3227,6 +3227,84 @@ fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_dual_exports_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_dual_exports_package(
+            dir.path(),
+            package,
+            &format!("export default function root() {{ return '{package}:import'; }}\n", package = package),
+            &format!("module.exports = function root() {{ return '{package}:require'; }};\n", package = package),
+            subpath,
+            &format!("export default function subpath() {{ return '{package}:{subpath}:import'; }}\n", package = package, subpath = subpath),
+            &format!("module.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n", package = package, subpath = subpath),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser test source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser dual package {package} should be executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser dual package {package} should be testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for package in ["react", "preact", "vue"] {
@@ -6058,6 +6136,105 @@ export default function dotenv() {
             "stdout: {}",
             String::from_utf8_lossy(&test.stdout)
         );
+    }
+}
+
+#[test]
+fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testable_on_the_node_surface_on_js_input(
+) {
+    for (package, body, expected) in [
+        (
+            "node-buffer-corpus",
+            "import { Buffer } from \"node:buffer\";\nexport default function root() { Buffer.from(\"node\"); return 0; }\n",
+            "0",
+        ),
+        (
+            "node-path-corpus",
+            "import path from \"node:path\";\nexport default function root() { path.basename(\"/tmp/node-corpus.txt\"); return 0; }\n",
+            "0",
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("node"));
+        write_module_only_package(dir.path(), package, body);
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write node built-in source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "node", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "node built-in package {package} should check on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build_out_dir = dir.path().join("build");
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--api",
+                "node",
+                "--out-dir",
+                build_out_dir.to_str().unwrap(),
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "node built-in package {package} should build on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
+        let run = run_kali(
+            dir.path(),
+            ["run", "--api", "node", source_path.to_str().unwrap()],
+        );
+        assert!(
+            run.status.success(),
+            "node built-in package {package} should execute on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), format!("{expected}\n"));
+
+        let test_source = dir.path().join("tests").join(format!("{package}.test.js"));
+        fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_source,
+            format!(
+                "import root from '{package}';\nKali.test('{package} corpus', () => {{\n  console.log(root());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write node built-in test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_source.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node built-in package {package} should be testable on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+        assert!(test_stdout.contains(expected), "stdout: {test_stdout}");
     }
 }
 
