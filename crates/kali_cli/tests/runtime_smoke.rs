@@ -3181,6 +3181,62 @@ main();
 }
 
 #[test]
+fn run_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input()
+{
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const first = performance.now();
+  await Promise.resolve();
+  const second = performance.now();
+  if (typeof first !== 'number' || typeof second !== 'number' || second < first) {
+    throw new Error('performance.now moved backwards');
+  }
+  console.log('performance.now ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}
+stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("performance.now ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_console_assert_routing_when_browser_harness_is_configured_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -5218,6 +5274,60 @@ main();
             .as_str()
             .expect("stdout")
             .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input()
+{
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const first = performance.now();
+  await Promise.resolve();
+  const second = performance.now();
+  if (typeof first !== 'number' || typeof second !== 'number' || second < first) {
+    throw new Error('performance.now moved backwards');
+  }
+  console.log('performance.now ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}
+stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("performance.now ok"),
         "json: {json}"
     );
 }
@@ -10358,6 +10468,55 @@ async function queueMicrotaskSmoke(left, right) {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_performance_now_monotonic_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: performanceNowSmoke
+async function performanceNowSmoke(left, right) {
+  const first = performance.now();
+  await Promise.resolve(left + right);
+  const second = performance.now();
+  if (typeof first !== 'number' || typeof second !== 'number' || second < first) {
+    throw new Error('performance.now moved backwards');
+  }
+  return 0n;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}
+stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "performanceNowSmoke");
 }
 
 #[test]
