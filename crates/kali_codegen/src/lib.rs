@@ -324,6 +324,10 @@ impl<'a> FunctionEmitter<'a> {
         node: &LirNode,
         want_value: bool,
     ) -> EmittedValue {
+        if node.text.is_none() {
+            return self.emit_aggregate_literal(function, node, want_value);
+        }
+
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
@@ -444,6 +448,18 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 }
 
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if self.is_array_literal(&aggregate) {
+                        function
+                            .instruction(&Instruction::I64Const(aggregate.children.len() as i64));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
+                }
+
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
@@ -452,6 +468,32 @@ impl<'a> FunctionEmitter<'a> {
                 EmittedValue {
                     produced: true,
                     shape: ValueShape::Scalar,
+                }
+            }
+            op if op.parse::<usize>().is_ok() => {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if self.is_array_literal(&aggregate) {
+                        if let Ok(index) = op.parse::<usize>() {
+                            if let Some(element) = aggregate.children.get(index).copied() {
+                                return self.emit_node(function, element, true);
+                            }
+                        }
+                    }
+
+                    if let Some(field_value) = self.object_literal_field(&aggregate, op) {
+                        return self.emit_node(function, field_value, true);
+                    }
+                }
+
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
                 }
             }
             "version" => {
@@ -487,6 +529,13 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             _ => {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if let Some(field_value) = self.object_literal_field(&aggregate, op) {
+                        return self.emit_node(function, field_value, true);
+                    }
+                }
+
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),
@@ -502,6 +551,107 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
         }
+    }
+
+    fn emit_aggregate_literal(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        _want_value: bool,
+    ) -> EmittedValue {
+        if self.is_object_literal(node) {
+            for child in &node.children {
+                let property = self.node(*child).clone();
+                if property.children.len() != 2 {
+                    continue;
+                }
+                let value = property.children[1];
+                let produced = self.emit_node(function, value, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+        } else {
+            for child in &node.children {
+                let produced = self.emit_node(function, *child, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+        }
+
+        function.instruction(&Instruction::I64Const(0));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Unknown,
+        }
+    }
+
+    fn resolve_literal_aggregate(&self, mut id: LirNodeId) -> Option<LirNodeId> {
+        let mut seen = HashSet::new();
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value
+                && node.children.is_empty()
+                && node.text.as_deref().is_some()
+            {
+                let name = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(name).copied() {
+                    id = bound;
+                    continue;
+                }
+            }
+
+            return Some(id);
+        }
+    }
+
+    fn is_object_literal(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Value || node.text.is_some() || node.children.is_empty() {
+            return false;
+        }
+
+        node.children.iter().all(|child| {
+            self.node(*child).children.len() == 2
+                && self
+                    .node(*child)
+                    .text
+                    .as_deref()
+                    .is_some_and(|kind| matches!(kind, "init" | "get" | "set"))
+                && self.node(self.node(*child).children[0]).kind == LirNodeKind::Literal
+        })
+    }
+
+    fn is_array_literal(&self, node: &LirNode) -> bool {
+        node.kind == LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)
+    }
+
+    fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
+        if !self.is_object_literal(node) {
+            return None;
+        }
+
+        let field = field.trim_matches('"');
+        for child in &node.children {
+            let property = self.node(*child);
+            if property.children.len() != 2 {
+                continue;
+            }
+            let key = self
+                .node(property.children[0])
+                .text
+                .as_deref()
+                .map(|value| value.trim_matches('"'))?;
+            if key == field {
+                return property.children.get(1).copied();
+            }
+        }
+
+        None
     }
 
     fn emit_binary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {

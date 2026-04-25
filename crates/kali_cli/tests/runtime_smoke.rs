@@ -354,17 +354,25 @@ const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
 if (
-  keys.length !== 2 ||
+  keys.length !== 4 ||
   keys[0] !== '1' ||
   keys[1] !== '2' ||
-  entries.length !== 2 ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  entries.length !== 4 ||
   entries[0][0] !== '1' ||
   entries[0][1] !== 4 ||
   entries[1][0] !== '2' ||
   entries[1][1] !== 2 ||
-  values.length !== 2 ||
+  entries[2][0] !== 'b' ||
+  entries[2][1] !== 1 ||
+  entries[3][0] !== 'a' ||
+  entries[3][1] !== 3 ||
+  values.length !== 4 ||
   values[0] !== 4 ||
-  values[1] !== 2
+  values[1] !== 2 ||
+  values[2] !== 1 ||
+  values[3] !== 3
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3415,7 +3423,6 @@ fn run_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_c
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn run_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -3439,11 +3446,10 @@ fn run_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_br
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "4\n4\n4", "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn run_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -3475,11 +3481,10 @@ fn run_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_input
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "4\n4\n4", "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn run_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -3503,11 +3508,10 @@ fn run_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_br
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "4\n4\n4", "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn run_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -3539,7 +3543,7 @@ fn run_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_input
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "4\n4\n4", "stdout: {stdout}");
 }
 
 #[test]
@@ -5651,6 +5655,52 @@ fn run_supports_array_literal_length_in_js_input() {
 }
 
 #[test]
+fn run_supports_array_literal_indexing_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log([1, 2, 3][1]);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_object_literal_property_access_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(({ a: 1, b: 2 }).b);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_crypto_get_random_values_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -7387,7 +7437,7 @@ console.log(values.length);
 }
 
 #[test]
-fn run_rejects_object_enumeration_integer_like_key_ordering() {
+fn run_supports_object_enumeration_integer_like_key_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -7397,17 +7447,25 @@ const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
 if (
-  keys.length !== 2 ||
+  keys.length !== 4 ||
   keys[0] !== '1' ||
   keys[1] !== '2' ||
-  entries.length !== 2 ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  entries.length !== 4 ||
   entries[0][0] !== '1' ||
   entries[0][1] !== 4 ||
   entries[1][0] !== '2' ||
   entries[1][1] !== 2 ||
-  values.length !== 2 ||
+  entries[2][0] !== 'b' ||
+  entries[2][1] !== 1 ||
+  entries[3][0] !== 'a' ||
+  entries[3][1] !== 3 ||
+  values.length !== 4 ||
   values[0] !== 4 ||
-  values[1] !== 2
+  values[1] !== 2 ||
+  values[2] !== 1 ||
+  values[3] !== 3
 ) {
   throw 'unexpected numeric-key ordering';
 }
@@ -7425,17 +7483,17 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("later compatibility") || stderr.contains("aggregate lowering"),
-        "stderr: {stderr}"
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "4\n4\n4", "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_supports_object_enumeration_integer_like_key_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
@@ -7481,11 +7539,10 @@ console.log(values.length);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\n2\n2\nok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_supports_object_enumeration_integer_like_key_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -7531,7 +7588,7 @@ console.log(values.length);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\n2\n2\nok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
@@ -9574,7 +9631,6 @@ async function enumSmoke(left, right) {
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn build_emits_browser_bundle_integer_like_key_ordering_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
@@ -9591,17 +9647,25 @@ async function enumSmoke(left, right) {
   const entries = Object.entries(obj);
   const values = Object.values(obj);
   if (
-    keys.length !== 2 ||
+    keys.length !== 4 ||
     keys[0] !== '1' ||
     keys[1] !== '2' ||
-    entries.length !== 2 ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    entries.length !== 4 ||
     entries[0][0] !== '1' ||
     entries[0][1] !== 4 ||
     entries[1][0] !== '2' ||
     entries[1][1] !== 2 ||
-    values.length !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3 ||
+    values.length !== 4 ||
     values[0] !== 4 ||
-    values[1] !== 2
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3
   ) {
     throw new Error('unexpected numeric-key ordering');
   }
@@ -9640,7 +9704,6 @@ async function enumSmoke(left, right) {
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
@@ -9657,17 +9720,25 @@ async function enumSmoke(left, right) {
   const entries = Object.entries(obj);
   const values = Object.values(obj);
   if (
-    keys.length !== 2 ||
+    keys.length !== 4 ||
     keys[0] !== '1' ||
     keys[1] !== '2' ||
-    entries.length !== 2 ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    entries.length !== 4 ||
     entries[0][0] !== '1' ||
     entries[0][1] !== 4 ||
     entries[1][0] !== '2' ||
     entries[1][1] !== 2 ||
-    values.length !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3 ||
+    values.length !== 4 ||
     values[0] !== 4 ||
-    values[1] !== 2
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3
   ) {
     throw new Error('unexpected numeric-key ordering');
   }
@@ -15434,7 +15505,6 @@ fn test_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -15463,11 +15533,10 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_js_input_when_a_b
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -15504,11 +15573,10 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_js_inpu
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -15537,11 +15605,10 @@ fn test_accepts_browser_api_surface_with_object_enumeration_in_ts_input_when_a_b
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
 fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -15578,7 +15645,7 @@ fn test_accepts_inherited_browser_api_surface_with_object_enumeration_in_ts_inpu
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-    assert!(stdout.contains("2\n2\n2"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n4\n4"), "stdout: {stdout}");
 }
 
 #[test]

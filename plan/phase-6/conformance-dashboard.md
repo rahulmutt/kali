@@ -62,7 +62,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | `require("literal")` | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_codegen/src/tests.rs` |
 | Literal-string `import()` over the linked graph, including directory-index targets | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Generator lowering | Later compatibility | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (`check` / `build` / `run` / `test` gate coverage, including async generator syntax, async generator function-expression syntax, minimized `.js` input fixtures, and browser-targeted `.js` mirrors) |
-| Integer-like key ordering in object enumeration | Later compatibility | `crates/kali_cli/tests/runtime_smoke.rs` rejection coverage now hits the canonical `E5506` gate instead of the earlier codegen-validation failure path; a dedicated lowering fix is still required before this can move into the supported object-enumeration bucket |
+| Integer-like key ordering in object enumeration | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` and `crates/kali_cli/tests/runtime_smoke.rs` browser-bundle coverage now exercise the 4-key ordering path across TS and `.js` inputs, including browser-requested `run` / `test` harness coverage and browser bundle smoke coverage |
 
 ## Gated for later phases
 
