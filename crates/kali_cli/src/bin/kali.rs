@@ -1111,6 +1111,31 @@ fn reject_unavailable_browser_runtime(
     )
 }
 
+fn reject_unavailable_spawned_process_budget(
+    command: &str,
+    max_spawned_processes: Option<u64>,
+    output: &CliOutputOptions,
+    source_path: Option<&Path>,
+    source_contents: Option<&str>,
+) -> Result<(), i32> {
+    if !max_spawned_processes.is_some_and(|count| count > 0) {
+        return Ok(());
+    }
+
+    let diagnostic = Diagnostic::error(
+        e5::FEATURE_UNAVAILABLE as u32,
+        "selected resource budget(s) [\"resources.maxSpawnedProcesses\"] are unavailable in this phase",
+    );
+    emit_diagnostics_and_exit(
+        command,
+        vec![diagnostic],
+        5,
+        output,
+        source_path,
+        source_contents,
+    )
+}
+
 fn reject_unavailable_zero_capable_budgets(
     command: &str,
     runtime_profiles: &[String],
@@ -2775,6 +2800,11 @@ fn run_command(
     ) {
         return Err(exit_code);
     }
+    if let Err(exit_code) =
+        reject_unavailable_spawned_process_budget("run", max_spawned_processes, output, None, None)
+    {
+        return Err(exit_code);
+    }
     if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
         "run",
         &effective_runtime_profiles,
@@ -2972,6 +3002,11 @@ fn test_command(
         None,
         None,
     ) {
+        return Err(exit_code);
+    }
+    if let Err(exit_code) =
+        reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
+    {
         return Err(exit_code);
     }
     if let Err(exit_code) = reject_unavailable_zero_capable_budgets(
