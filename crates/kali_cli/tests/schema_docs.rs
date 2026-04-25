@@ -816,6 +816,39 @@ fn specialized_artifact_metadata_schemas_share_the_base_artifact_contract() {
         );
     }
 }
+
+#[test]
+fn binding_package_metadata_schema_is_pinned() {
+    let root = repo_root();
+    let schema: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/artifact-meta/binding-package/v1.json"))
+            .expect("read binding package schema"),
+    )
+    .expect("parse binding package schema");
+
+    assert_eq!(schema["title"], "Kali Binding Package Manifest v1");
+    assert_eq!(schema["type"], "object");
+    assert_eq!(schema["additionalProperties"], true);
+    assert_eq!(
+        schema["required"],
+        serde_json::json!([
+            "schemaVersion",
+            "kind",
+            "moduleName",
+            "hostAbiVersion",
+            "artifacts"
+        ])
+    );
+    assert_eq!(schema["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(schema["properties"]["kind"]["const"], "binding-package");
+    assert_eq!(schema["properties"]["moduleName"]["type"], "string");
+    assert_eq!(schema["properties"]["hostAbiVersion"]["type"], "integer");
+    assert_eq!(schema["properties"]["artifacts"]["type"], "object");
+    assert_eq!(
+        schema["properties"]["artifacts"]["required"],
+        serde_json::json!(["library", "metadata", "exportsHeader", "glue"])
+    );
+}
 #[test]
 fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     let root = repo_root();
