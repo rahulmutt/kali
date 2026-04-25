@@ -6822,6 +6822,34 @@ fn run_supports_array_literal_length_in_js_input() {
 }
 
 #[test]
+fn run_supports_process_argv_slice_length_in_js_input_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(process.argv.slice(2).length);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .arg("--")
+        .arg("alpha")
+        .arg("beta")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_array_literal_indexing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
