@@ -10,6 +10,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  KALI_BROWSER_BUNDLE_HARNESS_COMMAND: node
 
 jobs:
   build:
@@ -51,23 +52,8 @@ jobs:
           fi
           cargo test --workspace --verbose
 
-      - name: Enable Chromium namespace sandbox
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if sysctl kernel.unprivileged_userns_clone >/dev/null 2>&1; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          if sysctl kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
-          chromium --headless --dump-dom about:blank >/dev/null
-
       - name: Run tests
         if: runner.os == 'Linux'
-        env:
-          KALI_BROWSER_BUNDLE_HARNESS_COMMAND: chromium --headless
         run: cargo test --workspace --verbose
 
   clippy:
@@ -115,21 +101,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Enable Chromium namespace sandbox
-        shell: bash
-        run: |
-          set -euo pipefail
-          if sysctl kernel.unprivileged_userns_clone >/dev/null 2>&1; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          if sysctl kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
-          chromium --headless --dump-dom about:blank >/dev/null
-
       - name: Run Phase-1 evidence smoke suite
-        env:
-          KALI_BROWSER_BUNDLE_HARNESS_COMMAND: chromium --headless
         run: cargo test -p kali_cli --test runtime_smoke --verbose
 
   determinism:
