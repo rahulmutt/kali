@@ -1184,8 +1184,16 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime browser-condition / browser-deno TS row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime browser-condition / browser-deno JS row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser dual-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime dual-exports corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime pi-coding-agent corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| browser runtime corpus | web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
