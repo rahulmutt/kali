@@ -12,6 +12,8 @@ This note is a current-evidence snapshot, not an exhaustive compiler-pass catalo
 
 The benchmark lane currently uses the checked-in `math-benchmark-v1` and `call-inlining-benchmark-v1` fixture pairs under `crates/kali_cli/tests/fixtures/benchmarks/`, so the size/speed comparison evidence spans more than one pinned workload shape.
 
+The specialization-budget evidence now also includes a release-advanced regression that shows duplicate root-call shapes can inline away without consuming the single specialization slot, while the remaining distinct call shape still yields exactly one MIR-specialized clone under the same budget, so the upper-bound contract stays exact when the same shape repeats under the same owner.
+
 ## Reading rule
 
 - Treat this as a living inventory of what is currently evidenced, not as a promise that the optimizer is done.
