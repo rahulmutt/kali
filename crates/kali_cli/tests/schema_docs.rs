@@ -1169,6 +1169,37 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
 }
 
 #[test]
+fn cli_spec_examples_track_the_current_repository_surface() {
+    let root = repo_root();
+    let cli_spec = fs::read_to_string(root.join("specs/12-cli.md")).expect("read CLI spec");
+
+    for expected in [
+        "Status: Phase 2 target. This section documents a **defined command family** in schema v1;",
+        "### `kali effects <file>`",
+        "kali effects main.ts",
+        "kali effects --api node main.ts",
+        "kali effects --output json main.ts",
+        "Status: **Phase 2 target**. This section documents a **defined command family** in schema v1;",
+        "### `kali package-effects <package>`",
+        "kali package-effects lodash",
+        "kali package-effects --output json lodash",
+        "Status: **Phase 4 compatibility**. This section also documents a **defined command family** in schema v1;",
+        "### `kali package-audit <package>`",
+        "kali package-audit lodash",
+        "kali package-audit --output json lodash",
+        "kali run --api browser main.ts",
+        "kali build --api node main.ts",
+        "kali build --capi lib.ts",
+        "kali build --component lib.ts",
+    ] {
+        assert!(
+            cli_spec.contains(expected),
+            "specs/12-cli.md is missing CLI example or contract marker: {expected}"
+        );
+    }
+}
+
+#[test]
 fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     let root = repo_root();
     let matrix = fs::read_to_string(root.join("plan/phase-8/package-corpus-matrix.md"))
