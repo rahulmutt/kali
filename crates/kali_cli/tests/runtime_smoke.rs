@@ -9807,7 +9807,7 @@ fn build_emits_browser_bundle_crypto_web_apis() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
@@ -9845,7 +9845,7 @@ fn build_emits_browser_bundle_crypto_web_apis_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
+        "// kali-tree-shake: digestSmoke\nasync function digestSmoke(left, right) {\n  const bytes = new TextEncoder().encode(`browser crypto ${String(left + right)}`);\n  const randomBytes = new globalThis[\"Uint8Array\"](8);\n  const filledBytes = crypto.getRandomValues(randomBytes);\n  if (filledBytes !== randomBytes) {\n    throw new Error('crypto.getRandomValues should return the provided buffer');\n  }\n  if (filledBytes.length !== 8 || filledBytes.byteLength !== 8) {\n    throw new Error(`unexpected random buffer length ${filledBytes.length}/${filledBytes.byteLength}`);\n  }\n  const digest = await crypto.subtle.digest('SHA-512', bytes);\n  const uuid = crypto.randomUUID();\n  if (digest.byteLength !== 64) {\n    throw new Error(`unexpected digest length ${digest.byteLength}`);\n  }\n  if (typeof uuid !== 'string' || uuid.length === 0) {\n    throw new Error(`unexpected uuid ${uuid}`);\n  }\n  return left - left;\n}\n",
     )
     .expect("write source");
 
