@@ -14034,6 +14034,45 @@ fn check_rejects_generator_delegating_yield_lowering_in_browser_analysis_context
 }
 
 #[test]
+fn json_check_rejects_generator_delegating_yield_lowering_in_browser_analysis_context_in_js_input()
+{
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(errors.iter().any(|error| error["code"] == "E5506"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("message"))
+        .collect::<Vec<_>>();
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("generator function lowering")
+                || message.contains("yield expressions")),
+        "messages: {messages:?}"
+    );
+}
+
+#[test]
 fn check_rejects_async_generator_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -15052,6 +15091,45 @@ fn build_rejects_generator_delegating_yield_lowering_in_browser_bundle_in_js_inp
     assert!(
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
         "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_build_rejects_generator_delegating_yield_lowering_in_browser_bundle_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(errors.iter().any(|error| error["code"] == "E5506"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("message"))
+        .collect::<Vec<_>>();
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("generator function lowering")
+                || message.contains("yield expressions")),
+        "messages: {messages:?}"
     );
 }
 
