@@ -5524,12 +5524,12 @@ fn node_runner_corpus_packages_with_exports_maps_remain_executable_on_the_node_s
             dir.path(),
             package,
             &format!(
-                "import assert from \"node:assert\";\nexport default function root() {{ assert.ok(true); return '{package}:root'; }}\n",
+                "import assert from \"node:assert\";\nimport {{ Buffer }} from \"node:buffer\";\nexport default function root() {{ assert.ok(true); Buffer.from('node'); return '{package}:root'; }}\n",
                 package = package
             ),
             subpath,
             &format!(
-                "import assert from \"node:assert\";\nexport default function subpath() {{ assert.ok(true); return '{package}:{subpath}'; }}\n",
+                "import assert from \"node:assert\";\nimport {{ Buffer }} from \"node:buffer\";\nexport default function subpath() {{ assert.ok(true); Buffer.from('node'); return '{package}:{subpath}'; }}\n",
                 package = package,
                 subpath = subpath
             ),
