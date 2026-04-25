@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_js_compatibility_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat; Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat; Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; null ?? 1;"
 }
 
 fn assert_late_js_compatibility_rejection(stderr: &str) {
@@ -43,6 +43,7 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "WeakMap",
         "WeakSet",
         "FinalizationRegistry",
+        "nullish coalescing",
     ] {
         assert!(
             stderr.contains(expected),
@@ -85,6 +86,7 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
         "WeakMap",
         "WeakSet",
         "FinalizationRegistry",
+        "nullish coalescing",
         "undefined identifier 'process'",
     ] {
         assert!(
