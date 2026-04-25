@@ -3205,6 +3205,67 @@ main();
 }
 
 #[test]
+fn run_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let chunk_dir = dir.path().join("lazy");
+    fs::create_dir(&chunk_dir).expect("create lazy dir");
+    fs::write(
+        chunk_dir.join("index.js"),
+        "export function lazyValue() { return 0n; }",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const chunk = await import("./lazy");
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${value}`);
+  }
+  console.log(String(value));
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_performance_now_monotonic_ordering_when_browser_harness_is_configured_in_js_input()
 {
     let dir = tempdir().expect("tempdir");
@@ -5448,6 +5509,66 @@ main();
             .as_str()
             .expect("stdout")
             .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_dynamic_import_directory_index_targets_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    let chunk_dir = dir.path().join("lazy");
+    fs::create_dir(&chunk_dir).expect("create lazy dir");
+    fs::write(
+        chunk_dir.join("index.js"),
+        "export function lazyValue() { return 0n; }",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const chunk = await import("./lazy");
+  if (typeof chunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {
+    throw new Error(`unexpected chunk result ${value}`);
+  }
+  console.log(String(value));
+}
+main();
+Kali.test('browser runtime smoke', () => {});
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0"),
         "json: {json}"
     );
 }
