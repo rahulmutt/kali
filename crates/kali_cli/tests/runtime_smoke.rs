@@ -2152,7 +2152,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 4 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 5 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -11830,21 +11830,20 @@ fn release_hot_paths_stay_unboxed_without_tag_checks() {
     );
 }
 
-#[test]
-fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
+fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &str) {
     let dir = tempdir().expect("tempdir");
-    let source_fixture = fixture_path("benchmarks/math-benchmark-v1.ts");
+    let source_fixture = fixture_path(format!("benchmarks/{fixture_stem}.ts"));
     let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(fixture_path("benchmarks/math-benchmark-v1.json"))
+        &fs::read_to_string(fixture_path(format!("benchmarks/{fixture_stem}.json")))
             .expect("read benchmark metadata"),
     )
     .expect("parse benchmark metadata");
     let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
     let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
 
-    assert_eq!(metadata["benchmark"], "folded-arithmetic");
+    assert_eq!(metadata["benchmark"], benchmark_name);
     assert_eq!(metadata["version"], 1);
-    assert_eq!(metadata["sourceFile"], "math-benchmark-v1.ts");
+    assert_eq!(metadata["sourceFile"], json!(format!("{fixture_stem}.ts")));
     assert_eq!(metadata["sourceSha256"], source_hash);
     assert_eq!(
         metadata["buildModes"],
@@ -11963,6 +11962,16 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         advanced_tag_ops, 0,
         "benchmark release-advanced path should not box numeric ops"
     );
+}
+
+#[test]
+fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
+    for (fixture_stem, benchmark_name) in [
+        ("math-benchmark-v1", "folded-arithmetic"),
+        ("call-inlining-benchmark-v1", "division-and-identity"),
+    ] {
+        assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
+    }
 }
 
 #[test]

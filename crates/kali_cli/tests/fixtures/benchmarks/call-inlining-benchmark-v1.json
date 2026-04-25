@@ -1,0 +1,7 @@
+{
+  "benchmark": "division-and-identity",
+  "version": 1,
+  "sourceFile": "call-inlining-benchmark-v1.ts",
+  "sourceSha256": "sha256-f41c6cb1a2b67714b95b8bcf3b21cb07678dfd6a1378668d35d2107a3be475bf",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
