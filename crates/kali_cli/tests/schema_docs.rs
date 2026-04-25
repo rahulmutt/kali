@@ -1231,6 +1231,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime dual-exports corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | mixed CommonJS/ESM interop packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser-targeted mixed-format corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | mixed CommonJS/ESM interop packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser-targeted mixed-format JS entrypoint corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser replacement-map packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser replacement-map `.js` corpus row should be recorded in the package corpus matrix",
         ),
@@ -1257,6 +1265,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         (
             "| browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime corpus TS row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | mixed CommonJS/ESM interop packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone mixed-format corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | mixed CommonJS/ESM interop packages with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone mixed-format JS input corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | pure JS package (`semver`) with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",

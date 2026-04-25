@@ -29,6 +29,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | browser internal browser-rewrite packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | typed export branch packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | mixed CommonJS/ESM interop packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | mixed CommonJS/ESM interop packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | browser-condition / browser-string / web-baseline packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | scoped packages with exports maps | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
@@ -46,6 +47,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | Source kind | Package shape | Host/API fit | Command surface | Support rung exercised | Evidence |
 |---|---|---|---|---|---|
 | npm-style package corpus | mixed CommonJS/ESM interop packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | mixed CommonJS/ESM interop packages with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | exports-map packages | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | pattern-exports packages with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | exports-map mixed-format interop packages with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
