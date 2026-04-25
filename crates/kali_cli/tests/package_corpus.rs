@@ -4074,6 +4074,34 @@ console.log(codingAgent());
 }
 
 #[test]
+fn utility_corpus_pi_coding_agent_style_package_is_executable_on_the_default_standalone_surface_on_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write pi-coding-agent JS source");
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "pi-coding-agent corpus package content should be executable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+}
+
+#[test]
 fn utility_corpus_pi_coding_agent_style_package_is_testable_on_the_default_standalone_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
