@@ -1127,6 +1127,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
     let readme = fs::read_to_string(root.join("README.md")).expect("read README");
 
     for expected in [
+        "kali doctor                         # inspect local tool/environment selection",
         "kali init",
         "kali install",
         "kali fmt",
@@ -1140,6 +1141,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali build --component <file>   # Component Model packaging flow",
         "kali run <file> [-- args...]",
         "kali test [files...]",
+        "kali test --coverage [files...]",
         "kali effects <file>",
         "kali package-effects <package>",
         "kali package-audit <package>",
