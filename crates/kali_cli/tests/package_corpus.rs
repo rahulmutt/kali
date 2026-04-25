@@ -4160,32 +4160,42 @@ fn utility_corpus_packages_with_pattern_exports_remain_executable_on_the_default
             ),
         );
         write_types_stub_package(dir.path(), package);
-        let source_path = dir.path().join("main.ts");
-        fs::write(
-            &source_path,
-            format!(
-                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
-                package = package,
-                subpath = subpath
-            ),
-        )
-        .expect("write utility source");
+        for source_name in ["main.ts", "main.js"] {
+            let source_path = dir.path().join(source_name);
+            fs::write(
+                &source_path,
+                format!(
+                    "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                    package = package,
+                    subpath = subpath
+                ),
+            )
+            .expect("write utility source");
 
-        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
-        assert!(
-            check.status.success(),
-            "utility pattern-export package {package} should be checkable\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&check.stdout),
-            String::from_utf8_lossy(&check.stderr)
-        );
+            let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+            assert!(
+                check.status.success(),
+                "utility pattern-export package {package} should be checkable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&check.stdout),
+                String::from_utf8_lossy(&check.stderr)
+            );
 
-        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
-        assert!(
-            run.status.success(),
-            "utility pattern-export package {package} should stay executable\nstdout: {}\nstderr: {}",
-            String::from_utf8_lossy(&run.stdout),
-            String::from_utf8_lossy(&run.stderr)
-        );
+            let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+            assert!(
+                build.status.success(),
+                "utility pattern-export package {package} should be buildable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&build.stdout),
+                String::from_utf8_lossy(&build.stderr)
+            );
+
+            let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+            assert!(
+                run.status.success(),
+                "utility pattern-export package {package} should stay executable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&run.stdout),
+                String::from_utf8_lossy(&run.stderr)
+            );
+        }
     }
 }
 
