@@ -38,6 +38,7 @@ fn schema_documents_exist_and_parse() {
         "schemas/result/install/v1.json",
         "schemas/result/fmt/v1.json",
         "schemas/result/lint/v1.json",
+        "schemas/result/doctor/v1.json",
         "schemas/result/effects/v1.json",
         "schemas/result/package-effects/v1.json",
         "schemas/result/package-audit/v1.json",
@@ -717,6 +718,49 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         effects["properties"]["dynamicReasons"]["items"]["type"],
         "string"
+    );
+
+    let doctor: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/doctor/v1.json"))
+            .expect("read doctor schema"),
+    )
+    .expect("parse doctor schema");
+    assert_eq!(doctor["title"], "Kali Doctor Result v1");
+    assert_eq!(doctor["type"], "object");
+    assert_eq!(doctor["additionalProperties"], false);
+    assert_eq!(
+        required_fields(&doctor),
+        ["browserHarness"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        required_fields(&doctor["properties"]["browserHarness"]),
+        [
+            "envVar",
+            "source",
+            "override",
+            "command",
+            "executable",
+            "args",
+            "executableAvailable"
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["source"]["enum"],
+        serde_json::json!(["env", "auto"])
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["command"]["minItems"],
+        1
     );
 
     let package_audit: serde_json::Value = serde_json::from_str(

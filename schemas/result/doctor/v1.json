@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/doctor/v1",
+  "title": "Kali Doctor Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "browserHarness"
+  ],
+  "properties": {
+    "browserHarness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envVar",
+        "source",
+        "override",
+        "command",
+        "executable",
+        "args",
+        "executableAvailable"
+      ],
+      "properties": {
+        "envVar": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "env",
+            "auto"
+          ]
+        },
+        "override": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "executable": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "executableAvailable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
