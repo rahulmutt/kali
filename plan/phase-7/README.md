@@ -34,7 +34,7 @@ Add runtime and host breadth without weakening sandbox honesty or confusing depl
 
 - Add mutable env, subprocess, socket/listener, process identity/control, cwd/chdir, and similar APIs only with explicit policy/effect/resource contracts.
 - Ensure host API visibility matches the selected `apiSurface`.
-- Current progress: Node API `process.argv.slice(2).length` now has `.js` runtime smoke coverage in `crates/kali_cli/tests/runtime_smoke.rs` on the documented Node `run` surface, and `crates/kali_codegen/src/tests.rs` now anchors the corresponding slice-length lowering path with a deterministic codegen assertion. The Node analysis/build smoke now also exercises `process.argv.slice(2).length` on the documented Node `check` / `build` surface in `.js` input, keeping the query-helper slice aligned across analysis, build, and execution paths.
+- Current progress: Node API `process.argv.slice(2).length` now has `.js` runtime smoke coverage in `crates/kali_cli/tests/runtime_smoke.rs` on the documented Node `run` surface, and `crates/kali_codegen/src/tests.rs` now anchors the corresponding slice-length lowering path with a deterministic codegen assertion. The Node analysis/build smoke now also exercises `process.argv.slice(2).length` on the documented Node `check` / `build` surface in `.js` input, keeping the query-helper slice aligned across analysis, build, and execution paths. The non-browser `build --sandbox` lane now also rejects the phase-three Deno host-effect slice in `.js` input, including JSON-output coverage, so the sandbox-validation path stays mirrored between check and build.
 
 ### 7.4 Late object/runtime APIs
 
