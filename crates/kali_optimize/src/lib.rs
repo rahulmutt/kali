@@ -179,7 +179,8 @@ impl Optimizer {
         program: &mut LirProgram,
         allow_generic_specialization: bool,
     ) {
-        self.fold_object_enumeration_calls(program, program.root);
+        let mut constant_bindings = self.collect_constant_bindings(program, program.root);
+        self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
 
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
@@ -198,6 +199,9 @@ impl Optimizer {
                     &mut binding_env,
                 );
 
+                constant_bindings = self.collect_constant_bindings(program, program.root);
+                self.fold_object_enumeration_calls(program, program.root, &constant_bindings);
+
                 self.optimize_node(
                     program,
                     program.root,
@@ -206,6 +210,7 @@ impl Optimizer {
                     "<root>".to_string(),
                     allow_generic_specialization,
                     &mut specialized_functions,
+                    &constant_bindings,
                 );
 
                 if matches!(self.level, OptimizationLevel::ReleaseAdvanced) {
@@ -225,6 +230,7 @@ impl Optimizer {
         owner: String,
         allow_generic_specialization: bool,
         specialized_functions: &mut BTreeMap<String, LirNodeId>,
+        bindings: &BindingEnv,
     ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         let next_owner = match snapshot.kind {
@@ -246,6 +252,7 @@ impl Optimizer {
                 next_owner.clone(),
                 allow_generic_specialization,
                 specialized_functions,
+                bindings,
             );
         }
 
@@ -273,6 +280,7 @@ impl Optimizer {
             &owner,
             allow_generic_specialization,
             specialized_functions,
+            bindings,
         ) {
             self.optimize_node(
                 program,
@@ -282,6 +290,7 @@ impl Optimizer {
                 owner,
                 allow_generic_specialization,
                 specialized_functions,
+                bindings,
             );
         }
     }
@@ -919,6 +928,7 @@ impl Optimizer {
         owner: &str,
         allow_generic_specialization: bool,
         specialized_functions: &mut BTreeMap<String, LirNodeId>,
+        bindings: &BindingEnv,
     ) -> bool {
         let snapshot = program.nodes[id.0 as usize].clone();
         if snapshot.kind != LirNodeKind::Call {
@@ -935,7 +945,9 @@ impl Optimizer {
             return false;
         };
 
-        if let Some(folded) = self.fold_object_enumeration_call(program, &snapshot, &callee_node) {
+        if let Some(folded) =
+            self.fold_object_enumeration_call(program, &snapshot, &callee_node, bindings)
+        {
             let key = format!(
                 "object-enumeration:{}:{}",
                 callee_name,
@@ -1039,6 +1051,7 @@ impl Optimizer {
             specialized_name.clone(),
             allow_generic_specialization,
             specialized_functions,
+            &BindingEnv::default(),
         );
 
         if let Some(callee) = program.nodes.get_mut(callee_id.0 as usize) {
@@ -1102,6 +1115,7 @@ impl Optimizer {
                 recursive_owner.clone(),
                 true,
                 specialized_functions,
+                &BindingEnv::default(),
             );
             self.specialize_mir_call_sites(
                 program,
@@ -1725,6 +1739,7 @@ impl Optimizer {
         program: &mut LirProgram,
         snapshot: &LirNode,
         callee_node: &LirNode,
+        bindings: &BindingEnv,
     ) -> Option<LirNodeId> {
         let receiver = callee_node.children.first().copied()?;
         let receiver_name = program.nodes.get(receiver.0 as usize)?.text.as_deref()?;
@@ -1732,7 +1747,8 @@ impl Optimizer {
             return None;
         }
 
-        let object_id = *snapshot.children.get(1)?;
+        let object_id =
+            self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
         if !self.is_object_literal(program, object_id) {
             return None;
         }
@@ -1777,10 +1793,15 @@ impl Optimizer {
         }
     }
 
-    fn fold_object_enumeration_calls(&self, program: &mut LirProgram, id: LirNodeId) {
+    fn fold_object_enumeration_calls(
+        &self,
+        program: &mut LirProgram,
+        id: LirNodeId,
+        bindings: &BindingEnv,
+    ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         for child in snapshot.children.iter().copied() {
-            self.fold_object_enumeration_calls(program, child);
+            self.fold_object_enumeration_calls(program, child, bindings);
         }
 
         if snapshot.kind != LirNodeKind::Call {
@@ -1793,7 +1814,9 @@ impl Optimizer {
         let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
             return;
         };
-        if let Some(folded) = self.fold_object_enumeration_call(program, &snapshot, &callee_node) {
+        if let Some(folded) =
+            self.fold_object_enumeration_call(program, &snapshot, &callee_node, bindings)
+        {
             program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
         }
     }
@@ -1839,6 +1862,58 @@ impl Optimizer {
                 .map(|(key, _, value)| (key, value))
                 .collect(),
         )
+    }
+
+    fn resolve_constant_binding(
+        &self,
+        program: &LirProgram,
+        mut id: LirNodeId,
+        bindings: &BindingEnv,
+    ) -> Option<LirNodeId> {
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+
+            let node = program.nodes.get(id.0 as usize)?;
+            if node.kind == LirNodeKind::Value
+                && node.children.is_empty()
+                && node.text.as_deref().is_some()
+            {
+                let name = node.text.as_deref()?;
+                if let Some(bound) = bindings.bindings.get(name).copied() {
+                    id = bound;
+                    continue;
+                }
+            }
+
+            return Some(id);
+        }
+    }
+
+    fn collect_constant_bindings(&self, program: &LirProgram, id: LirNodeId) -> BindingEnv {
+        let mut env = BindingEnv::default();
+        self.collect_constant_bindings_into(program, id, &mut env);
+        env
+    }
+
+    fn collect_constant_bindings_into(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+        env: &mut BindingEnv,
+    ) {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        if let Some((name, init)) = self.extract_const_binding(program, id) {
+            if self.is_specializable_binding(program, init) {
+                env.bindings.insert(name, init);
+            }
+        }
+
+        for child in snapshot.children {
+            self.collect_constant_bindings_into(program, child, env);
+        }
     }
 
     fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {
