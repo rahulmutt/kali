@@ -1159,6 +1159,26 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser condition preference corpus row should be recorded in the package corpus matrix",
         ),
+        (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and test coverage | default standalone | `check`, `build`, `test` | checkable / buildable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone package-content test row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node semver corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | Node built-in package (`node:buffer`) on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node buffer corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "deno host-control corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| JSR corpus | `jsr:` packages materialized as on-disk package entries with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "jsr corpus row should be recorded in the package corpus matrix",
+        ),
     ] {
         assert!(matrix.contains(row), "{message}");
     }
