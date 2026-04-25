@@ -2,7 +2,105 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kali-lang.org/schemas/result/effects/v1",
   "title": "Kali Effects Result v1",
+  "description": "Native JSON payload emitted by `kali effects`.",
   "type": "object",
-  "additionalProperties": true,
-  "description": "Reserved schema shape for a Phase-2 native JSON result payload."
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisContext",
+    "entryPoints",
+    "effects",
+    "dynamicEffects",
+    "dynamicReasons"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "analysisContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apiSurface",
+        "runtimeProfiles",
+        "compatFeatures"
+      ],
+      "properties": {
+        "apiSurface": {
+          "type": "string"
+        },
+        "runtimeProfiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compatFeatures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "entryPoints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "locations"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "line",
+                "column"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "column": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "function": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dynamicEffects": {
+      "type": "boolean"
+    },
+    "dynamicReasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
 }

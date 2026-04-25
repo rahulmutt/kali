@@ -486,9 +486,63 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse package-effects schema");
     assert_eq!(package_effects["type"], "object");
-    assert!(package_effects["additionalProperties"]
-        .as_bool()
-        .unwrap_or(false));
+    assert_eq!(package_effects["additionalProperties"], false);
+    assert_eq!(package_effects["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(
+        required_fields(&package_effects),
+        ["schemaVersion", "package", "report"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        required_fields(&package_effects["properties"]["package"]),
+        ["name", "version", "registry"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        package_effects["properties"]["package"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["required"]
+            .as_array()
+            .expect("package-effects analysisContext required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("package-effects analysisContext required string"))
+            .collect::<Vec<_>>(),
+        vec!["apiSurface", "runtimeProfiles", "compatFeatures"]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["required"]
+            .as_array()
+            .expect("package-effects report required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("package-effects report required string"))
+            .collect::<Vec<_>>(),
+        vec![
+            "schemaVersion",
+            "analysisContext",
+            "entryPoints",
+            "effects",
+            "dynamicEffects",
+            "dynamicReasons"
+        ]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["schemaVersion"]["const"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["additionalProperties"],
+        false
+    );
 
     let check: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/check/v1.json")).expect("read check schema"),
@@ -601,11 +655,69 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse effects schema");
     assert_eq!(effects["type"], "object");
-    assert!(effects["additionalProperties"].as_bool().unwrap_or(false));
-    assert!(effects["description"]
-        .as_str()
-        .expect("effects description")
-        .contains("Phase-2 native JSON result payload"));
+    assert_eq!(effects["additionalProperties"], false);
+    assert_eq!(effects["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(
+        required_fields(&effects),
+        [
+            "schemaVersion",
+            "analysisContext",
+            "entryPoints",
+            "effects",
+            "dynamicEffects",
+            "dynamicReasons"
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["required"]
+            .as_array()
+            .expect("effects analysisContext required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("effects analysisContext required string"))
+            .collect::<Vec<_>>(),
+        vec!["apiSurface", "runtimeProfiles", "compatFeatures"]
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["required"]
+            .as_array()
+            .expect("effects occurrence required array")
+            .iter()
+            .map(|value| value.as_str().expect("effects occurrence required string"))
+            .collect::<Vec<_>>(),
+        vec!["kind", "locations"]
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["required"]
+            .as_array()
+            .expect("effects location required array")
+            .iter()
+            .map(|value| value.as_str().expect("effects location required string"))
+            .collect::<Vec<_>>(),
+        vec!["file", "line", "column"]
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]
+            ["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]
+            ["function"]["type"],
+        "string"
+    );
+    assert_eq!(
+        effects["properties"]["dynamicReasons"]["items"]["type"],
+        "string"
+    );
 
     let package_audit: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/package-audit/v1.json"))
