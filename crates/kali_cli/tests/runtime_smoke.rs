@@ -12305,6 +12305,8 @@ fn build_emits_browser_bundle_console_assert_routing_in_js_input() {
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
         .arg("build")
         .arg("--bundle")
         .arg("--api")
@@ -12319,6 +12321,25 @@ fn build_emits_browser_bundle_console_assert_routing_in_js_input() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
