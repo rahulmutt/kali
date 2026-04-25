@@ -2464,6 +2464,95 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured_in_j
 }
 
 #[test]
+fn run_supports_object_enumeration_semantics_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+obj["a"] = 3;
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'a' ||
+  keys[1] !== 'b' ||
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 3 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 3 ||
+  values[1] !== 2
+) {
+  throw 'unexpected overwrite ordering';
+}
+const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_object_enumeration_semantics_when_browser_harness_is_configured_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -5165,6 +5254,84 @@ if ('a' === 'a') {
     assert!(stdout.contains("1\n"), "stdout: {stdout}");
     assert!(stdout.contains("2\n"), "stdout: {stdout}");
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_enumeration_semantics_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        r#"const obj = { "a": 1, "b": 2 };
+obj["a"] = 3;
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'a' ||
+  keys[1] !== 'b' ||
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 3 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 3 ||
+  values[1] !== 2
+) {
+  throw 'unexpected overwrite ordering';
+}
+const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
