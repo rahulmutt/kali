@@ -191,6 +191,30 @@ fn runtime_projection_bundles_baseline_context() {
 }
 
 #[test]
+fn runtime_projection_new_defaults_to_open_permissions_and_empty_views() {
+    let projection = DenoRuntimeProjection::new("/workspace/project");
+
+    assert!(projection.args().as_slice().is_empty());
+    assert!(projection.env().to_object().is_empty());
+    assert_eq!(
+        projection.permissions().query(DenoPermissionKind::Read),
+        Ok(DenoPermissionStatus::Granted)
+    );
+    assert_eq!(
+        projection.permissions().query(DenoPermissionKind::Write),
+        Ok(DenoPermissionStatus::Granted)
+    );
+    assert_eq!(
+        projection.permissions().query(DenoPermissionKind::Net),
+        Ok(DenoPermissionStatus::Granted)
+    );
+    assert_eq!(
+        projection.permissions().query(DenoPermissionKind::Env),
+        Ok(DenoPermissionStatus::Granted)
+    );
+}
+
+#[test]
 fn initialization_drags_in_shared_web_baseline() {
     deno_api_init();
     assert!(performance_now() >= 0.0);
