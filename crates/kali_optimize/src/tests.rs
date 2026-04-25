@@ -60,6 +60,28 @@ fn build_short_circuit_program(operator: &str, left: &str, right: &str) -> (LirP
 }
 
 #[test]
+fn fast_keeps_binary_expressions_opaque() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let add = builder.alloc_text(LirNodeKind::Value, "+");
+    let lhs = literal(&mut builder, "1");
+    let rhs = literal(&mut builder, "2");
+    builder.node_mut(add).unwrap().children = vec![lhs, rhs];
+    builder.node_mut(root).unwrap().children = vec![add];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Fast).optimize_program(&mut program);
+
+    let node = &program.nodes[add.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Value);
+    assert_eq!(node.text.as_deref(), Some("+"));
+    assert_eq!(node.children.len(), 2);
+}
+
+#[test]
 fn release_constant_folds_binary_expressions() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
