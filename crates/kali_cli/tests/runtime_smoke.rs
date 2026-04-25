@@ -2339,6 +2339,25 @@ if (
 ) {
   throw 'unexpected overwrite ordering';
 }
+const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
 const bytes = new globalThis["Uint8Array"](8);
 const result = crypto.getRandomValues(bytes);
 if (result !== bytes) {
@@ -4054,6 +4073,25 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
 }
 const bytes = new globalThis["Uint8Array"](8);
 const result = crypto.getRandomValues(bytes);
