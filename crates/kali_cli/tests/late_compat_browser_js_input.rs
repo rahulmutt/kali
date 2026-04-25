@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;"
 }
 
 fn late_threaded_runtime_source() -> &'static str {
