@@ -1011,4 +1011,10 @@ fn package_corpus_matrix_tracks_the_browser_semver_slice() {
         ),
         "browser semver corpus row should be recorded in the package corpus matrix"
     );
+    assert!(
+        matrix.contains(
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |"
+        ),
+        "browser pi-coding-agent corpus row should be recorded in the package corpus matrix"
+    );
 }
