@@ -10294,6 +10294,45 @@ fn build_rejects_library_sources_without_static_exports_in_js_input() {
 }
 
 #[test]
+fn json_build_rejects_library_sources_without_static_exports_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.js");
+    fs::write(&source_path, "const value = 42; value;").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().any(|error| error["code"] == "E5511"),
+        "expected E5511 in {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("no statically known export surface")),
+        "expected export-surface message in {errors:?}"
+    );
+    assert!(!dir.path().join("math.lib.wasm").exists());
+    assert!(!dir.path().join("math.lib.meta.json").exists());
+}
+
+#[test]
 fn build_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
