@@ -3781,7 +3781,7 @@ console.log(ms());
 }
 
 #[test]
-fn utility_corpus_zod_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface_on_js_input(
+fn utility_corpus_zod_style_package_remains_checkable_buildable_executable_and_testable_on_the_default_standalone_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
     write_module_only_package(
@@ -3798,6 +3798,16 @@ console.log(zod());
 "#,
     )
     .expect("write zod JS source");
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &test_path,
+        r#"import zod from 'zod';
+Kali.test('zod corpus', () => {
+  console.log(zod());
+});
+"#,
+    )
+    .expect("write zod test source");
 
     let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
     assert!(
@@ -3823,10 +3833,21 @@ console.log(zod());
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+    let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "zod corpus package should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
 }
 
 #[test]
-fn utility_corpus_plimit_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface_on_js_input(
+fn utility_corpus_plimit_style_package_remains_checkable_buildable_executable_and_testable_on_the_default_standalone_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
     write_module_only_package(
@@ -3843,6 +3864,16 @@ console.log(pLimit());
 "#,
     )
     .expect("write p-limit JS source");
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &test_path,
+        r#"import pLimit from 'p-limit';
+Kali.test('p-limit corpus', () => {
+  console.log(pLimit());
+});
+"#,
+    )
+    .expect("write p-limit test source");
 
     let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
     assert!(
@@ -3868,10 +3899,21 @@ console.log(pLimit());
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+    let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "p-limit corpus package should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
 }
 
 #[test]
-fn utility_corpus_ms_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface_on_js_input(
+fn utility_corpus_ms_style_package_remains_checkable_buildable_executable_and_testable_on_the_default_standalone_surface_on_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
     write_module_only_package(
@@ -3888,6 +3930,16 @@ console.log(ms());
 "#,
     )
     .expect("write ms JS source");
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &test_path,
+        r#"import ms from 'ms';
+Kali.test('ms corpus', () => {
+  console.log(ms());
+});
+"#,
+    )
+    .expect("write ms test source");
 
     let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
     assert!(
@@ -3913,6 +3965,17 @@ console.log(ms());
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+    let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "ms corpus package should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
 }
 
 #[test]
