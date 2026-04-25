@@ -196,6 +196,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             .map(|value| value.to_string())
             .collect::<Vec<_>>()
     );
+    assert_eq!(
+        build_variants[5]["properties"]["artifacts"]["type"],
+        "array"
+    );
 
     for (variant_index, expected_properties) in [
         (0, vec!["profileDataHash"]),
