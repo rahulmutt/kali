@@ -4779,6 +4779,14 @@ fn utility_corpus_packages_with_module_entries_remain_executable_on_the_default_
                 String::from_utf8_lossy(&check.stderr)
             );
 
+            let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+            assert!(
+                build.status.success(),
+                "utility module-only package {package} should be buildable on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&build.stdout),
+                String::from_utf8_lossy(&build.stderr)
+            );
+
             let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
             assert!(
                 run.status.success(),
@@ -4838,6 +4846,14 @@ fn utility_corpus_packages_with_module_entry_chains_remain_executable_on_the_def
                 "utility module-chain package {package} should resolve its internal module dependency on {source_name}\nstdout: {}\nstderr: {}",
                 String::from_utf8_lossy(&check.stdout),
                 String::from_utf8_lossy(&check.stderr)
+            );
+
+            let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+            assert!(
+                build.status.success(),
+                "utility module-chain package {package} should build while resolving its internal module dependency on {source_name}\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&build.stdout),
+                String::from_utf8_lossy(&build.stderr)
             );
 
             let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);

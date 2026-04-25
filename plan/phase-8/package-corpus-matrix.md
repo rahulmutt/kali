@@ -46,8 +46,8 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | exports-map mixed-format interop packages with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | module-entry packages | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | module-entry packages with `.js` entrypoints | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
-| npm-style package corpus | module-entry packages and module-entry chains | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
-| npm-style package corpus | module-entry packages and module-entry chains with `.js` entrypoints | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages and module-entry chains | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | module-entry packages and module-entry chains with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | web-baseline primitive packages | default standalone | `build`, `run` | buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | web-baseline primitive packages with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | string-export packages | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |
