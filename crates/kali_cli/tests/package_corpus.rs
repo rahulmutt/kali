@@ -3794,6 +3794,23 @@ fn utility_corpus_packages_with_exports_maps_remain_executable_on_the_default_st
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let build_out_dir = dir.path().join("build");
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--out-dir",
+                build_out_dir.to_str().unwrap(),
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "utility package {package} with exports map should be buildable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
         let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
         assert!(
             run.status.success(),
