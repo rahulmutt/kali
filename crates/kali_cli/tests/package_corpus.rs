@@ -122,6 +122,19 @@ fn write_web_baseline_interop_source(path: &Path, package: &str) {
     .expect("write web baseline source");
 }
 
+fn write_web_baseline_test_source(path: &Path, package: &str) {
+    fs::create_dir_all(path.parent().expect("web baseline test directory"))
+        .expect("create web baseline test directory");
+    fs::write(
+        path,
+        format!(
+            "import describe from '{package}';\nKali.test('web-baseline corpus', () => {{\n  let count = 0;\n  const controller = new AbortController();\n  const target = new EventTarget();\n  target.addEventListener('tick', () => {{\n    count += 1;\n    controller.abort();\n  }});\n  target.dispatchEvent(new CustomEvent('tick'));\n  const query = new URLSearchParams('alpha=1&beta=two+words');\n  query.set('beta', describe(count));\n  const headers = new Headers();\n  headers.set('accept', describe(count));\n  const request = new Request('https://example.com/request');\n  const response = new Response('browser corpus');\n  const blob = structuredClone(new Blob(['browser corpus']));\n  const file = structuredClone(new File(['browser corpus'], 'browser.txt'));\n  const encoder = new TextEncoder();\n  const encoded = encoder.encode(describe(count));\n  const decoder = new TextDecoder();\n  decoder.decode(encoded);\n  const randomUuid = crypto.randomUUID();\n  queueMicrotask(() => {{\n    count += 0;\n  }});\n  console.log(count, request, response, blob, file, randomUuid);\n}});\n",
+            package = package
+        ),
+    )
+    .expect("write web baseline test source");
+}
+
 fn write_node_assuming_package(root: &Path, name: &str, body: &str) {
     write_stub_package(root, name, body);
     write_types_stub_package(root, name);
@@ -4707,6 +4720,49 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
             "utility web-baseline package {package} should stay executable\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
+        );
+    }
+}
+
+#[test]
+fn utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executable_and_testable_on_the_default_standalone_surface_in_js_input(
+) {
+    for package in ["ramda", "uuid", "dayjs", "zod", "lodash", "yaml"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+        let test_path = dir.path().join("tests").join("web-baseline.test.js");
+        write_web_baseline_test_source(&test_path, package);
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "utility web-baseline package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "utility web-baseline package {package} should stay executable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+
+        let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+        assert!(
+            test.status.success(),
+            "utility web-baseline package {package} should be testable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
         );
     }
 }
