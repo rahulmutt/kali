@@ -5,9 +5,10 @@ use kali_ast::{
     DebuggerStatement, DoWhileStatement, Expression, ExpressionOrSpread, ExpressionStatement,
     ForInit, ForOfLefthand, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression,
     FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
-    ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ParenthesizedExpression,
-    ReturnStatement, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
-    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
+    ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, ReturnStatement,
+    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration,
+    VariableDeclarator, WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -1301,6 +1302,72 @@ impl Parser {
         }))
     }
 
+    fn parse_object_expression(&mut self) -> Expression {
+        let _ = self.stream.advance();
+        let mut properties = Vec::new();
+
+        while !matches!(
+            self.stream.current_kind(),
+            Some(TokenType::RightBrace) | None
+        ) {
+            if self.stream.accept(TokenType::Comma) {
+                continue;
+            }
+
+            let (key, value) = match self.stream.current_kind().copied() {
+                Some(TokenType::Identifier) => {
+                    let name = self
+                        .stream
+                        .advance()
+                        .map(|token| token.value)
+                        .unwrap_or_default();
+
+                    if self.stream.accept(TokenType::Colon) {
+                        (PropertyName::Identifier(name), self.parse_expression())
+                    } else {
+                        let expr = Expression::Identifier(name.clone());
+                        (PropertyName::Identifier(name), expr)
+                    }
+                }
+                Some(TokenType::StringLiteral) => {
+                    let token = self.stream.advance();
+                    let name = token
+                        .map(|token| unquote_string_literal(&token.value))
+                        .unwrap_or_default();
+                    let _ = self.stream.accept(TokenType::Colon);
+                    (PropertyName::String(name), self.parse_expression())
+                }
+                Some(TokenType::NumericLiteral) => {
+                    let token = self.stream.advance();
+                    let name = token
+                        .and_then(|token| token.value.parse::<f64>().ok())
+                        .unwrap_or(0.0);
+                    let _ = self.stream.accept(TokenType::Colon);
+                    (PropertyName::Number(name), self.parse_expression())
+                }
+                _ => {
+                    let _ = self.stream.advance();
+                    continue;
+                }
+            };
+
+            properties.push(ObjectProperty {
+                key,
+                value,
+                kind: ObjectPropertyKind::Init,
+            });
+
+            if self.stream.accept(TokenType::Comma) {
+                continue;
+            }
+            let _ = self.stream.accept(TokenType::RightBrace);
+            break;
+        }
+
+        let _ = self.stream.accept(TokenType::RightBrace);
+        Expression::ObjectExpression(ObjectExpression { properties })
+    }
+
     fn parse_primary_expression(&mut self) -> Expression {
         let kind = self
             .stream
@@ -1394,6 +1461,7 @@ impl Parser {
                 }
                 Expression::ArrayExpression(ArrayExpression { elements })
             }
+            TokenType::LeftBrace => self.parse_object_expression(),
             TokenType::Yield => {
                 if self.in_generator_function {
                     self.parse_yield_expression()

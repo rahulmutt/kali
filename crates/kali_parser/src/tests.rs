@@ -1,4 +1,5 @@
 use super::*;
+use kali_ast::{ObjectExpression, ObjectPropertyKind, PropertyName};
 use kali_lexer::Lexer;
 
 fn lex(source: &str) -> Vec<Token> {
@@ -111,6 +112,57 @@ fn test_parse_dynamic_import_expression() {
             }
         }
         _ => panic!("Expected VariableDeclaration"),
+    }
+}
+
+#[test]
+fn test_parse_object_literal_expression() {
+    let tokens = lex("const obj = { a: 1, \"b\": 2, 3: 4, c };\n");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let Expression::ObjectExpression(ObjectExpression { properties }) = init else {
+        panic!("Expected ObjectExpression, got {init:?}");
+    };
+    assert_eq!(properties.len(), 4);
+
+    let expected = [
+        (
+            PropertyName::Identifier("a".to_string()),
+            Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+        ),
+        (
+            PropertyName::String("b".to_string()),
+            Expression::Literal(kali_ast::LiteralValue::Number(2.0)),
+        ),
+        (
+            PropertyName::Number(3.0),
+            Expression::Literal(kali_ast::LiteralValue::Number(4.0)),
+        ),
+        (
+            PropertyName::Identifier("c".to_string()),
+            Expression::Identifier("c".to_string()),
+        ),
+    ];
+
+    for (property, (expected_key, expected_value)) in properties.iter().zip(expected.iter()) {
+        assert_eq!(property.kind, ObjectPropertyKind::Init);
+        assert_eq!(&property.key, expected_key);
+        assert_eq!(&property.value, expected_value);
     }
 }
 
