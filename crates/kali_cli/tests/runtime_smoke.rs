@@ -7515,6 +7515,80 @@ console.log('ok');
 }
 
 #[test]
+fn run_supports_literal_string_dynamic_import_targets_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        dir.path().join("lazy.ts"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  await import("./lazy.ts");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_literal_string_dynamic_import_targets_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        dir.path().join("lazy.js"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  await import("./lazy.js");
+  console.log("main loaded");
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_ts_input(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -7892,6 +7966,84 @@ main();
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn test_supports_literal_string_dynamic_import_targets_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        dir.path().join("lazy.ts"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  await import("./lazy.ts");
+  console.log("main loaded");
+}
+main();
+Kali.test('literal dynamic import', () => {});
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_literal_string_dynamic_import_targets_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        dir.path().join("lazy.js"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  await import("./lazy.js");
+  console.log("main loaded");
+}
+main();
+Kali.test('literal dynamic import', () => {});
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]

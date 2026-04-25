@@ -1097,6 +1097,28 @@ fn test_resolution_allows_static_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_allows_static_dynamic_import_targets_in_js_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
+    fs::write(&source_path, "const lazy = import(\"./lazy.js\");").unwrap();
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+            source: Expression::Literal(LiteralValue::String("./lazy.js".to_string())),
+        }))),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_allows_const_bound_dynamic_import_targets() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");

@@ -591,6 +591,28 @@ fn discover_dynamic_import_targets_resolves_directory_index_chunks() {
 }
 
 #[test]
+fn discover_dynamic_import_targets_resolves_literal_dynamic_import_chunks_in_js_files() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    let lazy_path = dir.path().join("lazy.js");
+    fs::write(&lazy_path, "export const lazy = true;").expect("write lazy chunk");
+    fs::write(&source_path, "const lazy = import('./lazy.js');").expect("write source");
+
+    let targets = discover_dynamic_import_targets(
+        &source_path,
+        &fs::read_to_string(&source_path).expect("read source"),
+    )
+    .expect("discover dynamic import targets");
+
+    assert_eq!(targets.len(), 1, "targets: {targets:?}");
+    assert_eq!(targets[0].specifier, "./lazy.js");
+    assert_eq!(
+        targets[0].target,
+        lazy_path.canonicalize().expect("canonical lazy path")
+    );
+}
+
+#[test]
 fn discover_dynamic_import_targets_resolves_directory_index_chunks_in_js_files() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
