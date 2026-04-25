@@ -7,7 +7,7 @@ use std::{
 };
 
 use kali_error::{
-    _error_codes::{e3, e8},
+    _error_codes::{e3, e5, e8},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
 use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
@@ -387,10 +387,17 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             2 => self.emit_binary(function, node),
-            _ => EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            },
+            _ => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "array/object aggregate lowering is unavailable in the current phase; use a supported literal shape or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
         }
     }
 

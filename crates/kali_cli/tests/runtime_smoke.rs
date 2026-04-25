@@ -7387,8 +7387,7 @@ console.log(values.length);
 }
 
 #[test]
-#[ignore = "integer-like key ordering remains later compatibility"]
-fn run_supports_object_enumeration_integer_like_key_ordering() {
+fn run_rejects_object_enumeration_integer_like_key_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -7426,14 +7425,13 @@ console.log(values.length);
         .output()
         .expect("run kali");
 
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("later compatibility") || stderr.contains("aggregate lowering"),
+        "stderr: {stderr}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n2\n2", "stdout: {stdout}");
 }
 
 #[test]
