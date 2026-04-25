@@ -10847,6 +10847,82 @@ fn build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
 }
 
 #[test]
+fn build_emits_browser_bundle_bigint_addition_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  const result = 1n + 2n;\n  if (result !== 3n) {\n    throw new Error('unexpected bigint');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_bigint_addition_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  const result = 1n + 2n;\n  if (result !== 3n) {\n    throw new Error('unexpected bigint');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_math_sign_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
