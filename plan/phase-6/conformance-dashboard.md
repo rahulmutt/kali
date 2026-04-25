@@ -48,6 +48,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser bundle basic strict equality / inequality semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser bundle `Object.keys()` / `Object.entries()` / `Object.values()` enumeration semantics in `.ts` and `.js` input, including string-primitive enumeration and overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` object-enumeration semantics in `.ts` and `.js` input, including string-primitive enumeration in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.max()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
