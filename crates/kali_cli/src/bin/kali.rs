@@ -2728,10 +2728,16 @@ fn run_command(
         None
     };
 
+    // The opt-in browser harness can execute standalone browser-requested programs,
+    // but it is not a Kali-hosted runtime sandbox. Keep `run --api browser --sandbox`
+    // on the browser-runtime availability gate instead of silently dropping policy
+    // enforcement when a harness override is present.
+    let browser_runtime_available =
+        browser_runtime_harness_command_available() && sandbox.is_none();
     if let Err(exit_code) = reject_unavailable_browser_runtime(
         "run",
         effective_api,
-        browser_runtime_harness_command_available(),
+        browser_runtime_available,
         browser_context,
         output,
         None,
@@ -2921,10 +2927,16 @@ fn test_command(
         None
     };
 
+    // The opt-in browser harness can execute standalone browser-requested tests,
+    // but it is not a Kali-hosted runtime sandbox. Keep `test --api browser --sandbox`
+    // on the browser-runtime availability gate instead of silently dropping policy
+    // enforcement when a harness override is present.
+    let browser_runtime_available =
+        browser_runtime_harness_command_available() && sandbox.is_none();
     if let Err(exit_code) = reject_unavailable_browser_runtime(
         "test",
         effective_api,
-        browser_runtime_harness_command_available(),
+        browser_runtime_available,
         browser_context,
         output,
         None,

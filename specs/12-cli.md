@@ -255,6 +255,7 @@ Canonical interpretation rules:
 - `--api node` is supported for `check`, `build`, `run`, and `test` on the documented Node-compatible subset, while `effects` and the package-analysis commands still gate that surface explicitly.
 - guest arguments after `--` are forwarded through the invocation-context surface: in the default standalone context they populate `Deno.args`, and in the Node context they populate `process.argv` with the documented executable/source prefix before the guest tail.
 - explicit `--api ...` and inherited `compilerOptions.apiSurface = ...` are equivalent here too: plain `kali run main.ts` and plain `kali run --sandbox kali.policy.json main.ts` must validate against the same effective API surface and therefore hit the same Node/browser execution gates as their explicit `--api node` / `--api browser` forms instead of silently falling back to `deno`.
+- the opt-in browser harness selected by `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` is not a Kali-hosted runtime sandbox; it may enable the standalone browser-requested `run --api browser <file>` lane, but `run --api browser --sandbox ...` must still reject with the browser runtime availability diagnostic rather than executing without enforceable Kali policy mediation.
 - `--compat ...` is the one shared switch for later-phase dynamic compatibility features. If the named feature is not implemented yet, the command still fails with `E5506`.
 - in schema v1, `--compat eval` is the only stable compatibility-feature spelling and it gates both direct `eval` and `Function()`; the CLI should not invent a separate `--compat function-constructor` alias.
 - sandbox permission and compatibility enablement are separate axes: a policy that allows `effects.eval` does **not** implicitly turn on `--compat eval`, and `--compat eval` does **not** bypass a stricter sandbox policy.
@@ -267,7 +268,7 @@ Inherited execution-context shorthand:
 |---|---|---|
 | `deno` (default) | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Supported early standalone execution path |
 | `node` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Supported Node execution subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
-| `browser` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same browser execution gate as explicit `--api browser`; no silent fallback to `deno` |
+| `browser` | `kali run main.ts` / `kali run --sandbox kali.policy.json main.ts` | Same browser execution gate as explicit `--api browser`; no silent fallback to `deno`. The harness opt-in does not enable the sandboxed browser-runtime spelling. |
 
 Sandbox flag behavior is intentionally phase-gated:
 - `kali run --sandbox ...` is a Phase 1 feature for runtime policy enforcement.
@@ -515,7 +516,7 @@ Canonical discovery rule:
 - each explicit `kali test` file must still belong to the shared **executable/analyzable source-file class**; passing a declaration-only file is the canonical invalid-entrypoint error (`E5507`), not a silent skip
 - `--filter <pattern>` narrows the selected discovered or explicit test cases after module selection; it does not change discovery roots, API-surface gating, sandbox behavior, or file-kind validation
 
-Canonical host/profile rule: `kali test` follows the same API-surface model as `kali run` for the documented Node execution subset, while analysis/build commands (`kali check`, `kali effects`, `kali build`) continue to follow the API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise.
+Canonical host/profile rule: `kali test` follows the same API-surface model as `kali run` for the documented Node execution subset, while analysis/build commands (`kali check`, `kali effects`, `kali build`) continue to follow the API-surface maturity rules for `--api node` / `--api browser` unless [specs/19-feature-maturity.md](19-feature-maturity.md) explicitly says otherwise. As with `run`, the opt-in browser harness is not a Kali-hosted runtime sandbox, so browser-requested `test --sandbox ...` remains unavailable even when `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` is configured.
 
 Inherited execution-context shorthand:
 
@@ -523,7 +524,7 @@ Inherited execution-context shorthand:
 |---|---|---|
 | `deno` (default) | `kali test` / `kali test --sandbox kali.policy.json` | Supported early standalone test path |
 | `node` | `kali test` / `kali test --sandbox kali.policy.json` | Supported Node test-runtime subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
-| `browser` | `kali test` / `kali test --sandbox kali.policy.json` | Same browser test-runtime gate as explicit `--api browser`; no silent fallback to `deno` |
+| `browser` | `kali test` / `kali test --sandbox kali.policy.json` | Same browser test-runtime gate as explicit `--api browser`; no silent fallback to `deno`. The harness opt-in does not enable the sandboxed browser-test spelling. |
 
 ### `kali doctor`
 
