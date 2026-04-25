@@ -96,6 +96,8 @@ Active evidence hardening (see `plan/03-evidence-and-release-gates.md`) requires
 - determinism checks for CLI outputs and generated artifacts
 - proof CI appropriate to the published boundary
 - Rust unit tests in sibling `*tests.rs` files, not inline `#[cfg(test)]` modules
+- release workflows that publish multi-platform CLI binaries with SLSA3 provenance; keep `.github/workflows/release.yml` tag-triggered and provenance-bearing
+- current release matrix includes Linux x86_64, Linux arm64, macOS x86_64, and macOS arm64
 
 ### Verification discipline
 - A completed implementation stage does **not** automatically change maturity.

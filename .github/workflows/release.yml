@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    permissions:
+      actions: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: kali-x86_64-unknown-linux-gnu
+            build_tool: cargo
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: kali-aarch64-unknown-linux-gnu
+            build_tool: cross
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            artifact_name: kali-x86_64-apple-darwin
+            build_tool: cargo
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: kali-aarch64-apple-darwin
+            build_tool: cargo
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.build_tool == 'cross'
+        run: cargo install cross --locked
+
+      - name: Build release binary
+        run: ${{ matrix.build_tool }} build --locked --release --target ${{ matrix.target }} -p kali_cli --bin kali
+
+      - name: Stage release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "target/${{ matrix.target }}/release/kali" "${{ matrix.artifact_name }}"
+          chmod +x "${{ matrix.artifact_name }}"
+          shasum -a 256 "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  subjects:
+    name: Generate provenance subjects
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kali-*
+          merge-multiple: true
+          path: provenance-input
+
+      - name: Create provenance subjects
+        id: hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd provenance-input
+          echo "hashes=$(LC_ALL=C sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Publish GitHub release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kali-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+
+  provenance:
+    name: Publish SLSA provenance
+    needs: [subjects, release]
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.subjects.outputs.hashes }}
+      upload-assets: true
+      upload-tag-name: ${{ github.ref_name }}
