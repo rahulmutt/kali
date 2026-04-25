@@ -5228,6 +5228,56 @@ fn utility_corpus_scoped_packages_remain_executable_on_the_default_standalone_su
 }
 
 #[test]
+fn utility_corpus_scoped_packages_remain_checkable_and_executable_on_the_default_standalone_surface_on_js_input(
+) {
+    for package in [
+        "@babel/runtime",
+        "@npmcli/package-json",
+        "@jridgewell/sourcemap-codec",
+        "@reduxjs/toolkit",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_stub_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:module'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write utility JS source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "scoped utility package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+        assert!(
+            run.status.success(),
+            "scoped utility package {package} should stay executable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert!(run_stdout.contains("0"), "stdout: {run_stdout}");
+    }
+}
+
+#[test]
 fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_default_standalone_surface(
 ) {
     for (package, body) in [
