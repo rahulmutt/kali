@@ -959,3 +959,42 @@ fn proof_boundary_manifest_tracks_the_published_theorem_inventory() {
         );
     }
 }
+
+#[test]
+fn readme_command_reference_tracks_the_current_cli_surface() {
+    let root = repo_root();
+    let readme = fs::read_to_string(root.join("README.md")).expect("read README");
+
+    for expected in [
+        "kali init",
+        "kali install",
+        "kali fmt",
+        "kali lint",
+        "kali check [files...]",
+        "kali build <file>",
+        "kali build --validate-ir <file>  # run internal HIR/MIR/LIR validators",
+        "kali build --bundle <file>      # browser-targeted build lane",
+        "kali build --lib <file>         # base library artifact for exact-version consumers",
+        "kali build --capi <file>        # stable public C-ABI embedding flow",
+        "kali build --component <file>   # Component Model packaging flow",
+        "kali run <file> [-- args...]",
+        "kali test [files...]",
+        "kali effects <file>",
+        "kali package-effects <package>",
+        "kali package-audit <package>",
+    ] {
+        assert!(
+            readme.contains(expected),
+            "README is missing CLI example: {expected}"
+        );
+    }
+
+    assert!(
+        readme.contains("[`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md)"),
+        "README should point readers to the feature-maturity matrix for availability"
+    );
+    assert!(
+        readme.contains("[`proofs/BOUNDARY.md`](./proofs/BOUNDARY.md)"),
+        "README should point readers to the proof boundary manifest for verification wording"
+    );
+}
