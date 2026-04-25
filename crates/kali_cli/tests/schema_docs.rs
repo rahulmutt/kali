@@ -1287,6 +1287,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser condition preference corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser dual-exports corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and test coverage | default standalone | `check`, `build`, `test` | checkable / buildable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "default standalone package-content test row should be recorded in the package corpus matrix",
         ),
