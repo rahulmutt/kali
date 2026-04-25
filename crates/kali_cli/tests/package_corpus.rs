@@ -3561,6 +3561,42 @@ fn utility_corpus_packages_with_string_exports_remain_executable_on_the_default_
 }
 
 #[test]
+fn utility_corpus_packages_with_string_exports_remain_testable_on_the_default_standalone_surface_in_js_input(
+) {
+    for package in ["ramda", "rxjs", "uuid", "commander", "redux", "lodash"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_string_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:exports'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let test_path = dir.path().join("smoke.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nKali.test('string exports corpus', () => {{\n  console.log(root());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write utility test source");
+
+        let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+        assert!(
+            test.status.success(),
+            "utility string-exports package {package} should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&test.stdout), "0\nok 1\n");
+    }
+}
+
+#[test]
 fn utility_corpus_semver_style_package_remains_checkable_buildable_and_executable_on_the_default_standalone_surface(
 ) {
     let dir = tempdir().expect("tempdir");
