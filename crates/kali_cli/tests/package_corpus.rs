@@ -6498,6 +6498,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "import { fileURLToPath } from \"node:url\";\nexport default function root() { fileURLToPath(new URL(\"file:///tmp/node-corpus.txt\")); return 0; }\n",
             "0",
         ),
+        (
+            "node-assert-corpus",
+            "import assert from \"node:assert\";\nexport default function root() { assert.ok(true); return 0; }\n",
+            "0",
+        ),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
