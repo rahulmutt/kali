@@ -6555,6 +6555,45 @@ main();
 }
 
 #[test]
+fn run_supports_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn test_supports_async_await_sequencing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -6564,6 +6603,45 @@ fn test_supports_async_await_sequencing_in_js_input() {
   const result = await Promise.resolve(7);
   if (result !== 7) {
     throw new Error(`unexpected async result ${result}`);
+  }
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_supports_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
   }
 }
 main();
