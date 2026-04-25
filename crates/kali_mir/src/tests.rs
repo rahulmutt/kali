@@ -640,6 +640,20 @@ fn test_object_literal_values_escape_without_treating_keys_as_identifiers() {
 }
 
 #[test]
+fn test_object_layout_orders_integer_like_property_keys_before_string_keys() {
+    let mir = analyze("const bag = { b: 1, 2: 2, a: 3, 1: 4 };");
+    let module = mir.module_scope().expect("module scope");
+    let binding = module.binding("bag").expect("bag binding");
+
+    let LayoutDescriptor::Struct { fields } = &binding.layout else {
+        panic!("expected struct layout, got {:?}", binding.layout);
+    };
+
+    let field_names: Vec<_> = fields.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(field_names, vec!["\"1\"", "\"2\"", "b", "a"]);
+}
+
+#[test]
 fn test_array_element_values_escape_to_heap_storage() {
     let hir = HirLoweringResult {
         root: HirNodeId::new(0),

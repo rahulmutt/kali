@@ -179,6 +179,8 @@ impl Optimizer {
         program: &mut LirProgram,
         allow_generic_specialization: bool,
     ) {
+        self.fold_object_enumeration_calls(program, program.root);
+
         match self.level {
             OptimizationLevel::Fast | OptimizationLevel::Default => {}
             OptimizationLevel::Release | OptimizationLevel::ReleaseAdvanced => {
@@ -932,6 +934,19 @@ impl Optimizer {
         let Some(callee_name) = callee_node.text.as_deref() else {
             return false;
         };
+
+        if let Some(folded) = self.fold_object_enumeration_call(program, &snapshot, &callee_node) {
+            let key = format!(
+                "object-enumeration:{}:{}",
+                callee_name,
+                self.call_signature(program, &snapshot)
+            );
+            if tracker.allow(owner, key) {
+                program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
+                return true;
+            }
+        }
+
         let Some(summary) = plan.functions.get(callee_name) else {
             return false;
         };
@@ -1703,6 +1718,158 @@ impl Optimizer {
         });
         memo.insert(id, new_id);
         new_id
+    }
+
+    fn fold_object_enumeration_call(
+        &self,
+        program: &mut LirProgram,
+        snapshot: &LirNode,
+        callee_node: &LirNode,
+    ) -> Option<LirNodeId> {
+        let receiver = callee_node.children.first().copied()?;
+        let receiver_name = program.nodes.get(receiver.0 as usize)?.text.as_deref()?;
+        if receiver_name != "Object" {
+            return None;
+        }
+
+        let object_id = *snapshot.children.get(1)?;
+        if !self.is_object_literal(program, object_id) {
+            return None;
+        }
+
+        let properties = self.ordered_object_literal_properties(program, object_id)?;
+        match callee_node.text.as_deref()? {
+            "keys" => {
+                let mut elements = Vec::with_capacity(properties.len());
+                for (key, _) in properties {
+                    elements.push(self.clone_string_literal(program, key));
+                }
+                Some(self.push_array_literal(program, elements))
+            }
+            "values" => {
+                let mut elements = Vec::with_capacity(properties.len());
+                for (_, value) in properties {
+                    elements.push(self.clone_subtree_with_substitution(
+                        program,
+                        value,
+                        &BTreeMap::new(),
+                        &mut HashMap::new(),
+                    ));
+                }
+                Some(self.push_array_literal(program, elements))
+            }
+            "entries" => {
+                let mut elements = Vec::with_capacity(properties.len());
+                for (key, value) in properties {
+                    let key_id = self.clone_string_literal(program, key);
+                    let value_id = self.clone_subtree_with_substitution(
+                        program,
+                        value,
+                        &BTreeMap::new(),
+                        &mut HashMap::new(),
+                    );
+                    let pair = self.push_array_literal(program, vec![key_id, value_id]);
+                    elements.push(pair);
+                }
+                Some(self.push_array_literal(program, elements))
+            }
+            _ => None,
+        }
+    }
+
+    fn fold_object_enumeration_calls(&self, program: &mut LirProgram, id: LirNodeId) {
+        let snapshot = program.nodes[id.0 as usize].clone();
+        for child in snapshot.children.iter().copied() {
+            self.fold_object_enumeration_calls(program, child);
+        }
+
+        if snapshot.kind != LirNodeKind::Call {
+            return;
+        }
+
+        let Some(callee_id) = snapshot.children.first().copied() else {
+            return;
+        };
+        let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
+            return;
+        };
+        if let Some(folded) = self.fold_object_enumeration_call(program, &snapshot, &callee_node) {
+            program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
+        }
+    }
+
+    fn ordered_object_literal_properties(
+        &self,
+        program: &LirProgram,
+        id: LirNodeId,
+    ) -> Option<Vec<(String, LirNodeId)>> {
+        if !self.is_object_literal(program, id) {
+            return None;
+        }
+
+        let node = program.nodes.get(id.0 as usize)?;
+        let mut properties = Vec::new();
+        for (source_index, property) in node.children.iter().copied().enumerate() {
+            let property_node = program.nodes.get(property.0 as usize)?;
+            if property_node.children.len() != 2 {
+                continue;
+            }
+            let key_node = program.nodes.get(property_node.children[0].0 as usize)?;
+            let key = key_node.text.as_deref()?.to_string();
+            properties.push((key, source_index, property_node.children[1]));
+        }
+
+        properties.sort_by(|(left_key, left_index, _), (right_key, right_index, _)| {
+            match (
+                Self::object_property_order_key(left_key),
+                Self::object_property_order_key(right_key),
+            ) {
+                (Some(left_order), Some(right_order)) => left_order
+                    .cmp(&right_order)
+                    .then_with(|| left_index.cmp(right_index)),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => left_index.cmp(right_index),
+            }
+        });
+
+        Some(
+            properties
+                .into_iter()
+                .map(|(key, _, value)| (key, value))
+                .collect(),
+        )
+    }
+
+    fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {
+        let node = LirNode {
+            kind: LirNodeKind::Literal,
+            text: Some(text),
+            children: Vec::new(),
+        };
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(node);
+        new_id
+    }
+
+    fn push_array_literal(&self, program: &mut LirProgram, elements: Vec<LirNodeId>) -> LirNodeId {
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(LirNode {
+            kind: LirNodeKind::Value,
+            text: None,
+            children: elements,
+        });
+        new_id
+    }
+
+    fn object_property_order_key(key: &str) -> Option<u64> {
+        let normalized = key.trim_matches('"');
+        if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
+            return None;
+        }
+
+        let value = normalized.parse::<u64>().ok()?;
+        (value <= u32::MAX as u64 - 1).then_some(value)
     }
 
     fn inline_threshold_for_function(&self, callee_name: &str) -> usize {

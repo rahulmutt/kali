@@ -1334,20 +1334,38 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::ObjectExpr => {
                 let mut fields = Vec::new();
-                for child in &node.children {
+                for (source_index, child) in node.children.iter().copied().enumerate() {
                     let property = &self.nodes[child.0 as usize];
                     if matches!(property.kind, HirNodeKind::ObjectProperty)
                         && property.children.len() >= 2
                     {
                         let key = self.layout_field_name(property);
                         let value = property.children[1];
-                        fields.push((key, Box::new(self.infer_layout(value))));
+                        fields.push((key, source_index, Box::new(self.infer_layout(value))));
                     }
                 }
                 if fields.is_empty() {
                     LayoutDescriptor::TaggedVal
                 } else {
-                    LayoutDescriptor::Struct { fields }
+                    fields.sort_by(
+                        |(left_key, left_index, _), (right_key, right_index, _)| match (
+                            Self::object_property_order_key(left_key),
+                            Self::object_property_order_key(right_key),
+                        ) {
+                            (Some(left_order), Some(right_order)) => left_order
+                                .cmp(&right_order)
+                                .then_with(|| left_index.cmp(right_index)),
+                            (Some(_), None) => std::cmp::Ordering::Less,
+                            (None, Some(_)) => std::cmp::Ordering::Greater,
+                            (None, None) => left_index.cmp(right_index),
+                        },
+                    );
+                    LayoutDescriptor::Struct {
+                        fields: fields
+                            .into_iter()
+                            .map(|(key, _, layout)| (key, layout))
+                            .collect(),
+                    }
                 }
             }
             HirNodeKind::FunctionExpr | HirNodeKind::FunctionDecl => LayoutDescriptor::Closure {
@@ -1472,6 +1490,16 @@ impl<'a> OwnershipAnalyzer<'a> {
         node.text
             .clone()
             .unwrap_or_else(|| format!("field_{}", node.children.len()))
+    }
+
+    fn object_property_order_key(key: &str) -> Option<u64> {
+        let normalized = key.trim_matches('"');
+        if normalized.is_empty() || (normalized.len() > 1 && normalized.starts_with('0')) {
+            return None;
+        }
+
+        let value = normalized.parse::<u64>().ok()?;
+        (value <= u32::MAX as u64 - 1).then_some(value)
     }
 
     fn next_function_name(&mut self) -> String {

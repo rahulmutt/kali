@@ -850,6 +850,52 @@ fn release_specializes_const_array_element_access() {
 }
 
 #[test]
+fn release_folds_object_keys_calls_over_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "keys");
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+
+    let object = builder.alloc(LirNodeKind::Value);
+    let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_one_key = literal(&mut builder, "\"1\"");
+    let prop_one_value = literal(&mut builder, "4");
+    builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
+    let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_two_key = literal(&mut builder, "\"2\"");
+    let prop_two_value = literal(&mut builder, "2");
+    builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
+    let prop_b = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_b_key = literal(&mut builder, "b");
+    let prop_b_value = literal(&mut builder, "1");
+    builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
+    builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
+
+    builder.node_mut(call).unwrap().children = vec![callee, object];
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    assert!(call_node.text.is_none());
+    let keys: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(keys, vec!["\"1\"", "\"2\"", "b"]);
+}
+
+#[test]
 fn release_specializes_array_literal_arguments_by_shape() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
