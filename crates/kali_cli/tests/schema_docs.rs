@@ -724,6 +724,11 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read package-audit schema"),
     )
     .expect("parse package-audit schema");
+    assert_eq!(package_audit["title"], "Kali Package Audit Result v1");
+    assert_eq!(
+        package_audit["description"],
+        "Envelope-only JSON command payload for the later package-audit surface."
+    );
     assert_eq!(package_audit["type"], "null");
 }
 
