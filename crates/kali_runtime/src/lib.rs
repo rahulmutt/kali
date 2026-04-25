@@ -397,12 +397,18 @@ impl RuntimeCtx {
     /// Return the canonical runtime backend for the current execution context.
     pub fn runtime_backend(&self) -> RuntimeBackend {
         if matches!(self.host_contract(), RuntimeHostContract::BrowserRequested)
-            && browser_harness_command_from_env().is_some()
+            && self.browser_harness_command().is_some()
         {
             RuntimeBackend::BrowserHarness
         } else {
             RuntimeBackend::Wasmtime
         }
+    }
+
+    fn browser_harness_command(&self) -> Option<&str> {
+        self.env
+            .get(BROWSER_HARNESS_COMMAND_ENV)
+            .map(String::as_str)
     }
 
     /// Return the host process identifier preserved in the execution context.
@@ -451,13 +457,13 @@ impl RuntimeCtx {
         }
 
         if matches!(self.host_contract(), RuntimeHostContract::BrowserRequested) {
-            if let Some(browser_harness_command) = browser_harness_command_from_env() {
+            if let Some(browser_harness_command) = self.browser_harness_command() {
                 return execute_browser_runtime(
                     self,
                     wasm_bytes,
                     run_registered_tests,
                     normalized_runtime_profiles,
-                    &browser_harness_command,
+                    browser_harness_command,
                 );
             }
 
@@ -649,10 +655,6 @@ impl RuntimeCtx {
             runtime_backend: self.runtime_backend(),
         })
     }
-}
-
-fn browser_harness_command_from_env() -> Option<String> {
-    std::env::var(BROWSER_HARNESS_COMMAND_ENV).ok()
 }
 
 fn execute_browser_runtime(

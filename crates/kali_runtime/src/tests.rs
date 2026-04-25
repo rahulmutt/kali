@@ -1691,7 +1691,13 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
 
 #[test]
 fn runtime_rejects_browser_api_surface() {
-    let runtime = RuntimeCtx::with_api_surface(None, "browser");
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        None,
+        Vec::new(),
+        BTreeMap::new(),
+        PathBuf::from("."),
+        "browser",
+    );
     let wasm = compile_wat(
         r#"
             (module
@@ -1741,7 +1747,13 @@ fn runtime_rejects_browser_api_surface() {
 
 #[test]
 fn runtime_test_execution_rejects_browser_api_surface() {
-    let runtime = RuntimeCtx::with_api_surface(None, "browser");
+    let runtime = RuntimeCtx::with_host_context_with_api_surface(
+        None,
+        Vec::new(),
+        BTreeMap::new(),
+        PathBuf::from("."),
+        "browser",
+    );
     let wasm = compile_wat(
         r#"
             (module
