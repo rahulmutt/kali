@@ -10069,6 +10069,114 @@ async function awaitSmoke(left, right) {
 }
 
 #[test]
+fn build_emits_browser_bundle_queue_microtask_ordering() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: queueMicrotaskSmoke
+async function queueMicrotaskSmoke(left, right) {
+  const order = [];
+  queueMicrotask(() => {
+    order.push('microtask');
+  });
+  order.push('before');
+  if (order.join(',') !== 'before') {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve(left + right);
+  if (order.join(',') !== 'before,microtask') {
+    throw new Error(`unexpected queueMicrotask ordering ${order.join(',')}`);
+  }
+  return 0n;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: queueMicrotaskSmoke
+async function queueMicrotaskSmoke(left, right) {
+  const order = [];
+  queueMicrotask(() => {
+    order.push('microtask');
+  });
+  order.push('before');
+  if (order.join(',') !== 'before') {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve(left + right);
+  if (order.join(',') !== 'before,microtask') {
+    throw new Error(`unexpected queueMicrotask ordering ${order.join(',')}`);
+  }
+  return 0n;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_boolean_logic_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
