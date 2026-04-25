@@ -998,3 +998,17 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "README should point readers to the proof boundary manifest for verification wording"
     );
 }
+
+#[test]
+fn package_corpus_matrix_tracks_the_browser_semver_slice() {
+    let root = repo_root();
+    let matrix = fs::read_to_string(root.join("plan/phase-8/package-corpus-matrix.md"))
+        .expect("read package corpus matrix");
+
+    assert!(
+        matrix.contains(
+            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |"
+        ),
+        "browser semver corpus row should be recorded in the package corpus matrix"
+    );
+}
