@@ -10,7 +10,7 @@ cargo test --workspace
 cargo run -p kali_cli --bin kali -- --help
 ```
 
-Tagged releases are produced by `.github/workflows/release.yml`, which currently builds Linux x86_64, Linux arm64, macOS x86_64, and macOS arm64 `kali` CLI binaries and publishes matching SLSA3 provenance for the release assets.
+Tagged releases are produced by `.github/workflows/release.yml`, which currently builds Linux x86_64, Linux arm64, and macOS arm64 `kali` CLI binaries and publishes matching SLSA3 provenance for the release assets. macOS releases are arm64-only.
 
 If you are working on Lean proofs, use:
 

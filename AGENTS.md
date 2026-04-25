@@ -97,7 +97,7 @@ Active evidence hardening (see `plan/03-evidence-and-release-gates.md`) requires
 - proof CI appropriate to the published boundary
 - Rust unit tests in sibling `*tests.rs` files, not inline `#[cfg(test)]` modules
 - release workflows that publish multi-platform CLI binaries with SLSA3 provenance; keep `.github/workflows/release.yml` tag-triggered and provenance-bearing
-- current release matrix includes Linux x86_64, Linux arm64, macOS x86_64, and macOS arm64
+- current release matrix includes Linux x86_64, Linux arm64, and macOS arm64; macOS releases are arm64-only
 
 ### Verification discipline
 - A completed implementation stage does **not** automatically change maturity.
