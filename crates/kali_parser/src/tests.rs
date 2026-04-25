@@ -116,6 +116,32 @@ fn test_parse_dynamic_import_expression() {
 }
 
 #[test]
+fn test_parse_nullish_coalescing_expression() {
+    let tokens = lex("const value = null ?? 1;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let Expression::BinaryExpression(expr) = init else {
+        panic!("Expected BinaryExpression, got {init:?}");
+    };
+    assert_eq!(expr.operator, "??");
+}
+
+#[test]
 fn test_parse_object_literal_expression() {
     let tokens = lex("const obj = { a: 1, \"b\": 2, 3: 4, c };\n");
     let mut parser = Parser::new(FileId::new(0), tokens);

@@ -946,7 +946,7 @@ impl Parser {
 
             // Get operator precedence (higher number = tighter binding)
             let op_prec: Option<usize> = match op_kind {
-                TokenType::OrOr => Some(1),
+                TokenType::OrOr | TokenType::NullCoalesce => Some(1),
                 TokenType::AndAnd => Some(2),
                 TokenType::Pipe => Some(3),
                 TokenType::Caret => Some(4),
@@ -977,6 +977,7 @@ impl Parser {
                     TokenType::Percent => "%",
                     TokenType::AndAnd => "&&",
                     TokenType::OrOr => "||",
+                    TokenType::NullCoalesce => "??",
                     TokenType::Pipe => "|",
                     TokenType::Caret => "^",
                     TokenType::And => "&",

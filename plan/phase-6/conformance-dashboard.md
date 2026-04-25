@@ -93,6 +93,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition | Rejected by default | Canonical rejected-by-default row in `specs/19-feature-maturity.md` |
 | Dynamic `require()` | Rejected by default | Canonical rejected-by-default row and `E5506`/unsupported-dynamic-loading diagnostics |
 | Non-literal `import(expr)` | Rejected by default | Canonical non-literal dynamic-loading gate (`E5506`); `crates/kali_types/src/tests.rs`; `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input coverage on `check` / `build`) |
+| Nullish coalescing `??` | Rejected by default | Parser acceptance plus canonical `E5506` availability gate in `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, and `crates/kali_cli/tests/runtime_smoke.rs` |
 
 ## Reading note
 

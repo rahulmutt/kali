@@ -721,6 +721,17 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
+            "??" => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "nullish coalescing is unavailable in the current phase; use an explicit conditional expression or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
             _ => {
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,

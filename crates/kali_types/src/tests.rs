@@ -314,6 +314,32 @@ fn test_resolution_reports_unresolved_default_export_aliases_in_js_input() {
 }
 
 #[test]
+fn test_resolution_reports_nullish_coalescing_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+            operator: "??".to_string(),
+            left: Expression::Literal(LiteralValue::Null),
+            right: Expression::Literal(LiteralValue::Number(1.0)),
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("nullish coalescing")));
+}
+
+#[test]
 fn test_resolution_reports_missing_imports() {
     let mut ctx = TypeContext::with_base_path(".");
     let statements = vec![Statement::ImportDeclaration(ImportDeclaration {
