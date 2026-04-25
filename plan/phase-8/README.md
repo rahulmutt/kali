@@ -21,7 +21,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Track packages by source kind, package shape, host/API fit, command, and support rung.
 - Include Deno-oriented, browser-targeted, and Node contexts separately.
 - Record expected failures for native/binary/bootstrap-heavy packages.
-- Progress: the deterministic package-corpus matrix now lives in [`package-corpus-matrix.md`](./package-corpus-matrix.md) and groups the current corpus evidence by browser-targeted, default-standalone, Node, and Deno slices so the rung/context split stays explicit. The matrix drift test now also pins the browser runtime corpus rows, the browser condition-preference slice, and the default standalone `semver` `.js` row so the checked-in snapshot stays aligned with the current evidence set.
+- Progress: the deterministic package-corpus matrix now lives in [`package-corpus-matrix.md`](./package-corpus-matrix.md) and groups the current corpus evidence by browser-targeted, default-standalone, Node, and Deno slices so the rung/context split stays explicit. The matrix drift test now also pins the browser runtime corpus rows, the browser condition-preference slice, the browser web-baseline `.js` runtime row, and the default standalone `semver` `.js` row so the checked-in snapshot stays aligned with the current evidence set.
 
 ### 8.2 Node ecosystem breadth
 
@@ -47,7 +47,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Progress: the browser package corpus now also mirrors the browser module-entry fixture onto `.js` input, keeping the browser deployability evidence aligned across the JS and TS lanes for the module-entry shape too.
 - Progress: the browser package corpus now also mirrors the browser string-entry, string-export, browser-condition export, browser dual-exports, web-baseline primitive, and internal browser-rewrite fixtures onto `.js` input, keeping the browser deployability evidence aligned across the JS and TS lanes.
 - Progress: the browser package corpus now also exercises browser condition / browser-deno preference packages on the browser-targeted `check` / `build --bundle` path, including mirrored `.js` input, so the browser resolution surface stays aligned with the runtime browser-vs-deno probe.
-- Progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, including the browser-vs-deno condition-preference probe in both TS and `.js` input, keeping browser deployability evidence aligned across the JS and TS lanes.
+- Progress: the browser runtime corpus now also mirrors the browser package fixtures on `.js` input for both `run` and `test`, including the browser-vs-deno condition-preference probe in both TS and `.js` input, and now also exercises the browser web-baseline package slice on `.js` input for both `run` and `test`, keeping browser deployability evidence aligned across the JS and TS lanes.
 
 ### 8.4 Registry-analysis evolution
 
