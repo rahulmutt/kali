@@ -5499,6 +5499,61 @@ console.log('ok');
 }
 
 #[test]
+fn run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const bytes = new TextEncoder().encode('browser crypto');
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const uuid = crypto.randomUUID();
+  if (digest.byteLength !== 32) {
+    throw new Error(`unexpected digest length ${digest.byteLength}`);
+  }
+  if (typeof uuid !== 'string' || uuid.length === 0) {
+    throw new Error(`unexpected uuid ${uuid}`);
+  }
+  console.log('ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn test_supports_arithmetic_precedence_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -5880,6 +5935,60 @@ console.log('ok');
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(stdout.trim(), "ok\nok 1", "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const bytes = new TextEncoder().encode('browser crypto');
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const uuid = crypto.randomUUID();
+  if (digest.byteLength !== 32) {
+    throw new Error(`unexpected digest length ${digest.byteLength}`);
+  }
+  if (typeof uuid !== 'string' || uuid.length === 0) {
+    throw new Error(`unexpected uuid ${uuid}`);
+  }
+  console.log('ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("ok"),
+        "json: {json}"
+    );
 }
 
 #[test]

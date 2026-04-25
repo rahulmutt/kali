@@ -52,6 +52,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic `Math.sign()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Console error / warn / info / debug routing plus `console.assert()` false-branch reporting | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input console-level routing and assertion coverage) |
 | Web Crypto randomness subset (`crypto.getRandomValues`, mapping to the canonical `Random.GetBytes` effect / `effects.random` policy key) | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including browser-requested `run` / `test` `.js` harness coverage), `crates/kali_api_web/src/tests.rs`, `crates/kali_api_deno/src/tests.rs` |
+| Browser-requested Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | Mixed CommonJS/ESM package default-import interop | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
 | Canonical `semver` package corpus probe on `.js` input for the default standalone surface | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
