@@ -1200,6 +1200,22 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime dual-exports corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser replacement-map packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser replacement-map `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser string-entry packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser string-entry `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser string-export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser string-export `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser-condition export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser condition-export `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime pi-coding-agent corpus row should be recorded in the package corpus matrix",
         ),
