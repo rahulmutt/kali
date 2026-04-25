@@ -18961,6 +18961,124 @@ fn json_test_emits_a_command_envelope() {
 }
 
 #[test]
+fn json_run_supports_integer_like_key_ordering_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw 'unexpected numeric-key ordering';
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "4\n4\n4\n");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_supports_integer_like_key_ordering_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  entries.length !== 2 ||
+  entries[0][0] !== '1' ||
+  entries[0][1] !== 4 ||
+  entries[1][0] !== '2' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 4 ||
+  values[1] !== 2
+) {
+  throw 'unexpected numeric-key ordering';
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "4\n4\n4\n");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn pretty_without_json_exits_with_usage_code() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
