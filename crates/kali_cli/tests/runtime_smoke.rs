@@ -12690,6 +12690,49 @@ fn check_rejects_for_of_array_iteration_lowering_in_js_input() {
 }
 
 #[test]
+fn check_rejects_for_of_array_iteration_lowering_in_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(errors.iter().any(|error| {
+        error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("for-of array iteration lowering")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("later compatibility")
+    }));
+}
+
+#[test]
 fn build_rejects_for_of_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -12743,6 +12786,49 @@ fn build_rejects_for_of_array_iteration_lowering_in_js_input() {
             || stderr.contains("later compatibility"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn build_rejects_for_of_array_iteration_lowering_in_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(errors.iter().any(|error| {
+        error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("for-of array iteration lowering")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("later compatibility")
+    }));
 }
 
 #[test]
