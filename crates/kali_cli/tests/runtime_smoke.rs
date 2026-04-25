@@ -1851,6 +1851,34 @@ fn check_rejects_late_object_model_globals_in_json() {
 }
 
 #[test]
+fn check_rejects_late_object_model_globals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Proxy"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Proxy"), "stderr: {stderr}");
+    assert!(stderr.contains("WeakMap"), "stderr: {stderr}");
+    assert!(stderr.contains("WeakSet"), "stderr: {stderr}");
+    assert!(stderr.contains("FinalizationRegistry"), "stderr: {stderr}");
+}
+
+#[test]
 fn run_rejects_late_object_model_revocable_calls() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -1915,6 +1943,34 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     assert!(messages
         .iter()
         .any(|message| message.contains("globalThis.Proxy.revocable")));
+}
+
+#[test]
+fn run_rejects_late_object_model_revocable_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Proxy.revocable"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -2168,6 +2224,41 @@ fn test_rejects_late_object_model_globals_in_json() {
         assert!(
             messages.iter().any(|message| message.contains(expected)),
             "missing {expected} in {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn test_rejects_late_object_model_globals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry;",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
         );
     }
 }
