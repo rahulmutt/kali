@@ -2331,6 +2331,14 @@ if (
 ) {
   throw 'unexpected overwrite ordering';
 }
+const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
 console.log(values.length);
 "#,
     )
@@ -3903,6 +3911,14 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
 }
 console.log(values.length);
 "#,
