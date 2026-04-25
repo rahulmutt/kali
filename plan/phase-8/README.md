@@ -51,6 +51,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 
 - Extend `package-effects` / `package-audit` only through explicit command/schema revisions.
 - Do not add batch, raw-URL, local-path, or project-graph behavior accidentally.
+- Progress: `package-effects` now also has native JSON pretty-output coverage and quiet-mode coverage, keeping the native-JSON registry-analysis payload contract explicit across presentation controls as well as the inherited-analysis lane.
 - Progress: `package-audit` now also rejects `--api`, `--compat`, and `--wasm-threads` in both text and JSON output modes, keeping the command-shape gate aligned with the shared package-analysis-specific-flag contract.
 
 ## Exit gate

@@ -20610,6 +20610,119 @@ fn package_effects_emits_json_envelope_under_quiet_eval_context() {
 }
 
 #[test]
+fn package_effects_emits_pretty_native_json_payload() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/evalpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "evalpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "eval('1 + 2');\nconsole.log('package eval');\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--pretty")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("{\n"), "stdout: {stdout}");
+    assert!(stdout.contains("\n  \"package\""), "stdout: {stdout}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "evalpkg");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["report"]["entryPoints"], json!(["evalpkg"]));
+    assert_eq!(
+        json["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+}
+
+#[test]
+fn package_effects_keeps_native_json_payload_under_quiet() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/evalpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "evalpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "eval('1 + 2');\nconsole.log('package eval');\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--quiet")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "evalpkg");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["report"]["entryPoints"], json!(["evalpkg"]));
+    assert_eq!(
+        json["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(json["report"]["dynamicEffects"], true);
+    assert_eq!(json["report"]["dynamicReasons"], json!(["eval"]));
+}
+
+#[test]
 fn package_effects_rejects_package_analysis_specific_flags() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/flagpkg");
