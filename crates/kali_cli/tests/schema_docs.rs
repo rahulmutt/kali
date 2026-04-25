@@ -1112,21 +1112,37 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
 }
 
 #[test]
-fn package_corpus_matrix_tracks_the_browser_semver_slice() {
+fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     let root = repo_root();
     let matrix = fs::read_to_string(root.join("plan/phase-8/package-corpus-matrix.md"))
         .expect("read package corpus matrix");
 
-    assert!(
-        matrix.contains(
-            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |"
+    for (row, message) in [
+        (
+            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser semver corpus row should be recorded in the package corpus matrix",
         ),
-        "browser semver corpus row should be recorded in the package corpus matrix"
-    );
-    assert!(
-        matrix.contains(
-            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |"
+        (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser pi-coding-agent corpus row should be recorded in the package corpus matrix",
         ),
-        "browser pi-coding-agent corpus row should be recorded in the package corpus matrix"
-    );
+        (
+            "| browser runtime corpus | browser package fixtures with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime corpus TS row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone semver corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser condition preference corpus row should be recorded in the package corpus matrix",
+        ),
+    ] {
+        assert!(matrix.contains(row), "{message}");
+    }
 }
