@@ -4683,7 +4683,7 @@ export default function chalk() {
 }
 "#,
     );
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
         r#"import chalk from 'chalk';
@@ -4718,6 +4718,32 @@ console.log(chalk());
     assert!(
         run_stderr.contains("Node-only host API"),
         "stderr: {run_stderr}"
+    );
+
+    let test_source = dir.path().join("tests").join("main.test.js");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        r#"import chalk from 'chalk';
+Kali.test('node-assuming corpus', () => {
+  console.log(chalk());
+});
+"#,
+    )
+    .expect("write node package test source");
+
+    let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+    assert!(
+        !test.status.success(),
+        "node-assuming package should stay rejected at test time on the default standalone surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stderr = String::from_utf8_lossy(&test.stderr);
+    assert!(test_stderr.contains("E6005"), "stderr: {test_stderr}");
+    assert!(
+        test_stderr.contains("Node-only host API"),
+        "stderr: {test_stderr}"
     );
 }
 
@@ -5955,7 +5981,7 @@ export default function dotenv() {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_node_assuming_package(dir.path(), package, body);
-        let source_path = dir.path().join("main.ts");
+        let source_path = dir.path().join("main.js");
         fs::write(
             &source_path,
             format!(
@@ -6004,6 +6030,33 @@ export default function dotenv() {
             "node package {package} should execute on the Node context\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
+        );
+
+        let test_source = dir.path().join("tests").join(format!("{package}.test.js"));
+        fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_source,
+            format!(
+                "import {package} from '{package}';\nKali.test('{package} corpus', () => {{\n  console.log({package}());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write node package test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "node", test_source.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "node package {package} should be testable on the Node surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&test.stdout).contains("ok 1"),
+            "stdout: {}",
+            String::from_utf8_lossy(&test.stdout)
         );
     }
 }

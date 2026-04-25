@@ -1172,6 +1172,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node buffer corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | node-assuming packages with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node-assuming corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
             "deno host-control corpus row should be recorded in the package corpus matrix",
         ),
