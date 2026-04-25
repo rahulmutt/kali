@@ -1944,7 +1944,7 @@ impl Optimizer {
         }
 
         let value = normalized.parse::<u64>().ok()?;
-        (value <= u32::MAX as u64 - 1).then_some(value)
+        (value < u32::MAX as u64).then_some(value)
     }
 
     fn inline_threshold_for_function(&self, callee_name: &str) -> usize {

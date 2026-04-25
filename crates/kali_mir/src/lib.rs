@@ -1499,7 +1499,7 @@ impl<'a> OwnershipAnalyzer<'a> {
         }
 
         let value = normalized.parse::<u64>().ok()?;
-        (value <= u32::MAX as u64 - 1).then_some(value)
+        (value < u32::MAX as u64).then_some(value)
     }
 
     fn next_function_name(&mut self) -> String {
