@@ -920,6 +920,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "CommonJS module lowering",
         "`require(\"literal\")`",
         "Basic `Math.sign()` built-in semantics",
+        "Browser bundle integer-like key ordering semantics in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` integer-like key ordering semantics in `.ts` and `.js` input",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Non-literal `import(expr)`",
