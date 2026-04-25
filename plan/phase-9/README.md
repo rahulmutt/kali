@@ -20,6 +20,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 - Add regression tests for existing passes and artifact determinism.
 - Progress: sandboxed `build --lib` repeated-build determinism now has coverage alongside the existing artifact-stability checks.
 - Progress: the current-mode inventory now has a checked-in snapshot in [`optimization-inventory.md`](./optimization-inventory.md), and the fast-mode minimality path now has a direct optimizer-level regression anchor so the inventory is backed by both docs and tests.
+- Current progress: release-mode object-enumeration folding now has direct optimizer-level regression anchors for `Object.keys()`, `Object.entries()`, and `Object.values()` over literal object shapes, so the current inventory keeps the three supported enumeration forms backed by tests rather than only by the runtime-smoke layer.
 
 ### 9.2 Specialization depth
 

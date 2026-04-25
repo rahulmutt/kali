@@ -80,6 +80,7 @@ Remaining goals:
 - Version-pinned benchmarks before public performance claims.
 - Current progress: the optimization benchmark smoke now uses a checked-in, hash-validated fixture pair (`math-benchmark-v1.ts` / `math-benchmark-v1.json`) so the compile-time size/speed comparison lane is pinned to deterministic inputs instead of an ad-hoc inline source string.
 - Current progress: the current optimization-mode inventory now has a checked-in snapshot in [`plan/phase-9/optimization-inventory.md`](./phase-9/optimization-inventory.md), and the optimizer-level regression suite now directly anchors that `fast` keeps a simple binary expression opaque while `release` owns the literal-folding reduction.
+- Current progress: release-mode object-enumeration folding now has direct optimizer-level regression anchors for `Object.keys()`, `Object.entries()`, and `Object.values()` over literal object shapes, keeping the current optimization inventory backed by tests for the three supported enumeration forms.
 - No optimization that weakens sandbox, diagnostics, or AOT-only constraints.
 
 ## Verification and contracts
