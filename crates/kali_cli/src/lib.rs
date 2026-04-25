@@ -302,6 +302,9 @@ pub enum Commands {
         /// Source files to test
         files: Vec<String>,
     },
+    #[command(name = "doctor")]
+    /// Print diagnostics about the local Kali tool environment
+    Doctor,
     #[command(name = "init")]
     /// Initialize a new Kali project
     Init {

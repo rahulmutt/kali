@@ -29,9 +29,9 @@ use kali_npm::{
 };
 use kali_optimize::ProfileData;
 use kali_runtime::{
-    browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, RuntimeBackend, RuntimeCtx, RuntimeHostContract,
-    BROWSER_HARNESS_COMMAND_ENV,
+    browser_harness_command_parts_checked, browser_runtime_request_context,
+    browser_runtime_unavailable_diagnostic, normalize_runtime_profiles, RuntimeBackend, RuntimeCtx,
+    RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -43,6 +43,7 @@ use std::{
     convert::TryFrom,
     env, fs,
     path::{Component as PathComponent, Path, PathBuf},
+    process::Command as ProcessCommand,
     time::Instant,
 };
 use wasm_encoder::{Component, ComponentSectionId, CustomSection, RawSection, Section};
@@ -188,6 +189,11 @@ fn main() {
                 std::process::exit(exit_code);
             }
         }
+        Commands::Doctor => {
+            if let Err(exit_code) = doctor_command(&output) {
+                std::process::exit(exit_code);
+            }
+        }
         Commands::Init { lib, api, sandbox } => {
             if let Err(exit_code) = reject_workflow_context_flags("init", api, sandbox, &output) {
                 std::process::exit(exit_code);
@@ -328,6 +334,66 @@ fn main() {
             }
         }
     }
+}
+
+fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
+    let override_value = env::var(BROWSER_HARNESS_COMMAND_ENV).ok();
+    let source = if override_value.is_some() {
+        "env"
+    } else {
+        "auto"
+    };
+    let command_parts = match browser_harness_command_parts_checked(override_value.as_deref()) {
+        Ok(parts) => parts,
+        Err(message) => {
+            let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
+            return emit_diagnostics_and_exit("doctor", vec![diagnostic], 5, output, None, None);
+        }
+    };
+    let executable = command_parts.first().cloned().unwrap_or_default();
+    let args: Vec<String> = command_parts.iter().skip(1).cloned().collect();
+    let executable_available = !executable.is_empty()
+        && ProcessCommand::new(&executable)
+            .arg("--version")
+            .output()
+            .is_ok();
+    let payload = json!({
+        "browserHarness": {
+            "envVar": BROWSER_HARNESS_COMMAND_ENV,
+            "source": source,
+            "override": override_value.clone(),
+            "command": command_parts.clone(),
+            "executable": executable,
+            "args": args,
+            "executableAvailable": executable_available,
+        }
+    });
+
+    if output.is_json() {
+        print_envelope(
+            "doctor",
+            true,
+            vec![],
+            vec![],
+            payload,
+            None,
+            None,
+            0,
+            output,
+        );
+    } else if !output.quiet {
+        let harness = &payload["browserHarness"];
+        println!("Browser harness:");
+        println!("  env var: {}", BROWSER_HARNESS_COMMAND_ENV);
+        println!("  source: {}", harness["source"].as_str().unwrap_or(source));
+        if let Some(value) = override_value.as_deref() {
+            println!("  override: {value}");
+        }
+        println!("  command: {}", command_parts.join(" "));
+        println!("  executable available: {}", executable_available);
+    }
+
+    Ok(())
 }
 
 fn check_command(

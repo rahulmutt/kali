@@ -23,6 +23,7 @@ mise run lean-proofs
 Baseline Phase-1 commands:
 
 ```bash
+kali doctor                         # inspect local tool/environment selection
 kali init
 kali install
 kali fmt
@@ -62,6 +63,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 
 | Command | Purpose |
 | --- | --- |
+| `doctor` | Inspect local Kali tool/environment selection, including the browser harness command |
 | `init` | Create a new Kali project |
 | `install` | Resolve and install dependencies |
 | `fmt` | Format files or a discovered project |

@@ -4,6 +4,7 @@
 
 Kali emits several machine-consumed JSON formats:
 - CLI command envelopes
+- `kali doctor` environment/debug payloads
 - diagnostics
 - effect reports
 - `package-effects` reports
@@ -80,6 +81,40 @@ Used by commands that opt into `--output json`.
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
 - To keep JSON outputs diff-friendly and deterministic, producers should emit array fields in stable order when the producer naturally owns that order: diagnostics by file/line/column/code, artifacts by `role`, then `kind`, then path, and timings by canonical phase order
+
+## Doctor Payload
+
+`kali doctor --output json` uses the standard command envelope with command name `doctor` and this success payload:
+
+```json
+{
+  "browserHarness": {
+    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+    "source": "env",
+    "override": "node --test",
+    "command": ["node", "--test"],
+    "executable": "node",
+    "args": ["--test"],
+    "executableAvailable": true
+  }
+}
+```
+
+Required fields:
+- `browserHarness: BrowserHarnessDoctor`
+
+### `BrowserHarnessDoctor`
+
+Required fields:
+- `envVar: string` — the environment variable that controls the browser bundle/runtime harness command
+- `source: "env" | "auto"` — whether the selected command came from the environment override or from Kali's auto-detection fallback
+- `override: string | null` — raw environment override value when `source` is `env`; otherwise `null`
+- `command: string[]` — argv-style resolved command vector, including executable and pre-script harness arguments
+- `executable: string` — first entry from `command`
+- `args: string[]` — remaining entries from `command`
+- `executableAvailable: boolean` — best-effort local executable probe result; this is diagnostic metadata only and is not a browser-runtime support claim
+
+Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.
 
 ## Common Source Location Types
 

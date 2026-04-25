@@ -3,7 +3,7 @@
 ## Design Principles
 
 1. **AI-agent optimized**: Concise output by default, verbose with `--verbose`
-2. **Deno-inspired**: Familiar subcommand structure and workflow vocabulary (`init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`), without implying flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase
+2. **Deno-inspired**: Familiar subcommand structure and workflow vocabulary (`doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`), without implying flag-for-flag Deno parity or that every Deno command shape automatically exists in the same phase
 3. **Single binary**: `kali` is distributed as one primary executable; static linking is preferred where practical but not required on every target
 4. **Zero config**: Sensible defaults, explicit configuration when needed
 5. **Stable machine contract**: JSON output is versioned and remains backward-compatible across minor releases
@@ -48,7 +48,7 @@ Canonical command-input mode rule (shared with [SPEC.md](../SPEC.md)):
 - `package-effects` and `package-audit`, when available, are the canonical **registry-analysis commands** and follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - bootstrap-normalization shortcut: the bootstrap's “statically run a command and get JSON output of all potential effects” request maps to the analysis/reporting commands (`effects`, `package-effects`) plus the policy-comparison path on `check/build --sandbox`, not to a second dry-run variant of `run` or `test`
 - schema-v1 keeps those reporting/registry-analysis commands explicit in their targets: `effects` stays a one-root source-graph command, while `package-effects` and `package-audit` stay one-package registry-analysis commands rather than project-discovery or batch-analysis shortcuts
-- `init` is not a direct-input source command
+- `doctor` and `init` are not direct-input source commands
 
 Canonical early-phase direct-input arity rule:
 - `run`, `build`, and `effects` each take **exactly one** explicit primary source input in schema v1
@@ -524,6 +524,23 @@ Inherited execution-context shorthand:
 | `deno` (default) | `kali test` / `kali test --sandbox kali.policy.json` | Supported early standalone test path |
 | `node` | `kali test` / `kali test --sandbox kali.policy.json` | Supported Node test-runtime subset when `compilerOptions.apiSurface = node` or `--api node` is selected; no silent fallback to `deno` |
 | `browser` | `kali test` / `kali test --sandbox kali.policy.json` | Same browser test-runtime gate as explicit `--api browser`; no silent fallback to `deno` |
+
+### `kali doctor`
+
+Inspect the local Kali tool/environment selection without compiling or executing user source.
+
+```bash
+kali doctor
+kali doctor --output json
+```
+
+Status: Phase 1 MVP. `kali doctor` is an environment/debugging command. In schema v1 it reports the effective browser bundle/runtime harness command selected from `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` or from Kali's auto-detection fallback. It has no source-file arguments and no semantic/context flags; global presentation flags such as `--output json`, `--pretty`, `--quiet`, and `--verbose` retain their ordinary meanings.
+
+Behavior:
+- text output prints a compact browser-harness summary intended for humans
+- `--output json` emits the standard command envelope with command name `doctor` and the `DoctorPayload` shape from [18 — Schemas](18-schemas.md)
+- malformed `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` values fail with the canonical invalid-usage diagnostic `E5508`
+- the command may probe whether the selected executable is invocable (for example via a version-style process check), but it must not launch a browser/runtime harness page or execute user code
 
 ### `kali init`
 Initialize a new project scaffold.

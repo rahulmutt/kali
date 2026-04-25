@@ -63,6 +63,15 @@ fn build_command_parses_max_specializations_override() {
 }
 
 #[test]
+fn doctor_command_parses_without_arguments() {
+    let args = Args::parse_from(["kali", "doctor"]);
+    match args.command {
+        Some(Commands::Doctor) => {}
+        other => panic!("expected doctor command, got {other:?}"),
+    }
+}
+
+#[test]
 fn run_command_splits_guest_args_after_double_dash() {
     let args = Args::parse_from(["kali", "run", "--api", "node", "main.ts", "--", "1.2.3"]);
     match args.command {
