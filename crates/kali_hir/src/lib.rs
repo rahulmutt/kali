@@ -993,8 +993,11 @@ impl HirLowerer {
                     .alloc_text(HirNodeKind::Literal, None, value.clone())
             }
             PropertyName::Number(value) => {
+                // Preserve numeric property names as strings so object-literal lowering
+                // keeps JavaScript's property-key semantics instead of treating them as
+                // arithmetic literals during code generation.
                 self.builder
-                    .alloc_text(HirNodeKind::Literal, None, value.to_string())
+                    .alloc_text(HirNodeKind::Literal, None, format!("\"{}\"", value))
             }
             PropertyName::String(value) => {
                 self.builder

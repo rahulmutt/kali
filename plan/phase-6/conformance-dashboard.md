@@ -17,7 +17,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Arrow function expressions with concise bodies | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
 | Generator function declarations / expressions and `yield` / `yield*` expressions | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (including browser-targeted `.js` generator-gate fixtures) |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
-| Object literal expressions with identifier, string, and numeric property names, including shorthand identifier properties | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
+| Object literal expressions with identifier, string, and numeric property names, including shorthand identifier properties | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_hir/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Read-only `Deno.permissions.query(...)` over the shared descriptor subset (`read`, `write`, `env`, `net`) | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_sandbox/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_api_deno/src/tests.rs` |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | `crates/kali_types/src/tests.rs` |
 | Basic arithmetic precedence and array length semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |

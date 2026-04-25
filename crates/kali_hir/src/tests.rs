@@ -86,6 +86,29 @@ fn test_object_literal_lowers_to_stable_property_shape() {
 }
 
 #[test]
+fn test_numeric_object_property_names_lower_as_string_literals() {
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_expression(&Expression::ObjectExpression(ObjectExpression {
+        properties: vec![ObjectProperty {
+            key: PropertyName::Number(3.0),
+            value: Expression::Identifier("value".to_string()),
+            kind: ObjectPropertyKind::Init,
+        }],
+    }));
+
+    let root = &lowerer.builder.nodes[result.0 as usize];
+    assert_eq!(root.kind, HirNodeKind::ObjectExpr);
+    assert_eq!(root.children.len(), 1);
+
+    let property = &lowerer.builder.nodes[root.children[0].0 as usize];
+    assert_eq!(property.kind, HirNodeKind::ObjectProperty);
+
+    let key = &lowerer.builder.nodes[property.children[0].0 as usize];
+    assert_eq!(key.kind, HirNodeKind::Literal);
+    assert_eq!(key.text.as_deref(), Some("\"3\""));
+}
+
+#[test]
 fn test_hir_validation_rejects_out_of_bounds_children() {
     let hir = LoweringResult {
         root: HirNodeId::new(0),
