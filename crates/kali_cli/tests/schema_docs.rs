@@ -1168,6 +1168,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "default standalone package-content test row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | pure JS utility package (`date-fns`) with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone date-fns JS utility row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pure JS utility packages (`zod`, `plimit`, `ms`) with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone zod/p-limit/ms JS utility row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | pure JS package (`semver`) with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "node semver corpus row should be recorded in the package corpus matrix",
         ),
