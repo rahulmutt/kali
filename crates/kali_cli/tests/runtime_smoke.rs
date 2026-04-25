@@ -2963,6 +2963,124 @@ console.log(1);
 }
 
 #[test]
+fn run_supports_queue_microtask_ordering_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn run_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_console_assert_routing_when_browser_harness_is_configured_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -4754,6 +4872,120 @@ console.log(1);
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
         json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_queue_microtask_ordering_when_browser_harness_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
         "json: {json}"
     );
 }
