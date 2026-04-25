@@ -83,6 +83,7 @@ fn write_pi_coding_agent_style_package(root: &Path) {
   "name": "@mariozechner/pi-coding-agent",
   "version": "0.70.0",
   "main": "dist/index.js",
+  "exports": "./dist/index.js",
   "bin": {
     "pi": "dist/cli.js",
     "pi-argv": "dist/argv.js"
@@ -3984,6 +3985,49 @@ console.log(codingAgent());
         String::from_utf8_lossy(&build.stdout),
         String::from_utf8_lossy(&build.stderr)
     );
+}
+
+#[test]
+fn utility_corpus_pi_coding_agent_style_package_is_testable_on_the_default_standalone_surface_on_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+export function describeAgent() {
+  return codingAgent();
+}
+"#,
+    )
+    .expect("write pi-coding-agent JS source");
+    let test_path = dir.path().join("tests").join("pi-coding-agent.test.js");
+    fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_path,
+        r#"import { describeAgent } from '../main.js';
+Kali.test('pi-coding-agent corpus', () => {
+  console.log(describeAgent());
+});
+"#,
+    )
+    .expect("write pi-coding-agent JS test source");
+
+    let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "pi-coding-agent corpus package content should be testable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
 }
 
 #[test]
