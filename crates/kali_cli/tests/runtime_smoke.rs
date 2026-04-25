@@ -1239,6 +1239,30 @@ fn check_accepts_node_api_surface_in_json() {
 }
 
 #[test]
+fn check_accepts_process_argv_slice_length_in_js_input_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(process.argv.slice(2).length);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_rejects_permission_escalation_members() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -3933,7 +3957,7 @@ fn run_accepts_zero_spawned_process_budget_override() {
 }
 
 #[test]
-fn run_accepts_positive_spawned_process_budget_override() {
+fn run_rejects_positive_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("run")
         .arg("--max-spawned-processes")
@@ -3942,10 +3966,44 @@ fn run_accepts_positive_spawned_process_budget_override() {
         .output()
         .expect("run kali");
 
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("resources.maxSpawnedProcesses"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_run_rejects_positive_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--max-spawned-processes")
+        .arg("1")
+        .arg(fixture_path("run/hello.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("resources.maxSpawnedProcesses"),
+        "json: {json}"
     );
 }
 
@@ -6018,7 +6076,7 @@ fn test_accepts_zero_spawned_process_budget_override() {
 }
 
 #[test]
-fn test_accepts_positive_spawned_process_budget_override() {
+fn test_rejects_positive_spawned_process_budget_override() {
     let output = Command::new(kali_bin())
         .arg("test")
         .arg("--max-spawned-processes")
@@ -6027,14 +6085,45 @@ fn test_accepts_positive_spawned_process_budget_override() {
         .output()
         .expect("run kali");
 
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("resources.maxSpawnedProcesses"),
+        "stderr: {stderr}"
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_test_rejects_positive_spawned_process_budget_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--max-spawned-processes")
+        .arg("1")
+        .arg(fixture_path("tests/smoke.test.ts"))
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("resources.maxSpawnedProcesses"),
+        "json: {json}"
+    );
 }
 
 #[test]
@@ -16101,6 +16190,37 @@ console.log(1);
 "#,
     )
     .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built executable artifact at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
+}
+
+#[test]
+fn build_accepts_process_argv_slice_length_in_js_input_on_node_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(process.argv.slice(2).length);\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
