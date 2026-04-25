@@ -4786,6 +4786,14 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_executable_on_the
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+        assert!(
+            build.status.success(),
+            "utility web-baseline package {package} should be buildable\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
         let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
         assert!(
             run.status.success(),
@@ -4819,6 +4827,14 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executa
             "utility web-baseline package {package} should be checkable on js input\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&check.stdout),
             String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+        assert!(
+            build.status.success(),
+            "utility web-baseline package {package} should be buildable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
         );
 
         let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
