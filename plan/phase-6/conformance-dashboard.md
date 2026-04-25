@@ -27,7 +27,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic strict equality / inequality semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage) |
 | Basic boolean conjunction / disjunction semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including mirrored `.js` input coverage) |
 | Basic async/await sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths) |
-| Browser timing baseline / `performance.now()` monotonic ordering in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser-requested `run` / `test` and browser bundle smoke coverage) |
+| Browser timing baseline / `performance.now()` monotonic ordering in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser-requested `run` / `test` and browser bundle smoke coverage, including inherited-browser-api-surface coverage) |
 | Basic optional chaining member and element access | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths, plus browser-requested `.js` harness coverage) |
 | Basic try/catch exception handling and try/finally sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage) |
 | Browser bundle try/catch exception semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
