@@ -1131,6 +1131,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser-condition / browser-deno preference packages | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime browser-condition / browser-deno TS row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime corpus TS row should be recorded in the package corpus matrix",
         ),
