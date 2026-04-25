@@ -15702,6 +15702,50 @@ fn install_allow_scripts_rejects_when_no_npm_work_exists() {
 }
 
 #[test]
+fn install_allow_scripts_rejects_when_no_npm_work_exists_in_json_on_a_clean_workspace() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg("--allow-scripts")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("non-empty npm install work"),
+        "json: {json}"
+    );
+    assert!(
+        !dir.path().join("kali.json").exists(),
+        "install should not scaffold a placeholder manifest on a rejected no-op"
+    );
+    assert!(
+        !dir.path().join("kali.lock").exists(),
+        "install should not materialize a lockfile on a rejected no-op"
+    );
+}
+
+#[test]
 fn install_reconciles_semver_style_package_without_allow_scripts_on_the_cli() {
     let _guard = kali_registry_lock().lock().unwrap();
     let dir = tempdir().expect("tempdir");
