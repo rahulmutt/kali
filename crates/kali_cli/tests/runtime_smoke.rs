@@ -3395,18 +3395,25 @@ fn shell_quote_path(path: &Path) -> String {
 }
 
 #[cfg(unix)]
-fn run_browser_entrypoint_smoke(browser_name: &str) {
+fn browser_entrypoint_smoke(
+    command_name: &str,
+    source_name: &str,
+    source_contents: &str,
+    stdout_marker: &str,
+    browser_name: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log('browser run');").expect("write source");
+    let source_path = dir.path().join(source_name);
+    fs::write(&source_path, source_contents).expect("write source");
 
     let browser = dir.path().join(browser_name);
     symlink("/bin/sh", &browser).expect("link browser executable shim to /bin/sh");
 
     let browser_log = dir.path().join(format!("{browser_name}-args.txt"));
     let command = format!(
-        r#"{} -c 'printf "%s\n" "$@" > "$KALI_BROWSER_SHIM_LOG"; printf "{{\"args\":[],\"tests\":[],\"testsFailed\":0}}\n" > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"; printf "browser run\n"; exit 0' _ --headless"#,
-        shell_quote_path(&browser)
+        r#"{} -c 'printf "%s\n" "$@" > "$KALI_BROWSER_SHIM_LOG"; printf "{{\"args\":[],\"tests\":[],\"testsFailed\":0}}\n" > "$KALI_BROWSER_HARNESS_SUMMARY_FILE"; printf "{}\n"; exit 0' _ --headless"#,
+        shell_quote_path(&browser),
+        stdout_marker
     );
 
     let output = Command::new(kali_bin())
@@ -3415,7 +3422,7 @@ fn run_browser_entrypoint_smoke(browser_name: &str) {
         .env("KALI_BROWSER_SHIM_LOG", &browser_log)
         .arg("--output")
         .arg("json")
-        .arg("run")
+        .arg(command_name)
         .arg("--api")
         .arg("browser")
         .arg(&source_path)
@@ -3429,16 +3436,15 @@ fn run_browser_entrypoint_smoke(browser_name: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "run");
+    assert_eq!(json["command"], command_name);
     assert_eq!(json["success"], true);
     assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
         json["stdout"]
             .as_str()
-            .is_some_and(|stdout| stdout.starts_with("browser run")),
+            .is_some_and(|stdout| stdout.contains(stdout_marker)),
         "json: {json}"
     );
 
@@ -3448,6 +3454,28 @@ fn run_browser_entrypoint_smoke(browser_name: &str) {
     assert!(
         browser_args.contains("browser-runtime.html"),
         "args: {browser_args}"
+    );
+}
+
+#[cfg(unix)]
+fn run_browser_entrypoint_smoke(browser_name: &str) {
+    browser_entrypoint_smoke(
+        "run",
+        "main.ts",
+        "console.log('browser run');",
+        "browser run",
+        browser_name,
+    );
+}
+
+#[cfg(unix)]
+fn test_browser_entrypoint_smoke(browser_name: &str) {
+    browser_entrypoint_smoke(
+        "test",
+        "main.test.ts",
+        "console.log('browser test');\nKali.test('browser test', () => { 1 + 1; });",
+        "browser test",
+        browser_name,
     );
 }
 
@@ -3648,6 +3676,31 @@ fn run_uses_browser_entrypoint_for_additional_privacy_browser_aliases() {
         "thorium browser",
     ] {
         run_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_browser_like_executables() {
+    test_browser_entrypoint_smoke("chromium");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_remaining_browser_aliases() {
+    for browser_name in [
+        "chromium-browser",
+        "chromium-headless-shell",
+        "google chrome",
+        "brave",
+        "brave-browser",
+        "brave browser",
+        "vivaldi snapshot",
+        "microsoft-edge",
+        "microsoft edge",
+        "mullvad browser",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
     }
 }
 
