@@ -8,13 +8,17 @@ fn kali_bin() -> String {
 }
 
 fn unsupported_permission_query_source() -> &'static str {
-    "Deno.permissions.query({ name: \"ffi\" });"
+    "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });"
 }
 
 fn assert_unsupported_permission_query_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
         stderr.contains("permission query descriptor 'ffi'"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("permission query descriptor 'sys'"),
         "stderr: {stderr}"
     );
 }
@@ -30,6 +34,12 @@ fn assert_unsupported_permission_query_rejection_json(errors: &[Value]) {
             .as_str()
             .expect("error message")
             .contains("permission query descriptor 'ffi'")
+    }));
+    assert!(errors.iter().any(|error| {
+        error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("permission query descriptor 'sys'")
     }));
 }
 

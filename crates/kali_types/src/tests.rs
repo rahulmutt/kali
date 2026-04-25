@@ -723,17 +723,43 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                 })],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "query".to_string(),
+                })),
+                args: vec![Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::String("name".to_string()),
+                        value: Expression::Literal(LiteralValue::String("sys".to_string())),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
-    assert_eq!(
-        result.diagnostics[0].code,
-        Some(e5::FEATURE_UNAVAILABLE as u32)
-    );
-    assert!(result.diagnostics[0]
-        .message
-        .contains("permission query descriptor 'ffi'"));
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("permission query descriptor 'ffi'")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("permission query descriptor 'sys'")));
 }
 
 #[test]
