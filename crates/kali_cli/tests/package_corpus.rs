@@ -3741,6 +3741,8 @@ fn browser_runtime_corpus_packages_with_pattern_exports_remain_executable_and_te
         ("react", "jsx-runtime"),
         ("preact", "hooks"),
         ("vue", "runtime-dom"),
+        ("hono", "client"),
+        ("solid-js", "web"),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("browser"));
