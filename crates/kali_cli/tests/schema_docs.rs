@@ -202,6 +202,13 @@ fn core_schema_documents_match_current_cli_contracts() {
         "array"
     );
 
+    for (variant_index, variant) in build_variants.iter().enumerate() {
+        assert_eq!(
+            variant["additionalProperties"], true,
+            "unexpected build schema additionalProperties at variant {variant_index}"
+        );
+    }
+
     for (variant_index, expected_properties) in [
         (0, vec!["profileDataHash"]),
         (1, vec!["witPath", "profileDataHash"]),
@@ -223,6 +230,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/result/test/v1.json")).expect("read test schema"),
     )
     .expect("parse test schema");
+    assert_eq!(test_result["additionalProperties"], true);
     assert!(test_result["properties"]["coverage"].is_object());
     assert_eq!(
         test_result["properties"]["coverage"]["required"]
