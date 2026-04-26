@@ -1270,6 +1270,30 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser package fixtures with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser exports-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime exports-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser replacement-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime replacement-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | typed export branch packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime typed export branch corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser string-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime string-entry corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser string-export packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime string-export corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser pattern-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime pattern-exports corpus row should be recorded in the package corpus matrix",
         ),
