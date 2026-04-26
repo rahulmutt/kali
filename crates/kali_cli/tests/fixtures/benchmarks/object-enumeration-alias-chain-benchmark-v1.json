@@ -1,0 +1,7 @@
+{
+  "benchmark": "object-enumeration-alias-chain",
+  "version": 1,
+  "sourceFile": "object-enumeration-alias-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-5338ae48e571490bf95d03c116b8500111a5752a008cfc3f6f0b79c09b90d8a1",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
