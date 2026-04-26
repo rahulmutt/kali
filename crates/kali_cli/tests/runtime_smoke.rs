@@ -84,6 +84,41 @@ fn check_build_and_run_accept_global_this_deno_pid_in_js_input() {
 }
 
 #[test]
+fn json_run_accepts_global_this_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(globalThis.Deno.pid);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    let pid = stdout.trim().parse::<u32>().expect("pid stdout");
+    assert!(pid > 0, "json: {json}");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn test_accepts_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
