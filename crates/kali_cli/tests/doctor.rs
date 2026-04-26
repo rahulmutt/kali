@@ -216,6 +216,24 @@ fn doctor_reports_auto_selected_browser_harness_in_json() {
     assert_eq!(harness["executable"], command[0]);
     assert_eq!(harness["args"], json!(command[1..]));
     assert!(harness["executableAvailable"].is_boolean());
+
+    let contract = &json["payload"]["browserRuntimeContract"];
+    assert_eq!(contract["hostLabel"], "browser-requested");
+    assert_eq!(contract["hostDescription"], "real browser host");
+    assert_eq!(
+        contract["supportedCommands"],
+        serde_json::json!(["run", "test"])
+    );
+    assert!(contract["diagnosticHint"]
+        .as_str()
+        .expect("diagnostic hint string")
+        .contains("kali check --api browser"));
+    assert_eq!(contract["diagnosticNotes"], serde_json::json!([
+        "supported browser runtime commands: run, test",
+        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+        "browser runtime host description: real browser host"
+    ]));
 }
 
 #[test]
