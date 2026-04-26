@@ -965,11 +965,15 @@ impl TypeContext {
             return false;
         }
 
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr)
+            .unwrap_or_else(|| format!("globalThis[\"{}\"]", expr.property));
+
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "broader Intl support via '{}' is unavailable until the later web/Intl compatibility path is enabled",
-                Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                "broader Intl support via '{}' (aka {}) is unavailable until the later web/Intl compatibility path is enabled",
+                dotted, bracketed
             ),
         ));
         true
@@ -1023,6 +1027,16 @@ impl TypeContext {
         }?;
 
         Some(format!("{}.{}", object_name, expr.property))
+    }
+
+    fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
+        let object_name = match &expr.object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) => Self::member_access_name_bracketed(member),
+            _ => None,
+        }?;
+
+        Some(format!("{}[\"{}\"]", object_name, expr.property))
     }
 
     fn member_object_name(object: &Expression) -> Option<String> {
