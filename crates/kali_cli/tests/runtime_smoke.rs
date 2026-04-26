@@ -12860,6 +12860,81 @@ async function queueMicrotaskSmoke(left, right) {
 }
 
 #[test]
+fn json_build_emits_browser_bundle_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        r#"// kali-tree-shake: queueMicrotaskSmoke
+async function queueMicrotaskSmoke(left, right) {
+  const order = [];
+  queueMicrotask(() => {
+    order.push('microtask');
+  });
+  order.push('before');
+  if (order.join(',') !== 'before') {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve(left + right);
+  if (order.join(',') !== 'before,microtask') {
+    throw new Error(`unexpected queueMicrotask ordering ${order.join(',')}`);
+  }
+  return 0n;
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "queueMicrotaskSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_performance_now_monotonic_ordering_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
