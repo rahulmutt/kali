@@ -60,6 +60,35 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
 }
 
 #[test]
+fn doctor_reports_env_selected_browser_harness_in_human_output() {
+    let output = Command::new(kali_bin())
+        .arg("doctor")
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node --test")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Browser harness:"), "stdout: {stdout}");
+    assert!(stdout.contains("  env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    assert!(stdout.contains("  source: env"));
+    assert!(stdout.contains("  override: node --test"));
+    assert!(stdout.contains("  command: node --test"));
+    assert!(stdout.contains("Browser runtime contract:"));
+    assert!(stdout.contains("  host label: browser-requested"));
+    assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout.contains("  supported commands: run, test"));
+    assert!(stdout.contains("  diagnostic hint:"));
+    assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
+}
+
+#[test]
 fn doctor_reports_env_selected_browser_harness_in_pretty_json_under_quiet() {
     let output = Command::new(kali_bin())
         .arg("--output")

@@ -399,6 +399,23 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         }
         println!("  command: {}", command_parts.join(" "));
         println!("  executable available: {}", executable_available);
+        println!("Browser runtime contract:");
+        println!("  host label: {}", browser_runtime_contract.host_label);
+        println!(
+            "  host description: {}",
+            browser_runtime_contract.host_description
+        );
+        println!(
+            "  supported commands: {}",
+            browser_runtime_contract.supported_commands.join(", ")
+        );
+        println!(
+            "  diagnostic hint: {}",
+            browser_runtime_contract.diagnostic_hint
+        );
+        for note in BrowserRuntimeContract::diagnostic_notes() {
+            println!("  note: {note}");
+        }
     }
 
     Ok(())
