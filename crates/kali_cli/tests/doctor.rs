@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -39,6 +39,42 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
     assert_eq!(harness["command"], serde_json::json!(["node", "--test"]));
     assert_eq!(harness["executable"], "node");
     assert_eq!(harness["args"], serde_json::json!(["--test"]));
+}
+
+#[test]
+fn doctor_reports_auto_selected_browser_harness_in_json() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("doctor")
+        .env_remove("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    let harness = &json["payload"]["browserHarness"];
+    assert_eq!(harness["envVar"], "KALI_BROWSER_BUNDLE_HARNESS_COMMAND");
+    assert_eq!(harness["source"], "auto");
+    assert!(harness["override"].is_null());
+    let command = harness["command"]
+        .as_array()
+        .expect("browser harness command array");
+    assert!(
+        !command.is_empty(),
+        "browser harness command should not be empty"
+    );
+    assert_eq!(harness["executable"], command[0]);
+    assert_eq!(harness["args"], json!(command[1..]));
+    assert!(harness["executableAvailable"].is_boolean());
 }
 
 #[test]
