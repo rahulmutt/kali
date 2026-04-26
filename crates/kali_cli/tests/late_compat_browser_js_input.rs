@@ -843,3 +843,96 @@ fn build_rejects_nullish_coalescing_in_browser_bundle_js_input_in_json() {
     let errors = json["errors"].as_array().expect("errors array");
     assert_browser_late_nullish_coalescing_rejection_json(errors);
 }
+
+fn late_eval_compatibility_source() -> &'static str {
+    "eval('1 + 2'); new Function('return 3')();"
+}
+
+fn assert_browser_late_eval_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("compatibility feature 'eval'"),
+        "stderr: {stderr}"
+    );
+}
+
+fn assert_browser_late_eval_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("compatibility feature 'eval'")),
+        "missing eval compatibility gate in {errors:?}"
+    );
+}
+
+fn assert_browser_late_eval_rejection_for_command(
+    command: &str,
+    command_args: &[&str],
+    with_browser_harness: bool,
+    source_name: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(source_name);
+    fs::write(&source_path, late_eval_compatibility_source()).expect("write source");
+
+    for json_output in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output.current_dir(dir.path());
+        if with_browser_harness {
+            output.env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+        }
+        if json_output {
+            output.arg("--output").arg("json");
+        }
+        output.arg(command);
+        for arg in command_args {
+            output.arg(arg);
+        }
+        output.arg("--api").arg("browser");
+        output.arg(&source_path);
+
+        let output = output.output().expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        if json_output {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert_browser_late_eval_rejection_json(errors);
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert_browser_late_eval_rejection(&stderr);
+        }
+    }
+}
+
+#[test]
+fn check_rejects_eval_and_function_constructor_in_browser_api_surface_js_input() {
+    assert_browser_late_eval_rejection_for_command("check", &[], false, "main.js");
+}
+
+#[test]
+fn build_rejects_eval_and_function_constructor_in_browser_bundle_js_input() {
+    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, "main.js");
+}
+
+#[test]
+fn run_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
+{
+    assert_browser_late_eval_rejection_for_command("run", &[], true, "main.js");
+}
+
+#[test]
+fn test_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
+{
+    assert_browser_late_eval_rejection_for_command("test", &[], true, "smoke.test.js");
+}
