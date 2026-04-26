@@ -966,11 +966,15 @@ fn assert_browser_late_eval_rejection_for_command(
     command: &str,
     command_args: &[&str],
     with_browser_harness: bool,
+    with_browser_api_surface_manifest: bool,
     source_name: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(source_name);
     fs::write(&source_path, late_eval_compatibility_source()).expect("write source");
+    if with_browser_api_surface_manifest {
+        write_browser_api_surface_manifest(&dir);
+    }
 
     for json_output in [false, true] {
         let mut output = Command::new(kali_bin());
@@ -1008,22 +1012,44 @@ fn assert_browser_late_eval_rejection_for_command(
 
 #[test]
 fn check_rejects_eval_and_function_constructor_in_browser_api_surface_js_input() {
-    assert_browser_late_eval_rejection_for_command("check", &[], false, "main.js");
+    assert_browser_late_eval_rejection_for_command("check", &[], false, false, "main.js");
 }
 
 #[test]
 fn build_rejects_eval_and_function_constructor_in_browser_bundle_js_input() {
-    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, "main.js");
+    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, false, "main.js");
 }
 
 #[test]
 fn run_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
 {
-    assert_browser_late_eval_rejection_for_command("run", &[], true, "main.js");
+    assert_browser_late_eval_rejection_for_command("run", &[], true, false, "main.js");
 }
 
 #[test]
 fn test_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
 {
-    assert_browser_late_eval_rejection_for_command("test", &[], true, "smoke.test.js");
+    assert_browser_late_eval_rejection_for_command("test", &[], true, false, "smoke.test.js");
+}
+
+#[test]
+fn check_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input() {
+    assert_browser_late_eval_rejection_for_command("check", &[], false, true, "main.js");
+}
+
+#[test]
+fn build_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input() {
+    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, true, "main.js");
+}
+
+#[test]
+fn run_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input_with_browser_harness(
+) {
+    assert_browser_late_eval_rejection_for_command("run", &[], true, true, "main.js");
+}
+
+#[test]
+fn test_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input_with_browser_harness(
+) {
+    assert_browser_late_eval_rejection_for_command("test", &[], true, true, "smoke.test.js");
 }
