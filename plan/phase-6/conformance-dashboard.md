@@ -32,7 +32,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic async/await sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths) |
 | Basic queueMicrotask ordering semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Browser timing baseline / `performance.now()` monotonic ordering in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser-requested `run` / `test` and browser bundle smoke coverage, including inherited-browser-api-surface coverage, JSON-output coverage for the browser-requested `.js` `test` lane, and JSON-output coverage for the browser bundle `.js` lane) |
-| `globalThis.Deno.pid` handling in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
+| Read-only `Deno.pid` / `globalThis.Deno.pid` handling in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage on the `test` lane) |
 | Basic optional chaining member and element access | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths, plus browser-requested `.js` harness coverage) |
 | Basic try/catch exception handling and try/finally sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage) |
 | Browser bundle try/catch exception semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
