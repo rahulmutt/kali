@@ -1,4 +1,6 @@
 use std::{fs, path::PathBuf, process::Command};
+
+use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> PathBuf {
@@ -16,6 +18,10 @@ fn assert_node_api_succeeds(name: &str, mut command: Command, expected_stdout: &
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains(expected_stdout), "{name} stdout: {stdout}");
+}
+
+fn parse_json_stdout(output: &std::process::Output) -> Value {
+    serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
 #[test]
@@ -230,4 +236,79 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input() {
     test.current_dir(dir.path())
         .args(["test", "--api", "node", test_file.to_str().unwrap()]);
     assert_node_api_succeeds("test", test, "node test ok\n");
+}
+
+#[test]
+fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input_with_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.js");
+    let test_file = dir.path().join("main.test.js");
+    fs::write(
+        &run_file,
+        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+    )
+    .expect("write test file");
+
+    let run_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(&run_file)
+        .arg("--")
+        .arg("alpha")
+        .arg("beta")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        run_output.status.success(),
+        "run stderr: {}",
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+    let run_json = parse_json_stdout(&run_output);
+    assert_eq!(run_json["command"], "run");
+    assert_eq!(run_json["success"], true);
+    assert_eq!(run_json["exitCode"], 0);
+    assert_eq!(run_json["payload"]["exitCode"], 0);
+    assert_eq!(run_json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(run_json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(run_json["stdout"].as_str().expect("stdout").trim(), "2");
+
+    let test_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("node")
+        .arg(&test_file)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        test_output.status.success(),
+        "test stderr: {}",
+        String::from_utf8_lossy(&test_output.stderr)
+    );
+    let test_json = parse_json_stdout(&test_output);
+    assert_eq!(test_json["command"], "test");
+    assert_eq!(test_json["success"], true);
+    assert_eq!(test_json["exitCode"], 0);
+    assert_eq!(test_json["payload"]["failed"], 0);
+    assert_eq!(test_json["payload"]["passed"], 1);
+    assert_eq!(test_json["payload"]["total"], 1);
+    assert_eq!(test_json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(test_json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(
+        test_json["stdout"].as_str().expect("stdout"),
+        "node test ok\n"
+    );
 }
