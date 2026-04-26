@@ -1229,6 +1229,11 @@ fn cli_spec_examples_track_the_current_repository_surface() {
         "kali package-audit --output json lodash",
         "kali run --api browser main.ts",
         "kali build --api node main.ts",
+        "kali build --sandbox kali.policy.json main.ts",
+        "kali build --bundle --api browser --sandbox kali.policy.json main.ts",
+        "kali build --lib --sandbox kali.policy.json lib.ts",
+        "kali build --capi --sandbox kali.policy.json lib.ts",
+        "kali build --component --sandbox kali.policy.json lib.ts",
         "kali build --capi lib.ts",
         "kali build --component lib.ts",
     ] {
