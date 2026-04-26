@@ -1342,6 +1342,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime module-only corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser module-only packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser module-only corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser module-entry-chain packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime module-entry-chain corpus row should be recorded in the package corpus matrix",
         ),
@@ -1352,6 +1356,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         (
             "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime browser-condition / browser-deno JS row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser browser-condition / browser-deno JS row should be recorded in the package corpus matrix",
         ),
         (
             "| browser runtime corpus | browser dual-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
