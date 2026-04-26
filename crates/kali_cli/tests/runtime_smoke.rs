@@ -26142,6 +26142,10 @@ fn check_accepts_permissions_query_subset_in_js_input() {
     fs::write(
         &source_path,
         r#"
+Deno.permissions.query({ "name": "read" });
+Deno.permissions.query({ "name": "write" });
+Deno.permissions.query({ "name": "env" });
+Deno.permissions.query({ "name": "net" });
 globalThis["Deno"]["permissions"].query({ "name": "read" });
 globalThis["Deno"]["permissions"].query({ "name": "write" });
 globalThis["Deno"]["permissions"].query({ "name": "env" });
@@ -26180,6 +26184,10 @@ fn build_accepts_permissions_query_subset_in_js_input() {
     fs::write(
         &source_path,
         r#"
+Deno.permissions.query({ "name": "read" });
+Deno.permissions.query({ "name": "write" });
+Deno.permissions.query({ "name": "env" });
+Deno.permissions.query({ "name": "net" });
 globalThis["Deno"]["permissions"].query({ "name": "read" });
 globalThis["Deno"]["permissions"].query({ "name": "write" });
 globalThis["Deno"]["permissions"].query({ "name": "env" });
