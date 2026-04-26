@@ -954,6 +954,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "`require(\"literal\")`",
         "Basic `Math.sign()` built-in semantics",
         "Basic queueMicrotask ordering semantics in `.js` input",
+        "Browser timing baseline / `performance.now()` monotonic ordering in `.ts` and `.js` input",
         "Browser bundle integer-like key ordering semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` integer-like key ordering semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input",
