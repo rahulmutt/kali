@@ -1906,8 +1906,11 @@ impl Optimizer {
     ) {
         let snapshot = program.nodes[id.0 as usize].clone();
         if let Some((name, init)) = self.extract_const_binding(program, id) {
-            if self.is_specializable_binding(program, init) {
-                env.bindings.insert(name, init);
+            let resolved = self
+                .resolve_constant_binding(program, init, env)
+                .unwrap_or(init);
+            if self.is_specializable_binding(program, resolved) {
+                env.bindings.insert(name, resolved);
             }
         }
 

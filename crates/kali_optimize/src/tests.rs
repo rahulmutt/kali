@@ -125,7 +125,7 @@ fn build_const_bound_object_enumeration_call(
 fn build_alias_bound_object_enumeration_call(
     builder: &mut LirBuilder,
     callee_name: &str,
-) -> (LirNodeId, LirNodeId, LirNodeId) {
+) -> (LirNodeId, LirNodeId, LirNodeId, LirNodeId) {
     let const_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
     let declarator = builder.alloc_text(LirNodeKind::Instruction, "point");
     let binding_name = builder.alloc_text(LirNodeKind::Value, "point");
@@ -156,13 +156,21 @@ fn build_alias_bound_object_enumeration_call(
     builder.node_mut(alias_declarator).unwrap().children = vec![alias_name, alias_binding];
     builder.node_mut(alias_decl).unwrap().children = vec![alias_declarator];
 
+    let alias_two_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+    let alias_two_declarator = builder.alloc_text(LirNodeKind::Instruction, "alias2");
+    let alias_two_name = builder.alloc_text(LirNodeKind::Value, "alias2");
+    let alias_two_binding = builder.alloc_text(LirNodeKind::Value, "alias");
+    builder.node_mut(alias_two_declarator).unwrap().children =
+        vec![alias_two_name, alias_two_binding];
+    builder.node_mut(alias_two_decl).unwrap().children = vec![alias_two_declarator];
+
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
     let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
     builder.node_mut(callee).unwrap().children = vec![object_object];
-    let alias_ref = builder.alloc_text(LirNodeKind::Value, "alias");
+    let alias_ref = builder.alloc_text(LirNodeKind::Value, "alias2");
     builder.node_mut(call).unwrap().children = vec![callee, alias_ref];
-    (const_decl, alias_decl, call)
+    (const_decl, alias_decl, alias_two_decl, call)
 }
 
 #[test]
@@ -1141,9 +1149,10 @@ fn release_folds_object_enumeration_calls_over_const_alias_chains() {
     ] {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);
-        let (const_decl, alias_decl, call) =
+        let (const_decl, alias_decl, alias_two_decl, call) =
             build_alias_bound_object_enumeration_call(&mut builder, callee_name);
-        builder.node_mut(root).unwrap().children = vec![const_decl, alias_decl, call];
+        builder.node_mut(root).unwrap().children =
+            vec![const_decl, alias_decl, alias_two_decl, call];
 
         let mut program = LirProgram {
             root,
@@ -1188,9 +1197,10 @@ fn release_advanced_folds_object_enumeration_calls_over_const_alias_chains() {
     ] {
         let mut builder = LirBuilder::new();
         let root = builder.alloc(LirNodeKind::Program);
-        let (const_decl, alias_decl, call) =
+        let (const_decl, alias_decl, alias_two_decl, call) =
             build_alias_bound_object_enumeration_call(&mut builder, callee_name);
-        builder.node_mut(root).unwrap().children = vec![const_decl, alias_decl, call];
+        builder.node_mut(root).unwrap().children =
+            vec![const_decl, alias_decl, alias_two_decl, call];
 
         let mut program = LirProgram {
             root,
