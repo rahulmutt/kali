@@ -57,6 +57,9 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser-requested `run` / `test` boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage for the browser-requested JS-input lane) |
 | Browser-requested `run` / `test` basic strict equality / inequality semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Math.max()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
