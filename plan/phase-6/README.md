@@ -43,6 +43,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Current progress: the read-only `Deno.pid` / `globalThis.Deno.pid` process-identity query now also has JSON-output coverage on the standalone `test` path for `.js` input, keeping the process-identity slice aligned with the rest of the machine-readable execution smoke.
 - Current progress: the phase-6 conformance dashboard now explicitly tracks the browser-requested strict-equality row alongside the browser-requested and browser-bundle integer-like key ordering rows for object enumeration, so the supported ordering and comparison slices stay visible in the phase snapshot alongside the broader browser runtime rows.
 - Current progress: the phase-6 conformance dashboard now also records the browser-requested `run` `Math.clz32()` `.js` slice explicitly, matching the existing browser-harness JSON-output coverage already carried in `crates/kali_cli/tests/runtime_smoke.rs`.
+- Current progress: the phase-6 dashboard drift net now also pins the browser-requested math and queueMicrotask rows explicitly, including the `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` slice, the `Math.clz32()` browser-requested slices, the browser-requested `Math.trunc()` slice, and the browser-requested queueMicrotask baseline, so the runtime snapshot stays visible in the deterministic docs test alongside the existing execution smoke.
 
 ### 6.3 Module and dynamic-loading semantics
 
