@@ -3181,6 +3181,152 @@ fn browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_in_js_
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_browser_string_entries_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_string_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            "export default function root() { return 0; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser string-entry package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\nKali.test('browser string-entry package', () => {{ 1 + 1; }});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser string-entry package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn browser_runtime_corpus_packages_with_string_exports_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_string_exports_package(
+            dir.path(),
+            package,
+            "export default function root() { return 0; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser string-exports package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\nKali.test('browser string-exports package', () => {{ 1 + 1; }});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser string-exports package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_when_a_harness_command_is_configured(
 ) {
     for package in ["browserpkg", "browserexports"] {
