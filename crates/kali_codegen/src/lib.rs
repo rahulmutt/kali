@@ -31,8 +31,9 @@ const MATH_MIN_IMPORT_INDEX: u32 = 8;
 const MATH_ABS_IMPORT_INDEX: u32 = 9;
 const MATH_SIGN_IMPORT_INDEX: u32 = 10;
 const MATH_IMUL_IMPORT_INDEX: u32 = 11;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 12;
-const FUNCTION_INDEX_OFFSET: u32 = 12;
+const PROCESS_PID_IMPORT_INDEX: u32 = 12;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 13;
+const FUNCTION_INDEX_OFFSET: u32 = 13;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -426,6 +427,23 @@ impl<'a> FunctionEmitter<'a> {
                 EmittedValue {
                     produced: true,
                     shape: ValueShape::Boolean,
+                }
+            }
+            "pid" => {
+                if self.is_deno_pid(arg) {
+                    function.instruction(&Instruction::Call(PROCESS_PID_IMPORT_INDEX));
+                    function.instruction(&Instruction::I64ExtendI32U);
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
+                self.push_placeholder_fallback_diagnostic("identifier", "pid");
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
                 }
             }
             "length" => {
@@ -1261,6 +1279,19 @@ impl<'a> FunctionEmitter<'a> {
         self.render_package_json_version(&specifier)
     }
 
+    fn is_deno_pid(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() == Some("Deno") {
+            return true;
+        }
+
+        node.text.as_deref() == Some("globalThis")
+            && node
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
+    }
+
     fn is_process_argv(&self, id: LirNodeId) -> bool {
         let node = self.node(id);
         if node.text.as_deref() != Some("argv") || node.children.len() != 1 {
@@ -1475,6 +1506,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_abs", EntityType::Function(4));
     import_section.import("kali:rt", "math_sign", EntityType::Function(4));
     import_section.import("kali:rt", "math_imul", EntityType::Function(3));
+    import_section.import("kali:rt", "process_pid", EntityType::Function(2));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

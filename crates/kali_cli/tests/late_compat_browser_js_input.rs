@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit;"
+    "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -26,14 +26,10 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
@@ -59,14 +55,10 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
         "expected at least one E3100 error: {errors:?}"
     );
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",

@@ -2384,6 +2384,9 @@ const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
+    process_pid() {{
+      return 0;
+    }},
     math_max(left, right) {{
       return left > right ? left : right;
     }},
@@ -2547,6 +2550,9 @@ const defaultImportObject = {{
   "kali:rt": {{
     test_register() {{}},
     args_len() {{ return 0; }},
+    process_pid() {{
+      return 0;
+    }},
     math_max(left, right) {{
       return left > right ? left : right;
     }},

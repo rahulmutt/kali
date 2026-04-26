@@ -154,9 +154,9 @@ Phase-1 descriptor projection shorthand:
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
 - mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path; this is why the Phase 1 `net` permission observation remains fetch-only rather than implying `connect`/`listen`
-- process identity, termination, and working-directory APIs remain a later compatibility path until a future schema/policy revision gives them an auditable contract
+- process identity query `Deno.pid` is already available on the default standalone surface in the current repository snapshot, while termination and working-directory APIs remain a later compatibility path until a future schema/policy revision gives them an auditable contract
 
-Process identity (`Deno.pid`), process termination (`Deno.exit`), and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) are therefore intentionally outside the Phase 1 MVP. They widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
+Process identity `Deno.pid` is a read-only query on the default standalone surface in the current repository snapshot, while process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) remain intentionally outside the Phase 1 MVP. Those latter APIs widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
@@ -168,14 +168,14 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 - broader filesystem, networking, and subprocess coverage
 
 **Later compatibility expansion**
-- `Deno.pid`
+- `Deno.pid` *(current repository snapshot: read-only query on the default standalone surface)*
 - `Deno.cwd`, `Deno.chdir`
 - `Deno.exit`
 
 Cross-spec consistency note:
 - subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
 - process identity, termination, and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
-- therefore `Deno.pid`, `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain **Later compatibility** features until a future schema/policy revision makes their sandbox contract explicit
+- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain **Later compatibility** features until a future schema/policy revision makes their sandbox contract explicit; `Deno.pid` stays noted as a current-repository read-only query in the snapshot above
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 

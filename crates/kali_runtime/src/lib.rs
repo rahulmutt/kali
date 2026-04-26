@@ -1119,6 +1119,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("args_len", error))?;
 
     linker
+        .func_wrap("kali:rt", "process_pid", || -> i32 {
+            i32::try_from(std::process::id()).unwrap_or(i32::MAX)
+        })
+        .map_err(|error| host_import_error("process_pid", error))?;
+
+    linker
         .func_wrap("kali:rt", "math_max", |left: i64, right: i64| -> i64 {
             left.max(right)
         })
@@ -2659,6 +2665,9 @@ const importObject = {{
     args_len() {{
       return runtimeArgs.length;
     }},
+    process_pid() {{
+      return Number(globalThis.process?.pid ?? 0);
+    }},
     math_max(left, right) {{
       return left > right ? left : right;
     }},
@@ -2946,6 +2955,9 @@ const importObject = {{
     }},
     args_len() {{
       return runtimeArgs.length;
+    }},
+    process_pid() {{
+      return Number(globalThis.process?.pid ?? 0);
     }},
     math_max(left, right) {{
       return left > right ? left : right;

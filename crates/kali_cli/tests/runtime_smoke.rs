@@ -46,7 +46,57 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 }
 
 fn late_process_control_source() -> &'static str {
-    "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit;"
+    "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;"
+}
+
+#[test]
+fn check_build_and_run_accept_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Deno.pid);\n").expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let pid = stdout.trim().parse::<u32>().expect("pid stdout");
+    assert!(pid > 0, "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Kali.test('pid', () => { if (!Deno.pid) { throw new Error('expected pid'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
 }
 
 fn assert_artifact_metadata_provenance(
@@ -1457,7 +1507,7 @@ fn check_rejects_late_process_control_members() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit;",
+        "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;",
     )
     .expect("write source");
 
@@ -1478,18 +1528,13 @@ fn check_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -1504,7 +1549,7 @@ fn check_rejects_late_process_control_members_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit;",
+        "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;",
     )
     .expect("write source");
 
@@ -1523,25 +1568,20 @@ fn check_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 14, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(
@@ -1777,18 +1817,13 @@ fn run_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -1818,25 +1853,20 @@ fn run_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 14, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(
@@ -2148,18 +2178,13 @@ fn test_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -2189,25 +2214,20 @@ fn test_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 14, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(

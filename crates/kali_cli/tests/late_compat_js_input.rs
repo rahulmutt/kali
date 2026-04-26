@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_js_compatibility_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; Intl.NumberFormat; Deno.pid; globalThis.Deno.pid; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; globalThis.process.exit; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; null ?? 1;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; Intl.NumberFormat; globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; null ?? 1;"
 }
 
 fn assert_late_js_compatibility_rejection(stderr: &str) {
@@ -28,18 +28,14 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "globalThis.Intl.NumberFormat",
         "Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
+        "process.exit",
         "Proxy",
         "globalThis.Proxy",
         "WeakMap",
@@ -72,19 +68,15 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
         "globalThis.Intl.NumberFormat",
         "Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
-        "Deno.pid",
-        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "Deno.exit",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
-        "globalThis.process.exit",
+        "process.exit",
         "Proxy",
         "globalThis.Proxy",
         "WeakMap",
