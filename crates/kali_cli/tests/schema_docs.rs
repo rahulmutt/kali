@@ -1457,6 +1457,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     ] {
         assert!(matrix.contains(row), "{message}");
     }
+
+    let browser_dual_exports_row =
+        "| npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_dual_exports_row).count(),
+        1,
+        "browser dual-exports corpus row should be recorded exactly once in the package corpus matrix"
+    );
 }
 
 #[test]
