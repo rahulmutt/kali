@@ -552,6 +552,34 @@ mod member_expressions {
     }
 
     #[test]
+    fn test_parse_bracketed_string_literal_member_expression() {
+        let output = parse("globalThis[\"Deno\"][\"exit\"];");
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::MemberExpression(me) => {
+                    assert_eq!(me.property, "exit");
+                    match &me.object {
+                        kali_ast::Expression::MemberExpression(inner) => {
+                            assert_eq!(inner.property, "Deno");
+                            match &inner.object {
+                                kali_ast::Expression::Identifier(name) => {
+                                    assert_eq!(name, "globalThis");
+                                }
+                                other => panic!("Expected globalThis identifier, got {other:?}"),
+                            }
+                        }
+                        other => panic!("Expected nested MemberExpression, got {other:?}"),
+                    }
+                }
+                _ => panic!("Expected MemberExpression"),
+            },
+            _ => panic!("Expected ExpressionStatement"),
+        }
+    }
+
+    #[test]
     fn test_parse_array_access() {
         let output = parse("arr[index];");
         assert_eq!(output.statements.len(), 1);

@@ -8455,6 +8455,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
         (
+            "node-fs-promises-corpus",
+            "import { readFile } from \"node:fs/promises\";\nexport default function root() { return typeof readFile === \"function\" ? 0 : 1; }\n",
+            "0",
+        ),
+        (
             "node-url-corpus",
             "import { fileURLToPath } from \"node:url\";\nexport default function root() { fileURLToPath(new URL(\"file:///tmp/node-corpus.txt\")); return 0; }\n",
             "0",
