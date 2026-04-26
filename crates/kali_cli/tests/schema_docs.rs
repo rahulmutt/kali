@@ -1038,6 +1038,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input under the configured browser harness",
         "Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input, including JSON-output coverage",
+        "Shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `EventTarget`, `CustomEvent`) in `.ts` and `.js` input",
+        "Browser bundle shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `EventTarget`, `CustomEvent`) in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input",
