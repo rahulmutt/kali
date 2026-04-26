@@ -1,0 +1,7 @@
+{
+  "benchmark": "const-array-element-access",
+  "version": 1,
+  "sourceFile": "const-array-element-access-benchmark-v1.ts",
+  "sourceSha256": "sha256-b6a7caab598ff9ffdbee33ce9d02e88b74a03423c0cdf27f23178bd14075d5a6",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

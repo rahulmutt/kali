@@ -3661,7 +3661,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 14 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 15 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -24237,6 +24237,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "nullish-specialization-repeat",
         ),
         ("specialization-reuse-benchmark-v1", "specialization-reuse"),
+        (
+            "const-array-element-access-benchmark-v1",
+            "const-array-element-access",
+        ),
         ("nullish-benchmark-v1", "nullish-specialization"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);

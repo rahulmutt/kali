@@ -1683,6 +1683,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "algebraic-simplification-benchmark-v1",
         "nullish-specialization-repeat-benchmark-v1",
         "specialization-reuse-benchmark-v1",
+        "const-array-element-access-benchmark-v1",
         "nullish-benchmark-v1",
         "## Reading rule",
     ] {
