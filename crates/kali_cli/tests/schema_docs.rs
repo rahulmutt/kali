@@ -1064,6 +1064,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` basic strict equality / inequality semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input",
         "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
+        "Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `globalThis.Deno.pid` / bracketed `globalThis[\"Deno\"][\"pid\"]` stays the default standalone exception)",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Directory-index dynamic-import targets in `.tsx` and `.jsx` input",

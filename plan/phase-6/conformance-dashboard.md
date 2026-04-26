@@ -118,6 +118,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | `FinalizationRegistry` | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 | Broader `Intl` surface | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_js_input.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` (including bracketed `globalThis["Intl"]` / `globalThis["Intl"]["NumberFormat"]` / `globalThis["Intl"]["DateTimeFormat"]` source coverage) |
+| Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `globalThis.Deno.pid` / bracketed `globalThis["Deno"]["pid"]` stays the default standalone exception) | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_js_input.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 
 ## Rejected by default
 
