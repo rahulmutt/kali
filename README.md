@@ -25,6 +25,7 @@ Baseline Phase-1 commands:
 ```bash
 kali doctor                         # inspect local tool/environment selection
 kali init
+kali init --lib                 # create the minimal library scaffold
 kali install
 kali fmt
 kali lint
@@ -64,7 +65,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 | Command | Purpose |
 | --- | --- |
 | `doctor` | Inspect local Kali tool/environment selection, including the browser harness command and browser runtime contract snapshot |
-| `init` | Create a new Kali project |
+| `init` | Create a new Kali project or library scaffold |
 | `install` | Resolve and install dependencies |
 | `fmt` | Format files or a discovered project |
 | `lint` | Run lint diagnostics and optional safe fixes |

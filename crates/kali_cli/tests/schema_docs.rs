@@ -1276,6 +1276,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
     for expected in [
         "kali doctor                         # inspect local tool/environment selection",
         "kali init",
+        "kali init --lib                 # create the minimal library scaffold",
         "kali install",
         "kali fmt",
         "kali lint",
