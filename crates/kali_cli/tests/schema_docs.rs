@@ -1026,6 +1026,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.ts` and `.js` input",
+        "Browser bundle `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` / `Math.clz32()` semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.clz32()` semantics in `.ts` input, including JSON-output coverage",
         "Browser-requested `run` `Math.clz32()` semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `test` `Math.clz32()` semantics in `.js` input, including JSON-output coverage",
