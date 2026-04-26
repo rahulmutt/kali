@@ -1,0 +1,7 @@
+{
+  "benchmark": "dead-branch-elimination",
+  "version": 1,
+  "sourceFile": "dead-branch-elimination-benchmark-v1.ts",
+  "sourceSha256": "sha256-1eec0eb0ccec9749b88dd4fd70858a5a24bea5db5d23776ab1f1142050dd5482",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

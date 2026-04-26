@@ -1763,6 +1763,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "math-trunc-benchmark-v1",
         "math-imul-benchmark-v1",
         "division-by-one-benchmark-v1",
+        "dead-branch-elimination-benchmark-v1",
         "closure-inlining-benchmark-v1",
         "object-enumeration-benchmark-v1",
         "object-enumeration-alias-chain-benchmark-v1",
