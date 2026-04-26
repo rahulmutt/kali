@@ -36,6 +36,7 @@ fn schema_documents_exist_and_parse() {
         "schemas/result/run/v1.json",
         "schemas/result/test/v1.json",
         "schemas/result/install/v1.json",
+        "schemas/result/init/v1.json",
         "schemas/result/fmt/v1.json",
         "schemas/result/lint/v1.json",
         "schemas/result/doctor/v1.json",
@@ -788,6 +789,25 @@ fn core_schema_documents_match_current_cli_contracts() {
             ["type"],
         "string"
     );
+
+    let init: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/result/init/v1.json")).expect("read init schema"),
+    )
+    .expect("parse init schema");
+    assert_eq!(init["title"], "Kali Init Result v1");
+    assert_eq!(init["type"], "object");
+    assert_eq!(init["additionalProperties"], false);
+    assert_eq!(
+        required_fields(&init),
+        ["root", "manifestPath", "sourcePath", "library"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(init["properties"]["root"]["type"], "string");
+    assert_eq!(init["properties"]["manifestPath"]["type"], "string");
+    assert_eq!(init["properties"]["sourcePath"]["type"], "string");
+    assert_eq!(init["properties"]["library"]["type"], "boolean");
 
     let package_audit: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/package-audit/v1.json"))

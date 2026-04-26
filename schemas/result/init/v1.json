@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kali-lang.org/schemas/result/init/v1",
+  "title": "Kali Init Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "root",
+    "manifestPath",
+    "sourcePath",
+    "library"
+  ],
+  "properties": {
+    "root": {
+      "type": "string"
+    },
+    "manifestPath": {
+      "type": "string"
+    },
+    "sourcePath": {
+      "type": "string"
+    },
+    "library": {
+      "type": "boolean"
+    }
+  }
+}

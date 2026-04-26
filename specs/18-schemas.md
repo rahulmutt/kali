@@ -138,6 +138,25 @@ Required fields:
 
 Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.
 
+## Init Payload
+
+`kali init --output json` uses the standard command envelope with command name `init` and this success payload:
+
+```json
+{
+  "root": "/path/to/project",
+  "manifestPath": "/path/to/project/kali.json",
+  "sourcePath": "/path/to/project/main.ts",
+  "library": false
+}
+```
+
+Required fields:
+- `root: string` — effective project root where the scaffold was created
+- `manifestPath: string` — path to the written `kali.json`
+- `sourcePath: string` — path to the starter source file (`main.ts` or `lib.ts`)
+- `library: boolean` — whether the selected scaffold template was `--lib`
+
 ## Common Source Location Types
 
 Kali uses two related but distinct span concepts:

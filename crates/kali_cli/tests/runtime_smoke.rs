@@ -24440,9 +24440,15 @@ fn json_init_emits_a_command_envelope() {
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
+    let root = dir.path().to_string_lossy().into_owned();
+    let manifest_path = dir.path().join("kali.json").to_string_lossy().into_owned();
+    let source_path = dir.path().join("main.ts").to_string_lossy().into_owned();
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "init");
     assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["root"], root);
+    assert_eq!(json["payload"]["manifestPath"], manifest_path);
+    assert_eq!(json["payload"]["sourcePath"], source_path);
     assert_eq!(json["payload"]["library"], false);
     assert_eq!(json["exitCode"], 0);
 }

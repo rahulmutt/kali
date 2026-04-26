@@ -550,6 +550,9 @@ kali init                                  # Create the minimal project scaffold
 kali init --lib                            # Create the minimal library scaffold (kali.json + lib.ts)
 ```
 
+Behavior:
+- `--output json` emits the standard command envelope with command name `init` and the `InitPayload` shape from [18 — Schemas](18-schemas.md), including `root`, `manifestPath`, `sourcePath`, and `library`
+
 Scaffold simplification rules:
 - `kali init` is **current-directory-scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
 - if the current working directory already contains `kali.json`, `kali init` fails with `E5508` instead of overwriting the existing project config.
