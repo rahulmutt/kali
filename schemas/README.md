@@ -2,8 +2,8 @@
 
 These JSON Schema documents describe the schema-v1 machine-readable surfaces used by the Kali CLI
 and related artifacts. They are intentionally narrow and deterministic so downstream tooling can
-validate envelopes, diagnostics, manifests, lockfiles, policies, and artifact metadata without
-scraping prose.
+validate envelopes, diagnostics, manifests, lockfiles, policies, benchmark fixture metadata, and
+artifact metadata without scraping prose.
 
 Reserved shapes for later commands and companion sidecar manifests live here as well so names stay
 stable before the commands ship.

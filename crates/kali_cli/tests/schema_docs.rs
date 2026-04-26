@@ -40,6 +40,7 @@ fn schema_documents_exist_and_parse() {
         "schemas/result/fmt/v1.json",
         "schemas/result/lint/v1.json",
         "schemas/result/doctor/v1.json",
+        "schemas/benchmark/v1.json",
         "schemas/result/effects/v1.json",
         "schemas/result/package-effects/v1.json",
         "schemas/result/package-audit/v1.json",
@@ -1736,6 +1737,91 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         1,
         "default standalone package-content test corpus row should be recorded exactly once in the package corpus matrix"
     );
+}
+
+#[test]
+fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
+    let root = repo_root();
+    let schema: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(root.join("schemas/benchmark/v1.json")).expect("read benchmark schema"),
+    )
+    .expect("parse benchmark schema");
+
+    assert_eq!(schema["title"], "Kali Benchmark Fixture Metadata v1");
+    assert_eq!(schema["type"], "object");
+    assert_eq!(schema["additionalProperties"], false);
+    assert_eq!(
+        required_fields(&schema),
+        [
+            "benchmark",
+            "version",
+            "sourceFile",
+            "sourceSha256",
+            "buildModes"
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(schema["properties"]["benchmark"]["type"], "string");
+    assert_eq!(schema["properties"]["version"]["const"], 1);
+    assert_eq!(schema["properties"]["sourceFile"]["type"], "string");
+    assert_eq!(schema["properties"]["sourceSha256"]["type"], "string");
+    assert_eq!(
+        schema["properties"]["sourceSha256"]["pattern"],
+        "^sha256-[0-9a-f]{64}$"
+    );
+    assert_eq!(schema["properties"]["buildModes"]["type"], "array");
+    assert_eq!(
+        schema["properties"]["buildModes"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(schema["properties"]["buildModes"]["minItems"], 1);
+
+    for entry in fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
+        .expect("read benchmark fixture directory")
+    {
+        let path = entry.expect("benchmark fixture entry").path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(&path).expect("read benchmark metadata fixture"),
+        )
+        .expect("parse benchmark metadata fixture");
+        let metadata_object = metadata.as_object().expect("benchmark metadata object");
+        assert_eq!(metadata_object.len(), 5, "{}", path.display());
+        for expected_key in [
+            "benchmark",
+            "version",
+            "sourceFile",
+            "sourceSha256",
+            "buildModes",
+        ] {
+            assert!(
+                metadata_object.contains_key(expected_key),
+                "{} missing expected key {}",
+                path.display(),
+                expected_key
+            );
+        }
+        assert_eq!(metadata["version"], 1, "{}", path.display());
+        assert_eq!(
+            metadata["buildModes"],
+            serde_json::json!(["--fast", "--release", "--release-advanced"]),
+            "{}",
+            path.display()
+        );
+        assert!(
+            metadata["sourceSha256"]
+                .as_str()
+                .expect("sourceSha256 string")
+                .starts_with("sha256-"),
+            "{}",
+            path.display()
+        );
+    }
 }
 
 #[test]

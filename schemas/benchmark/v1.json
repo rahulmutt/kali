@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kali Benchmark Fixture Metadata v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["benchmark", "version", "sourceFile", "sourceSha256", "buildModes"],
+  "properties": {
+    "benchmark": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "sourceFile": {
+      "type": "string"
+    },
+    "sourceSha256": {
+      "type": "string",
+      "pattern": "^sha256-[0-9a-f]{64}$"
+    },
+    "buildModes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  }
+}
