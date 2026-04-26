@@ -1607,12 +1607,33 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         1,
         "browser inherited semver runtime corpus row should be recorded exactly once in the package corpus matrix"
     );
+    let browser_package_content_row =
+        "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_package_content_row).count(),
+        1,
+        "browser package-content runtime corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_package_content_inherited_row =
+        "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_package_content_inherited_row).count(),
+        1,
+        "browser inherited package-content runtime corpus row should be recorded exactly once in the package corpus matrix"
+    );
     let browser_condition_inherited_row =
         "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_eq!(
         matrix.matches(browser_condition_inherited_row).count(),
         1,
         "browser inherited browser-condition / browser-deno runtime corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let default_package_content_test_row =
+        "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and test coverage | default standalone | `check`, `build`, `test` | checkable / buildable / testable | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(default_package_content_test_row).count(),
+        1,
+        "default standalone package-content test corpus row should be recorded exactly once in the package corpus matrix"
     );
 }
 
