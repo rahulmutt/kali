@@ -1288,6 +1288,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime dual-exports corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser internal browser-rewrite packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser internal browser-rewrite corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser-condition / browser-string / web-baseline packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser condition / string / web-baseline corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser pattern-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser pattern-exports `.js` corpus row should be recorded in the package corpus matrix",
         ),
@@ -1338,6 +1346,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         (
             "| npm-style package corpus | browser web-baseline primitive packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser web-baseline TS corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser web-baseline primitive packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser web-baseline JS entrypoint corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | mixed CommonJS/ESM interop packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |",
