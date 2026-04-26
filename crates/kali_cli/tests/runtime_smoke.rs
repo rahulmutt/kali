@@ -2627,7 +2627,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 9 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 10 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -19583,6 +19583,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
     for (fixture_stem, benchmark_name) in [
         ("math-benchmark-v1", "folded-arithmetic"),
         ("call-inlining-benchmark-v1", "division-and-identity"),
+        (
+            "closure-inlining-benchmark-v1",
+            "closure-inlining-and-folding",
+        ),
         (
             "object-enumeration-benchmark-v1",
             "object-enumeration-folding",

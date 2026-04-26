@@ -1431,6 +1431,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "release_advanced_folds_object_enumeration_calls_over_const_bound_literal_object_shapes",
         "release_advanced_folds_object_enumeration_calls_over_const_alias_chains",
         "math-benchmark-v1",
+        "closure-inlining-benchmark-v1",
         "object-enumeration-benchmark-v1",
         "identity-chain-benchmark-v1",
         "algebraic-simplification-benchmark-v1",

@@ -1,0 +1,7 @@
+{
+  "benchmark": "closure-inlining-and-folding",
+  "version": 1,
+  "sourceFile": "closure-inlining-benchmark-v1.ts",
+  "sourceSha256": "sha256-38ba9f7db0e41264da7d91bcb5d99155f36bfe79fa66164b6c974a0ef807dee8",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
