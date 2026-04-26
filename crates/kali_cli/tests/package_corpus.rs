@@ -6983,6 +6983,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
         (
+            "node-util-corpus",
+            "import util from \"node:util\";\nexport default function root() { util.format(\"%s-%s\", \"node\", \"util\"); return 0; }\n",
+            "0",
+        ),
+        (
             "node-assert-corpus",
             "import assert from \"node:assert\";\nexport default function root() { assert.ok(true); return 0; }\n",
             "0",
