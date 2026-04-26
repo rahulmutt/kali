@@ -57,7 +57,7 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Extend `package-effects` / `package-audit` only through explicit command/schema revisions.
 - Do not add batch, raw-URL, local-path, or project-graph behavior accidentally.
 - Progress: `package-effects` now also has native JSON pretty-output coverage and quiet-mode coverage, keeping the native-JSON registry-analysis payload contract explicit across presentation controls as well as the inherited-analysis lane.
-- Progress: `package-effects` and `package-audit` now also reject raw URLs and local/relative path targets in both text and JSON output modes, keeping the single registry-identifier target contract explicit alongside the already-covered explicit-version rejection.
+- Progress: `package-effects` and `package-audit` now also reject raw URLs and local/relative path targets in both text and JSON output modes, keeping the single registry-identifier target contract explicit alongside the already-covered explicit-version rejection. The install-command lifecycle-hook lane now also rejects `--allow-scripts` for raw-URL and JSR targets in both text and JSON output modes, keeping the install-time npm hook path separate from registry-only and raw-URL install shapes.
 - Progress: `package-audit` now also rejects `--api`, `--compat`, and `--wasm-threads` in both text and JSON output modes, keeping the command-shape gate aligned with the shared package-analysis-specific-flag contract. The same package-audit lane now also suppresses human output under `--quiet` even when inheriting `eval` plus `wasm-threads`, and the inherited compat/thread context now also has JSON-output quiet coverage.
 
 ## Exit gate

@@ -25699,6 +25699,38 @@ fn install_allow_scripts_rejects_jsr_targets() {
 }
 
 #[test]
+fn install_allow_scripts_rejects_jsr_targets_in_json() {
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg("--allow-scripts")
+        .arg("jsr:@std/path")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("JSR targets"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn install_rejects_versioned_registry_targets() {
     let _guard = kali_registry_lock().lock().unwrap();
     let (registry_base, hits, stop, handle) = start_registry_metadata_server(
@@ -26221,6 +26253,49 @@ fn install_allow_scripts_rejects_raw_url_targets() {
     assert!(
         stderr.contains("not valid for raw-URL targets"),
         "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn install_allow_scripts_rejects_raw_url_targets_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let (raw_url_base, hits, stop, handle) =
+        start_binary_response_server(b"export default 1;".to_vec(), "application/typescript");
+    let raw_url = format!("{raw_url_base}/mod.ts");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg("--allow-scripts")
+        .arg(&raw_url)
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join raw-url server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "raw URL should be rejected before fetch"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("not valid for raw-URL targets"),
+        "json: {json}"
     );
 }
 
