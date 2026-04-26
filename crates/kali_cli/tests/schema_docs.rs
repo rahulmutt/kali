@@ -734,7 +734,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(doctor["additionalProperties"], false);
     assert_eq!(
         required_fields(&doctor),
-        ["browserHarness"]
+        ["browserHarness", "browserRuntimeContract"]
             .iter()
             .map(|value| value.to_string())
             .collect::<Vec<_>>()
@@ -765,6 +765,28 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["command"]["minItems"],
         1
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        required_fields(&doctor["properties"]["browserRuntimeContract"]),
+        [
+            "hostLabel",
+            "hostDescription",
+            "supportedCommands",
+            "diagnosticHint",
+            "diagnosticNotes"
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"]
+            ["type"],
+        "string"
     );
 
     let package_audit: serde_json::Value = serde_json::from_str(

@@ -5,7 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "browserHarness"
+    "browserHarness",
+    "browserRuntimeContract"
   ],
   "properties": {
     "browserHarness": {
@@ -55,6 +56,40 @@
         },
         "executableAvailable": {
           "type": "boolean"
+        }
+      }
+    },
+    "browserRuntimeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostLabel",
+        "hostDescription",
+        "supportedCommands",
+        "diagnosticHint",
+        "diagnosticNotes"
+      ],
+      "properties": {
+        "hostLabel": {
+          "type": "string"
+        },
+        "hostDescription": {
+          "type": "string"
+        },
+        "supportedCommands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diagnosticHint": {
+          "type": "string"
+        },
+        "diagnosticNotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

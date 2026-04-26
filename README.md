@@ -63,7 +63,7 @@ For the full CLI contract, arity, and flag behavior, see [`specs/12-cli.md`](./s
 
 | Command | Purpose |
 | --- | --- |
-| `doctor` | Inspect local Kali tool/environment selection, including the browser harness command |
+| `doctor` | Inspect local Kali tool/environment selection, including the browser harness command and browser runtime contract snapshot |
 | `init` | Create a new Kali project |
 | `install` | Resolve and install dependencies |
 | `fmt` | Format files or a discovered project |

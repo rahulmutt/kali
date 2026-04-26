@@ -96,12 +96,25 @@ Used by commands that opt into `--output json`.
     "executable": "node",
     "args": ["--test"],
     "executableAvailable": true
+  },
+  "browserRuntimeContract": {
+    "hostLabel": "browser-requested",
+    "hostDescription": "real browser host",
+    "supportedCommands": ["run", "test"],
+    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+    "diagnosticNotes": [
+      "supported browser runtime commands: run, test",
+      "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+      "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+      "browser runtime host description: real browser host"
+    ]
   }
 }
 ```
 
 Required fields:
 - `browserHarness: BrowserHarnessDoctor`
+- `browserRuntimeContract: BrowserRuntimeContractDoctor`
 
 ### `BrowserHarnessDoctor`
 
@@ -113,6 +126,15 @@ Required fields:
 - `executable: string` — first entry from `command`
 - `args: string[]` — remaining entries from `command`
 - `executableAvailable: boolean` — best-effort local executable probe result; this is diagnostic metadata only and is not a browser-runtime support claim
+
+### `BrowserRuntimeContractDoctor`
+
+Required fields:
+- `hostLabel: string` — canonical label for the browser-requested host contract used in diagnostics
+- `hostDescription: string` — short human-readable description of the intended browser host
+- `supportedCommands: string[]` — command family the future browser runtime contract will own
+- `diagnosticHint: string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane
+- `diagnosticNotes: string[]` — stable ordered notes that summarize the browser runtime contract; diagnostic metadata only and not a browser-runtime support claim
 
 Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.
 
