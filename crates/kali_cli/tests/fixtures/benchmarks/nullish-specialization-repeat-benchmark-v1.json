@@ -1,0 +1,7 @@
+{
+  "benchmark": "nullish-specialization-repeat",
+  "version": 1,
+  "sourceFile": "nullish-specialization-repeat-benchmark-v1.ts",
+  "sourceSha256": "sha256-0d7d41dda42b341adeefe506197f8653588d69f5d7364ddad178575108449315",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
