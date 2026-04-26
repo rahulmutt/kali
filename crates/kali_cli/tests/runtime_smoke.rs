@@ -36013,7 +36013,7 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
 }
 
 #[test]
-fn package_audit_rejects_wasm_threads_flag_in_json_output() {
+fn package_audit_rejects_wasm_threads_runtime_profile_in_json_output() {
     let output = Command::new(kali_bin())
         .arg("--output")
         .arg("json")
@@ -36030,6 +36030,13 @@ fn package_audit_rejects_wasm_threads_flag_in_json_output() {
     assert_eq!(json["command"], "package-audit");
     assert!(!json["success"].as_bool().expect("success boolean"));
     assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
 }
 
 #[test]
