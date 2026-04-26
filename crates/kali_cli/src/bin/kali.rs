@@ -2399,6 +2399,9 @@ const defaultImportObject = {{
       }}
       return value < 0n ? -1n : 1n;
     }},
+    math_imul(left, right) {{
+      return BigInt.asIntN(32, left * right);
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2558,6 +2561,9 @@ const defaultImportObject = {{
         return 0n;
       }}
       return value < 0n ? -1n : 1n;
+    }},
+    math_imul(left, right) {{
+      return BigInt.asIntN(32, left * right);
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

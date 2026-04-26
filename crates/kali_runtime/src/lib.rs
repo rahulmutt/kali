@@ -1143,6 +1143,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("math_sign", error))?;
 
     linker
+        .func_wrap("kali:rt", "math_imul", |left: i64, right: i64| -> i64 {
+            (left as i32).wrapping_mul(right as i32) as i64
+        })
+        .map_err(|error| host_import_error("math_imul", error))?;
+
+    linker
         .func_wrap(
             "kali:rt",
             "args_get",
@@ -2668,6 +2674,9 @@ const importObject = {{
       }}
       return value < 0n ? -1n : 1n;
     }},
+    math_imul(left, right) {{
+      return BigInt.asIntN(32, left * right);
+    }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
     }},
@@ -2952,6 +2961,9 @@ const importObject = {{
         return 0n;
       }}
       return value < 0n ? -1n : 1n;
+    }},
+    math_imul(left, right) {{
+      return BigInt.asIntN(32, left * right);
     }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
