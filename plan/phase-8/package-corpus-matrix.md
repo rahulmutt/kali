@@ -89,6 +89,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 |---|---|---|---|---|---|
 | npm-style package corpus | runner packages (`vitest`, `jest`, `mocha`, `ava`) | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | runner packages with exports maps | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | runner packages with exports maps with `.js` input | Node | `run`, `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | runner packages with exports maps and `node:buffer` built-in usage with `.js` entrypoints | Node | `run`, `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | runner packages with mixed-format entries | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | runner packages with mixed-format entries with `.js` entrypoints | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |
