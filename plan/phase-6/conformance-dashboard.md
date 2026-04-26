@@ -41,6 +41,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic BigInt addition semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in both TS and `.js` inputs) |
 | Basic BigInt addition semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in `.js` input) |
 | Basic `Object.keys()` enumeration semantics, including overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
+| Basic object property deletion / `in`-operator semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Object.keys()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Object.entries()` enumeration semantics, including overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Object.entries()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |

@@ -13313,6 +13313,46 @@ if ('a' in obj) {
 "#
 }
 
+fn assert_object_property_deletion_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn run_supports_object_property_deletion_semantics() {
+    assert_object_property_deletion_semantics("run", "smoke.ts");
+}
+
+#[test]
+fn run_supports_object_property_deletion_semantics_in_js_input() {
+    assert_object_property_deletion_semantics("run", "smoke.js");
+}
+
+#[test]
+fn test_supports_object_property_deletion_semantics() {
+    assert_object_property_deletion_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn test_supports_object_property_deletion_semantics_in_js_input() {
+    assert_object_property_deletion_semantics("test", "smoke.test.js");
+}
+
 #[test]
 fn test_supports_bigint_addition_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
