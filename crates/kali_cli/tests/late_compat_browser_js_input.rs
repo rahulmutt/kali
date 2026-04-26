@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
 
 fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
@@ -201,6 +201,9 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
     let source = late_object_model_source();
     for expected in [
         r#"globalThis["Proxy"]"#,
+        r#"Proxy.revocable"#,
+        r#"globalThis.Proxy.revocable"#,
+        r#"globalThis["Proxy"]["revocable"]"#,
         r#"globalThis["WeakMap"]"#,
         r#"globalThis["WeakSet"]"#,
         r#"globalThis["FinalizationRegistry"]"#,
