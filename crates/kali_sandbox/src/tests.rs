@@ -7,13 +7,17 @@ use std::{
 };
 
 fn write_source_fixture(source: &str) -> PathBuf {
+    write_source_fixture_with_extension(source, "ts")
+}
+
+fn write_source_fixture_with_extension(source: &str, extension: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time")
         .as_nanos();
     let dir = std::env::temp_dir().join(format!("kali-sandbox-{unique}-{}", std::process::id()));
     fs::create_dir_all(&dir).expect("create temp dir");
-    let path = dir.join("main.ts");
+    let path = dir.join(format!("main.{extension}"));
     fs::write(&path, source).expect("write source fixture");
     path
 }
@@ -758,7 +762,12 @@ fn effect_reports_deduplicate_entry_points_while_preserving_first_seen_order() {
 
 #[test]
 fn effect_reports_treat_permissions_query_as_effect_free() {
-    let source = write_source_fixture(r#"Deno.permissions.query({ name: "env" });"#);
+    let source = write_source_fixture(
+        r#"Deno.permissions.query({ name: "read" });
+Deno.permissions.query({ name: "write" });
+Deno.permissions.query({ name: "env" });
+Deno.permissions.query({ name: "net" });"#,
+    );
     let inference = infer_effects_from_roots(
         std::slice::from_ref(&source),
         EffectAnalysisContext::new("deno"),
@@ -788,10 +797,101 @@ fn effect_reports_treat_permissions_query_as_effect_free() {
 #[test]
 fn effect_reports_treat_computed_permissions_query_as_effect_free() {
     let source = write_source_fixture(
-        r#"Deno["permissions"]["query"]({ name: "env" });
+        r#"Deno["permissions"]["query"]({ name: "read" });
+Deno.permissions["query"]({ name: "read" });
+globalThis["Deno"]["permissions"].query({ name: "read" });
+globalThis["Deno"]["permissions"]["query"]({ name: "read" });
+Deno["permissions"]["query"]({ name: "write" });
+Deno.permissions["query"]({ name: "write" });
+globalThis["Deno"]["permissions"].query({ name: "write" });
+globalThis["Deno"]["permissions"]["query"]({ name: "write" });
+Deno["permissions"]["query"]({ name: "env" });
 Deno.permissions["query"]({ name: "env" });
 globalThis["Deno"]["permissions"].query({ name: "env" });
-globalThis["Deno"]["permissions"]["query"]({ name: "env" });"#,
+globalThis["Deno"]["permissions"]["query"]({ name: "env" });
+Deno["permissions"]["query"]({ name: "net" });
+Deno.permissions["query"]({ name: "net" });
+globalThis["Deno"]["permissions"].query({ name: "net" });
+globalThis["Deno"]["permissions"]["query"]({ name: "net" });"#,
+    );
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert!(
+        inference.effects.is_empty(),
+        "unexpected observed effects: {inference:?}"
+    );
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert!(report.dynamic_effects);
+    assert_eq!(report.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(report.effects.is_empty());
+}
+
+#[test]
+fn effect_reports_treat_permissions_query_as_effect_free_in_js_input() {
+    let source = write_source_fixture_with_extension(
+        r#"Deno.permissions.query({ name: "read" });
+Deno.permissions.query({ name: "write" });
+Deno.permissions.query({ name: "env" });
+Deno.permissions.query({ name: "net" });"#,
+        "js",
+    );
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert!(
+        inference.effects.is_empty(),
+        "unexpected observed effects: {inference:?}"
+    );
+    assert!(
+        inference.dynamic_reasons.is_empty(),
+        "unexpected dynamic reasons: {inference:?}"
+    );
+
+    let report = effect_report_from_inference(
+        vec![source.display().to_string()],
+        EffectAnalysisContext::new("deno"),
+        inference,
+    );
+
+    assert!(!report.dynamic_effects);
+    assert!(report.dynamic_reasons.is_empty());
+    assert!(report.effects.is_empty());
+}
+
+#[test]
+fn effect_reports_treat_computed_permissions_query_as_effect_free_in_js_input() {
+    let source = write_source_fixture_with_extension(
+        r#"Deno["permissions"]["query"]({ name: "read" });
+Deno.permissions["query"]({ name: "read" });
+globalThis["Deno"]["permissions"].query({ name: "read" });
+globalThis["Deno"]["permissions"]["query"]({ name: "read" });
+Deno["permissions"]["query"]({ name: "write" });
+Deno.permissions["query"]({ name: "write" });
+globalThis["Deno"]["permissions"].query({ name: "write" });
+globalThis["Deno"]["permissions"]["query"]({ name: "write" });
+Deno["permissions"]["query"]({ name: "env" });
+Deno.permissions["query"]({ name: "env" });
+globalThis["Deno"]["permissions"].query({ name: "env" });
+globalThis["Deno"]["permissions"]["query"]({ name: "env" });
+Deno["permissions"]["query"]({ name: "net" });
+Deno.permissions["query"]({ name: "net" });
+globalThis["Deno"]["permissions"].query({ name: "net" });
+globalThis["Deno"]["permissions"]["query"]({ name: "net" });"#,
+        "js",
     );
     let inference = infer_effects_from_roots(
         std::slice::from_ref(&source),
