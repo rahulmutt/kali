@@ -2405,6 +2405,9 @@ const defaultImportObject = {{
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);
     }},
+    math_clz32(value) {{
+      return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2570,6 +2573,9 @@ const defaultImportObject = {{
     }},
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);
+    }},
+    math_clz32(value) {{
+      return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

@@ -32,8 +32,9 @@ const MATH_ABS_IMPORT_INDEX: u32 = 9;
 const MATH_SIGN_IMPORT_INDEX: u32 = 10;
 const MATH_IMUL_IMPORT_INDEX: u32 = 11;
 const PROCESS_PID_IMPORT_INDEX: u32 = 12;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 13;
-const FUNCTION_INDEX_OFFSET: u32 = 13;
+const MATH_CLZ32_IMPORT_INDEX: u32 = 13;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 14;
+const FUNCTION_INDEX_OFFSET: u32 = 14;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -1005,6 +1006,28 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.math_clz32_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(value) = args.next() else {
+                function.instruction(&Instruction::I64Const(32));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            let _ = self.emit_node(function, *value, true);
+            function.instruction(&Instruction::Call(import_index));
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -1128,6 +1151,17 @@ impl<'a> FunctionEmitter<'a> {
         let object_name = self.node(object).text.as_deref()?;
         if object_name == "Math" && method == "imul" {
             Some(MATH_IMUL_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
+    fn math_clz32_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" && method == "clz32" {
+            Some(MATH_CLZ32_IMPORT_INDEX)
         } else {
             None
         }
@@ -1507,6 +1541,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_sign", EntityType::Function(4));
     import_section.import("kali:rt", "math_imul", EntityType::Function(3));
     import_section.import("kali:rt", "process_pid", EntityType::Function(2));
+    import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

@@ -1155,6 +1155,12 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("math_imul", error))?;
 
     linker
+        .func_wrap("kali:rt", "math_clz32", |value: i64| -> i64 {
+            i64::from((value as u32).leading_zeros())
+        })
+        .map_err(|error| host_import_error("math_clz32", error))?;
+
+    linker
         .func_wrap(
             "kali:rt",
             "args_get",
@@ -2686,6 +2692,9 @@ const importObject = {{
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);
     }},
+    math_clz32(value) {{
+      return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
+    }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
     }},
@@ -2976,6 +2985,9 @@ const importObject = {{
     }},
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);
+    }},
+    math_clz32(value) {{
+      return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
     }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
