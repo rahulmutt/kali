@@ -4,7 +4,12 @@ use std::{
     process::Command,
 };
 
+use serde_json::Value;
 use tempfile::tempdir;
+
+fn parse_json_stdout(output: &std::process::Output) -> Value {
+    serde_json::from_slice(&output.stdout).expect("valid json stdout")
+}
 
 fn kali_bin() -> PathBuf {
     std::env::var_os("CARGO_BIN_EXE_kali")
@@ -791,6 +796,113 @@ Kali.test('browser semver package', () => { 1 + 1; });
     let stdout = String::from_utf8_lossy(&test.stdout);
     assert!(stdout.contains("1.2.3\n1\n1.2.3"), "stdout: {stdout}");
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_browser_runtime_corpus_semver_style_package_remains_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "semver");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write browser runtime semver source");
+
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        run.status.success(),
+        "browser semver package should stay executable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let json = parse_json_stdout(&run);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1.2.3\n1\n1.2.3"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_browser_runtime_corpus_semver_style_package_remains_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "semver");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(
+        &source_path,
+        r#"import { valid, satisfies, minVersion } from 'semver';
+console.log(valid('1.2.3'));
+console.log(satisfies('1.2.3', '^1.0.0'));
+console.log(minVersion('^1.2.3')?.version);
+Kali.test('browser semver package', () => { 1 + 1; });
+"#,
+    )
+    .expect("write browser runtime semver test source");
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "browser semver package should stay testable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let json = parse_json_stdout(&test);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1.2.3\n1\n1.2.3"),
+        "json: {json}"
+    );
 }
 
 #[test]
