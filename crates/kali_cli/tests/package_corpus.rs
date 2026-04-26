@@ -4868,6 +4868,84 @@ fn browser_runtime_corpus_packages_with_dual_exports_remain_executable_and_testa
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_dual_exports_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_dual_exports_package(
+            dir.path(),
+            package,
+            &format!("export default function root() {{ return '{package}:import'; }}\n", package = package),
+            &format!("module.exports = function root() {{ return '{package}:require'; }};\n", package = package),
+            subpath,
+            &format!("export default function subpath() {{ return '{package}:{subpath}:import'; }}\n", package = package, subpath = subpath),
+            &format!("module.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n", package = package, subpath = subpath),
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nKali.test('{package} corpus', () => {{\n  console.log(root(), subpath());\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser test source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser dual package {package} should be executable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert!(run_stdout.contains("0"), "stdout: {run_stdout}");
+        assert_eq!(run_stdout.lines().count(), 1, "stdout: {run_stdout}");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser dual package {package} should be testable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_packages_with_typed_export_branches_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for (package, subpath) in [
