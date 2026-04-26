@@ -818,10 +818,32 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "request".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "revoke".to_string(),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 4);
+    assert_eq!(result.diagnostics.len(), 6);
     assert!(result
         .diagnostics
         .iter()

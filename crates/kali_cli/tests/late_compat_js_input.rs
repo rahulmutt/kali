@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_js_compatibility_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; Intl.NumberFormat; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); null ?? 1;"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; Intl.NumberFormat; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); null ?? 1;"
 }
 
 fn assert_late_js_compatibility_rejection(stderr: &str) {
@@ -20,6 +20,14 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
     assert!(stderr.contains("E3100"), "stderr: {stderr}");
     assert!(
         stderr.contains("undefined identifier 'process'"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.matches("Deno.permissions.request").count() >= 2,
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.matches("Deno.permissions.revoke").count() >= 2,
         "stderr: {stderr}"
     );
     for expected in [
@@ -32,6 +40,8 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "Deno.permissions.request",
+        "Deno.permissions.revoke",
         "process.pid",
         "globalThis.process.pid",
         "globalThis.process.cwd",
@@ -63,6 +73,28 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
     assert!(
         errors.iter().any(|error| error["code"] == "E3100"),
         "expected at least one E3100 error: {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .filter(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Deno.permissions.request"))
+            .count()
+            >= 2,
+        "missing bracketed request coverage in {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .filter(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Deno.permissions.revoke"))
+            .count()
+            >= 2,
+        "missing bracketed revoke coverage in {errors:?}"
     );
     for expected in [
         "Intl",

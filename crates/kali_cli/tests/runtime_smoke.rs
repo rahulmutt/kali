@@ -1684,6 +1684,72 @@ fn check_rejects_computed_permission_escalation_members_in_json() {
 }
 
 #[test]
+fn check_rejects_bracketed_permission_escalation_members() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Deno.permissions.request") && stderr.contains("Deno.permissions.revoke"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn check_rejects_bracketed_permission_escalation_members_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 4);
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    for expected in ["Deno.permissions.request", "Deno.permissions.revoke"] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {:?}",
+            errors
+        );
+    }
+}
+
+#[test]
 fn check_rejects_late_process_control_members() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
