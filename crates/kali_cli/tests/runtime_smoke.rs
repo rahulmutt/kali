@@ -4113,6 +4113,154 @@ fn test_uses_browser_entrypoint_for_remaining_browser_aliases() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_mullvad_browser_executables() {
+    test_browser_entrypoint_smoke("mullvad-browser");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_command_wrapped_executables() {
+    test_browser_entrypoint_smoke("chromium.command");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_edge_beta_executables() {
+    test_browser_entrypoint_smoke("edge-beta");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_msedge_canary_executables() {
+    test_browser_entrypoint_smoke("msedge-canary");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_msedge_stable_executables() {
+    for browser_name in [
+        "msedge-stable",
+        "edge-stable",
+        "microsoft-edge-stable",
+        "microsoft edge stable",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_edge_aliases() {
+    for browser_name in [
+        "msedge-beta",
+        "msedge-dev",
+        "msedge-insider",
+        "edge-canary",
+        "edge-dev",
+        "edge-insider",
+        "microsoft-edge-beta",
+        "microsoft-edge-canary",
+        "microsoft-edge-dev",
+        "microsoft-edge-insider",
+        "microsoft edge beta",
+        "microsoft edge canary",
+        "microsoft edge dev",
+        "microsoft edge insider",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_brave_browser_stable_executables() {
+    for browser_name in ["brave-browser-stable", "brave browser stable"] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_brave_aliases() {
+    for browser_name in [
+        "brave-browser-beta",
+        "brave-browser-dev",
+        "brave-browser-nightly",
+        "brave browser beta",
+        "brave browser dev",
+        "brave browser nightly",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_stable_browser_aliases() {
+    for browser_name in ["firefox-esr", "opera-stable", "vivaldi-stable"] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_opera_aliases() {
+    for browser_name in [
+        "opera-beta",
+        "opera-developer",
+        "opera-unstable",
+        "opera beta",
+        "opera developer",
+        "opera unstable",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_firefox_aliases() {
+    for browser_name in [
+        "firefox",
+        "firefox-beta",
+        "firefox-nightly",
+        "firefox-developer-edition",
+        "firefox developer edition",
+        "firefox beta",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_chrome_for_testing_aliases() {
+    for browser_name in [
+        "chrome-for-testing",
+        "chromium-for-testing",
+        "google-chrome-for-testing",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_privacy_browser_aliases() {
+    for browser_name in [
+        "librewolf",
+        "waterfox",
+        "zen-browser",
+        "zen browser",
+        "thorium-browser",
+        "thorium browser",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
 #[test]
 fn run_uses_browser_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
