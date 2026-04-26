@@ -768,6 +768,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         1
     );
     assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["executableAvailable"]["type"],
+        "boolean"
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
         false
     );
@@ -785,7 +789,24 @@ fn core_schema_documents_match_current_cli_contracts() {
         .collect::<Vec<_>>()
     );
     assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["hostLabel"]["type"],
+        "string"
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescription"]["type"],
+        "string"
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"]
+            ["type"],
+        "string"
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"]["type"],
+        "string"
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["items"]
             ["type"],
         "string"
     );
@@ -1008,7 +1029,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` `Math.clz32()` semantics in `.ts` input, including JSON-output coverage",
         "Browser-requested `run` `Math.clz32()` semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `test` `Math.clz32()` semantics in `.js` input, including JSON-output coverage",
-        "Browser-requested `run` / `test` `Math.trunc()` semantics in `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` `Math.trunc()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` basic strict equality / inequality semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input",
         "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
