@@ -881,6 +881,54 @@ console.log('ok');
 }
 
 #[test]
+fn doctor_emits_json_envelope_for_browser_harness_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("doctor")
+        .env(
+            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            "definitely-missing-browser-harness --flag",
+        )
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+
+    let browser_harness = &json["payload"]["browserHarness"];
+    assert_eq!(
+        browser_harness["envVar"],
+        kali_runtime::BROWSER_HARNESS_COMMAND_ENV
+    );
+    assert_eq!(browser_harness["source"], "env");
+    assert_eq!(
+        browser_harness["override"],
+        "definitely-missing-browser-harness --flag"
+    );
+    assert_eq!(
+        browser_harness["command"],
+        json!(["definitely-missing-browser-harness", "--flag"])
+    );
+    assert_eq!(
+        browser_harness["executable"],
+        "definitely-missing-browser-harness"
+    );
+    assert_eq!(browser_harness["args"], json!(["--flag"]));
+    assert_eq!(browser_harness["executableAvailable"], false);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn check_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

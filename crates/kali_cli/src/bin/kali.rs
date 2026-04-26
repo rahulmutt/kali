@@ -1118,7 +1118,7 @@ fn reject_unavailable_spawned_process_budget(
     source_path: Option<&Path>,
     source_contents: Option<&str>,
 ) -> Result<(), i32> {
-    if !max_spawned_processes.is_some_and(|count| count > 0) {
+    if max_spawned_processes.is_none_or(|count| count == 0) {
         return Ok(());
     }
 
