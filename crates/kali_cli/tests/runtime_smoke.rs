@@ -53,6 +53,36 @@ fn late_object_model_source() -> &'static str {
     "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
 }
 
+#[test]
+fn late_process_control_source_includes_bracketed_spellings() {
+    let source = late_process_control_source();
+    for expected in [
+        r#"globalThis["Deno"]["cwd"]"#,
+        r#"globalThis["Deno"]["chdir"]"#,
+        r#"globalThis["Deno"]["exit"]"#,
+        r#"globalThis["process"]["pid"]"#,
+        r#"globalThis["process"]["cwd"]"#,
+        r#"globalThis["process"]["chdir"]"#,
+        r#"globalThis["process"]["exit"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn late_object_model_source_includes_bracketed_spellings() {
+    let source = late_object_model_source();
+    for expected in [
+        r#"globalThis["Proxy"]"#,
+        r#"globalThis["WeakMap"]"#,
+        r#"globalThis["WeakSet"]"#,
+        r#"globalThis["FinalizationRegistry"]"#,
+        r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
 fn permission_escalation_source() -> &'static str {
     "Deno.permissions.request(); Deno.permissions.revoke(); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke();"
 }

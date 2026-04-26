@@ -34,8 +34,8 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
-        "Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "Intl.NumberFormat",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
@@ -100,8 +100,8 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
-        "Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "Intl.NumberFormat",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
@@ -143,6 +143,26 @@ fn late_js_compatibility_source_includes_bracketed_intl_forms() {
         source.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
         "source: {source}"
     );
+}
+
+#[test]
+fn late_js_compatibility_source_includes_bracketed_process_and_object_model_forms() {
+    let source = late_js_compatibility_source();
+    for expected in [
+        r#"globalThis["Deno"]["cwd"]"#,
+        r#"globalThis["Deno"]["chdir"]"#,
+        r#"globalThis["Deno"]["exit"]"#,
+        r#"globalThis["process"]["pid"]"#,
+        r#"globalThis["process"]["cwd"]"#,
+        r#"globalThis["process"]["chdir"]"#,
+        r#"globalThis["process"]["exit"]"#,
+        r#"globalThis["Proxy"]"#,
+        r#"globalThis["WeakMap"]"#,
+        r#"globalThis["WeakSet"]"#,
+        r#"globalThis["FinalizationRegistry"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
 }
 
 #[test]
