@@ -20089,6 +20089,84 @@ fn json_build_rejects_explicit_browser_library_api_surface() {
 }
 
 #[test]
+fn build_rejects_inherited_browser_library_oriented_api_surfaces() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function greet(name) { return name; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    for args in [["--lib"], ["--capi"], ["--component"]] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .args(args)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "args: {args:?}\nstderr: {stderr}");
+        assert!(
+            stderr.contains("browser API surface"),
+            "args: {args:?}\nstderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn json_build_rejects_inherited_browser_library_oriented_api_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function greet(name) { return name; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("browser API surface"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn json_build_rejects_inherited_browser_bundle_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
