@@ -51,6 +51,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | browser runtime corpus | pure JS package (`semver`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | pure JS package (`semver`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
+| browser runtime corpus | web-baseline packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 

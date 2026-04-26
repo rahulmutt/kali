@@ -4430,6 +4430,143 @@ fn json_browser_runtime_corpus_web_baseline_packages_remain_executable_and_testa
 }
 
 #[test]
+fn browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+        let test_path = dir.path().join("main.test.js");
+        write_web_baseline_test_source(&test_path, package);
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser web-baseline package {package} should be executable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&run.stdout);
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser web-baseline package {package} should be testable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn json_browser_runtime_corpus_web_baseline_packages_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+        let test_path = dir.path().join("main.test.js");
+        write_web_baseline_test_source(&test_path, package);
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser web-baseline package {package} should be executable on the browser surface in JS input with json output when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_json = parse_json_stdout(&run);
+        assert_eq!(run_json["command"], "run");
+        assert_eq!(run_json["success"], true);
+        assert_eq!(run_json["exitCode"], 0);
+        assert_eq!(run_json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(run_json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(
+            run_json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .lines()
+                .all(|line| line == "0"),
+            "json: {run_json}"
+        );
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser web-baseline package {package} should be testable on the browser surface in JS input with json output when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_json = parse_json_stdout(&test);
+        assert_eq!(test_json["command"], "test");
+        assert_eq!(test_json["success"], true);
+        assert_eq!(test_json["exitCode"], 0);
+        assert_eq!(test_json["payload"]["passed"], 1);
+        assert_eq!(test_json["payload"]["total"], 1);
+        assert_eq!(test_json["payload"]["failed"], 0);
+        assert_eq!(test_json["payload"]["skipped"], 0);
+        assert_eq!(test_json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(test_json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(
+            test_json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .lines()
+                .all(|line| line == "0"),
+            "json: {test_json}"
+        );
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_pi_coding_agent_style_package_remains_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
