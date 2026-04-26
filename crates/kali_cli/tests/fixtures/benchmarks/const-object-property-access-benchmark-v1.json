@@ -1,0 +1,7 @@
+{
+  "benchmark": "const-object-property-access",
+  "version": 1,
+  "sourceFile": "const-object-property-access-benchmark-v1.ts",
+  "sourceSha256": "sha256-3e893f7d645ee8b07d737d37ca247460af3611ef898622ed0627c1a0fd891231",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

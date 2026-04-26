@@ -1713,6 +1713,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "nullish-specialization-repeat-benchmark-v1",
         "specialization-reuse-benchmark-v1",
         "const-array-element-access-benchmark-v1",
+        "const-object-property-access-benchmark-v1",
         "nullish-benchmark-v1",
         "## Reading rule",
     ] {

@@ -3760,7 +3760,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 15 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 16 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -24551,6 +24551,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "const-array-element-access-benchmark-v1",
             "const-array-element-access",
+        ),
+        (
+            "const-object-property-access-benchmark-v1",
+            "const-object-property-access",
         ),
         ("nullish-benchmark-v1", "nullish-specialization"),
     ] {
