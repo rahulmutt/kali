@@ -26799,6 +26799,7 @@ fn effects_command_marks_computed_permissions_query_as_dynamic_but_effect_free()
         &source_path,
         r#"
 globalThis["Deno"]["permissions"].query({ name: "env" });
+globalThis["Deno"]["permissions"]["query"]({ name: "env" });
 "#,
     )
     .expect("write source");
@@ -26890,9 +26891,13 @@ fn effects_command_marks_computed_permissions_query_subset_as_dynamic_but_effect
         &source_path,
         r#"
 globalThis["Deno"]["permissions"].query({ name: "read" });
+globalThis["Deno"]["permissions"]["query"]({ name: "read" });
 globalThis["Deno"]["permissions"].query({ name: "write" });
+globalThis["Deno"]["permissions"]["query"]({ name: "write" });
 globalThis["Deno"]["permissions"].query({ name: "env" });
+globalThis["Deno"]["permissions"]["query"]({ name: "env" });
 globalThis["Deno"]["permissions"].query({ name: "net" });
+globalThis["Deno"]["permissions"]["query"]({ name: "net" });
 "#,
     )
     .expect("write source");
@@ -26938,13 +26943,21 @@ fn check_accepts_permissions_query_subset_in_js_input() {
         &source_path,
         r#"
 Deno.permissions.query({ "name": "read" });
+Deno.permissions["query"]({ "name": "read" });
 Deno.permissions.query({ "name": "write" });
+Deno.permissions["query"]({ "name": "write" });
 Deno.permissions.query({ "name": "env" });
+Deno.permissions["query"]({ "name": "env" });
 Deno.permissions.query({ "name": "net" });
+Deno.permissions["query"]({ "name": "net" });
 globalThis["Deno"]["permissions"].query({ "name": "read" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "read" });
 globalThis["Deno"]["permissions"].query({ "name": "write" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "write" });
 globalThis["Deno"]["permissions"].query({ "name": "env" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "env" });
 globalThis["Deno"]["permissions"].query({ "name": "net" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "net" });
 "#,
     )
     .expect("write source");
@@ -26980,13 +26993,21 @@ fn build_accepts_permissions_query_subset_in_js_input() {
         &source_path,
         r#"
 Deno.permissions.query({ "name": "read" });
+Deno.permissions["query"]({ "name": "read" });
 Deno.permissions.query({ "name": "write" });
+Deno.permissions["query"]({ "name": "write" });
 Deno.permissions.query({ "name": "env" });
+Deno.permissions["query"]({ "name": "env" });
 Deno.permissions.query({ "name": "net" });
+Deno.permissions["query"]({ "name": "net" });
 globalThis["Deno"]["permissions"].query({ "name": "read" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "read" });
 globalThis["Deno"]["permissions"].query({ "name": "write" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "write" });
 globalThis["Deno"]["permissions"].query({ "name": "env" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "env" });
 globalThis["Deno"]["permissions"].query({ "name": "net" });
+globalThis["Deno"]["permissions"]["query"]({ "name": "net" });
 "#,
     )
     .expect("write source");
