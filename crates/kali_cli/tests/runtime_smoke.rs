@@ -13980,6 +13980,80 @@ fn test_supports_object_type_and_constructor_semantics_in_js_input() {
     assert!(output.status.success(), "test failed: {:?}", output);
 }
 
+fn assert_json_object_type_and_constructor_semantics(
+    command: &str,
+    filename: &str,
+    test_mode: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .contains("object type ok"),
+            "json: {json}"
+        );
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert_eq!(json["stdout"], "");
+    }
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_run_supports_object_type_and_constructor_semantics() {
+    assert_json_object_type_and_constructor_semantics("run", "smoke.ts", false);
+}
+
+#[test]
+fn json_run_supports_object_type_and_constructor_semantics_in_js_input() {
+    assert_json_object_type_and_constructor_semantics("run", "smoke.js", false);
+}
+
+#[test]
+fn json_test_supports_object_type_and_constructor_semantics() {
+    assert_json_object_type_and_constructor_semantics("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn json_test_supports_object_type_and_constructor_semantics_in_js_input() {
+    assert_json_object_type_and_constructor_semantics("test", "smoke.test.js", true);
+}
+
 fn unary_void_semantics_source(test_mode: bool) -> String {
     if test_mode {
         return r#"Kali.test('void operator semantics', () => {
