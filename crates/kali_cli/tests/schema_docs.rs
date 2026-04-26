@@ -558,6 +558,46 @@ fn core_schema_documents_match_current_cli_contracts() {
         package_effects["properties"]["report"]["additionalProperties"],
         false
     );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["type"],
+        "object"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]
+            ["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["apiSurface"]["type"],
+        "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["runtimeProfiles"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["compatFeatures"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["entryPoints"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicEffects"]["type"],
+        "boolean"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicReasons"]["type"],
+        "array"
+    );
 
     let check: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/check/v1.json")).expect("read check schema"),
