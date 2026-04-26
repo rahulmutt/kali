@@ -8661,6 +8661,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
         (
+            "node-os-corpus",
+            "import os from \"node:os\";\nexport default function root() { return typeof os.platform === \"function\" ? 0 : 1; }\n",
+            "0",
+        ),
+        (
             "node-crypto-corpus",
             "import { createHash } from \"node:crypto\";\nexport default function root() { createHash(\"sha256\").update(\"node-corpus\").digest(\"hex\"); return 0; }\n",
             "0",
