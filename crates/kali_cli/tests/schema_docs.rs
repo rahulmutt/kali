@@ -1531,6 +1531,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "default standalone date-fns JS utility row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | pure JS utility package (`date-fns`) with `.ts` input | default standalone | `test` | testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone date-fns TS utility row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | pure JS utility packages (`zod`, `plimit`, `ms`) with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "default standalone zod/p-limit/ms JS utility row should be recorded in the package corpus matrix",
         ),
@@ -1587,6 +1591,28 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         matrix.matches(browser_dual_exports_row).count(),
         1,
         "browser dual-exports corpus row should be recorded exactly once in the package corpus matrix"
+    );
+
+    let browser_semver_row =
+        "| browser runtime corpus | pure JS package (`semver`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_semver_row).count(),
+        1,
+        "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_semver_inherited_row =
+        "| browser runtime corpus | pure JS package (`semver`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_semver_inherited_row).count(),
+        1,
+        "browser inherited semver runtime corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_condition_inherited_row =
+        "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_condition_inherited_row).count(),
+        1,
+        "browser inherited browser-condition / browser-deno runtime corpus row should be recorded exactly once in the package corpus matrix"
     );
 }
 

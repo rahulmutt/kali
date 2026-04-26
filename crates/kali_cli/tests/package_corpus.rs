@@ -6524,6 +6524,19 @@ Kali.test('date-fns corpus', () => {
 "#,
     )
     .expect("write date-fns test source");
+    let ts_test_path = dir.path().join("tests").join("date-fns.test.ts");
+    fs::write(
+        &ts_test_path,
+        r#"import { addDays, format } from 'date-fns';
+import { formatISO } from 'date-fns/formatISO';
+Kali.test('date-fns corpus', () => {
+  console.log(addDays('2024-01-01', 3));
+  console.log(format('2024-01-01'));
+  console.log(formatISO('2024-01-01'));
+});
+"#,
+    )
+    .expect("write date-fns TS test source");
 
     let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
     assert!(
@@ -6560,6 +6573,17 @@ Kali.test('date-fns corpus', () => {
     let test_stdout = String::from_utf8_lossy(&test.stdout);
     assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
     assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
+
+    let ts_test = run_kali(dir.path(), ["test", ts_test_path.to_str().unwrap()]);
+    assert!(
+        ts_test.status.success(),
+        "date-fns corpus package should be testable on the default standalone surface in TS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&ts_test.stdout),
+        String::from_utf8_lossy(&ts_test.stderr)
+    );
+    let ts_test_stdout = String::from_utf8_lossy(&ts_test.stdout);
+    assert!(ts_test_stdout.contains("ok 1"), "stdout: {ts_test_stdout}");
+    assert!(ts_test_stdout.contains("0"), "stdout: {ts_test_stdout}");
 }
 
 #[test]
