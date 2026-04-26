@@ -555,6 +555,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse check schema");
     assert_eq!(check["type"], "object");
+    assert_eq!(check["additionalProperties"], true);
     assert_eq!(
         check["required"]
             .as_array()
@@ -573,6 +574,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse run schema");
     assert_eq!(run["type"], "object");
+    assert_eq!(run["additionalProperties"], true);
     assert_eq!(
         run["required"]
             .as_array()
@@ -592,6 +594,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse install schema");
     assert_eq!(install["type"], "object");
+    assert_eq!(install["additionalProperties"], true);
     assert_eq!(
         install["required"]
             .as_array()
@@ -624,6 +627,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse fmt schema");
     assert_eq!(fmt["type"], "object");
+    assert_eq!(fmt["additionalProperties"], true);
     assert_eq!(
         fmt["required"]
             .as_array()
@@ -641,6 +645,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse lint schema");
     assert_eq!(lint["type"], "object");
+    assert_eq!(lint["additionalProperties"], true);
     assert_eq!(
         lint["required"]
             .as_array()

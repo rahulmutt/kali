@@ -119,7 +119,7 @@ Goal: widen formal and machine-contract confidence while keeping proof claims pr
 Primary goals:
 - widen the Lean model toward ownership/effects/lowering subsets named in `proofs/BOUNDARY.md`;
 - add proof-trigger coverage only when boundary claims name affected implementation/spec paths;
-- strengthen schema/docs conformance checks;
+- strengthen schema/docs conformance checks, including core result-envelope shape invariants such as `additionalProperties` on ordinary CLI result payloads;
 - keep public wording limited to the published boundary.
 
 ## Completion packet for any active phase
