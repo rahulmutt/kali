@@ -34163,6 +34163,36 @@ fn json_build_with_sandbox_accepts_zero_budget_policy() {
     );
 }
 
+#[test]
+fn build_with_sandbox_accepts_zero_budget_policy() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('thread policy');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output_path = source_path.with_extension("wasm");
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+}
+
 fn phase_three_deno_host_effects_source() -> &'static str {
     "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n"
 }
@@ -34719,6 +34749,39 @@ fn check_with_sandbox_accepts_zero_budget_policy() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_check_with_sandbox_accepts_zero_budget_policy() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('thread policy');").expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
