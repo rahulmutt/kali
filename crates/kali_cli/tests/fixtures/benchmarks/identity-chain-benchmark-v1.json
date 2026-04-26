@@ -1,0 +1,7 @@
+{
+  "benchmark": "identity-chain-and-simplification",
+  "version": 1,
+  "sourceFile": "identity-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-cc88746c29b707f713a1db28d9799f5e1f797fb513ab9e3d8b791b4dba9c89d8",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
