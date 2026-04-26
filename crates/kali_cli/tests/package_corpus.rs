@@ -3527,6 +3527,90 @@ fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deploya
 }
 
 #[test]
+fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deployable_through_host_on_js_input(
+) {
+    for (package, subpath) in [
+        ("@emotion/react", "jsx-runtime"),
+        ("@apollo/client", "cache"),
+        ("@chakra-ui/react", "system"),
+        ("@floating-ui/react", "dom"),
+        ("@headlessui/react", "dialog"),
+        ("@heroicons/react", "solid"),
+        ("@radix-ui/react-dialog", "dialog"),
+        ("@storybook/react", "preview-api"),
+        ("@mui/material", "styles"),
+        ("@stripe/react-stripe-js", "elements"),
+        ("@mantine/core", "styles"),
+        ("@tanstack/react-query", "query-core"),
+        ("@tanstack/query-core", "core"),
+        ("@tanstack/table-core", "table"),
+        ("@tanstack/router", "router"),
+        ("@tanstack/react-router", "router"),
+        ("@remix-run/react", "links"),
+        ("@vueuse/core", "index"),
+        ("react-dom", "client"),
+        ("chart.js", "auto"),
+        ("zustand", "vanilla"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_export_map_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:root'; }}\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "scoped browser package {package} with exports map should be checkable on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "scoped browser package {package} with exports map should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host_on_js_input(
 ) {
     for package in ["solid-js", "lit"] {
