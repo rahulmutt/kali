@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
 
 fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
@@ -101,6 +101,8 @@ fn assert_browser_late_object_model_rejection(stderr: &str) {
         "globalThis.Intl.DateTimeFormat",
         "Proxy",
         "globalThis.Proxy",
+        "Object.hasOwn",
+        "Object.prototype.hasOwnProperty.call",
         "WeakMap",
         "WeakSet",
         "WeakRef",
@@ -130,6 +132,8 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
         "globalThis.Intl.DateTimeFormat",
         "Proxy",
         "globalThis.Proxy",
+        "Object.hasOwn",
+        "Object.prototype.hasOwnProperty.call",
         "WeakMap",
         "WeakSet",
         "WeakRef",
@@ -206,6 +210,8 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
         r#"Proxy.revocable"#,
         r#"globalThis.Proxy.revocable"#,
         r#"globalThis["Proxy"]["revocable"]"#,
+        r#"globalThis["Object"]["hasOwn"]"#,
+        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
         r#"globalThis["WeakMap"]"#,
         r#"globalThis["WeakSet"]"#,
         "globalThis.WeakRef",

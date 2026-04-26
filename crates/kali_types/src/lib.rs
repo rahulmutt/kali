@@ -994,6 +994,23 @@ impl TypeContext {
             return true;
         }
 
+        if matches!(
+            Self::member_access_name(expr).as_deref(),
+            Some("Object.hasOwn")
+                | Some("globalThis.Object.hasOwn")
+                | Some("Object.prototype.hasOwnProperty.call")
+                | Some("globalThis.Object.prototype.hasOwnProperty.call")
+        ) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
+                    Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                ),
+            ));
+            return true;
+        }
+
         if !matches!(
             expr.property.as_str(),
             "Proxy" | "WeakMap" | "WeakSet" | "WeakRef" | "FinalizationRegistry"
