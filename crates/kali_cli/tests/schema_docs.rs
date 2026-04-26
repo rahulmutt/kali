@@ -953,6 +953,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "CommonJS module lowering",
         "`require(\"literal\")`",
         "Basic `Math.sign()` built-in semantics",
+        "Basic queueMicrotask ordering semantics in `.js` input",
         "Browser bundle integer-like key ordering semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` integer-like key ordering semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input",
