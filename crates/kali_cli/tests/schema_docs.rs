@@ -1300,6 +1300,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime corpus TS row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser web-baseline primitive packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser web-baseline TS corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | mixed CommonJS/ESM interop packages | default standalone | `run`, `test`, `build` | executable / testable / buildable | `crates/kali_cli/tests/package_corpus.rs` |",
             "default standalone mixed-format corpus row should be recorded in the package corpus matrix",
         ),
