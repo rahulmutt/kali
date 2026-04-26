@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-trunc-builtin",
+  "version": 1,
+  "sourceFile": "math-trunc-benchmark-v1.ts",
+  "sourceSha256": "sha256-2c27b12fb7221213ae20528dea63f4ad675641ccae12d3d4850406f0036067ac",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
