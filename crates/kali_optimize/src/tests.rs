@@ -4783,6 +4783,102 @@ fn release_advanced_specializes_nullish_literal_arguments() {
 }
 
 #[test]
+fn fast_keeps_nullish_literal_arguments_unspecialized() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let function = builder.alloc_text(LirNodeKind::Instruction, "consume_value");
+    let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+    let block = builder.alloc(LirNodeKind::Block);
+    let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let mut previous = param_value;
+    for value in 1..=32 {
+        let add = builder.alloc_text(LirNodeKind::Value, "+");
+        let literal = literal(&mut builder, &value.to_string());
+        builder.node_mut(add).unwrap().children = vec![previous, literal];
+        previous = add;
+    }
+    builder.node_mut(ret).unwrap().children = vec![previous];
+    builder.node_mut(block).unwrap().children = vec![ret];
+    builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+    let call_null_a = builder.alloc(LirNodeKind::Call);
+    let callee_null_a = builder.alloc_text(LirNodeKind::Value, "consume_value");
+    let null_a = literal(&mut builder, "null");
+    builder.node_mut(call_null_a).unwrap().children = vec![callee_null_a, null_a];
+
+    let call_undefined = builder.alloc(LirNodeKind::Call);
+    let callee_undefined = builder.alloc_text(LirNodeKind::Value, "consume_value");
+    let undefined = literal(&mut builder, "undefined");
+    builder.node_mut(call_undefined).unwrap().children = vec![callee_undefined, undefined];
+
+    let call_null_b = builder.alloc(LirNodeKind::Call);
+    let callee_null_b = builder.alloc_text(LirNodeKind::Value, "consume_value");
+    let null_b = literal(&mut builder, "null");
+    builder.node_mut(call_null_b).unwrap().children = vec![callee_null_b, null_b];
+
+    builder.node_mut(root).unwrap().children =
+        vec![function, call_null_a, call_undefined, call_null_b];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![
+            kali_mir::MirFunction {
+                name: None,
+                kind: kali_mir::MirFunctionKind::Module,
+                bindings: Vec::new(),
+            },
+            kali_mir::MirFunction {
+                name: Some("consume_value".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "value".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            },
+        ],
+    };
+
+    Optimizer::new(OptimizationLevel::Fast).optimize_program_with_mir(&mut program, &mir);
+
+    for call_id in [call_null_a, call_undefined, call_null_b] {
+        let call_node = &program.nodes[call_id.0 as usize];
+        assert_eq!(call_node.kind, LirNodeKind::Call);
+        let callee_name = call_node
+            .children
+            .first()
+            .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+            .and_then(|callee| callee.text.as_deref())
+            .expect("call target should remain the original function in fast mode");
+        assert_eq!(callee_name, "consume_value");
+    }
+
+    let specialized_names: Vec<_> = program
+        .nodes
+        .iter()
+        .filter_map(|node| {
+            (node.kind == LirNodeKind::Instruction)
+                .then_some(node.text.as_deref())
+                .flatten()
+        })
+        .filter(|name| name.starts_with("consume_value$spec$"))
+        .collect();
+    assert!(
+        specialized_names.is_empty(),
+        "unexpected specializations: {specialized_names:?}"
+    );
+}
+
+#[test]
 fn release_specializes_infinity_and_nan_literal_arguments() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
