@@ -1035,6 +1035,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
+        "Directory-index dynamic-import targets in `.tsx` and `.jsx` input",
         "Non-literal `import(expr)`",
         "`eval`",
         "`Function()` constructor",
