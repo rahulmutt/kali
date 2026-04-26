@@ -15,6 +15,19 @@ fn late_object_model_source() -> &'static str {
     "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
 
+fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+}
+
 fn late_threaded_runtime_source() -> &'static str {
     "globalThis.SharedArrayBuffer; globalThis.Atomics;"
 }
@@ -609,17 +622,17 @@ fn test_rejects_late_object_model_members_in_browser_api_surface_js_input_with_b
 }
 
 #[test]
-fn run_rejects_threaded_runtime_globals_in_browser_api_surface_js_input_with_browser_harness() {
+fn run_rejects_late_object_model_members_in_inherited_browser_api_surface_js_input_with_browser_harness(
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_threaded_runtime_source()).expect("write source");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(&dir);
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
         .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
         .arg("run")
-        .arg("--api")
-        .arg("browser")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -627,7 +640,57 @@ fn run_rejects_threaded_runtime_globals_in_browser_api_surface_js_input_with_bro
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_threaded_runtime_rejection(&stderr);
+    assert_browser_late_object_model_rejection(&stderr);
+}
+
+#[test]
+fn run_rejects_late_object_model_members_in_inherited_browser_api_surface_js_input_with_browser_harness_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(&dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_object_model_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_late_object_model_members_in_inherited_browser_api_surface_js_input_with_browser_harness(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(&dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_object_model_rejection(&stderr);
 }
 
 #[test]
@@ -657,6 +720,34 @@ fn run_rejects_threaded_runtime_globals_in_browser_api_surface_js_input_with_bro
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_browser_late_threaded_runtime_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_late_object_model_members_in_inherited_browser_api_surface_js_input_with_browser_harness_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(&dir);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_object_model_rejection_json(errors);
 }
 
 #[test]
