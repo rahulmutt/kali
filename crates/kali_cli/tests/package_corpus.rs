@@ -9170,6 +9170,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "import assert from \"node:assert\";\nexport default function root() { assert.ok(true); return 0; }\n",
             "0",
         ),
+        (
+            "node-child-process-corpus",
+            "import { spawn } from \"node:child_process\";\nexport default function root() { return typeof spawn === \"function\" ? 0 : 1; }\n",
+            "0",
+        ),
     ] {
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
