@@ -1,0 +1,7 @@
+{
+  "benchmark": "dead-inlined-function-pruning",
+  "version": 1,
+  "sourceFile": "dead-inlined-function-pruning-benchmark-v1.ts",
+  "sourceSha256": "sha256-97ea4d0c7651d95104583024d2a41f7695c04a69635a5a6dc22f85823b6ecaab",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
