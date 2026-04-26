@@ -1546,6 +1546,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime corpus TS row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser module-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime module-entry corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser module-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser module-entry corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser web-baseline primitive packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser web-baseline TS corpus row should be recorded in the package corpus matrix",
         ),
@@ -1697,6 +1705,20 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         matrix.matches(browser_package_fixtures_inherited_row).count(),
         1,
         "browser inherited package-fixtures corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_module_entry_row =
+        "| browser runtime corpus | browser module-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_module_entry_row).count(),
+        1,
+        "browser runtime module-entry corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_module_entry_inherited_row =
+        "| browser runtime corpus | browser module-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_module_entry_inherited_row).count(),
+        1,
+        "browser inherited module-entry corpus row should be recorded exactly once in the package corpus matrix"
     );
     let browser_condition_inherited_row =
         "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
