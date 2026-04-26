@@ -80,8 +80,9 @@ pub struct ArtifactMetadata {
 pub fn check_source_file(
     source_path: impl AsRef<Path>,
     api_surface: ApiSurface,
+    compat_eval: bool,
 ) -> Result<(), Vec<Diagnostic>> {
-    let _analysis = analyze_source_file(source_path.as_ref(), api_surface, false)?;
+    let _analysis = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
     Ok(())
 }
 

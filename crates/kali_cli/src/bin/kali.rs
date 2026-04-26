@@ -450,6 +450,7 @@ fn check_command(
     ) {
         return Err(exit_code);
     }
+    let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -475,7 +476,7 @@ fn check_command(
 
     for file in selected_files {
         checked += 1;
-        match build::check_source_file(&file, effective_api) {
+        match build::check_source_file(&file, effective_api, compat_eval) {
             Ok(()) => {
                 successful_files.push(PathBuf::from(&file));
             }

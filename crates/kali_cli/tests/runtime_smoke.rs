@@ -9241,6 +9241,66 @@ fn check_accepts_inherited_compat_eval_feature_from_manifest() {
 }
 
 #[test]
+fn check_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enabled() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}");
+}
+
+#[test]
+fn build_accepts_dynamic_function_constructor_sources_when_compat_eval_is_enabled() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const bodyPrefix = \"return \"; const body = bodyPrefix + \"1 + 2;\"; const value = new Function(body)(); if (value !== 3) { throw new Error('bad function result'); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--compat")
+        .arg("eval")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        dir.path().join("main.wasm").exists(),
+        "expected build artifact"
+    );
+}
+
+#[test]
 fn check_rejects_eval_without_compat_eval() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
