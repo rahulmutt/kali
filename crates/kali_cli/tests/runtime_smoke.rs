@@ -2553,7 +2553,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 8 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 9 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -18375,6 +18375,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "identity-chain-benchmark-v1",
             "identity-chain-and-simplification",
+        ),
+        (
+            "algebraic-simplification-benchmark-v1",
+            "algebraic-simplification",
         ),
         ("nullish-benchmark-v1", "nullish-specialization"),
     ] {

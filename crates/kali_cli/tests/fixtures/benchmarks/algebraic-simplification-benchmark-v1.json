@@ -1,0 +1,7 @@
+{
+  "benchmark": "algebraic-simplification",
+  "version": 1,
+  "sourceFile": "algebraic-simplification-benchmark-v1.ts",
+  "sourceSha256": "sha256-8f77e5c30a5341ed7c60353ca96ce66027fd2b4d6b764fb7c079b9af9096a57d",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
