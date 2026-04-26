@@ -1037,6 +1037,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Literal-string `import()`",
         "Directory-index dynamic-import targets in `.tsx` and `.jsx` input",
         "Unsupported `Deno.permissions.query(...)` descriptor kinds such as `ffi` / `sys`",
+        "Interactive permission escalation APIs (`Deno.permissions.request()` / `revoke()` and similar prompt-style flows)",
         "Non-literal `import(expr)`",
         "`eval`",
         "`Function()` constructor",
