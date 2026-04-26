@@ -89,6 +89,32 @@ fn doctor_reports_env_selected_browser_harness_in_human_output() {
 }
 
 #[test]
+fn doctor_reports_unavailable_browser_harness_executable() {
+    let output = Command::new(kali_bin())
+        .arg("doctor")
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "definitely-not-a-real-browser-harness --probe",
+        )
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Browser harness:"), "stdout: {stdout}");
+    assert!(stdout.contains("  source: env"));
+    assert!(stdout.contains("  override: definitely-not-a-real-browser-harness --probe"));
+    assert!(stdout.contains("  command: definitely-not-a-real-browser-harness --probe"));
+    assert!(stdout.contains("  executable available: false"));
+}
+
+#[test]
 fn doctor_reports_env_selected_browser_harness_in_pretty_json_under_quiet() {
     let output = Command::new(kali_bin())
         .arg("--output")
@@ -157,6 +183,42 @@ fn doctor_reports_auto_selected_browser_harness_in_json() {
     assert_eq!(harness["executable"], command[0]);
     assert_eq!(harness["args"], json!(command[1..]));
     assert!(harness["executableAvailable"].is_boolean());
+}
+
+#[test]
+fn doctor_reports_unavailable_browser_harness_executable_in_json() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("doctor")
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "definitely-not-a-real-browser-harness --probe",
+        )
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    let harness = &json["payload"]["browserHarness"];
+    assert_eq!(harness["source"], "env");
+    assert_eq!(
+        harness["override"],
+        "definitely-not-a-real-browser-harness --probe"
+    );
+    assert_eq!(
+        harness["command"],
+        serde_json::json!(["definitely-not-a-real-browser-harness", "--probe"])
+    );
+    assert_eq!(harness["executableAvailable"], false);
 }
 
 #[test]
