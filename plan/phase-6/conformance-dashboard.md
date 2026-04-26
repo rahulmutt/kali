@@ -111,7 +111,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | `WeakMap` / `WeakSet` | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 | `FinalizationRegistry` | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
-| Broader `Intl` surface | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
+| Broader `Intl` surface | Later compatibility | Canonical availability gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_js_input.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` (including bracketed `globalThis["Intl"]` / `globalThis["Intl"]["NumberFormat"]` / `globalThis["Intl"]["DateTimeFormat"]` source coverage) |
 
 ## Rejected by default
 

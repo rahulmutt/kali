@@ -183,6 +183,20 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 }
 
 #[test]
+fn browser_late_object_model_source_includes_bracketed_intl_forms() {
+    let source = late_object_model_source();
+    assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
+    assert!(
+        source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn check_rejects_late_process_control_members_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

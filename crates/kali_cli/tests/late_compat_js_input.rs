@@ -132,6 +132,20 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
 }
 
 #[test]
+fn late_js_compatibility_source_includes_bracketed_intl_forms() {
+    let source = late_js_compatibility_source();
+    assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
+    assert!(
+        source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn check_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
