@@ -13980,6 +13980,132 @@ fn test_supports_object_type_and_constructor_semantics_in_js_input() {
     assert!(output.status.success(), "test failed: {:?}", output);
 }
 
+fn unary_void_semantics_source(test_mode: bool) -> String {
+    if test_mode {
+        return r#"Kali.test('void operator semantics', () => {
+  const value = void (1 + 2);
+  if (value !== void 0) {
+    throw new Error('expected void to evaluate to undefined');
+  }
+  if (typeof value !== 'undefined') {
+    throw new Error('expected void result to be undefined');
+  }
+});
+"#
+        .to_string();
+    }
+
+    r#"const value = void (1 + 2);
+if (value !== void 0) {
+  throw new Error('expected void to evaluate to undefined');
+}
+if (typeof value !== 'undefined') {
+  throw new Error('expected void result to be undefined');
+}
+"#
+    .to_string()
+}
+
+fn assert_unary_void_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, unary_void_semantics_source(false)).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn assert_json_unary_void_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, unary_void_semantics_source(false)).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn run_supports_unary_void_semantics() {
+    assert_unary_void_semantics("run", "smoke.ts");
+}
+
+#[test]
+fn run_supports_unary_void_semantics_in_js_input() {
+    assert_unary_void_semantics("run", "smoke.js");
+}
+
+#[test]
+fn json_run_supports_unary_void_semantics() {
+    assert_json_unary_void_semantics("run", "smoke.ts");
+}
+
+#[test]
+fn json_run_supports_unary_void_semantics_in_js_input() {
+    assert_json_unary_void_semantics("run", "smoke.js");
+}
+
+#[test]
+fn test_supports_unary_void_semantics() {
+    assert_unary_void_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn test_supports_unary_void_semantics_in_js_input() {
+    assert_unary_void_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_test_supports_unary_void_semantics() {
+    assert_json_unary_void_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn json_test_supports_unary_void_semantics_in_js_input() {
+    assert_json_unary_void_semantics("test", "smoke.test.js");
+}
+
 #[test]
 fn test_supports_bigint_addition_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
