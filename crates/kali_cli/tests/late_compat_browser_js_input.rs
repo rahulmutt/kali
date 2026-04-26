@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"];"
+    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"];"
 }
 
 fn late_object_model_source() -> &'static str {
