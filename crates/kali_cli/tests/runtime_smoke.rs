@@ -53,6 +53,10 @@ fn late_object_model_source() -> &'static str {
     "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
 }
 
+fn late_object_model_own_property_source() -> &'static str {
+    "Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\");"
+}
+
 #[test]
 fn late_process_control_source_includes_bracketed_spellings() {
     let source = late_process_control_source();
@@ -78,6 +82,17 @@ fn late_object_model_source_includes_bracketed_spellings() {
         r#"globalThis["WeakSet"]"#,
         r#"globalThis["FinalizationRegistry"]"#,
         r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn late_object_model_own_property_source_includes_bracketed_spellings() {
+    let source = late_object_model_own_property_source();
+    for expected in [
+        r#"globalThis["Object"]["hasOwn"]"#,
+        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -3322,6 +3337,71 @@ fn check_rejects_late_object_model_globals_in_js_input() {
     assert!(stderr.contains("WeakMap"), "stderr: {stderr}");
     assert!(stderr.contains("WeakSet"), "stderr: {stderr}");
     assert!(stderr.contains("FinalizationRegistry"), "stderr: {stderr}");
+}
+
+#[test]
+fn smoke_rejects_late_object_model_own_property_helpers_in_js_input() {
+    for (command, source_name) in [
+        ("check", "main.js"),
+        ("build", "main.js"),
+        ("run", "main.js"),
+        ("test", "smoke.test.js"),
+    ] {
+        for json_mode in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, late_object_model_own_property_source()).expect("write source");
+
+            let mut cli = Command::new(kali_bin());
+            cli.current_dir(dir.path());
+            if json_mode {
+                cli.arg("--output").arg("json");
+            }
+            cli.arg(command).arg(&source_path);
+            let output = cli.output().expect("run kali");
+
+            assert!(!output.status.success(), "{command} unexpectedly succeeded");
+            assert_eq!(output.status.code(), Some(1));
+
+            if json_mode {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_eq!(errors.len(), 6, "unexpected errors: {errors:?}");
+                assert!(errors.iter().all(|error| error["code"] == "E5506"));
+                let messages = errors
+                    .iter()
+                    .map(|error| error["message"].as_str().expect("error message"))
+                    .collect::<Vec<_>>();
+                for expected in [
+                    "Object.hasOwn",
+                    "globalThis.Object.hasOwn",
+                    "Object.prototype.hasOwnProperty.call",
+                    "globalThis.Object.prototype.hasOwnProperty.call",
+                ] {
+                    assert!(
+                        messages.iter().any(|message| message.contains(expected)),
+                        "missing {expected} in {messages:?}"
+                    );
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                for expected in [
+                    "Object.hasOwn",
+                    "globalThis.Object.hasOwn",
+                    "Object.prototype.hasOwnProperty.call",
+                    "globalThis.Object.prototype.hasOwnProperty.call",
+                ] {
+                    assert!(
+                        stderr.contains(expected),
+                        "missing {expected} in stderr: {stderr}"
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]
