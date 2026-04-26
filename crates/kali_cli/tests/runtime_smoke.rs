@@ -6496,7 +6496,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured_in_js_i
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\nconsole.log(Math.clz32(1));\n",
     )
     .expect("write source");
 
@@ -6521,6 +6521,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured_in_js_i
     assert!(stdout.contains("1\n"), "stdout: {stdout}");
     assert!(stdout.contains("-1\n"), "stdout: {stdout}");
     assert!(stdout.contains("-2\n"), "stdout: {stdout}");
+    assert!(stdout.contains("31\n"), "stdout: {stdout}");
 }
 
 #[test]

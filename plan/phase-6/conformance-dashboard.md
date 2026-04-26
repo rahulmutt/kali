@@ -64,6 +64,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic `Math.abs()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Math.sign()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Math.imul()` built-in semantics | Phase 1 MVP | `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
+| Basic `Math.clz32()` built-in semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including browser-requested `.js` harness coverage) |
 | Console error / warn / info / debug routing plus `console.assert()` false-branch reporting | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input console-level routing and assertion coverage) |
 | Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage) |
 | Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser bundle TS and `.js` input, including JSON-output coverage) |
