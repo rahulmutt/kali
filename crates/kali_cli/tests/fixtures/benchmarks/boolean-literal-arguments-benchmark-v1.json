@@ -1,0 +1,7 @@
+{
+  "benchmark": "boolean-literal-arguments",
+  "version": 1,
+  "sourceFile": "boolean-literal-arguments-benchmark-v1.ts",
+  "sourceSha256": "sha256-f42736cab39c4694713c003c57515c2767061a6a259b62549adfc2142cb12301",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
