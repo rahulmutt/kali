@@ -27921,6 +27921,73 @@ fn package_effects_emits_json_envelope_under_quiet_eval_context() {
 }
 
 #[test]
+fn package_effects_rejects_inherited_eval_and_wasm_threads_runtime_profile_under_quiet_json_output()
+{
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/evalpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "evalpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "eval('1 + 2');\nconsole.log('package eval');\n",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compat": {
+    "features": ["eval"]
+  },
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--quiet")
+        .arg("--output")
+        .arg("json")
+        .arg("evalpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("runtime profile")
+            || errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("wasm-threads"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn package_effects_reports_sorted_dynamic_reasons_for_combined_eval_and_computed_host_access() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/evalpkg");
