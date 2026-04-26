@@ -88,6 +88,7 @@ Remaining goals:
 - Current progress: the current optimization-mode inventory now has a checked-in snapshot in [`plan/phase-9/optimization-inventory.md`](./phase-9/optimization-inventory.md), and the optimizer-level regression suite now directly anchors that `fast` keeps simple binary expressions opaque while still folding literal-shape object-enumeration calls, while `release` owns the broader literal-folding reduction.
 - Current progress: release-mode object-enumeration folding now has direct optimizer-level regression anchors for `Object.keys()`, `Object.entries()`, and `Object.values()` over literal object shapes, and release-advanced now also has matching regression anchors for the same literal-shape enumeration forms, keeping the current optimization inventory backed by tests for the three supported enumeration forms in both optimization tiers.
 - Current progress: the same object-enumeration folding path now also follows one-step const alias rebinding in both release tiers, so the optimizer keeps enumerations folded when the literal object is referenced through an intermediate `const` alias before being passed to `Object.keys()` / `Object.entries()` / `Object.values()`.
+- Current progress: release-advanced now also has a nullish literal-argument specialization regression, keeping the literal-argument specialization family visibly covered in the higher optimization tier too.
 - No optimization that weakens sandbox, diagnostics, or AOT-only constraints.
 
 ## Verification and contracts
