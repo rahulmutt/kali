@@ -372,6 +372,25 @@ fn global_this_deno_pid_member_calls_lower_to_runtime_pid_import() {
 }
 
 #[test]
+fn bracketed_global_this_deno_pid_member_calls_lower_to_runtime_pid_import() {
+    let program = parse_and_lower_lir("console.log(globalThis[\"Deno\"][\"pid\"]);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"process_pid\""));
+}
+
+#[test]
 fn process_argv_slice_length_lowers_to_runtime_args_length_minus_start() {
     let program = parse_and_lower_lir("console.log(process.argv.slice(2).length);");
     let mut ctx = CodegenCtx::new(TargetConfig {
