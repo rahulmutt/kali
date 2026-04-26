@@ -3120,7 +3120,7 @@ fn run_supports_math_suite_semantics_when_browser_harness_is_configured() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
     )
     .expect("write source");
 
@@ -3153,6 +3153,7 @@ fn run_supports_math_suite_semantics_when_browser_harness_is_configured() {
     assert!(stdout.contains("3\n"), "json: {json}");
     assert!(stdout.contains("1\n"), "json: {json}");
     assert!(stdout.contains("-1\n"), "json: {json}");
+    assert!(stdout.contains("-2\n"), "json: {json}");
 }
 
 #[test]
@@ -6099,7 +6100,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured() {
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
     )
     .expect("write source");
 
@@ -6123,6 +6124,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured() {
     assert!(stdout.contains("3\n"), "stdout: {stdout}");
     assert!(stdout.contains("1\n"), "stdout: {stdout}");
     assert!(stdout.contains("-1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("-2\n"), "stdout: {stdout}");
 }
 
 #[test]
@@ -6131,7 +6133,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured_in_js_i
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
     )
     .expect("write source");
 
@@ -6155,6 +6157,7 @@ fn test_supports_math_suite_semantics_when_browser_harness_is_configured_in_js_i
     assert!(stdout.contains("3\n"), "stdout: {stdout}");
     assert!(stdout.contains("1\n"), "stdout: {stdout}");
     assert!(stdout.contains("-1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("-2\n"), "stdout: {stdout}");
 }
 
 #[test]
@@ -6163,7 +6166,7 @@ fn json_test_supports_math_suite_semantics_when_browser_harness_is_configured_in
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
     )
     .expect("write source");
 
@@ -6198,6 +6201,7 @@ fn json_test_supports_math_suite_semantics_when_browser_harness_is_configured_in
     assert!(stdout.contains("3\n"), "json: {json}");
     assert!(stdout.contains("1\n"), "json: {json}");
     assert!(stdout.contains("-1\n"), "json: {json}");
+    assert!(stdout.contains("-2\n"), "json: {json}");
     assert_eq!(json["stderr"], "");
 }
 
