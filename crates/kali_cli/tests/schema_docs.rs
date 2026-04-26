@@ -4,6 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use sha2::{Digest, Sha256};
+
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
@@ -1849,19 +1851,28 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         }
         assert_eq!(metadata["version"], 1, "{}", path.display());
         assert_eq!(
+            metadata["sourceFile"],
+            serde_json::json!(format!(
+                "{}.ts",
+                path.file_stem().expect("benchmark stem").to_string_lossy()
+            )),
+            "{}",
+            path.display()
+        );
+        assert_eq!(
             metadata["buildModes"],
             serde_json::json!(["--fast", "--release", "--release-advanced"]),
             "{}",
             path.display()
         );
-        assert!(
-            metadata["sourceSha256"]
-                .as_str()
-                .expect("sourceSha256 string")
-                .starts_with("sha256-"),
-            "{}",
-            path.display()
-        );
+        let source_file_name = metadata["sourceFile"].as_str().expect("sourceFile string");
+        let source_path = path
+            .parent()
+            .expect("benchmark metadata parent")
+            .join(source_file_name);
+        let source = fs::read_to_string(&source_path).expect("read benchmark source fixture");
+        let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
+        assert_eq!(metadata["sourceSha256"], source_hash, "{}", path.display());
     }
 }
 
