@@ -13845,6 +13845,141 @@ fn json_test_supports_object_property_deletion_semantics_in_js_input() {
     assert_json_object_property_deletion_semantics("test", "smoke.test.js");
 }
 
+fn object_type_and_constructor_semantics_source(test_mode: bool) -> String {
+    if test_mode {
+        return r#"function Box() {}
+Kali.test('object type and constructor semantics', () => {
+  const box = new Box();
+  if (typeof box !== 'object') {
+    throw new Error('expected object from constructor');
+  }
+  if (typeof Box !== 'function') {
+    throw new Error('expected constructor function');
+  }
+  if (typeof null !== 'object') {
+    throw new Error('expected typeof null to be object');
+  }
+  if (!(box instanceof Box)) {
+    throw new Error('expected instanceof to succeed');
+  }
+});
+"#
+        .to_string();
+    }
+
+    r#"function Box() {}
+const box = new Box();
+if (typeof box !== 'object') {
+  throw new Error('expected object from constructor');
+}
+if (typeof Box !== 'function') {
+  throw new Error('expected constructor function');
+}
+if (typeof null !== 'object') {
+  throw new Error('expected typeof null to be object');
+}
+if (!(box instanceof Box)) {
+  throw new Error('expected instanceof to succeed');
+}
+console.log('object type ok');
+"#
+    .to_string()
+}
+
+#[test]
+fn run_supports_object_type_and_constructor_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.ts");
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(false),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("object type ok"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_object_type_and_constructor_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.js");
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(false),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("object type ok"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_type_and_constructor_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(true),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
+#[test]
+fn test_supports_object_type_and_constructor_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(true),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
 #[test]
 fn test_supports_bigint_addition_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
