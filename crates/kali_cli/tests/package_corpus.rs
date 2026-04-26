@@ -3699,6 +3699,54 @@ fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_
 }
 
 #[test]
+fn json_browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    write_browser_and_deno_condition_package(
+        dir.path(),
+        "browser-deno",
+        "export default function describe() { return 0; }\n",
+        "export default function describe() { return 1; }\n",
+    );
+    write_types_stub_package(dir.path(), "browser-deno");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import describe from 'browser-deno';\nconsole.log(describe());\n",
+    )
+    .expect("write browser runtime source");
+
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        run.status.success(),
+        "browser runtime package browser-deno should prefer the browser condition over deno on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let json = parse_json_stdout(&run);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0\n"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for package in ["browserpkg", "browserexports"] {
@@ -4372,6 +4420,58 @@ fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_
     let stdout = String::from_utf8_lossy(&test.stdout);
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    write_browser_and_deno_condition_package(
+        dir.path(),
+        "browser-deno",
+        "export default function describe() { return 0; }\n",
+        "export default function describe() { return 1; }\n",
+    );
+    write_types_stub_package(dir.path(), "browser-deno");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(
+        &source_path,
+        "import describe from 'browser-deno';\nconsole.log(describe());\nKali.test('browser vs deno package', () => { 1 + 1; });\n",
+    )
+    .expect("write browser/deno runtime source");
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "browser runtime package browser-deno should prefer the browser condition over deno on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let json = parse_json_stdout(&test);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0\n"),
+        "json: {json}"
+    );
 }
 
 #[test]
