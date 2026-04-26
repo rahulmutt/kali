@@ -1,0 +1,7 @@
+{
+  "benchmark": "nested-wrapper-pruning",
+  "version": 1,
+  "sourceFile": "nested-wrapper-pruning-benchmark-v1.ts",
+  "sourceSha256": "sha256-58015a74798476d6f56f6c8ca74a959aa878d55c85bcecb65b6bfef6ae4dc10c",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
