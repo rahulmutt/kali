@@ -1343,6 +1343,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "default standalone semver corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| binary-entrypoint probe | `semver` bin entrypoints | default standalone | `run` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone semver bin-entrypoint row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | scoped packages with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
             "default standalone scoped corpus row should be recorded in the package corpus matrix",
         ),
@@ -1369,6 +1373,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         (
             "| npm-style package corpus | pure JS package (`semver`) with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "node semver corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| binary-entrypoint probe | `semver` bin entrypoints | Node | `run` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node semver bin-entrypoint row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | Node built-in packages (`node:buffer`, `node:assert`, `node:path`, `node:crypto`, `node:fs`, `node:url`, `node:util`) on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
