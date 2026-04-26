@@ -30,6 +30,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic relational comparison semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including `.js` input coverage) |
 | Basic strict equality / inequality semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage) |
 | Basic boolean conjunction / disjunction semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including mirrored `.js` input coverage) |
+| Standalone `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` suite in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic async/await sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths) |
 | Basic queueMicrotask ordering semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Browser timing baseline / `performance.now()` monotonic ordering in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser-requested `run` / `test` and browser bundle smoke coverage, including inherited-browser-api-surface coverage, JSON-output coverage for the browser-requested `.js` `test` lane and the browser-requested `.ts` `test` lane, plus JSON-output coverage for the browser bundle `.js` lane) |
