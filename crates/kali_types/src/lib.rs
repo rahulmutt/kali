@@ -902,13 +902,17 @@ impl TypeContext {
     }
 
     fn resolve_late_host_control_member(&mut self, expr: &MemberExpression) {
-        if !matches!(expr.property.as_str(), "cwd" | "chdir" | "exit") {
+        if !matches!(expr.property.as_str(), "pid" | "cwd" | "chdir" | "exit") {
             return;
         }
 
         let Some(object_name) = Self::member_object_name(&expr.object) else {
             return;
         };
+
+        if expr.property == "pid" && object_name == "Deno" {
+            return;
+        }
 
         if !matches!(object_name.as_str(), "Deno" | "process") {
             return;

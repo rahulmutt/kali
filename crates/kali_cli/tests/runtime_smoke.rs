@@ -50,10 +50,10 @@ fn late_process_control_source() -> &'static str {
 }
 
 #[test]
-fn check_build_and_run_accept_deno_pid_in_js_input() {
+fn check_build_and_run_accept_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Deno.pid);\n").expect("write source");
+    fs::write(&source_path, "console.log(globalThis.Deno.pid);\n").expect("write source");
 
     for command in ["check", "build"] {
         let output = Command::new(kali_bin())
@@ -1532,9 +1532,12 @@ fn check_rejects_late_process_control_members() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -1579,9 +1582,12 @@ fn check_rejects_late_process_control_members_in_json() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(
@@ -1821,9 +1827,12 @@ fn run_rejects_late_process_control_members() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -1864,9 +1873,12 @@ fn run_rejects_late_process_control_members_in_json() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(
@@ -2182,9 +2194,12 @@ fn test_rejects_late_process_control_members() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
     ] {
         assert!(
             stderr.contains(expected),
@@ -2225,9 +2240,12 @@ fn test_rejects_late_process_control_members_in_json() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.exit",
         "undefined identifier 'process'",
     ] {
         assert!(

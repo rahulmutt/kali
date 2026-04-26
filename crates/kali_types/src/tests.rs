@@ -650,7 +650,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.len() >= 8);
+    assert!(result.diagnostics.len() >= 10);
     assert!(result
         .diagnostics
         .iter()
@@ -658,9 +658,13 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     for expected in [
         "globalThis.Deno.cwd",
         "Deno.chdir",
+        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
+        "process.pid",
+        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
+        "globalThis.process.chdir",
         "globalThis.process.exit",
     ] {
         assert!(
