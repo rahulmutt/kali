@@ -13765,6 +13765,46 @@ fn assert_object_property_deletion_semantics(command: &str, filename: &str) {
     );
 }
 
+fn assert_json_object_property_deletion_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
 #[test]
 fn run_supports_object_property_deletion_semantics() {
     assert_object_property_deletion_semantics("run", "smoke.ts");
@@ -13776,6 +13816,16 @@ fn run_supports_object_property_deletion_semantics_in_js_input() {
 }
 
 #[test]
+fn json_run_supports_object_property_deletion_semantics() {
+    assert_json_object_property_deletion_semantics("run", "smoke.ts");
+}
+
+#[test]
+fn json_run_supports_object_property_deletion_semantics_in_js_input() {
+    assert_json_object_property_deletion_semantics("run", "smoke.js");
+}
+
+#[test]
 fn test_supports_object_property_deletion_semantics() {
     assert_object_property_deletion_semantics("test", "smoke.test.ts");
 }
@@ -13783,6 +13833,16 @@ fn test_supports_object_property_deletion_semantics() {
 #[test]
 fn test_supports_object_property_deletion_semantics_in_js_input() {
     assert_object_property_deletion_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_test_supports_object_property_deletion_semantics() {
+    assert_json_object_property_deletion_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn json_test_supports_object_property_deletion_semantics_in_js_input() {
+    assert_json_object_property_deletion_semantics("test", "smoke.test.js");
 }
 
 #[test]
