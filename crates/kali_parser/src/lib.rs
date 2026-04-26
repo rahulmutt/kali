@@ -7,8 +7,8 @@ use kali_ast::{
     FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
     ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ObjectExpression,
     ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, ReturnStatement,
-    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, VariableDeclaration,
-    VariableDeclarator, WhileStatement, YieldExpression, AST,
+    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, UnaryExpression,
+    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -942,8 +942,38 @@ impl Parser {
         self.parse_binary_expression(0)
     }
 
+    fn parse_unary_expression(&mut self) -> Expression {
+        match self.stream.current_kind() {
+            Some(TokenType::Not) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "!".to_string(),
+                    argument,
+                }))
+            }
+            Some(TokenType::Minus) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "-".to_string(),
+                    argument,
+                }))
+            }
+            Some(TokenType::Plus) => {
+                let _ = self.stream.advance();
+                let argument = self.parse_unary_expression();
+                Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "+".to_string(),
+                    argument,
+                }))
+            }
+            _ => self.parse_call_expression(),
+        }
+    }
+
     fn parse_binary_expression(&mut self, min_prec: usize) -> Expression {
-        let mut left = self.parse_call_expression();
+        let mut left = self.parse_unary_expression();
 
         let mut iterations = 0;
         loop {

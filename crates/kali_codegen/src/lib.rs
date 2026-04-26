@@ -421,6 +421,7 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
+            "+" => self.emit_node(function, arg, true),
             "!" => {
                 let _ = self.emit_node(function, arg, true);
                 function.instruction(&Instruction::I64Eqz);
