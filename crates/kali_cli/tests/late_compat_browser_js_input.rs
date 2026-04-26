@@ -216,6 +216,22 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
 }
 
 #[test]
+fn browser_late_process_control_source_includes_bracketed_forms() {
+    let source = late_process_control_source();
+    for expected in [
+        r#"globalThis["Deno"]["cwd"]"#,
+        r#"globalThis["Deno"]["chdir"]"#,
+        r#"globalThis["Deno"]["exit"]"#,
+        r#"globalThis["process"]["pid"]"#,
+        r#"globalThis["process"]["cwd"]"#,
+        r#"globalThis["process"]["chdir"]"#,
+        r#"globalThis["process"]["exit"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
 fn check_rejects_late_process_control_members_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
