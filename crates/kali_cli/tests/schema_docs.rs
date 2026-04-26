@@ -802,6 +802,11 @@ fn core_schema_documents_match_current_cli_contracts() {
         "string"
     );
     assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]
+            ["minItems"],
+        1
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"]
             ["type"],
         "string"
@@ -809,6 +814,10 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"]["type"],
         "string"
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["minItems"],
+        1
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["items"]
