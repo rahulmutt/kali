@@ -955,6 +955,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic `Math.sign()` built-in semantics",
         "Browser bundle integer-like key ordering semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` integer-like key ordering semantics in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input",
+        "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Non-literal `import(expr)`",
