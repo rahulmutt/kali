@@ -276,6 +276,25 @@ fn math_clz32_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_trunc_member_lowers_without_runtime_host_import() {
+    let program = parse_and_lower_lir("console.log(Math.trunc(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(!printed.contains("import \"kali:rt\" \"math_trunc\""));
+}
+
+#[test]
 fn process_argv_slice_length_with_non_default_start_lowers_to_runtime_args_length_minus_start() {
     let program = parse_and_lower_lir("console.log(process.argv.slice(1).length);");
     let mut ctx = CodegenCtx::new(TargetConfig {

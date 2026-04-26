@@ -1028,6 +1028,34 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if callee_node.text.as_deref() == Some("trunc")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|object| self.node(object).text.as_deref())
+                == Some("Math")
+        {
+            let mut args = node.children.iter().skip(1);
+            let Some(value) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            let _ = self.emit_node(function, *value, true);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
