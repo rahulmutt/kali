@@ -528,6 +528,66 @@ fn json_test_accepts_deno_pid_in_js_input() {
     assert_eq!(json["stderr"], "");
 }
 
+#[test]
+fn test_accepts_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Kali.test('pid', () => { if (!globalThis[\"Deno\"][\"pid\"]) { throw new Error('expected pid'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
+#[test]
+fn json_test_accepts_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Kali.test('pid', () => { if (!globalThis[\"Deno\"][\"pid\"]) { throw new Error('expected pid'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
 fn assert_artifact_metadata_provenance(
     metadata: &Value,
     artifact_kind: &str,
