@@ -772,7 +772,7 @@ impl TypeContext {
 
         if matches!(
             name,
-            "Proxy" | "WeakMap" | "WeakSet" | "FinalizationRegistry"
+            "Proxy" | "WeakMap" | "WeakSet" | "WeakRef" | "FinalizationRegistry"
         ) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -996,7 +996,7 @@ impl TypeContext {
 
         if !matches!(
             expr.property.as_str(),
-            "Proxy" | "WeakMap" | "WeakSet" | "FinalizationRegistry"
+            "Proxy" | "WeakMap" | "WeakSet" | "WeakRef" | "FinalizationRegistry"
         ) {
             return false;
         }

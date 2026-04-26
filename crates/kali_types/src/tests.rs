@@ -1015,6 +1015,9 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
             expression: Box::new(Expression::Identifier("Proxy".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("WeakRef".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::NewExpression(Box::new(
                 kali_ast::NewExpression {
                     callee: Expression::Identifier("WeakMap".to_string()),
@@ -1049,7 +1052,7 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 5);
+    assert_eq!(result.diagnostics.len(), 6);
     assert!(result
         .diagnostics
         .iter()
@@ -1058,6 +1061,10 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Proxy")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("WeakRef")));
     assert!(result
         .diagnostics
         .iter()

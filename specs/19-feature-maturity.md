@@ -226,7 +226,7 @@ Maintenance note:
 | Full-language or full-host formal verification claims | Later compatibility | The project should not imply end-to-end proof coverage for the whole JS/TS surface, dynamic compatibility paths, or concrete host integrations until those semantics are modeled honestly |
 | Annex B / web-legacy compatibility corners | Later compatibility | Keep the MVP focused on dependable core semantics; add legacy web behaviors only when conformance value justifies the cost |
 | `Proxy` | Later compatibility | High semantic cost and optimization barriers |
-| `WeakMap` / `WeakSet` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
+| `WeakMap` / `WeakSet` / `WeakRef` | Later compatibility | Deferred until weak-reference semantics fit the no-tracing-GC design |
 | `FinalizationRegistry` | Later compatibility | Same reason as weak collections |
 | `SharedArrayBuffer` / `Atomics` | Later compatibility (opt-in only) | Requires a separate threaded runtime profile and should not be implied by the Phase 1 single-threaded runtime |
 | `--wasm-threads` | Later compatibility (opt-in only) | Enables the threaded runtime profile once that profile exists; must fail explicitly before then and on unsupported targets/engines |
@@ -599,7 +599,7 @@ This matrix is a compact cross-check for the features most likely to drift betwe
 | `eval` / `Function()` | Yes | Report `Eval` effect; type-check conservatively around the boundary | Phase 4 compatibility path only | Rejected by default unless `--compat eval` is implemented and enabled |
 | explicit `pure` / effect annotations | Yes | Phase 2 target validation | N/A beyond analysis metadata | N/A |
 | `Proxy` | Yes | Analyze conservatively where possible; may trigger `dynamicReasons: ["proxy-traps"]` | Lower only once faithful runtime support exists | Later compatibility |
-| `WeakMap` / `WeakSet` / `FinalizationRegistry` | Yes | Parse and basic type-checking may exist ahead of lowering | Lower only once faithful semantics are specified | Later compatibility |
+| `WeakMap` / `WeakSet` / `WeakRef` / `FinalizationRegistry` | Yes | Parse and basic type-checking may exist ahead of lowering | Lower only once faithful semantics are specified | Later compatibility |
 
 ## Features Most Likely to Appear in Diagnostics
 

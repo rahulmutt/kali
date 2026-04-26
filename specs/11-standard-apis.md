@@ -326,7 +326,7 @@ Implemented in `kali_runtime` (compiled to WASM), in phases:
 
 **Later compatibility phases**
 - `SharedArrayBuffer` (later compatibility, only when the separate WASM-threaded runtime profile is implemented and enabled)
-- `WeakMap`, `WeakSet` (only once weak-reference semantics are specified well enough to preserve behavior)
+- `WeakMap`, `WeakSet`, `WeakRef` (only once weak-reference semantics are specified well enough to preserve behavior)
 - `FinalizationRegistry` (only once weak/finalization semantics can be preserved without undermining the no-tracing-GC design)
 - `Proxy`
 - fuller `Intl` support

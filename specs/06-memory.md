@@ -103,7 +103,7 @@ Early simplification:
 
 Important separation rule:
 - this is an **internal memory-management strategy** for ordinary object graphs
-- it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `FinalizationRegistry`) are available early; those remain **Later compatibility** features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
+- it does **not** imply that JavaScript weak-reference APIs (`WeakMap`, `WeakSet`, `WeakRef`, `FinalizationRegistry`) are available early; those remain **Later compatibility** features as defined in [specs/19-feature-maturity.md](19-feature-maturity.md)
 - it also does **not** imply movable GC, stop-the-world tracing, or user-visible finalization semantics in early phases
 
 ## Stack Allocation in Linear Memory
@@ -145,7 +145,7 @@ JavaScript's semantics assume GC. Key cases:
 | Circular references | Shared-heap fallback plus bounded deterministic non-tracing cycle cleanup, with region teardown as the conservative fallback |
 | `arguments` object | Stack-allocated array when non-escaping; heap otherwise |
 | Prototype chains | Static when class hierarchy is known; shared heap object for dynamic cases |
-| WeakMap/WeakSet | Later-phase compatibility feature; unsupported in early phases until weak-reference semantics are specified without violating observable behavior |
+| WeakMap/WeakSet/WeakRef | Later-phase compatibility feature; unsupported in early phases until weak-reference semantics are specified without violating observable behavior |
 | FinalizationRegistry | Later compatibility feature; unsupported in early phases until semantics fit the no-tracing-GC design |
 | Global objects | Static lifetime, no counting |
 

@@ -1043,7 +1043,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "`eval`",
         "`Function()` constructor",
         "`Proxy`",
-        "`WeakMap` / `WeakSet`",
+        "`WeakMap` / `WeakSet` / `WeakRef`",
         "`FinalizationRegistry`",
         "Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition",
         "Dynamic `require()`",
