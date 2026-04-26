@@ -1326,6 +1326,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime exports-map corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser exports-map packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser exports-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser replacement-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime replacement-map corpus row should be recorded in the package corpus matrix",
         ),
@@ -1528,6 +1532,21 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     ] {
         assert!(matrix.contains(row), "{message}");
     }
+
+    let browser_exports_map_row =
+        "| browser runtime corpus | browser exports-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_exports_map_row).count(),
+        1,
+        "browser runtime exports-map corpus row should be recorded exactly once in the package corpus matrix"
+    );
+    let browser_exports_map_inherited_row =
+        "| browser runtime corpus | browser exports-map packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_eq!(
+        matrix.matches(browser_exports_map_inherited_row).count(),
+        1,
+        "browser runtime inherited-browser exports-map corpus row should be recorded exactly once in the package corpus matrix"
+    );
 
     let browser_dual_exports_row =
         "| npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
