@@ -1283,6 +1283,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime replacement-map corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser replacement-map packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser replacement-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | typed export branch packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime typed export branch corpus row should be recorded in the package corpus matrix",
         ),
