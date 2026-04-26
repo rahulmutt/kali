@@ -53,6 +53,43 @@ fn late_object_model_source() -> &'static str {
     "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
 }
 
+fn permission_escalation_source() -> &'static str {
+    "Deno.permissions.request(); Deno.permissions.revoke(); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke();"
+}
+
+fn permission_escalation_computed_source() -> &'static str {
+    r#"globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#
+}
+
+fn permission_escalation_bracketed_source() -> &'static str {
+    r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#
+}
+
+fn assert_permission_escalation_stderr(stderr: &str, expected: &[&str]) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in expected {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_permission_escalation_json(errors: &[Value], expected: &[&str], expected_len: usize) {
+    assert_eq!(errors.len(), expected_len);
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    for expected in expected {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {:?}",
+            errors
+        );
+    }
+}
+
 #[test]
 fn check_build_and_run_accept_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -1957,6 +1994,162 @@ fn check_rejects_bracketed_permission_escalation_members_in_json() {
             errors
         );
     }
+}
+
+#[test]
+fn check_rejects_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+    );
+}
+
+#[test]
+fn check_rejects_permission_escalation_members_in_json_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+        4,
+    );
+}
+
+#[test]
+fn check_rejects_computed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_computed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &[
+            "globalThis.Deno.permissions.request",
+            "globalThis.Deno.permissions.revoke",
+        ],
+    );
+}
+
+#[test]
+fn check_rejects_computed_permission_escalation_members_in_json_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_computed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &[
+            "globalThis.Deno.permissions.request",
+            "globalThis.Deno.permissions.revoke",
+        ],
+        2,
+    );
+}
+
+#[test]
+fn check_rejects_bracketed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_bracketed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+    );
+}
+
+#[test]
+fn check_rejects_bracketed_permission_escalation_members_in_json_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_bracketed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+        4,
+    );
 }
 
 #[test]
@@ -28498,6 +28691,162 @@ globalThis["Deno"]["permissions"]["query"]({ "name": "net" });
     assert_eq!(json["success"], true);
     assert_eq!(json["payload"]["filesChecked"], 1);
     assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn build_rejects_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+    );
+}
+
+#[test]
+fn json_build_rejects_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+        4,
+    );
+}
+
+#[test]
+fn build_rejects_computed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_computed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &[
+            "globalThis.Deno.permissions.request",
+            "globalThis.Deno.permissions.revoke",
+        ],
+    );
+}
+
+#[test]
+fn json_build_rejects_computed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_computed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &[
+            "globalThis.Deno.permissions.request",
+            "globalThis.Deno.permissions.revoke",
+        ],
+        2,
+    );
+}
+
+#[test]
+fn build_rejects_bracketed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_bracketed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_permission_escalation_stderr(
+        &stderr,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+    );
+}
+
+#[test]
+fn json_build_rejects_bracketed_permission_escalation_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, permission_escalation_bracketed_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_permission_escalation_json(
+        errors,
+        &["Deno.permissions.request", "Deno.permissions.revoke"],
+        4,
+    );
 }
 
 #[test]
