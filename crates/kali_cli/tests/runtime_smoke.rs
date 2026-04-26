@@ -16209,6 +16209,160 @@ async function enumSmoke(left, right) {
 }
 
 #[test]
+fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj[\"a\"] = 1;
+  obj[\"b\"] = 2;
+  obj[\"a\"] = 3;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'a' ||
+    keys[1] !== 'b' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'a' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'b' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 3 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected overwrite ordering');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj[\"a\"] = 1;
+  obj[\"b\"] = 2;
+  obj[\"a\"] = 3;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'a' ||
+    keys[1] !== 'b' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'a' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'b' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 3 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected overwrite ordering');
+  }
+  return left - left + right - right;
+}
+",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_strict_equality_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
