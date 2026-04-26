@@ -42,6 +42,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Current progress: browser-requested run/test async/await sequencing now also has dedicated browser-harness coverage in both TS and `.js` input, keeping the opt-in browser runtime path aligned with the same await-order regression the standalone runtime smoke already pins.
 - Current progress: the read-only `Deno.pid` / `globalThis.Deno.pid` process-identity query now also has JSON-output coverage on the standalone `test` path for `.js` input, keeping the process-identity slice aligned with the rest of the machine-readable execution smoke.
 - Current progress: the phase-6 conformance dashboard now explicitly tracks the browser-requested strict-equality row alongside the browser-requested and browser-bundle integer-like key ordering rows for object enumeration, so the supported ordering and comparison slices stay visible in the phase snapshot alongside the broader browser runtime rows.
+- Current progress: the phase-6 conformance dashboard now also records the browser-requested `run` `Math.clz32()` `.js` slice explicitly, matching the existing browser-harness JSON-output coverage already carried in `crates/kali_cli/tests/runtime_smoke.rs`.
 
 ### 6.3 Module and dynamic-loading semantics
 
