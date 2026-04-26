@@ -1,0 +1,7 @@
+{
+  "benchmark": "division-by-one-elimination",
+  "version": 1,
+  "sourceFile": "division-by-one-benchmark-v1.ts",
+  "sourceSha256": "sha256-50a1cb00ee8db703fe7d8c395ee64e5d50e095fe93b57b926d8c0ca68a5b38bd",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
