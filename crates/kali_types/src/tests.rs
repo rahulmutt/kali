@@ -1475,6 +1475,7 @@ fn test_resolution_rejects_for_of_array_iteration() {
                 }))),
             })],
         })),
+        is_await: false,
     })];
 
     let mut ctx = TypeContext::with_base_path(&source_path);
@@ -1532,6 +1533,65 @@ fn test_resolution_rejects_for_of_array_iteration_in_js_input() {
                 }))),
             })],
         })),
+        is_await: false,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message.contains("for-of array iteration")
+            || diag.message.contains("later compatibility")
+    }));
+}
+
+#[test]
+fn test_resolution_rejects_for_await_of_array_iteration_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for await (const value of [1, 2]) { console.log(value); }",
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+            elements: vec![
+                Some(kali_ast::ExpressionOrSpread::Expression(
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                )),
+                Some(kali_ast::ExpressionOrSpread::Expression(
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                )),
+            ],
+        }),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("value".to_string())],
+                }))),
+            })],
+        })),
+        is_await: true,
     })];
 
     let mut ctx = TypeContext::with_base_path(&source_path);

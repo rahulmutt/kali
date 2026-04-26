@@ -80,6 +80,7 @@ pub struct Parser {
     diagnostics: Vec<Diagnostic>,
     jsx_mode: bool,
     in_generator_function: bool,
+    in_async_function: bool,
 }
 
 impl Parser {
@@ -90,6 +91,7 @@ impl Parser {
             diagnostics: Vec::new(),
             jsx_mode: false,
             in_generator_function: false,
+            in_async_function: false,
         }
     }
 
@@ -188,6 +190,7 @@ impl Parser {
             }
             TokenType::Yield => self.parse_expression_statement(),
             TokenType::Identifier
+            | TokenType::Await
             | TokenType::This
             | TokenType::True
             | TokenType::False
@@ -260,6 +263,8 @@ impl Parser {
         if is_async {
             let _ = self.stream.advance();
         }
+        let previous_async = self.in_async_function;
+        self.in_async_function = is_async;
         let _ = self.stream.advance();
         let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
@@ -290,6 +295,7 @@ impl Parser {
             _ => BlockStatement { body: Vec::new() },
         };
         self.in_generator_function = previous_generator;
+        self.in_async_function = previous_async;
 
         Some(Statement::FunctionDeclaration(FunctionDeclaration {
             name,
@@ -388,6 +394,7 @@ impl Parser {
 
     fn parse_for_statement(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
+        let is_await = self.stream.accept(TokenType::Await);
         let _ = self.stream.accept(TokenType::LeftParen);
 
         if self.stream.current_kind() == Some(&TokenType::Semicolon) {
@@ -466,6 +473,7 @@ impl Parser {
                     }),
                     right,
                     body,
+                    is_await,
                 }));
             }
 
@@ -531,6 +539,7 @@ impl Parser {
                 left: ForOfLefthand::Expression(expr),
                 right,
                 body,
+                is_await,
             }));
         }
 
@@ -1030,6 +1039,12 @@ impl Parser {
         Expression::YieldExpression(Box::new(YieldExpression { delegate, argument }))
     }
 
+    fn parse_await_expression(&mut self) -> Expression {
+        let _ = self.stream.advance();
+        let argument = self.parse_call_expression();
+        Expression::AwaitExpression(Box::new(kali_ast::AwaitExpression { argument }))
+    }
+
     fn parse_call_expression(&mut self) -> Expression {
         let mut expr = self.parse_primary_expression();
 
@@ -1258,6 +1273,8 @@ impl Parser {
         if is_async {
             let _ = self.stream.advance();
         }
+        let previous_async = self.in_async_function;
+        self.in_async_function = is_async;
         let _ = self.stream.advance();
         let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
             let _ = self.stream.advance();
@@ -1289,6 +1306,7 @@ impl Parser {
                 body: Vec::new(),
             }));
         self.in_generator_function = previous_generator;
+        self.in_async_function = previous_async;
         let func_body = match body {
             Statement::BlockStatement(bs) => Some(Box::new(bs)),
             _ => Some(Box::new(BlockStatement { body: Vec::new() })),
@@ -1471,6 +1489,17 @@ impl Parser {
                     let name = token
                         .map(|t| t.value)
                         .unwrap_or_else(|| "yield".to_string());
+                    Expression::Identifier(name)
+                }
+            }
+            TokenType::Await => {
+                if self.in_async_function {
+                    self.parse_await_expression()
+                } else {
+                    let token = self.stream.advance();
+                    let name = token
+                        .map(|t| t.value)
+                        .unwrap_or_else(|| "await".to_string());
                     Expression::Identifier(name)
                 }
             }

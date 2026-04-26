@@ -461,7 +461,9 @@ impl HirLowerer {
                 push_child!(self, id, self.lower_statement(body));
                 id
             }
-            Statement::ForOfStatement(ForOfStatement { left, right, body }) => {
+            Statement::ForOfStatement(ForOfStatement {
+                left, right, body, ..
+            }) => {
                 let id = self.builder.alloc(HirNodeKind::ForOfStmt, None);
                 match left {
                     ForOfLefthand::VariableDeclaration(v) => push_child!(

@@ -172,6 +172,7 @@ pub struct ForOfStatement {
     pub left: ForOfLefthand,
     pub right: Expression,
     pub body: Box<Statement>,
+    pub is_await: bool,
 }
 
 /// For-of lefthand

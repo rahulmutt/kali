@@ -92,6 +92,72 @@ fn test_parse_default_import_declaration() {
 }
 
 #[test]
+fn test_parse_async_await_expression() {
+    let tokens = lex("async function main() { await Promise.resolve(7); }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::FunctionDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected FunctionDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    assert!(decl.is_async, "expected async flag to be preserved");
+    assert_eq!(decl.body.body.len(), 1);
+
+    let Statement::ExpressionStatement(expr_stmt) = &decl.body.body[0] else {
+        panic!("Expected ExpressionStatement, got {:?}", decl.body.body[0]);
+    };
+    let Expression::AwaitExpression(await_expr) = expr_stmt.expression.as_ref() else {
+        panic!("Expected AwaitExpression, got {:?}", expr_stmt.expression);
+    };
+    assert!(matches!(await_expr.argument, Expression::CallExpression(_)));
+}
+
+#[test]
+fn test_parse_for_await_of_statement() {
+    let tokens = lex("async function main() { for await (const item of items) { item; } }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::FunctionDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected FunctionDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    assert!(decl.is_async, "expected async flag to be preserved");
+    assert_eq!(decl.body.body.len(), 1);
+
+    let Statement::ForOfStatement(stmt) = &decl.body.body[0] else {
+        panic!("Expected ForOfStatement, got {:?}", decl.body.body[0]);
+    };
+    assert!(stmt.is_await, "expected for-await-of flag to be preserved");
+    match &stmt.left {
+        kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+            assert_eq!(decl.kind, "const");
+            assert_eq!(decl.declarations[0].id, "item");
+        }
+        other => panic!("Expected variable declaration left-hand, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_dynamic_import_expression() {
     let tokens = lex("const mod = import(\"./lazy\");");
     let mut parser = Parser::new(FileId::new(0), tokens);
