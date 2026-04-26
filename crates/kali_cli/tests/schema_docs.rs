@@ -1371,3 +1371,48 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         assert!(matrix.contains(row), "{message}");
     }
 }
+
+#[test]
+fn optimization_inventory_tracks_current_mode_rows() {
+    let root = repo_root();
+    let inventory = fs::read_to_string(root.join("plan/phase-9/optimization-inventory.md"))
+        .expect("read optimization inventory");
+
+    for expected in [
+        "# Phase 9 Optimization Inventory",
+        "## Current checked-in evidence",
+        "| `fast` |",
+        "| `release` |",
+        "| `release-advanced` |",
+        "fast_keeps_binary_expressions_opaque",
+        "release_folds_object_keys_calls_over_literal_object_shapes",
+        "release_folds_object_entries_calls_over_literal_object_shapes",
+        "release_folds_object_values_calls_over_literal_object_shapes",
+        "release_folds_object_enumeration_calls_over_const_bound_literal_object_shapes",
+        "release_folds_object_enumeration_calls_over_const_alias_chains",
+        "release_advanced_eliminates_algebraic_identities",
+        "release_advanced_folds_object_enumeration_calls_over_literal_object_shapes",
+        "release_advanced_folds_object_enumeration_calls_over_const_bound_literal_object_shapes",
+        "release_advanced_folds_object_enumeration_calls_over_const_alias_chains",
+        "math-benchmark-v1",
+        "object-enumeration-benchmark-v1",
+        "identity-chain-benchmark-v1",
+        "nullish-benchmark-v1",
+        "## Reading rule",
+    ] {
+        assert!(
+            inventory.contains(expected),
+            "optimization inventory missing expected text: {expected}"
+        );
+    }
+
+    let fast = inventory.find("| `fast` |").expect("fast row");
+    let release = inventory.find("| `release` |").expect("release row");
+    let release_advanced = inventory
+        .find("| `release-advanced` |")
+        .expect("release-advanced row");
+    assert!(
+        fast < release && release < release_advanced,
+        "optimization inventory rows should remain ordered deterministically"
+    );
+}
