@@ -48,7 +48,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser bundle `async/await` sequencing in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser bundle `queueMicrotask` ordering in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser bundle basic strict equality / inequality semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
-| Browser bundle basic boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser bundle basic boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage) |
 | Browser bundle `Object.keys()` / `Object.entries()` / `Object.values()` enumeration semantics in `.ts` and `.js` input, including string-primitive enumeration and overwrite ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser bundle integer-like key ordering semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser execution smoke plus JSON-output coverage) |
 | Browser-requested `run` / `test` object-enumeration semantics in `.ts` and `.js` input, including string-primitive enumeration in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |

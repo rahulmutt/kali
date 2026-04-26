@@ -12220,6 +12220,124 @@ fn build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
 }
 
 #[test]
+fn json_build_emits_browser_bundle_boolean_logic_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: logicSmoke\nfunction logicSmoke() {\n  let observed = 0;\n  const andResult = true && (++observed, true);\n  const orResult = false || (++observed, true);\n  const skippedAnd = false && (++observed, true);\n  const skippedOr = true || (++observed, true);\n  if (observed !== 2 || andResult !== true || orResult !== true || skippedAnd !== false || skippedOr !== true) {\n    throw new Error('unexpected boolean logic');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: logicSmoke\nfunction logicSmoke() {\n  let observed = 0;\n  const andResult = true && (++observed, true);\n  const orResult = false || (++observed, true);\n  const skippedAnd = false && (++observed, true);\n  const skippedOr = true || (++observed, true);\n  if (observed !== 2 || andResult !== true || orResult !== true || skippedAnd !== false || skippedOr !== true) {\n    throw new Error('unexpected boolean logic');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+}
+
+#[test]
 fn build_emits_browser_bundle_bigint_addition_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
