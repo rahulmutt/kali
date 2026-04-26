@@ -46,11 +46,11 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;"
+    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];"
 }
 
 fn late_object_model_source() -> &'static str {
-    "Proxy; globalThis.Proxy; new WeakMap(); globalThis.WeakMap; new WeakSet(); globalThis.WeakSet; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});"
+    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
 }
 
 #[test]
@@ -1809,7 +1809,7 @@ fn check_rejects_late_process_control_members() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;",
+        "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -1854,7 +1854,7 @@ fn check_rejects_late_process_control_members_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.Deno.cwd; Deno.chdir; globalThis.Deno.chdir; globalThis.Deno.exit; process.pid; globalThis.process.pid; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit;",
+        "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -1873,7 +1873,7 @@ fn check_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 17, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
@@ -2164,7 +2164,7 @@ fn run_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 17, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
@@ -2445,7 +2445,7 @@ fn run_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 10);
+    assert_eq!(errors.len(), 15);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
@@ -2529,7 +2529,7 @@ fn json_build_rejects_late_process_control_members_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 17, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| matches!(error["code"].as_str(), Some("E5506") | Some("E3100"))));
@@ -2696,7 +2696,7 @@ fn test_rejects_late_process_control_members_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.len() >= 11, "unexpected errors: {errors:?}");
+    assert!(errors.len() >= 17, "unexpected errors: {errors:?}");
     assert!(errors
         .iter()
         .all(|error| { matches!(error["code"].as_str(), Some("E5506") | Some("E3100")) }));
@@ -2781,7 +2781,7 @@ fn test_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 10);
+    assert_eq!(errors.len(), 15);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
