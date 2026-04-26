@@ -16194,6 +16194,38 @@ fn build_trees_shakes_unused_browser_bundle_exports() {
     assert_browser_bundle_executes(&bundle_dir, "greet");
 }
 
+fn browser_bundle_web_baseline_source() -> String {
+    r#"// kali-tree-shake: webBaselineSmoke
+function webBaselineSmoke(left, right) {
+  const original = { nested: { count: 1 }, values: [1, 2, 3] };
+  const cloned = structuredClone(original);
+  if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+    throw new Error('structuredClone should deep-clone object graphs');
+  }
+  original.nested.count = 2;
+  original.values.push(4);
+  if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+    throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
+  }
+  const controller = new AbortController();
+  if (!(controller.signal instanceof AbortSignal)) {
+    throw new Error('expected AbortSignal from AbortController');
+  }
+  const target = new EventTarget();
+  let count = 0;
+  target.addEventListener('tick', () => {
+    count += 1;
+    controller.abort();
+  });
+  const dispatched = target.dispatchEvent(new CustomEvent('tick'));
+  if (!dispatched || count !== 1 || !controller.signal.aborted) {
+    throw new Error('unexpected event primitive behavior');
+  }
+  return left - left;
+}
+"#.to_string()
+}
+
 #[test]
 fn build_emits_browser_bundle_crypto_web_apis() {
     let dir = tempdir().expect("tempdir");
@@ -16386,6 +16418,184 @@ fn json_build_emits_browser_bundle_crypto_web_apis_in_js_input() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "digestSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_web_baseline_primitives() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(&source_path, browser_bundle_web_baseline_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(&source_path, browser_bundle_web_baseline_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_web_baseline_primitives() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(&source_path, browser_bundle_web_baseline_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_web_baseline_primitives_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(&source_path, browser_bundle_web_baseline_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "webBaselineSmoke");
 }
 
 #[test]
