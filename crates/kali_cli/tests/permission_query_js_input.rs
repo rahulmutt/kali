@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn unsupported_permission_query_source() -> &'static str {
-    "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });"
+    "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"ffi\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"sys\" });"
 }
 
 fn assert_unsupported_permission_query_rejection(stderr: &str) {
