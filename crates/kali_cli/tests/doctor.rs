@@ -89,6 +89,39 @@ fn doctor_reports_env_selected_browser_harness_in_human_output() {
 }
 
 #[test]
+fn doctor_reports_auto_selected_browser_harness_in_human_output() {
+    let output = Command::new(kali_bin())
+        .arg("doctor")
+        .env_remove("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Browser harness:"), "stdout: {stdout}");
+    assert!(stdout.contains("  env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    assert!(stdout.contains("  source: auto"));
+    assert!(
+        !stdout.contains("  override:"),
+        "auto-selected harness should not print an override: {stdout}"
+    );
+    assert!(stdout.contains("  command:"));
+    assert!(stdout.contains("  executable available:"));
+    assert!(stdout.contains("Browser runtime contract:"));
+    assert!(stdout.contains("  host label: browser-requested"));
+    assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout.contains("  supported commands: run, test"));
+    assert!(stdout.contains("  diagnostic hint:"));
+    assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
+}
+
+#[test]
 fn doctor_reports_unavailable_browser_harness_executable() {
     let output = Command::new(kali_bin())
         .arg("doctor")
