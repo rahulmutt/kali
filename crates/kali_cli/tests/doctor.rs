@@ -42,6 +42,41 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
 }
 
 #[test]
+fn doctor_reports_env_selected_browser_harness_in_pretty_json_under_quiet() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("--pretty")
+        .arg("--quiet")
+        .arg("doctor")
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node --test")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('\n'),
+        "pretty JSON should contain newlines: {stdout}"
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    let harness = &json["payload"]["browserHarness"];
+    assert_eq!(harness["source"], "env");
+    assert_eq!(harness["override"], "node --test");
+    assert_eq!(harness["command"], serde_json::json!(["node", "--test"]));
+    assert_eq!(harness["executable"], "node");
+    assert_eq!(harness["args"], serde_json::json!(["--test"]));
+}
+
+#[test]
 fn doctor_reports_auto_selected_browser_harness_in_json() {
     let output = Command::new(kali_bin())
         .arg("--output")
