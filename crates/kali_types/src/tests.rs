@@ -1519,6 +1519,51 @@ fn test_resolution_rejects_non_literal_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_rejects_generator_function_lowering_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
+
+    let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
+        name: "main".to_string(),
+        params: vec![],
+        body: Box::new(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                    delegate: true,
+                    argument: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                        elements: vec![],
+                    })),
+                }))),
+            })],
+        }),
+        is_async: false,
+        generator: true,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message
+            .contains("generator function lowering is unavailable")
+    }));
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message.contains("yield expressions are unavailable")
+            || diag
+                .message
+                .contains("generator lowering is not yet implemented")
+    }));
+}
+
+#[test]
 fn test_resolution_rejects_for_of_array_iteration() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
