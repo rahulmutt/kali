@@ -10732,6 +10732,52 @@ console.log(values.length);
 }
 
 #[test]
+fn run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const stringKeys = Object.keys('ab');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 2 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+console.log(stringKeys.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_bigint_addition_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -11186,6 +11232,53 @@ if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
   throw 'unexpected values';
 }
 console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const stringKeys = Object.keys('ab');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 2 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+console.log(stringKeys.length);
+Kali.test('string primitive enumeration', () => {});
 "#,
     )
     .expect("write source");
