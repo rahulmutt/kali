@@ -7360,3 +7360,60 @@ fn node_runner_corpus_packages_with_mixed_format_entries_remain_executable_on_th
         assert_eq!(String::from_utf8_lossy(&test.stdout), "0\nok 1\n");
     }
 }
+
+#[test]
+fn default_standalone_corpus_rejects_semver_style_package_bin_entrypoint() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+
+    let output = run_kali(
+        dir.path(),
+        ["run", package_dir.join("bin/semver.js").to_str().unwrap()],
+    );
+
+    assert!(
+        !output.status.success(),
+        "expected the default standalone surface to reject a Node-style package bin entrypoint\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Node.js CLI features")
+            && stderr.contains("unavailable on the 'deno' API surface"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn node_corpus_executes_semver_style_package_bin_entrypoint() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    write_semver_style_package(&package_dir);
+
+    let output = run_kali(
+        dir.path(),
+        [
+            "run",
+            "--api",
+            "node",
+            package_dir.join("bin/semver.js").to_str().unwrap(),
+            "--",
+            "1.2.3",
+        ],
+    );
+
+    assert!(
+        output.status.success(),
+        "expected the Node surface to execute a published package bin entrypoint\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
