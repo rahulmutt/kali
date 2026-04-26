@@ -1095,6 +1095,34 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "dashboard buckets should remain ordered deterministically"
     );
 
+    let supported_section = dashboard
+        .split_once("## Supported today")
+        .map(|(_, rest)| rest)
+        .expect("supported section")
+        .split_once("## Gated for later phases")
+        .map(|(supported, _)| supported)
+        .expect("supported section terminator");
+    let mut supported_features = BTreeSet::new();
+    for line in supported_section.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("| ")
+            || trimmed.starts_with("| Feature")
+            || trimmed.starts_with("|---")
+        {
+            continue;
+        }
+
+        let feature = trimmed.split('|').nth(1).expect("feature column").trim();
+        if feature.is_empty() {
+            continue;
+        }
+
+        assert!(
+            supported_features.insert(feature.to_string()),
+            "supported dashboard row duplicated: {feature}"
+        );
+    }
+
     let supported_rows = [
         "Latest published ECMA-262 lexical grammar (tokenization)",
         "Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile",
