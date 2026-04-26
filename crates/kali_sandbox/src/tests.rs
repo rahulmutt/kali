@@ -788,7 +788,9 @@ fn effect_reports_treat_permissions_query_as_effect_free() {
 #[test]
 fn effect_reports_treat_computed_permissions_query_as_effect_free() {
     let source = write_source_fixture(
-        r#"globalThis["Deno"]["permissions"].query({ name: "env" });
+        r#"Deno["permissions"]["query"]({ name: "env" });
+Deno.permissions["query"]({ name: "env" });
+globalThis["Deno"]["permissions"].query({ name: "env" });
 globalThis["Deno"]["permissions"]["query"]({ name: "env" });"#,
     );
     let inference = infer_effects_from_roots(
