@@ -2842,6 +2842,21 @@ fn run_command(
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
     let source = PathBuf::from(file);
 
+    if let Some(policy) = policy.as_ref() {
+        if let Err(diagnostics) =
+            validate_source_effects_against_policy(&source, policy, effective_api)
+        {
+            return emit_diagnostics_and_exit(
+                "run",
+                diagnostics,
+                5,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+    }
+
     if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
@@ -3117,6 +3132,15 @@ fn test_command(
             println!("ok 0");
         }
         return Ok(());
+    }
+
+    if let Some(policy) = policy.as_ref() {
+        let roots = filtered_files.iter().map(PathBuf::from).collect::<Vec<_>>();
+        if let Err(diagnostics) =
+            validate_source_effects_against_policy_for_roots(&roots, policy, effective_api)
+        {
+            return emit_diagnostics_and_exit("test", diagnostics, 5, output, None, None);
+        }
     }
 
     let runtime = RuntimeCtx::with_api_surface(policy.clone(), effective_api.to_string())

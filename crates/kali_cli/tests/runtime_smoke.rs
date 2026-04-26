@@ -29129,6 +29129,174 @@ fn json_build_with_sandbox_rejects_phase_three_deno_host_effects_in_js_input() {
 }
 
 #[test]
+fn run_with_sandbox_rejects_phase_three_deno_host_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, phase_three_deno_host_effects_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Process.EnvWrite")
+            || stderr.contains("Process.Spawn")
+            || stderr.contains("Network.Connect")
+            || stderr.contains("Network.Listen"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_run_with_sandbox_rejects_phase_three_deno_host_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, phase_three_deno_host_effects_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors
+            .iter()
+            .all(|error| matches!(error["code"].as_str(), Some("E9007") | Some("E5506"))),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("Process.EnvWrite")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Process.Spawn")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Network.Connect")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Network.Listen")),
+        "unexpected errors: {errors:?}"
+    );
+}
+
+#[test]
+fn test_with_sandbox_rejects_phase_three_deno_host_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, phase_three_deno_host_effects_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Process.EnvWrite")
+            || stderr.contains("Process.Spawn")
+            || stderr.contains("Network.Connect")
+            || stderr.contains("Network.Listen"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_test_with_sandbox_rejects_phase_three_deno_host_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, phase_three_deno_host_effects_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors
+            .iter()
+            .all(|error| matches!(error["code"].as_str(), Some("E9007") | Some("E5506"))),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("Process.EnvWrite")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Process.Spawn")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Network.Connect")
+            || error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Network.Listen")),
+        "unexpected errors: {errors:?}"
+    );
+}
+
+#[test]
 fn run_with_sandbox_allows_a_benign_program() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
