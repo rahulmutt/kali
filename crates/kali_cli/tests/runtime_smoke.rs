@@ -9976,6 +9976,57 @@ main();
 }
 
 #[test]
+fn run_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log('ok');
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -10750,6 +10801,56 @@ fn test_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_h
   console.log('ok');
 }
 main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_browser_web_crypto_get_random_values_when_browser_harness_is_configured_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        r#"const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log('ok');
 "#,
     )
     .expect("write source");
