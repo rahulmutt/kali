@@ -30694,14 +30694,31 @@ fn package_audit_rejects_preview_compatibility_shim_in_json_output() {
 
 #[test]
 fn package_audit_rejects_package_analysis_specific_flags() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
     let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
         .arg("package-audit")
         .arg("--sandbox")
-        .arg("kali.policy.json")
+        .arg(&policy_path)
         .arg("lodash")
         .output()
         .expect("run kali");
 
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -30737,8 +30754,12 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
     let policy_path = dir.path().join("kali.policy.json");
     fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
 
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
         .arg("--output")
         .arg("json")
         .arg("package-audit")
@@ -30748,6 +30769,14 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
         .output()
         .expect("run kali");
 
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(5));
     let json = parse_json_stdout(&output);
