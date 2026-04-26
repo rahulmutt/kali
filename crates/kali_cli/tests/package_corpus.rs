@@ -604,6 +604,29 @@ where
         .expect("run kali")
 }
 
+fn assert_browser_blocked_package_json_rejection(output: &std::process::Output, command: &str) {
+    assert!(!output.status.success(), "expected {command} to fail");
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.iter().any(|error| error["code"] == "E3000"),
+        "missing E3000 in {json}"
+    );
+    assert!(
+        errors.iter().any(|error| {
+            error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("could not be resolved")
+        }),
+        "missing resolution failure in {json}"
+    );
+}
+
 #[test]
 fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
     for package in [
@@ -5969,6 +5992,33 @@ fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_
             "browser-blocked package {package} should surface the bundle-time import-resolution failure\nstderr: {}",
             build_stderr
         );
+
+        let json_check = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "check",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert_browser_blocked_package_json_rejection(&json_check, "check");
+
+        let json_build = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert_browser_blocked_package_json_rejection(&json_build, "build");
     }
 }
 
@@ -6041,6 +6091,33 @@ fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_
             "browser-blocked package {package} should surface the bundle-time import-resolution failure on JS input\nstderr: {}",
             build_stderr
         );
+
+        let json_check = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "check",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert_browser_blocked_package_json_rejection(&json_check, "check");
+
+        let json_build = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert_browser_blocked_package_json_rejection(&json_build, "build");
     }
 }
 
