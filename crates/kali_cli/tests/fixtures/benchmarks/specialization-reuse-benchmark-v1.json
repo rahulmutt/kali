@@ -2,6 +2,6 @@
   "benchmark": "specialization-reuse",
   "version": 1,
   "sourceFile": "specialization-reuse-benchmark-v1.ts",
-  "sourceSha256": "sha256-3ee2355855ef9d523600170468339228977745245442cc0a3ae47aca2c6a04bf",
+  "sourceSha256": "sha256-5d4282158757415be7117121bacb06eac8b317ce4623545ebbac79df6d65fa29",
   "buildModes": ["--fast", "--release", "--release-advanced"]
 }

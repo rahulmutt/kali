@@ -22674,6 +22674,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "nullish-specialization-repeat-benchmark-v1",
             "nullish-specialization-repeat",
         ),
+        ("specialization-reuse-benchmark-v1", "specialization-reuse"),
         ("nullish-benchmark-v1", "nullish-specialization"),
     ] {
         assert_optimization_benchmark_fixture(fixture_stem, benchmark_name);
