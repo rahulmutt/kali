@@ -8285,6 +8285,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
         (
+            "node-events-corpus",
+            "import { EventEmitter } from \"node:events\";\nexport default function root() { const emitter = new EventEmitter(); return typeof emitter.on === \"function\" && typeof emitter.emit === \"function\" ? 0 : 1; }\n",
+            "0",
+        ),
+        (
             "node-assert-corpus",
             "import assert from \"node:assert\";\nexport default function root() { assert.ok(true); return 0; }\n",
             "0",
