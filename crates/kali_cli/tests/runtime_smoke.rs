@@ -794,6 +794,155 @@ fn json_test_accepts_bracketed_deno_pid_in_ts_input() {
     assert_eq!(json["stderr"], "");
 }
 
+fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
+    if test_mode {
+        return r#"Kali.test('web baseline', () => {
+  const original = { nested: { count: 1 }, values: [1, 2, 3] };
+  const cloned = structuredClone(original);
+  if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+    throw new Error('structuredClone should deep-clone object graphs');
+  }
+  original.nested.count = 2;
+  original.values.push(4);
+  if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+    throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
+  }
+  const controller = new AbortController();
+  if (!(controller.signal instanceof AbortSignal)) {
+    throw new Error('expected AbortSignal from AbortController');
+  }
+  const target = new EventTarget();
+  let count = 0;
+  target.addEventListener('tick', () => {
+    count += 1;
+    controller.abort();
+  });
+  const dispatched = target.dispatchEvent(new CustomEvent('tick'));
+  if (!dispatched || count !== 1 || !controller.signal.aborted) {
+    throw new Error('unexpected event primitive behavior');
+  }
+});
+"#.to_string();
+    }
+
+    r#"const original = { nested: { count: 1 }, values: [1, 2, 3] };
+const cloned = structuredClone(original);
+if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
+  throw new Error('structuredClone should deep-clone object graphs');
+}
+original.nested.count = 2;
+original.values.push(4);
+if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
+  throw new Error(`unexpected structuredClone result ${JSON.stringify(cloned)}`);
+}
+const controller = new AbortController();
+if (!(controller.signal instanceof AbortSignal)) {
+  throw new Error('expected AbortSignal from AbortController');
+}
+const target = new EventTarget();
+let count = 0;
+target.addEventListener('tick', () => {
+  count += 1;
+  controller.abort();
+});
+const dispatched = target.dispatchEvent(new CustomEvent('tick'));
+if (!dispatched || count !== 1 || !controller.signal.aborted) {
+  throw new Error('unexpected event primitive behavior');
+}
+console.log('web baseline ok');
+"#
+    .to_string()
+}
+
+#[test]
+fn json_run_supports_web_baseline_structured_clone_and_event_primitives_in_ts_and_js_input() {
+    let dir = tempdir().expect("tempdir");
+
+    for ext in ["ts", "js"] {
+        let source_path = dir.path().join(format!("web-baseline-{ext}.{ext}"));
+        fs::write(
+            &source_path,
+            structured_clone_and_event_primitives_source(false),
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .contains("web baseline ok"),
+            "json: {json}"
+        );
+        assert_eq!(json["stderr"], "");
+    }
+}
+
+#[test]
+fn json_test_supports_web_baseline_structured_clone_and_event_primitives_in_ts_and_js_input() {
+    let dir = tempdir().expect("tempdir");
+
+    for ext in ["ts", "js"] {
+        let source_path = dir.path().join(format!("web-baseline-test-{ext}.{ext}"));
+        fs::write(
+            &source_path,
+            structured_clone_and_event_primitives_source(true),
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["skipped"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert_eq!(json["stdout"], "");
+        assert_eq!(json["stderr"], "");
+    }
+}
+
 fn assert_artifact_metadata_provenance(
     metadata: &Value,
     artifact_kind: &str,
