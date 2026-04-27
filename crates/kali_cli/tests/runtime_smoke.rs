@@ -78,7 +78,7 @@ console.log(1);
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];"
+    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -115,8 +115,14 @@ fn late_process_control_source_includes_bracketed_spellings() {
     let source = late_process_control_source();
     for expected in [
         r#"globalThis["Deno"]["cwd"]"#,
+        r#"Deno["cwd"]"#,
+        r#"globalThis.Deno["cwd"]"#,
         r#"globalThis["Deno"]["chdir"]"#,
+        r#"Deno["chdir"]"#,
+        r#"globalThis.Deno["chdir"]"#,
         r#"globalThis["Deno"]["exit"]"#,
+        r#"Deno["exit"]"#,
+        r#"globalThis.Deno["exit"]"#,
         r#"globalThis["process"]["pid"]"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"globalThis["process"]["chdir"]"#,
