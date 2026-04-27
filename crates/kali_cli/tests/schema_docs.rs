@@ -2132,6 +2132,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         browser_web_baseline_targeted_row,
         "browser web-baseline targeted corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_web_baseline_js_entrypoint_row =
+        "| npm-style package corpus | browser web-baseline primitive packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_web_baseline_js_entrypoint_row,
+        "browser web-baseline JS entrypoint corpus row should be recorded exactly once in the package corpus matrix",
+    );
     let browser_web_baseline_inherited_row =
         "| npm-style package corpus | browser web-baseline primitive packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
