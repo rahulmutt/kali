@@ -1064,6 +1064,25 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(method) = self.math_member_method(&callee_node) {
+            if !matches!(
+                method,
+                "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc"
+            ) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable in the current phase; use a supported Math builtin or the later compatibility path"
+                    ),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+        }
+
         if let Some(import_index) = self.env_set_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(key_expr) = args.next() else {
@@ -1302,6 +1321,17 @@ impl<'a> FunctionEmitter<'a> {
         let object_name = self.node(object).text.as_deref()?;
         if object_name == "Math" && method == "clz32" {
             Some(MATH_CLZ32_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
+    fn math_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" {
+            Some(method)
         } else {
             None
         }

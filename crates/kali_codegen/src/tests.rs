@@ -295,6 +295,33 @@ fn math_trunc_member_lowers_without_runtime_host_import() {
 }
 
 #[test]
+fn unsupported_math_member_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.floor(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("Math.floor is unavailable in the current phase")
+        }),
+        "expected an unavailable Math-member diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn process_argv_slice_length_with_non_default_start_lowers_to_runtime_args_length_minus_start() {
     let program = parse_and_lower_lir("console.log(process.argv.slice(1).length);");
     let mut ctx = CodegenCtx::new(TargetConfig {

@@ -25597,6 +25597,27 @@ fn run_rejects_nullish_coalescing_in_js_input() {
     assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
 }
 
+#[test]
+fn run_rejects_unsupported_math_member_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.round(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Math.round"), "stderr: {stderr}");
+    assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
+}
+
 fn assert_browser_requested_nullish_coalescing_rejection_text(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
