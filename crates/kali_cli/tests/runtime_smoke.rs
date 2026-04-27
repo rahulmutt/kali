@@ -29738,6 +29738,82 @@ fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox() {
 }
 
 #[test]
+fn build_uses_inherited_browser_api_surface_for_bundle_with_sandbox_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+}
+
+#[test]
+fn build_uses_explicit_browser_api_surface_for_bundle_with_sandbox_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--api")
+        .arg("browser")
+        .arg("--bundle")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert_browser_bundle_executes(&dir.path().join("app"), "greet");
+}
+
+#[test]
 fn json_build_emits_browser_bundle_artifacts_for_inherited_browser_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
