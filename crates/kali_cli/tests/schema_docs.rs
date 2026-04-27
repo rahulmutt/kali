@@ -1156,6 +1156,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "CommonJS module lowering",
         "`require(\"literal\")`",
         "Basic `Math.sign()` built-in semantics",
+        "Basic nested Math call composition in `.js` input",
         "Basic `Math.trunc()` built-in semantics",
         "Basic `Math.clz32()` built-in semantics",
         "Basic `Object.keys()` enumeration semantics, including overwrite/delete-reinsert ordering",
