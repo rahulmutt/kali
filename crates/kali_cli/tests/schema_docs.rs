@@ -511,6 +511,11 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read package-effects schema"),
     )
     .expect("parse package-effects schema");
+    assert_eq!(package_effects["title"], "Kali Package Effects Result v1");
+    assert_eq!(
+        package_effects["description"],
+        "Native JSON payload emitted by `kali package-effects`."
+    );
     assert_eq!(package_effects["type"], "object");
     assert_eq!(package_effects["additionalProperties"], false);
     assert_eq!(package_effects["properties"]["schemaVersion"]["const"], 1);
@@ -725,6 +730,11 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read effects schema"),
     )
     .expect("parse effects schema");
+    assert_eq!(effects["title"], "Kali Effects Result v1");
+    assert_eq!(
+        effects["description"],
+        "Native JSON payload emitted by `kali effects`."
+    );
     assert_eq!(effects["type"], "object");
     assert_eq!(effects["additionalProperties"], false);
     assert_eq!(effects["properties"]["schemaVersion"]["const"], 1);
