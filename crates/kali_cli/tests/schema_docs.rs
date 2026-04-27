@@ -828,6 +828,26 @@ fn core_schema_documents_match_current_cli_contracts() {
         "boolean"
     );
     assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["envVar"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["source"],
+        serde_json::json!({"enum": ["env", "auto"], "type": "string"})
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["override"],
+        serde_json::json!({"type": ["string", "null"]})
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["command"],
+        serde_json::json!({
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+        })
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
         false
     );
@@ -845,35 +865,32 @@ fn core_schema_documents_match_current_cli_contracts() {
         .collect::<Vec<_>>()
     );
     assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["hostLabel"]["type"],
-        "string"
+        doctor["properties"]["browserRuntimeContract"]["properties"]["hostLabel"],
+        serde_json::json!({"type": "string"})
     );
     assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescription"]["type"],
-        "string"
+        doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescription"],
+        serde_json::json!({"type": "string"})
     );
     assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]
-            ["minItems"],
-        1
+        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"],
+        serde_json::json!({
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+        })
     );
     assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"]
-            ["type"],
-        "string"
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"],
+        serde_json::json!({"type": "string"})
     );
     assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"]["type"],
-        "string"
-    );
-    assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["minItems"],
-        1
-    );
-    assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["items"]
-            ["type"],
-        "string"
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"],
+        serde_json::json!({
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+        })
     );
 
     let init: serde_json::Value = serde_json::from_str(
