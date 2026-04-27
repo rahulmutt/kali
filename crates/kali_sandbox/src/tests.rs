@@ -658,6 +658,29 @@ globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
 }
 
 #[test]
+fn effect_analysis_marks_computed_bracketed_deno_env_read_as_dynamic() {
+    let source = write_source_fixture_with_extension(
+        r#"
+Deno["env"]["get"]("KALI_CORPUS_FLAG");
+globalThis["Deno"]["env"]["get"]("KALI_CORPUS_FLAG");
+"#,
+        "js",
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Process.EnvRead"));
+}
+
+#[test]
 fn effect_analysis_marks_proxy_constructor_and_revocable_calls_as_dynamic() {
     let source = write_source_fixture(
         r#"

@@ -34894,6 +34894,56 @@ globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
 }
 
 #[test]
+fn effects_command_reports_computed_bracketed_deno_env_get_as_dynamic() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"
+const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment') {
+  throw new Error('expected env get');
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_GET_SMOKE", "hello-environment")
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["dynamicEffects"], true);
+    assert_eq!(
+        json["payload"]["dynamicReasons"],
+        json!(["computed-host-access"])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Process.EnvRead"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_treats_permissions_query_as_effect_free() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -37215,6 +37265,61 @@ fn package_effects_reports_computed_deno_host_access() {
         .map(|entry| entry["kind"].as_str().expect("kind string"))
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Process.EnvWrite"), "effects: {kinds:?}");
+}
+
+#[test]
+fn package_effects_reports_computed_bracketed_deno_env_get_as_dynamic() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment') {
+  throw new Error('expected env get');
+}
+"#,
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_GET_SMOKE", "hello-environment")
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["dynamicEffects"], true);
+    assert_eq!(
+        json["report"]["dynamicReasons"],
+        json!(["computed-host-access"])
+    );
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Process.EnvRead"), "effects: {kinds:?}");
 }
 
 #[test]
