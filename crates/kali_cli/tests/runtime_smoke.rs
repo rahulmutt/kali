@@ -5725,6 +5725,63 @@ main();
 }
 
 #[test]
+fn json_test_merges_missing_tests_failed_from_browser_summary_stdout_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("merge-summary.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('browser merge', () => { console.log('browser merge'); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser merge\"],\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(
+        json["payload"],
+        serde_json::json!({
+            "total": 1,
+            "passed": 0,
+            "failed": 1,
+            "skipped": 0,
+            "runtimeMs": json["payload"]["runtimeMs"],
+            "hostContract": "browser-requested",
+            "runtimeBackend": "browser-harness",
+        })
+    );
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("\"testsFailed\":1"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn run_supports_object_enumeration_semantics_when_browser_harness_is_configured() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
