@@ -1654,6 +1654,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser pi-coding-agent corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited pi-coding-agent corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser web-baseline primitive packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser web-baseline inherited-browser corpus row should be recorded in the package corpus matrix",
         ),
@@ -2083,6 +2087,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_package_content_inherited_row,
         "browser inherited package-content runtime corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_package_content_inherited_check_build_row =
+        "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_package_content_inherited_check_build_row,
+        "browser inherited pi-coding-agent corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_fixtures_row =
         "| browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";

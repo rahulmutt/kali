@@ -1180,6 +1180,45 @@ console.log(codingAgent());
 }
 
 #[test]
+fn browser_corpus_pi_coding_agent_style_package_remains_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write pi-coding-agent browser JS source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "pi-coding-agent corpus package content should be checkable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(
+        dir.path(),
+        ["build", "--bundle", source_path.to_str().unwrap()],
+    );
+    assert!(
+        build.status.success(),
+        "pi-coding-agent corpus package content should be deployable-through-host via browser bundle in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+}
+
+#[test]
 fn browser_corpus_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("react", "jsx-runtime"),
