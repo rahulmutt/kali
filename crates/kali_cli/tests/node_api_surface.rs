@@ -523,8 +523,70 @@ Kali.test('node timers', () => {
         .args(["run", "--api", "node", run_file.to_str().unwrap()]);
     assert_node_api_succeeds("run", run, "node timers ok\n");
 
+    let run_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("node")
+        .arg(&run_file)
+        .output()
+        .expect("run kali");
+    assert!(
+        run_output.status.success(),
+        "run stderr: {}",
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+    let run_json = parse_json_stdout(&run_output);
+    assert_eq!(run_json["command"], "run");
+    assert_eq!(run_json["success"], true);
+    assert_eq!(run_json["exitCode"], 0);
+    assert_eq!(run_json["payload"]["exitCode"], 0);
+    assert_eq!(run_json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(run_json["payload"]["hostContract"], "kali-hosted");
+    assert!(
+        run_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("node timers ok\n"),
+        "run json: {run_json}"
+    );
+
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path())
         .args(["test", "--api", "node", test_file.to_str().unwrap()]);
     assert_node_api_succeeds("test", test, "node timers ok\n");
+
+    let test_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("node")
+        .arg(&test_file)
+        .output()
+        .expect("run kali");
+    assert!(
+        test_output.status.success(),
+        "test stderr: {}",
+        String::from_utf8_lossy(&test_output.stderr)
+    );
+    let test_json = parse_json_stdout(&test_output);
+    assert_eq!(test_json["command"], "test");
+    assert_eq!(test_json["success"], true);
+    assert_eq!(test_json["exitCode"], 0);
+    assert_eq!(test_json["payload"]["failed"], 0);
+    assert_eq!(test_json["payload"]["passed"], 1);
+    assert_eq!(test_json["payload"]["total"], 1);
+    assert_eq!(test_json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(test_json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        test_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("node timers ok\n"),
+        "test json: {test_json}"
+    );
 }
