@@ -12438,6 +12438,64 @@ main();
 }
 
 #[test]
+fn json_run_supports_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn test_supports_async_await_sequencing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -12506,6 +12564,63 @@ main();
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn json_test_supports_queue_microtask_ordering_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  let microtaskRan = false;
+  queueMicrotask(() => {
+    microtaskRan = true;
+  });
+  if (microtaskRan) {
+    throw new Error('microtask ran too early');
+  }
+  await Promise.resolve();
+  if (!microtaskRan) {
+    throw new Error('microtask did not run before the next turn');
+  }
+  console.log('queueMicrotask ok');
+}
+main();
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("queueMicrotask ok"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
 }
 
 #[test]
