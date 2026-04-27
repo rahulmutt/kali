@@ -8587,6 +8587,8 @@ fn run_uses_browser_entrypoint_for_additional_chrome_aliases() {
         "google-chrome-canary",
         "google-chrome-dev",
         "google-chrome-unstable",
+        "chrome-headless-shell",
+        "google-chrome-headless-shell",
     ] {
         run_browser_entrypoint_smoke(browser_name);
     }
@@ -8766,6 +8768,35 @@ fn run_uses_browser_entrypoint_for_additional_privacy_browser_aliases() {
 #[test]
 fn test_uses_browser_entrypoint_for_browser_like_executables() {
     test_browser_entrypoint_smoke("chromium");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_google_chrome_stable_executables() {
+    for browser_name in ["google-chrome-stable", "google chrome stable"] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_additional_chrome_aliases() {
+    for browser_name in [
+        "chrome",
+        "chrome-beta",
+        "chrome-canary",
+        "chrome-dev",
+        "chrome-unstable",
+        "google-chrome",
+        "google-chrome-beta",
+        "google-chrome-canary",
+        "google-chrome-dev",
+        "google-chrome-unstable",
+        "chrome-headless-shell",
+        "google-chrome-headless-shell",
+    ] {
+        test_browser_entrypoint_smoke(browser_name);
+    }
 }
 
 #[cfg(unix)]
