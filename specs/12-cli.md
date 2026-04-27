@@ -548,6 +548,7 @@ Initialize a new project scaffold.
 ```bash
 kali init                                  # Create the minimal project scaffold in the current dir (kali.json + main.ts)
 kali init --lib                            # Create the minimal library scaffold (kali.json + lib.ts)
+kali init --output json                    # Emit the schema-v1 init result envelope
 ```
 
 Behavior:
