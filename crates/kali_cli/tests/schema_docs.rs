@@ -2216,6 +2216,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "call-inlining-benchmark-v1",
         "closure-inlining-benchmark-v1",
         "object-enumeration-benchmark-v1",
+        "integer-like-object-enumeration-benchmark-v1",
         "object-enumeration-alias-chain-benchmark-v1",
         "identity-chain-benchmark-v1",
         "nested-wrapper-pruning-benchmark-v1",

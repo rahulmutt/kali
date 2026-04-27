@@ -1,0 +1,7 @@
+{
+  "benchmark": "integer-like-object-enumeration-folding",
+  "version": 1,
+  "sourceFile": "integer-like-object-enumeration-benchmark-v1.ts",
+  "sourceSha256": "sha256-3b2fbf4785995dcd60f4a562746ba100a71dc7e742b79542bd7a33bec3171d5f",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
