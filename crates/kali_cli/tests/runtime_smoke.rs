@@ -634,6 +634,170 @@ fn json_build_accepts_deno_pid_in_js_input() {
 }
 
 #[test]
+fn check_build_and_run_accept_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Deno[\"pid\"]);\n").expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let pid = stdout.trim().parse::<u32>().expect("pid stdout");
+    assert!(pid > 0, "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_accepts_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Deno[\"pid\"]);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    let pid = stdout.trim().parse::<u32>().expect("pid stdout");
+    assert!(pid > 0, "json: {json}");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_build_accepts_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Deno[\"pid\"]);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "executable");
+    assert_eq!(payload["buildMode"], "fast");
+    let output_path = PathBuf::from(payload["outputPath"].as_str().expect("output path"));
+    assert_eq!(output_path, source_path.with_extension("wasm"));
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+    assert!(payload["sizeBytes"].as_u64().expect("size bytes") > 0);
+    assert!(payload["sourceHash"].as_str().is_some());
+}
+
+#[test]
+fn test_accepts_bracketed_direct_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Kali.test('pid', () => { if (!Deno[\"pid\"]) { throw new Error('expected pid'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
+#[test]
+fn json_test_accepts_bracketed_direct_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Kali.test('pid', () => { if (!Deno[\"pid\"]) { throw new Error('expected pid'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn test_accepts_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -734,7 +898,7 @@ fn json_test_accepts_global_this_deno_pid_in_js_input() {
 }
 
 #[test]
-fn test_accepts_bracketed_deno_pid_in_js_input() {
+fn test_accepts_bracketed_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -754,7 +918,7 @@ fn test_accepts_bracketed_deno_pid_in_js_input() {
 }
 
 #[test]
-fn json_test_accepts_bracketed_deno_pid_in_js_input() {
+fn json_test_accepts_bracketed_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
