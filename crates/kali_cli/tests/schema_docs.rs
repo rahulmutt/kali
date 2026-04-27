@@ -229,6 +229,23 @@ fn core_schema_documents_match_current_cli_contracts() {
         }
     }
 
+    for variant_index in [0, 2] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["profileDataHash"]["type"],
+            "string"
+        );
+    }
+    for variant_index in [1, 3, 4] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["witPath"]["type"],
+            "string"
+        );
+    }
+    assert_eq!(
+        build_variants[4]["properties"]["bindingPackagePath"]["type"],
+        "string"
+    );
+
     let test_result: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/test/v1.json")).expect("read test schema"),
     )

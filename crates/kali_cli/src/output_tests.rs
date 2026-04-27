@@ -59,3 +59,21 @@ fn validate_envelope_value_rejects_wrong_top_level_shapes() {
     let err = validate_envelope_value(&missing_key).expect_err("missing exitCode should fail");
     assert!(err.contains("top-level keys"), "unexpected error: {err}");
 }
+
+#[test]
+fn validate_envelope_value_rejects_fractional_exit_code() {
+    let invalid_exit_code = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1.5,
+    });
+    let err = validate_envelope_value(&invalid_exit_code)
+        .expect_err("fractional exitCode should fail validation");
+    assert!(err.contains("exitCode"), "unexpected error: {err}");
+}
