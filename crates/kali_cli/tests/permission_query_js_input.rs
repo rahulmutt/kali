@@ -11,6 +11,10 @@ fn unsupported_permission_query_source() -> &'static str {
     "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"ffi\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"sys\" });"
 }
 
+fn supported_permission_query_const_binding_source() -> &'static str {
+    "const read_descriptor = \"read\";\nconst write_descriptor = \"write\";\nconst env_descriptor = \"env\";\nconst net_descriptor = \"net\";\nDeno.permissions.query({ name: read_descriptor });\nDeno.permissions[\"query\"]({ name: read_descriptor });\nDeno.permissions.query({ name: write_descriptor });\nDeno.permissions[\"query\"]({ name: write_descriptor });\nDeno.permissions.query({ name: env_descriptor });\nDeno.permissions[\"query\"]({ name: env_descriptor });\nDeno.permissions.query({ name: net_descriptor });\nDeno.permissions[\"query\"]({ name: net_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: read_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: read_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: write_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: write_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: env_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: env_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: net_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: net_descriptor });"
+}
+
 fn assert_unsupported_permission_query_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
@@ -41,6 +45,66 @@ fn assert_unsupported_permission_query_rejection_json(errors: &[Value]) {
             .expect("error message")
             .contains("permission query descriptor 'sys'")
     }));
+}
+
+#[test]
+fn check_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        supported_permission_query_const_binding_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn build_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        supported_permission_query_const_binding_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built executable artifact at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
 }
 
 #[test]
