@@ -78,7 +78,7 @@ console.log(1);
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];"
+    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process[\"cwd\"]; globalThis.process[\"cwd\"]; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; process[\"chdir\"]; globalThis.process[\"chdir\"]; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis.process.exit; process[\"exit\"]; globalThis.process[\"exit\"]; globalThis[\"process\"][\"exit\"];"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -123,9 +123,17 @@ fn late_process_control_source_includes_bracketed_spellings() {
         r#"globalThis["Deno"]["exit"]"#,
         r#"Deno["exit"]"#,
         r#"globalThis.Deno["exit"]"#,
+        r#"process["pid"]"#,
+        r#"globalThis.process["pid"]"#,
         r#"globalThis["process"]["pid"]"#,
+        r#"process["cwd"]"#,
+        r#"globalThis.process["cwd"]"#,
         r#"globalThis["process"]["cwd"]"#,
+        r#"process["chdir"]"#,
+        r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"]["chdir"]"#,
+        r#"process["exit"]"#,
+        r#"globalThis.process["exit"]"#,
         r#"globalThis["process"]["exit"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
