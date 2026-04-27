@@ -323,6 +323,63 @@ fn json_check_accepts_deno_env_get_in_js_input() {
 }
 
 #[test]
+fn check_build_run_and_test_accept_deno_env_set_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nconsole.log(Deno.env.get('KALI_ENV_SET_SMOKE'));\n",
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg("--api")
+            .arg("deno")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("deno")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "hello-environment", "stdout: {stdout}");
+
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &test_path,
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nKali.test('env mutation', () => { if (Deno.env.get('KALI_ENV_SET_SMOKE') !== 'hello-environment') { throw new Error('expected env mutation'); } });\n",
+    )
+    .expect("write test source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("deno")
+        .arg(&test_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_build_and_run_accept_bracketed_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

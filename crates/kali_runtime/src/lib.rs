@@ -1114,6 +1114,28 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
     linker
         .func_wrap(
             "kali:rt",
+            "env_set",
+            |mut caller: Caller<'_, KaliHostState>,
+             key_ptr: i32,
+             key_len: i32,
+             value_ptr: i32,
+             value_len: i32|
+             -> wasmtime::Result<i32> {
+                let key = read_guest_string(&mut caller, key_ptr, key_len)?;
+                let value = read_guest_string(&mut caller, value_ptr, value_len)?;
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::EnvironmentWrite { key: key.clone() },
+                )?;
+                caller.data_mut().env.insert(key, value);
+                Ok(1)
+            },
+        )
+        .map_err(|error| host_import_error("env_set", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "args_len",
             |caller: Caller<'_, KaliHostState>| -> i32 { caller.data().args.len() as i32 },
         )

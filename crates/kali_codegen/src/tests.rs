@@ -414,6 +414,26 @@ fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
 }
 
 #[test]
+fn deno_env_set_member_calls_lower_to_runtime_env_set_import() {
+    let program =
+        parse_and_lower_lir("Deno.env.set(\"KALI_ENV_SET_SMOKE\", \"hello-environment\");");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"env_set\""));
+}
+
+#[test]
 fn process_argv_slice_length_lowers_to_runtime_args_length_minus_start() {
     let program = parse_and_lower_lir("console.log(process.argv.slice(2).length);");
     let mut ctx = CodegenCtx::new(TargetConfig {

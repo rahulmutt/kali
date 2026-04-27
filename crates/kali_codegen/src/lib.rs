@@ -140,6 +140,7 @@ struct FunctionEmitter<'a> {
     program: &'a LirProgram,
     node_lookup: &'a [LirNode],
     functions: &'a BTreeMap<String, u32>,
+    env_set_import_index: Option<u32>,
     env_get_import_index: Option<u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
@@ -153,6 +154,7 @@ impl<'a> FunctionEmitter<'a> {
     fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
+        env_set_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
@@ -168,6 +170,7 @@ impl<'a> FunctionEmitter<'a> {
             program,
             node_lookup: &program.nodes,
             functions,
+            env_set_import_index,
             env_get_import_index,
             diagnostics,
             strings,
@@ -1061,6 +1064,60 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.env_set_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(key_expr) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(value_expr) = args.next() else {
+                self.push_placeholder_fallback_diagnostic("call target", "Deno.env.set");
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(key_text) = self.render_static_value(*key_expr) else {
+                self.push_placeholder_fallback_diagnostic("call target", "Deno.env.set");
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(value_text) = self.render_static_value(*value_expr) else {
+                self.push_placeholder_fallback_diagnostic("call target", "Deno.env.set");
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let (key_offset, key_len) = self.strings.intern(&key_text);
+            let (value_offset, value_len) = self.strings.intern(&value_text);
+            function.instruction(&Instruction::I32Const(key_offset as i32));
+            function.instruction(&Instruction::I32Const(key_len as i32));
+            function.instruction(&Instruction::I32Const(value_offset as i32));
+            function.instruction(&Instruction::I32Const(value_len as i32));
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::Drop);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(import_index) = self.env_get_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(key_expr) = args.next() else {
@@ -1248,6 +1305,26 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "set" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        let object_node = self.node(object);
+        if object_node.text.as_deref() != Some("env") {
+            return None;
+        }
+
+        let root = object_node.children.first().copied()?;
+        if !self.is_deno_pid(root) {
+            return None;
+        }
+
+        self.env_set_import_index
     }
 
     fn env_get_import_index(&self, callee_node: &LirNode) -> Option<u32> {
@@ -1603,10 +1680,27 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut function_name_to_index = BTreeMap::new();
     let mut string_pool = StringPool::new(ENV_GET_BUFFER_RESERVED);
     let uses_env_get = program_uses_env_get(lir);
+    let uses_env_set = program_uses_env_set(lir);
+    let uses_env_access = uses_env_get || uses_env_set;
     let function_index_offset = FUNCTION_INDEX_OFFSET
-        + if uses_env_get { 1 } else { 0 }
-        + if ctx.target.coverage { 1 } else { 0 };
+        + if ctx.target.coverage { 1 } else { 0 }
+        + if uses_env_set { 1 } else { 0 }
+        + if uses_env_get { 1 } else { 0 };
+    let env_get_type_index = if uses_env_access {
+        Some(5 + if ctx.target.coverage { 1 } else { 0 })
+    } else {
+        None
+    };
     let env_get_import_index = if uses_env_get {
+        Some(
+            COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let env_set_import_index = if uses_env_set {
         Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
     } else {
         None
@@ -1638,7 +1732,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I64], vec![ValType::I64]);
-    if uses_env_get {
+    if uses_env_access {
         type_section.ty().function(
             vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
             vec![ValType::I32],
@@ -1662,8 +1756,19 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
-    if uses_env_get {
-        import_section.import("kali:rt", "env_get", EntityType::Function(5));
+    if let Some(_) = env_set_import_index {
+        import_section.import(
+            "kali:rt",
+            "env_set",
+            EntityType::Function(env_get_type_index.unwrap()),
+        );
+    }
+    if let Some(_) = env_get_import_index {
+        import_section.import(
+            "kali:rt",
+            "env_get",
+            EntityType::Function(env_get_type_index.unwrap()),
+        );
     }
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
@@ -1673,7 +1778,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + if uses_env_get { 6 } else { 5 };
+            let idx = function_types.len() as u32 + if uses_env_access { 6 } else { 5 };
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
@@ -1721,6 +1826,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
+            env_set_import_index,
             env_get_import_index,
             &mut diagnostics,
             &mut string_pool,
@@ -1804,6 +1910,49 @@ fn program_uses_env_get(lir: &LirProgram) -> bool {
             return false;
         };
         if callee_node.text.as_deref() != Some("get") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        if object_node.text.as_deref() != Some("env") {
+            return false;
+        }
+
+        let Some(root) = object_node.children.first() else {
+            return false;
+        };
+        let Some(root_node) = lir.nodes.get(root.0 as usize) else {
+            return false;
+        };
+
+        root_node.text.as_deref() == Some("Deno")
+            || (root_node.text.as_deref() == Some("globalThis")
+                && root_node.children.first().is_some_and(|child| {
+                    lir.nodes
+                        .get(child.0 as usize)
+                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+                }))
+    })
+}
+
+fn program_uses_env_set(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("set") {
             return false;
         }
 
