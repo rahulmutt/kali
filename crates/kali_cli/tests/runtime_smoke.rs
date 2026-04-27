@@ -16038,6 +16038,119 @@ fn json_test_supports_object_property_deletion_semantics_in_js_input() {
     assert_json_object_property_deletion_semantics("test", "smoke.test.js");
 }
 
+fn assert_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn assert_json_browser_requested_object_property_deletion_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn run_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_requested_object_property_deletion_semantics("run", "main.ts");
+}
+
+#[test]
+fn run_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_requested_object_property_deletion_semantics("run", "main.js");
+}
+
+#[test]
+fn test_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_requested_object_property_deletion_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn test_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_requested_object_property_deletion_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics("run", "main.ts");
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics("run", "main.js");
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics("test", "smoke.test.ts");
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics("test", "smoke.test.js");
+}
+
 fn object_type_and_constructor_semantics_source(test_mode: bool) -> String {
     if test_mode {
         return r#"function Box() {}
