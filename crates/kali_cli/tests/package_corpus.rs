@@ -8749,6 +8749,55 @@ fn utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executa
 }
 
 #[test]
+fn json_utility_corpus_packages_with_web_baseline_primitives_remain_checkable_executable_and_testable_on_the_default_standalone_surface_in_js_input(
+) {
+    for package in ["ramda", "uuid", "dayjs", "zod", "lodash", "yaml"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), None);
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+        let test_path = dir.path().join("tests").join("web-baseline.test.js");
+        write_web_baseline_test_source(&test_path, package);
+
+        for (command, path) in [
+            ("check", source_path.as_path()),
+            ("build", source_path.as_path()),
+            ("run", source_path.as_path()),
+            ("test", test_path.as_path()),
+        ] {
+            let output = Command::new(kali_bin())
+                .current_dir(dir.path())
+                .arg("--output")
+                .arg("json")
+                .arg(command)
+                .arg(path)
+                .output()
+                .expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "utility web-baseline package {package} should be {command}able on js input with json output\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], true);
+            assert_eq!(json["exitCode"], 0);
+            assert!(json["payload"].is_object(), "json: {json}");
+        }
+    }
+}
+
+#[test]
 fn utility_corpus_packages_with_mixed_format_entries_remain_executable_on_the_default_standalone_surface(
 ) {
     for (package, subpath) in [
