@@ -9378,7 +9378,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-timers-corpus",
-            "import timers from \"node:timers\";\nexport default function root() { return typeof timers.setTimeout === \"function\" && typeof timers.clearTimeout === \"function\" && typeof timers.setInterval === \"function\" ? 0 : 1; }\n",
+            "import timers from \"node:timers\";\nexport default function root() { return typeof timers.setTimeout === \"function\" && typeof timers.clearTimeout === \"function\" && typeof timers.setInterval === \"function\" && typeof timers.clearInterval === \"function\" ? 0 : 1; }\n",
             "0",
         ),
         (
