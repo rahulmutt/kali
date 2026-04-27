@@ -10300,6 +10300,13 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
     ] {
+        if package == "node-timers-corpus" {
+            assert!(
+                body.contains("clearInterval"),
+                "node timers corpus should confirm clearInterval"
+            );
+        }
+
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_module_only_package(dir.path(), package, body);

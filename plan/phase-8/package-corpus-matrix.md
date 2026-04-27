@@ -140,3 +140,4 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The matrix intentionally tracks **current evidence slices**, not a full package-support catalog.
 - Command availability and public support remain phase-gated elsewhere; this file only records where corpus evidence currently exists.
 - Registry-analysis commands (`package-effects`, `package-audit`) are tracked in their own schema/command work packets and are not conflated with the package-corpus rows above.
+- The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, and the prose notes in the roadmap now call that out explicitly.
