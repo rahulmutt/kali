@@ -89,6 +89,7 @@ pub struct TypeContext {
     next_binding_id: u32,
     base_path: Option<PathBuf>,
     api_surface: String,
+    in_generator_function: bool,
 }
 
 impl TypeContext {
@@ -109,6 +110,7 @@ impl TypeContext {
             next_binding_id,
             base_path: None,
             api_surface: "deno".to_string(),
+            in_generator_function: false,
         }
     }
 
@@ -430,6 +432,8 @@ impl TypeContext {
             }) => {
                 self.bind_current_scope(name.clone());
                 self.push_scope(ScopeType::Function);
+                let previous_generator = self.in_generator_function;
+                self.in_generator_function = *generator;
                 if *generator {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
@@ -438,6 +442,7 @@ impl TypeContext {
                 }
                 self.bind_name_list(params);
                 self.resolve_block_body(body);
+                self.in_generator_function = previous_generator;
                 self.pop_scope();
             }
             Statement::ClassDeclaration(ClassDeclaration { name, body }) => {
@@ -623,10 +628,12 @@ impl TypeContext {
             }
             Expression::ParenthesizedExpression(expr) => self.resolve_expression(&expr.expression),
             Expression::YieldExpression(expr) => {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "yield expressions are unavailable in the current phase; generator lowering is not yet implemented",
-                ));
+                if !self.in_generator_function {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "yield expressions are unavailable in the current phase; generator lowering is not yet implemented",
+                    ));
+                }
                 if let Some(argument) = &expr.argument {
                     self.resolve_expression(argument);
                 }
@@ -1096,6 +1103,8 @@ impl TypeContext {
 
     fn resolve_function_expression(&mut self, expr: &FunctionExpression) {
         self.push_scope(ScopeType::Function);
+        let previous_generator = self.in_generator_function;
+        self.in_generator_function = expr.generator;
         if expr.generator {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1109,6 +1118,7 @@ impl TypeContext {
         if let Some(body) = &expr.body {
             self.resolve_block_body(body);
         }
+        self.in_generator_function = previous_generator;
         self.pop_scope();
     }
 

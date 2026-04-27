@@ -1773,24 +1773,19 @@ fn test_resolution_rejects_generator_function_lowering() {
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message
-            .contains("generator function lowering is unavailable")
-    }));
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message.contains("yield expressions are unavailable")
-            || diag
-                .message
-                .contains("generator lowering is not yet implemented")
-    }));
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("generator function lowering is unavailable"));
 }
 
 #[test]
@@ -1818,24 +1813,19 @@ fn test_resolution_rejects_generator_function_lowering_in_js_input() {
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message
-            .contains("generator function lowering is unavailable")
-    }));
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message.contains("yield expressions are unavailable")
-            || diag
-                .message
-                .contains("generator lowering is not yet implemented")
-    }));
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("generator function lowering is unavailable"));
 }
 
 #[test]
