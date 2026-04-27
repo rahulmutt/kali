@@ -225,6 +225,65 @@ globalThis.Deno.permissions.query({ name: env_descriptor });
 globalThis.Deno.permissions.query({ name: net_descriptor });"#
 }
 
+fn supported_permission_query_const_binding_runtime_source() -> String {
+    format!(
+        r#"async function main() {{
+const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+await Deno.permissions.query({{ name: read_descriptor }});
+await Deno.permissions.query({{ name: write_descriptor }});
+await Deno.permissions.query({{ name: env_descriptor }});
+await Deno.permissions.query({{ name: net_descriptor }});
+await Deno.permissions["query"]({{ name: read_descriptor }});
+await Deno.permissions["query"]({{ name: write_descriptor }});
+await Deno.permissions["query"]({{ name: env_descriptor }});
+await Deno.permissions["query"]({{ name: net_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: read_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: read_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: write_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: write_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: env_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: env_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: net_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
+  console.log("permission query const bindings ok");
+}}
+main();
+"#
+    )
+}
+
+fn supported_permission_query_const_binding_test_source() -> String {
+    format!(
+        r#"async function main() {{
+const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+await Deno.permissions.query({{ name: read_descriptor }});
+await Deno.permissions.query({{ name: write_descriptor }});
+await Deno.permissions.query({{ name: env_descriptor }});
+await Deno.permissions.query({{ name: net_descriptor }});
+await Deno.permissions["query"]({{ name: read_descriptor }});
+await Deno.permissions["query"]({{ name: write_descriptor }});
+await Deno.permissions["query"]({{ name: env_descriptor }});
+await Deno.permissions["query"]({{ name: net_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: read_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: read_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: write_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: write_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: env_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: env_descriptor }});
+await globalThis["Deno"]["permissions"].query({{ name: net_descriptor }});
+await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
+}}
+Kali.test('permission query const bindings', () => main());
+"#
+    )
+}
+
 fn assert_permission_escalation_stderr(stderr: &str, expected: &[&str]) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in expected {
@@ -38484,6 +38543,63 @@ globalThis["Deno"]["permissions"]["query"]({ "name": "net" });
     assert_eq!(json["success"], true);
     assert_eq!(json["payload"]["filesChecked"], 1);
     assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn run_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        supported_permission_query_const_binding_runtime_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("permission query const bindings ok"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
+fn test_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        supported_permission_query_const_binding_test_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]
