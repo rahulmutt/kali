@@ -1382,6 +1382,113 @@ export async function loadWithImports(importObject) {
 }
 
 #[test]
+fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "not-json"); process.stdout.write("{\"args\":[\"zeta\"],\"tests\":[\"7\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["zeta".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["zeta".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_bundle_runtime_summary_uses_stdout_labels_when_summary_file_lacks_them() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"zeta\"],\"tests\":[\"7\"],\"testsFailed\":0}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"stdout\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["zeta".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["zeta".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["7".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_bundle_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
     let page = browser_bundle_runtime_harness_page(
         "browser-app",
