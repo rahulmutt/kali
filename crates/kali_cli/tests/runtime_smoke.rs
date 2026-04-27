@@ -1079,8 +1079,8 @@ fn json_test_accepts_bracketed_deno_pid_in_ts_input() {
 }
 
 fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
-    if test_mode {
-        return r#"Kali.test('web baseline', () => {
+    let source = if test_mode {
+        r#"Kali.test('web baseline', () => {
   const original = { nested: { count: 1 }, values: [1, 2, 3] };
   const cloned = structuredClone(original);
   if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
@@ -1105,11 +1105,26 @@ fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
   if (!dispatched || count !== 1 || !controller.signal.aborted) {
     throw new Error('unexpected event primitive behavior');
   }
+  const query = new URLSearchParams('alpha=1&beta=two+words');
+  query.append('gamma', String(count));
+  query.set('beta', String(count));
+  if (query.get('alpha') !== '1' || query.get('beta') !== String(count) || query.getAll('beta').length !== 1 || !query.has('gamma')) {
+    throw new Error(`unexpected URLSearchParams behavior ${query.toString()}`);
+  }
+  const browserUrl = new URL('https://example.com/browser?alpha=1#fragment');
+  if (browserUrl.origin !== 'https://example.com' || browserUrl.pathname !== '/browser' || browserUrl.search !== '?alpha=1' || browserUrl.hash !== '#fragment' || browserUrl.searchParams.get('alpha') !== '1') {
+    throw new Error(`unexpected URL behavior ${browserUrl.href}`);
+  }
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const encoded = encoder.encode(String(count));
+  if (decoder.decode(encoded) !== String(count)) {
+    throw new Error('unexpected TextEncoder/TextDecoder behavior');
+  }
 });
-"#.to_string();
-    }
-
-    r#"const original = { nested: { count: 1 }, values: [1, 2, 3] };
+"#
+    } else {
+        r#"const original = { nested: { count: 1 }, values: [1, 2, 3] };
 const cloned = structuredClone(original);
 if (cloned === original || cloned.nested === original.nested || cloned.values === original.values) {
   throw new Error('structuredClone should deep-clone object graphs');
@@ -1133,9 +1148,27 @@ const dispatched = target.dispatchEvent(new CustomEvent('tick'));
 if (!dispatched || count !== 1 || !controller.signal.aborted) {
   throw new Error('unexpected event primitive behavior');
 }
+const query = new URLSearchParams('alpha=1&beta=two+words');
+query.append('gamma', String(count));
+query.set('beta', String(count));
+if (query.get('alpha') !== '1' || query.get('beta') !== String(count) || query.getAll('beta').length !== 1 || !query.has('gamma')) {
+  throw new Error(`unexpected URLSearchParams behavior ${query.toString()}`);
+}
+const browserUrl = new URL('https://example.com/browser?alpha=1#fragment');
+if (browserUrl.origin !== 'https://example.com' || browserUrl.pathname !== '/browser' || browserUrl.search !== '?alpha=1' || browserUrl.hash !== '#fragment' || browserUrl.searchParams.get('alpha') !== '1') {
+  throw new Error(`unexpected URL behavior ${browserUrl.href}`);
+}
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+const encoded = encoder.encode(String(count));
+if (decoder.decode(encoded) !== String(count)) {
+  throw new Error('unexpected TextEncoder/TextDecoder behavior');
+}
 console.log('web baseline ok');
 "#
-    .to_string()
+    };
+
+    source.to_string()
 }
 
 #[test]
@@ -17824,6 +17857,22 @@ function webBaselineSmoke(left, right) {
   const dispatched = target.dispatchEvent(new CustomEvent('tick'));
   if (!dispatched || count !== 1 || !controller.signal.aborted) {
     throw new Error('unexpected event primitive behavior');
+  }
+  const query = new URLSearchParams('alpha=1&beta=two+words');
+  query.append('gamma', String(left + right));
+  query.set('beta', String(left));
+  if (query.get('alpha') !== '1' || query.get('beta') !== String(left) || query.getAll('beta').length !== 1 || !query.has('gamma')) {
+    throw new Error(`unexpected URLSearchParams behavior ${query.toString()}`);
+  }
+  const browserUrl = new URL('https://example.com/browser?alpha=1#fragment');
+  if (browserUrl.origin !== 'https://example.com' || browserUrl.pathname !== '/browser' || browserUrl.search !== '?alpha=1' || browserUrl.hash !== '#fragment' || browserUrl.searchParams.get('alpha') !== '1') {
+    throw new Error(`unexpected URL behavior ${browserUrl.href}`);
+  }
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const encoded = encoder.encode(String(left + right));
+  if (decoder.decode(encoded) !== String(left + right)) {
+    throw new Error('unexpected TextEncoder/TextDecoder behavior');
   }
   return left - left;
 }
