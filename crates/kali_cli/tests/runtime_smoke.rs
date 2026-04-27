@@ -18943,9 +18943,21 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input(
     assert_browser_bundle_executes(&bundle_dir, "objectTypeSmoke");
 }
 
-fn unary_void_semantics_source(test_mode: bool) -> String {
+fn unary_prefix_semantics_source(test_mode: bool) -> String {
     if test_mode {
-        return r#"Kali.test('void operator semantics', () => {
+        return r#"Kali.test('unary prefix semantics', () => {
+  const notTrue = !true;
+  if (notTrue !== false) {
+    throw new Error('expected logical negation to invert the boolean');
+  }
+  const negative = -(1 + 2);
+  if (negative !== -3) {
+    throw new Error('expected unary minus to negate the value');
+  }
+  const positive = +(1 + 2);
+  if (positive !== 3) {
+    throw new Error('expected unary plus to preserve the numeric value');
+  }
   const value = void (1 + 2);
   if (value !== void 0) {
     throw new Error('expected void to evaluate to undefined');
@@ -18958,7 +18970,19 @@ fn unary_void_semantics_source(test_mode: bool) -> String {
         .to_string();
     }
 
-    r#"const value = void (1 + 2);
+    r#"const notTrue = !true;
+if (notTrue !== false) {
+  throw new Error('expected logical negation to invert the boolean');
+}
+const negative = -(1 + 2);
+if (negative !== -3) {
+  throw new Error('expected unary minus to negate the value');
+}
+const positive = +(1 + 2);
+if (positive !== 3) {
+  throw new Error('expected unary plus to preserve the numeric value');
+}
+const value = void (1 + 2);
 if (value !== void 0) {
   throw new Error('expected void to evaluate to undefined');
 }
@@ -18969,10 +18993,10 @@ if (typeof value !== 'undefined') {
     .to_string()
 }
 
-fn assert_unary_void_semantics(command: &str, filename: &str) {
+fn assert_unary_prefix_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, unary_void_semantics_source(false)).expect("write source");
+    fs::write(&source_path, unary_prefix_semantics_source(false)).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -18989,10 +19013,10 @@ fn assert_unary_void_semantics(command: &str, filename: &str) {
     );
 }
 
-fn assert_json_unary_void_semantics(command: &str, filename: &str) {
+fn assert_json_unary_prefix_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, unary_void_semantics_source(false)).expect("write source");
+    fs::write(&source_path, unary_prefix_semantics_source(false)).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -19030,43 +19054,43 @@ fn assert_json_unary_void_semantics(command: &str, filename: &str) {
 }
 
 #[test]
-fn run_supports_unary_void_semantics() {
-    assert_unary_void_semantics("run", "smoke.ts");
+fn run_supports_unary_prefix_semantics() {
+    assert_unary_prefix_semantics("run", "smoke.ts");
 }
 
 #[test]
-fn run_supports_unary_void_semantics_in_js_input() {
-    assert_unary_void_semantics("run", "smoke.js");
+fn run_supports_unary_prefix_semantics_in_js_input() {
+    assert_unary_prefix_semantics("run", "smoke.js");
 }
 
 #[test]
-fn json_run_supports_unary_void_semantics() {
-    assert_json_unary_void_semantics("run", "smoke.ts");
+fn json_run_supports_unary_prefix_semantics() {
+    assert_json_unary_prefix_semantics("run", "smoke.ts");
 }
 
 #[test]
-fn json_run_supports_unary_void_semantics_in_js_input() {
-    assert_json_unary_void_semantics("run", "smoke.js");
+fn json_run_supports_unary_prefix_semantics_in_js_input() {
+    assert_json_unary_prefix_semantics("run", "smoke.js");
 }
 
 #[test]
-fn test_supports_unary_void_semantics() {
-    assert_unary_void_semantics("test", "smoke.test.ts");
+fn test_supports_unary_prefix_semantics() {
+    assert_unary_prefix_semantics("test", "smoke.test.ts");
 }
 
 #[test]
-fn test_supports_unary_void_semantics_in_js_input() {
-    assert_unary_void_semantics("test", "smoke.test.js");
+fn test_supports_unary_prefix_semantics_in_js_input() {
+    assert_unary_prefix_semantics("test", "smoke.test.js");
 }
 
 #[test]
-fn json_test_supports_unary_void_semantics() {
-    assert_json_unary_void_semantics("test", "smoke.test.ts");
+fn json_test_supports_unary_prefix_semantics() {
+    assert_json_unary_prefix_semantics("test", "smoke.test.ts");
 }
 
 #[test]
-fn json_test_supports_unary_void_semantics_in_js_input() {
-    assert_json_unary_void_semantics("test", "smoke.test.js");
+fn json_test_supports_unary_prefix_semantics_in_js_input() {
+    assert_json_unary_prefix_semantics("test", "smoke.test.js");
 }
 
 #[test]
