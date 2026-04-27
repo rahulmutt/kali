@@ -608,6 +608,84 @@ mod member_expressions {
     }
 
     #[test]
+    fn test_parse_bracketed_string_literal_env_get_member_expression() {
+        let output = parse("globalThis[\"Deno\"][\"env\"][\"get\"];");
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::MemberExpression(me) => {
+                    assert_eq!(me.property, "get");
+                    match &me.object {
+                        kali_ast::Expression::MemberExpression(inner) => {
+                            assert_eq!(inner.property, "env");
+                            match &inner.object {
+                                kali_ast::Expression::MemberExpression(root) => {
+                                    assert_eq!(root.property, "Deno");
+                                    match &root.object {
+                                        kali_ast::Expression::Identifier(name) => {
+                                            assert_eq!(name, "globalThis");
+                                        }
+                                        other => {
+                                            panic!("Expected globalThis identifier, got {other:?}")
+                                        }
+                                    }
+                                }
+                                other => {
+                                    panic!("Expected nested Deno MemberExpression, got {other:?}")
+                                }
+                            }
+                        }
+                        other => panic!("Expected nested env MemberExpression, got {other:?}"),
+                    }
+                }
+                _ => panic!("Expected MemberExpression"),
+            },
+            _ => panic!("Expected ExpressionStatement"),
+        }
+    }
+
+    #[test]
+    fn test_parse_bracketed_string_literal_permissions_query_member_expression() {
+        let output = parse("globalThis[\"Deno\"][\"permissions\"][\"query\"];");
+        assert_eq!(output.statements.len(), 1);
+
+        match &output.statements[0] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::MemberExpression(me) => {
+                    assert_eq!(me.property, "query");
+                    match &me.object {
+                        kali_ast::Expression::MemberExpression(inner) => {
+                            assert_eq!(inner.property, "permissions");
+                            match &inner.object {
+                                kali_ast::Expression::MemberExpression(root) => {
+                                    assert_eq!(root.property, "Deno");
+                                    match &root.object {
+                                        kali_ast::Expression::Identifier(name) => {
+                                            assert_eq!(name, "globalThis");
+                                        }
+                                        other => {
+                                            panic!("Expected globalThis identifier, got {other:?}")
+                                        }
+                                    }
+                                }
+                                other => {
+                                    panic!("Expected nested Deno MemberExpression, got {other:?}")
+                                }
+                            }
+                        }
+                        other => {
+                            panic!("Expected nested permissions MemberExpression, got {other:?}")
+                        }
+                    }
+                }
+                _ => panic!("Expected MemberExpression"),
+            },
+            _ => panic!("Expected ExpressionStatement"),
+        }
+    }
+
+    #[test]
     fn test_parse_array_access() {
         let output = parse("arr[index];");
         assert_eq!(output.statements.len(), 1);
