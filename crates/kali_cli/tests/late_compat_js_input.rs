@@ -184,6 +184,21 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
 }
 
 #[test]
+fn late_js_compatibility_source_includes_bracketed_permission_escalation_forms() {
+    let source = late_js_compatibility_source();
+    for expected in [
+        r#"Deno.permissions["request"]()"#,
+        r#"Deno.permissions["revoke"]()"#,
+        r#"globalThis.Deno.permissions["request"]()"#,
+        r#"globalThis.Deno.permissions["revoke"]()"#,
+        r#"globalThis["Deno"]["permissions"]["request"]()"#,
+        r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
 fn check_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
