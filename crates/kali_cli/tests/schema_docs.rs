@@ -1979,6 +1979,13 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "browser runtime inherited-browser string-export corpus row should be recorded exactly once in the package corpus matrix",
     );
 
+    let browser_internal_browser_rewrite_row =
+        "| npm-style package corpus | browser internal browser-rewrite packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_internal_browser_rewrite_row,
+        "browser internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
     let browser_condition_export_row =
         "| npm-style package corpus | browser-condition export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
