@@ -57,6 +57,10 @@ fn late_object_model_own_property_source() -> &'static str {
     "Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\");"
 }
 
+fn broader_intl_source() -> &'static str {
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat;"
+}
+
 #[test]
 fn late_process_control_source_includes_bracketed_spellings() {
     let source = late_process_control_source();
@@ -2991,11 +2995,7 @@ fn check_rejects_late_process_control_members_in_json() {
 fn check_rejects_broader_intl_support() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3010,17 +3010,22 @@ fn check_rejects_broader_intl_support() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
+    assert!(stderr.contains(r#"globalThis["Intl"]"#), "stderr: {stderr}");
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
 fn check_rejects_broader_intl_support_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3047,17 +3052,25 @@ fn check_rejects_broader_intl_support_in_json() {
         .as_str()
         .expect("error message")
         .contains("globalThis.Intl")));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]"#)));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]["NumberFormat"]"#)));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
 }
 
 #[test]
 fn run_rejects_broader_intl_support() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3072,8 +3085,17 @@ fn run_rejects_broader_intl_support() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
+    assert!(stderr.contains(r#"globalThis["Intl"]"#), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.Intl.NumberFormat"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
         "stderr: {stderr}"
     );
 }
@@ -3082,11 +3104,7 @@ fn run_rejects_broader_intl_support() {
 fn run_rejects_broader_intl_support_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3115,18 +3133,23 @@ fn run_rejects_broader_intl_support_in_json() {
         .any(|message| message.contains("globalThis.Intl")));
     assert!(messages
         .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]"#)));
+    assert!(messages
+        .iter()
         .any(|message| message.contains("globalThis.Intl.NumberFormat")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["NumberFormat"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
 }
 
 #[test]
 fn test_rejects_broader_intl_support() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3141,8 +3164,17 @@ fn test_rejects_broader_intl_support() {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Intl"), "stderr: {stderr}");
     assert!(stderr.contains("globalThis.Intl"), "stderr: {stderr}");
+    assert!(stderr.contains(r#"globalThis["Intl"]"#), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.Intl.NumberFormat"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
         "stderr: {stderr}"
     );
 }
@@ -3151,11 +3183,7 @@ fn test_rejects_broader_intl_support() {
 fn test_rejects_broader_intl_support_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
-    fs::write(
-        &source_path,
-        "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Intl.NumberFormat;",
-    )
-    .expect("write source");
+    fs::write(&source_path, broader_intl_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3184,7 +3212,16 @@ fn test_rejects_broader_intl_support_in_json() {
         .any(|message| message.contains("globalThis.Intl")));
     assert!(messages
         .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]"#)));
+    assert!(messages
+        .iter()
         .any(|message| message.contains("globalThis.Intl.NumberFormat")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["NumberFormat"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
 }
 
 #[test]
