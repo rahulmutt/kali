@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-ceil-builtin",
+  "version": 1,
+  "sourceFile": "math-ceil-benchmark-v1.ts",
+  "sourceSha256": "sha256-beca09a3fe2ac70484d2d4a995728f66bae2f765cd3cfcb17d20ca25f164e8d7",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
