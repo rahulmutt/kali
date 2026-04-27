@@ -119,6 +119,60 @@ fn policy_spawn_budget_helper_combines_policy_and_override() {
 }
 
 #[test]
+fn policy_rejects_timer_schedule_when_scheduling_is_disabled() {
+    let mut policy = valid_policy();
+    policy.effects.timer.schedule = false;
+
+    let diagnostic = policy
+        .check_operation(HostOperation::TimerSchedule {
+            delay_ms: 250,
+            active_timers: 0,
+        })
+        .expect_err("timer creation should remain gated when scheduling is disabled");
+
+    assert_eq!(diagnostic.code, Some(e4::EFFECT_NOT_PERMITTED as u32));
+    assert!(diagnostic
+        .message
+        .contains("Timer creation is not allowed by the current policy"));
+}
+
+#[test]
+fn policy_rejects_timer_schedule_when_the_delay_exceeds_the_policy_limit() {
+    let mut policy = valid_policy();
+    policy.effects.timer.max_timeout_ms = Some(100);
+
+    let diagnostic = policy
+        .check_operation(HostOperation::TimerSchedule {
+            delay_ms: 250,
+            active_timers: 0,
+        })
+        .expect_err("timer delays above the policy limit should be rejected");
+
+    assert_eq!(diagnostic.code, Some(e4::RESOURCE_LIMIT_EXCEEDED as u32));
+    assert!(diagnostic
+        .message
+        .contains("timer delay 250ms exceeds policy limit of 100ms"));
+}
+
+#[test]
+fn policy_rejects_timer_schedule_when_the_active_timer_limit_is_reached() {
+    let mut policy = valid_policy();
+    policy.effects.timer.max_active_timers = Some(1);
+
+    let diagnostic = policy
+        .check_operation(HostOperation::TimerSchedule {
+            delay_ms: 250,
+            active_timers: 1,
+        })
+        .expect_err("timer counts above the policy limit should be rejected");
+
+    assert_eq!(diagnostic.code, Some(e4::RESOURCE_LIMIT_EXCEEDED as u32));
+    assert!(diagnostic
+        .message
+        .contains("active timer count 2 exceeds policy limit of 1"));
+}
+
+#[test]
 fn policy_rejects_unavailable_capabilities() {
     let mut policy = valid_policy();
     policy.effects.process.env_write = AccessRule::Deny(true);
