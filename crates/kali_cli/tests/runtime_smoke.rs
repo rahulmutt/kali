@@ -13264,6 +13264,87 @@ fn json_test_supports_math_ceil_semantics_when_browser_harness_is_configured_in_
 }
 
 #[test]
+fn json_run_supports_math_ceil_semantics_when_browser_harness_is_configured_with_inherited_browser_api_surface_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.ts");
+    fs::write(&source_path, "console.log(Math.ceil(3 - 6));\n").expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("-3\n"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_test_supports_math_ceil_semantics_when_browser_harness_is_configured_with_inherited_browser_api_surface_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "console.log(Math.ceil(3 - 6));\n").expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("-3\n"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn test_supports_try_finally_sequencing_when_browser_harness_is_configured() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
