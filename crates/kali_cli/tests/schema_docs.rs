@@ -1018,6 +1018,10 @@ fn binding_package_metadata_schema_is_pinned() {
     assert_eq!(schema["properties"]["moduleName"]["type"], "string");
     assert_eq!(schema["properties"]["hostAbiVersion"]["type"], "integer");
     assert_eq!(schema["properties"]["minHostAbiVersion"]["type"], "integer");
+    assert_eq!(
+        schema["properties"]["maxSpecializations"]["type"],
+        "integer"
+    );
     assert_eq!(schema["properties"]["artifacts"]["type"], "object");
     assert_eq!(
         schema["properties"]["artifacts"]["additionalProperties"],
@@ -1038,6 +1042,10 @@ fn binding_package_metadata_schema_is_pinned() {
     assert_eq!(
         schema["properties"]["artifacts"]["properties"]["glue"]["type"],
         "array"
+    );
+    assert_eq!(
+        schema["properties"]["artifacts"]["properties"]["glue"]["items"]["type"],
+        "string"
     );
     assert_eq!(
         schema["properties"]["artifacts"]["required"],
