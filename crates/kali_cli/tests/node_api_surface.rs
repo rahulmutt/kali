@@ -111,6 +111,104 @@ fn inherited_node_api_surface_is_supported_for_phase1_check_and_build_commands()
 }
 
 #[test]
+fn explicit_node_api_surface_builds_in_js_input_with_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "executable");
+    assert_eq!(payload["buildMode"], "fast");
+    let output_path = PathBuf::from(payload["outputPath"].as_str().expect("output path"));
+    assert_eq!(output_path, source_path.with_extension("wasm"));
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+    assert!(payload["sizeBytes"].as_u64().expect("size bytes") > 0);
+    assert!(payload["sourceHash"].as_str().is_some());
+}
+
+#[test]
+fn inherited_node_api_surface_builds_in_js_input_with_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "executable");
+    assert_eq!(payload["buildMode"], "fast");
+    let output_path = PathBuf::from(payload["outputPath"].as_str().expect("output path"));
+    assert_eq!(output_path, source_path.with_extension("wasm"));
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+    assert!(payload["sizeBytes"].as_u64().expect("size bytes") > 0);
+    assert!(payload["sourceHash"].as_str().is_some());
+}
+
+#[test]
 fn explicit_node_api_surface_executes_on_run_and_test_commands() {
     let dir = tempdir().expect("tempdir");
     let run_file = dir.path().join("main.ts");
