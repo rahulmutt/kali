@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn broader_intl_js_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; Intl.NumberFormat; Intl.DateTimeFormat;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat;"
 }
 
 fn assert_broader_intl_rejection(stderr: &str) {
@@ -22,8 +22,10 @@ fn assert_broader_intl_rejection(stderr: &str) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis.Intl.RelativeTimeFormat",
         "Intl.NumberFormat",
         "Intl.DateTimeFormat",
+        "Intl.RelativeTimeFormat",
     ] {
         assert!(
             stderr.contains(expected),
@@ -47,8 +49,10 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis.Intl.RelativeTimeFormat",
         "Intl.NumberFormat",
         "Intl.DateTimeFormat",
+        "Intl.RelativeTimeFormat",
     ] {
         assert!(
             messages.iter().any(|message| message.contains(expected)),

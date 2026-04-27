@@ -90,7 +90,7 @@ fn late_object_model_own_property_source() -> &'static str {
 }
 
 fn broader_intl_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules;"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat;"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -172,6 +172,7 @@ fn broader_intl_source_includes_bracketed_spellings() {
     for expected in [
         r#"globalThis["Intl"]["NumberFormat"]"#,
         r#"globalThis["Intl"]["DateTimeFormat"]"#,
+        r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
         r#"globalThis["Intl"]["PluralRules"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
