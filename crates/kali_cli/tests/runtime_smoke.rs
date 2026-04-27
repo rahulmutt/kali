@@ -90,7 +90,7 @@ fn late_object_model_own_property_source() -> &'static str {
 }
 
 fn broader_intl_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat;"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules;"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -153,6 +153,18 @@ fn late_object_model_own_property_source_includes_bracketed_spellings() {
     for expected in [
         r#"globalThis["Object"]["hasOwn"]"#,
         r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn broader_intl_source_includes_bracketed_spellings() {
+    let source = broader_intl_source();
+    for expected in [
+        r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]"#,
+        r#"globalThis["Intl"]["PluralRules"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -3942,6 +3954,14 @@ fn check_rejects_broader_intl_support_in_json() {
         .as_str()
         .expect("error message")
         .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("globalThis.Intl.PluralRules")));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]["PluralRules"]"#)));
 }
 
 #[test]
