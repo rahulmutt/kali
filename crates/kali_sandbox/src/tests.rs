@@ -660,6 +660,44 @@ globalThis["Deno"]["env"]["delete"]('KALI_CORPUS_FLAG');
 }
 
 #[test]
+fn effect_analysis_tracks_direct_deno_network_calls_in_js_input() {
+    let source = write_source_fixture_with_extension(
+        r#"
+Deno.connect('127.0.0.1', 1);
+Deno.listen('127.0.0.1', 0);
+Deno.serve('127.0.0.1', 0);
+"#,
+        "js",
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert!(inference.dynamic_reasons.is_empty());
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Network.Connect"));
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Network.Listen"));
+
+    let diagnostics = compare_effects_to_policy(&inference.effects, &valid_policy());
+    assert!(
+        diagnostics.len() >= 2,
+        "expected policy diagnostics for the direct network capability slice, got {diagnostics:?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diag| diag.code == Some(9007)),
+        "expected an E9007 policy mismatch diagnostic: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn effect_analysis_marks_computed_bracketed_deno_network_calls_as_dynamic_in_js_input() {
     let source = write_source_fixture_with_extension(
         r#"
