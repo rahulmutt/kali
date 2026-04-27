@@ -1147,6 +1147,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser bundle shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `EventTarget`, `CustomEvent`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`) in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input",
+        "Browser bundle `crypto.getRandomValues()` plus `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` object-enumeration semantics in `.ts` and `.js` input, including overwrite/delete-reinsert ordering plus string-primitive enumeration in `.js` input and JSON-output coverage",
