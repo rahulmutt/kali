@@ -1011,6 +1011,105 @@ fn test_rejects_threaded_runtime_globals_in_browser_api_surface_js_input_with_br
     assert_browser_late_threaded_runtime_rejection_json(errors);
 }
 
+fn assert_browser_late_threaded_runtime_rejection_for_command(
+    command: &str,
+    command_args: &[&str],
+    with_browser_harness: bool,
+    with_explicit_browser_api_surface: bool,
+    with_browser_api_surface_manifest: bool,
+    source_name: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(source_name);
+    fs::write(&source_path, late_threaded_runtime_source()).expect("write source");
+    if with_browser_api_surface_manifest {
+        write_browser_api_surface_manifest(&dir);
+    }
+
+    for json_output in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output.current_dir(dir.path());
+        if with_browser_harness {
+            output.env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+        }
+        if json_output {
+            output.arg("--output").arg("json");
+        }
+        output.arg(command);
+        for arg in command_args {
+            output.arg(arg);
+        }
+        if with_explicit_browser_api_surface {
+            output.arg("--api").arg("browser");
+        }
+        output.arg(&source_path);
+
+        let output = output.output().expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        if json_output {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert_browser_late_threaded_runtime_rejection_json(errors);
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert_browser_late_threaded_runtime_rejection(&stderr);
+        }
+    }
+}
+
+#[test]
+fn check_rejects_threaded_runtime_globals_in_browser_api_surface_js_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "check",
+        &[],
+        false,
+        true,
+        false,
+        "main.js",
+    );
+}
+
+#[test]
+fn build_rejects_threaded_runtime_globals_in_browser_bundle_js_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        true,
+        false,
+        "main.js",
+    );
+}
+
+#[test]
+fn check_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_js_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "check",
+        &[],
+        false,
+        false,
+        true,
+        "main.js",
+    );
+}
+
+#[test]
+fn build_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_js_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        false,
+        true,
+        "main.js",
+    );
+}
+
 fn assert_browser_late_nullish_coalescing_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
