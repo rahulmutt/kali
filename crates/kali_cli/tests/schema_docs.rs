@@ -1153,6 +1153,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic `Object.keys()` enumeration semantics, including overwrite/delete-reinsert ordering",
         "Basic `Object.entries()` enumeration semantics, including overwrite/delete-reinsert ordering",
         "Basic `Object.values()` enumeration semantics, including overwrite/delete-reinsert ordering",
+        "Basic `Object.keys()` / `Object.entries()` / `Object.values()` string-primitive enumeration semantics in `.js` input",
         "Basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input",
         "Browser-requested `run` / `test` runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input, including JSON-output coverage",
