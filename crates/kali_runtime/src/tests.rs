@@ -2330,6 +2330,37 @@ fn runtime_executes_thread_spawn_host_imports() {
 }
 
 #[test]
+fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()])
+        .with_max_threads(Some(0));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://e.co/t.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 17
+                    call $thread_spawn
+                    drop))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("zero thread budgets should deny thread creation through the host import");
+    assert_eq!(
+        diagnostics[0].code,
+        Some(kali_error::_error_codes::e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+    assert!(diagnostics[0]
+        .message
+        .contains("active thread count 1 exceeds policy limit of 0"));
+}
+
+#[test]
 fn runtime_exposes_environment_variables() {
     let mut env = BTreeMap::new();
     env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());
