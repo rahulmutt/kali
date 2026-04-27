@@ -45,6 +45,38 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
+fn write_browser_api_surface_manifest(dir: &Path) {
+    fs::write(
+        dir.join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+}
+
+fn browser_runtime_try_catch_and_finally_source() -> &'static str {
+    r#"let caught = false;
+try {
+  throw 'boom';
+} catch {
+  caught = true;
+}
+if (!caught) {
+  throw new Error('catch did not run');
+}
+try {
+  0;
+} finally {
+  console.log(2);
+}
+console.log(1);
+"#
+}
+
 fn late_process_control_source() -> &'static str {
     "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];"
 }
@@ -6845,6 +6877,166 @@ console.log(1);
     assert_eq!(json["success"], true);
     assert_eq!(json["exitCode"], 0);
     assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn run_supports_try_catch_and_finally_sequencing_when_browser_harness_is_configured_with_inherited_browser_api_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.ts");
+    fs::write(&source_path, browser_runtime_try_catch_and_finally_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn run_supports_try_catch_and_finally_sequencing_when_browser_harness_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.js");
+    fs::write(&source_path, browser_runtime_try_catch_and_finally_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_configured_with_inherited_browser_api_surface(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, browser_runtime_try_catch_and_finally_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_try_catch_and_finally_sequencing_when_browser_harness_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, browser_runtime_try_catch_and_finally_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
