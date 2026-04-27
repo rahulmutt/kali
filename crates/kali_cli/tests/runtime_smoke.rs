@@ -359,6 +359,68 @@ fn json_check_accepts_deno_env_get_in_js_input() {
 }
 
 #[test]
+fn test_supports_bracketed_deno_env_get_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment') { throw new Error('expected env get'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_GET_SMOKE", "hello-environment")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
+#[test]
+fn json_test_supports_bracketed_deno_env_get_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment') { throw new Error('expected env get'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_GET_SMOKE", "hello-environment")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn check_build_run_and_test_accept_deno_env_set_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
