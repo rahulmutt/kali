@@ -61,6 +61,16 @@ fn broader_intl_source() -> &'static str {
     "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat;"
 }
 
+fn late_env_materialization_source() -> &'static str {
+    "Deno.env.toObject; globalThis.Deno.env.toObject; globalThis[\"Deno\"][\"env\"][\"toObject\"];"
+}
+
+#[test]
+fn late_env_materialization_source_includes_bracketed_spellings() {
+    let source = late_env_materialization_source();
+    assert!(source.contains(r#"globalThis["Deno"]["env"]["toObject"]"#), "source: {source}");
+}
+
 #[test]
 fn late_process_control_source_includes_bracketed_spellings() {
     let source = late_process_control_source();
@@ -3512,6 +3522,64 @@ fn check_rejects_broader_intl_support_in_json() {
         .as_str()
         .expect("error message")
         .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
+}
+
+#[test]
+fn check_rejects_late_env_materialization_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_materialization_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.env.toObject"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Deno.env.toObject"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn check_rejects_late_env_materialization_members_in_json_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_materialization_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 3, "unexpected errors: {errors:?}");
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    for expected in ["Deno.env.toObject", "globalThis.Deno.env.toObject"] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
 }
 
 #[test]
