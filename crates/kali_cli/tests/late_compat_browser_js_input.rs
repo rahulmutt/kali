@@ -16,7 +16,7 @@ fn late_env_materialization_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
 
 fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
@@ -142,6 +142,7 @@ fn assert_browser_late_object_model_rejection(stderr: &str) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis.Intl.PluralRules",
         "Proxy",
         "globalThis.Proxy",
         "Proxy.revocable",
@@ -184,6 +185,7 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis.Intl.PluralRules",
         "Proxy",
         "globalThis.Proxy",
         "Proxy.revocable",
@@ -263,6 +265,10 @@ fn browser_late_object_model_source_includes_bracketed_intl_forms() {
     );
     assert!(
         source.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Intl"]["PluralRules"]"#),
         "source: {source}"
     );
 }
