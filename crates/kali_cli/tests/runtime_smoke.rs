@@ -1766,6 +1766,94 @@ fn json_test_accepts_bracketed_deno_pid_in_ts_input() {
     assert_eq!(json["stderr"], "");
 }
 
+fn browser_harness_bracketed_deno_pid_source() -> &'static str {
+    "console.log(Deno[\"pid\"]);\nconsole.log(globalThis[\"Deno\"][\"pid\"]);\n"
+}
+
+#[test]
+fn run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, browser_harness_bracketed_deno_pid_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+    let first = lines
+        .next()
+        .expect("first pid line")
+        .parse::<u32>()
+        .expect("first pid stdout");
+    let second = lines
+        .next()
+        .expect("second pid line")
+        .parse::<u32>()
+        .expect("second pid stdout");
+    assert_eq!(lines.next(), None, "stdout: {stdout}");
+    assert!(first > 0 && second > 0, "stdout: {stdout}");
+    assert_eq!(first, second, "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, browser_harness_bracketed_deno_pid_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    let mut lines = stdout.lines();
+    let first = lines
+        .next()
+        .expect("first pid line")
+        .parse::<u32>()
+        .expect("first pid stdout");
+    let second = lines
+        .next()
+        .expect("second pid line")
+        .parse::<u32>()
+        .expect("second pid stdout");
+    assert_eq!(lines.next(), None, "json: {json}");
+    assert!(first > 0 && second > 0, "json: {json}");
+    assert_eq!(first, second, "json: {json}");
+    assert_eq!(json["stderr"], "");
+}
+
 fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
     let source = if test_mode {
         r#"Kali.test('web baseline', () => {
