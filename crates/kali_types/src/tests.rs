@@ -1318,6 +1318,22 @@ fn test_resolution_allows_node_builtin_imports_in_node_context() {
 }
 
 #[test]
+fn test_resolution_allows_node_timers_imports_in_node_context() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
+    let statements = vec![Statement::ImportDeclaration(ImportDeclaration {
+        specifiers: vec![ImportSpecifier::Default("timers".to_string())],
+        source: "node:timers".to_string(),
+    })];
+
+    let result = ctx.resolve_statements_at_path(Some("."), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_node_builtin_imports_outside_node_context() {
     let mut ctx = TypeContext::with_base_path(".");
     let statements = vec![Statement::ImportDeclaration(ImportDeclaration {

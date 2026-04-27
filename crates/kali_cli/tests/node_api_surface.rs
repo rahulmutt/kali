@@ -30,7 +30,7 @@ fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands() 
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "import 'node:path';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('Checked 1 file(s)');\n",
     )
     .expect("write source");
 
@@ -67,7 +67,7 @@ fn inherited_node_api_surface_is_supported_for_phase1_check_and_build_commands()
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "import 'node:path';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('Checked 1 file(s)');\n",
     )
     .expect("write source");
     fs::write(
@@ -116,7 +116,7 @@ fn explicit_node_api_surface_builds_in_js_input_with_json_output() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log(process.argv.slice(2).length);\n",
     )
     .expect("write source");
 
@@ -161,7 +161,7 @@ fn inherited_node_api_surface_builds_in_js_input_with_json_output() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log(process.argv.slice(2).length);\n",
     )
     .expect("write source");
     fs::write(
@@ -215,12 +215,12 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands() {
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nconsole.log('node run ok');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('node run ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
 
@@ -242,12 +242,12 @@ fn inherited_node_api_surface_executes_on_run_and_test_commands() {
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nconsole.log('node run ok');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('node run ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
     fs::write(
@@ -279,12 +279,12 @@ fn inherited_node_api_surface_executes_on_run_and_test_commands_in_js_input_with
     let test_file = dir.path().join("main.test.js");
     fs::write(
         &run_file,
-        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log(process.argv.slice(2).length);\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
     fs::write(
@@ -359,7 +359,7 @@ fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands_in
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('Checked 1 file(s)');\n",
     )
     .expect("write source");
 
@@ -397,12 +397,12 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input() {
     let test_file = dir.path().join("main.test.js");
     fs::write(
         &run_file,
-        "import 'node:path';\nconsole.log('node run ok');\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log('node run ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
 
@@ -424,12 +424,12 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input_with_
     let test_file = dir.path().join("main.test.js");
     fs::write(
         &run_file,
-        "import 'node:path';\nconsole.log(process.argv.slice(2).length);\n",
+        "import 'node:path';\nimport 'node:timers';\nconsole.log(process.argv.slice(2).length);\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nKali.test('node', () => {\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
 

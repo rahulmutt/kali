@@ -1705,6 +1705,7 @@ fn node_builtin_specifiers() -> &'static [&'static str] {
         "path",
         "process",
         "stream",
+        "timers",
         "url",
         "util",
     ]
