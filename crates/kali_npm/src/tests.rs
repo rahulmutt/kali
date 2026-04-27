@@ -1275,6 +1275,24 @@ export default timers;
 }
 
 #[test]
+fn validate_package_host_fit_rejects_node_timers_promises_imports() {
+    let dir = tempdir().unwrap();
+    fs::write(
+        dir.path().join("index.js"),
+        r#"import timers from "node:timers/promises";
+export default timers;
+"#,
+    )
+    .unwrap();
+
+    let error = validate_package_host_fit(dir.path(), PackageHostFitContext::DefaultStandalone)
+        .unwrap_err();
+    assert_eq!(error.code, Some(e6::NODE_ONLY_HOST_APIS as u32));
+    assert!(error.message.contains("timers/promises"));
+    assert!(error.message.contains("Phase-3 Node compatibility target"));
+}
+
+#[test]
 fn validate_package_host_fit_allows_node_builtin_imports_in_node_context() {
     let dir = tempdir().unwrap();
     fs::write(
