@@ -35,6 +35,7 @@ const NODE_ONLY_HOST_APIS: &[&str] = &[
     "util",
     "assert",
     "child_process",
+    "timers",
 ];
 
 static REGISTRY_METADATA_CACHE: OnceLock<Mutex<BTreeMap<String, serde_json::Value>>> =
