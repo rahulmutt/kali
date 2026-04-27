@@ -2159,7 +2159,7 @@ fn runtime_exposes_environment_variables() {
                     i32.const 128
                     i32.const 64
                     call $env_get
-                    i32.const 5
+                    i32.const 6
                     i32.eq
                     if
                     else

@@ -119,12 +119,12 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
 - Invocation arguments: `Deno.args`
-- Environment access: `Deno.env.get`, `Deno.env.toObject` *(both expose only the sandbox-permitted environment view rather than the raw host environment)*
+- Environment access: `Deno.env.get` *(exposes only the sandbox-permitted environment view rather than the raw host environment; `Deno.env.toObject` remains a later object-materialization follow-up)*
 - `Deno.permissions` as the canonical **observation-only compatibility facade** over Kali sandbox policy state; in Phase 1 this is a **query-only** surface that reports granted/denied capability state and does not provide interactive permission prompts or privilege-escalation flows (the canonical maturity decision lives in [specs/19-feature-maturity.md](19-feature-maturity.md), and the cross-spec terminology lives in [SPEC.md](../SPEC.md))
 
 Effect/sandbox mapping simplification:
 - `Deno.stat*` and `Deno.readDir*` stay under the existing `effects.fileSystem.read` capability rather than introducing separate metadata-directory effect keys in schema v1
-- `Deno.env.get` and `Deno.env.toObject` stay under `effects.process.envRead`
+- `Deno.env.get` stays under `effects.process.envRead`; `Deno.env.toObject` follows the same effect family once the later object-materialization packet lands
 - as an **observation-only compatibility facade**, query-only `Deno.permissions` observation is derived from already-resolved Kali sandbox/runtime state and is therefore **effect-free** in schema v1; it does not add a second `permissions.query` effect/policy key
 
 Implementation simplification:

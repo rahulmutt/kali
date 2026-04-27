@@ -35,6 +35,7 @@ const PROCESS_PID_IMPORT_INDEX: u32 = 12;
 const MATH_CLZ32_IMPORT_INDEX: u32 = 13;
 const COVERAGE_HIT_IMPORT_INDEX: u32 = 14;
 const FUNCTION_INDEX_OFFSET: u32 = 14;
+const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
 /// WASM code generator context.
@@ -113,11 +114,11 @@ struct StringPool {
 }
 
 impl StringPool {
-    fn new() -> Self {
+    fn new(reserved_prefix: u32) -> Self {
         Self {
             entries: Vec::new(),
             offsets: BTreeMap::new(),
-            next_offset: 0,
+            next_offset: reserved_prefix,
         }
     }
 
@@ -139,6 +140,7 @@ struct FunctionEmitter<'a> {
     program: &'a LirProgram,
     node_lookup: &'a [LirNode],
     functions: &'a BTreeMap<String, u32>,
+    env_get_import_index: Option<u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
     source_path: Option<PathBuf>,
@@ -151,6 +153,7 @@ impl<'a> FunctionEmitter<'a> {
     fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
+        env_get_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -165,6 +168,7 @@ impl<'a> FunctionEmitter<'a> {
             program,
             node_lookup: &program.nodes,
             functions,
+            env_get_import_index,
             diagnostics,
             strings,
             source_path,
@@ -1057,6 +1061,56 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.env_get_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(key_expr) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(key_text) = self.render_static_value(*key_expr) else {
+                self.push_placeholder_fallback_diagnostic("call target", "Deno.env.get");
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let (key_offset, key_len) = self.strings.intern(&key_text);
+            let env_buffer_offset = 0i32;
+            let env_buffer_capacity = ENV_GET_BUFFER_RESERVED as i32;
+            function.instruction(&Instruction::I32Const(key_offset as i32));
+            function.instruction(&Instruction::I32Const(key_len as i32));
+            function.instruction(&Instruction::I32Const(env_buffer_offset));
+            function.instruction(&Instruction::I32Const(env_buffer_capacity));
+            function.instruction(&Instruction::Call(import_index));
+            let temp_local = self.locals.len() as u32;
+            function.instruction(&Instruction::LocalTee(temp_local));
+            function.instruction(&Instruction::I32Eqz);
+            function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::Else);
+            function.instruction(&Instruction::LocalGet(temp_local));
+            function.instruction(&Instruction::I32Const(1));
+            function.instruction(&Instruction::I32Sub);
+            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+            function.instruction(&Instruction::I64Or);
+            function.instruction(&Instruction::End);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -1194,6 +1248,26 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn env_get_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "get" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        let object_node = self.node(object);
+        if object_node.text.as_deref() != Some("env") {
+            return None;
+        }
+
+        let root = object_node.children.first().copied()?;
+        if !self.is_deno_pid(root) {
+            return None;
+        }
+
+        self.env_get_import_index
     }
 
     fn render_console_call(&self, node: &LirNode) -> Option<String> {
@@ -1527,8 +1601,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
     let mut function_name_to_index = BTreeMap::new();
-    let mut string_pool = StringPool::new();
-    let function_index_offset = FUNCTION_INDEX_OFFSET + if ctx.target.coverage { 1 } else { 0 };
+    let mut string_pool = StringPool::new(ENV_GET_BUFFER_RESERVED);
+    let uses_env_get = program_uses_env_get(lir);
+    let function_index_offset = FUNCTION_INDEX_OFFSET
+        + if uses_env_get { 1 } else { 0 }
+        + if ctx.target.coverage { 1 } else { 0 };
+    let env_get_import_index = if uses_env_get {
+        Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
+    } else {
+        None
+    };
 
     // Keep the emitted order deterministic: imported registration hook first, synthetic entry
     // second, then named functions in source order.
@@ -1556,6 +1638,12 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I64], vec![ValType::I64]);
+    if uses_env_get {
+        type_section.ty().function(
+            vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
+            vec![ValType::I32],
+        );
+    }
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -1574,6 +1662,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
+    if uses_env_get {
+        import_section.import("kali:rt", "env_get", EntityType::Function(5));
+    }
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
@@ -1582,7 +1673,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 5;
+            let idx = function_types.len() as u32 + if uses_env_get { 6 } else { 5 };
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
@@ -1626,10 +1717,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
-        let mut body = Function::new(Vec::new());
+        let mut body = Function::new(vec![(1, ValType::I32)]);
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
+            env_get_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -1697,6 +1789,49 @@ fn collect_functions(lir: &LirProgram) -> Vec<FunctionPlan> {
     let mut visited = HashSet::new();
     collect_functions_from_node(lir, lir.root, &mut visited, &mut plans);
     plans
+}
+
+fn program_uses_env_get(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("get") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        if object_node.text.as_deref() != Some("env") {
+            return false;
+        }
+
+        let Some(root) = object_node.children.first() else {
+            return false;
+        };
+        let Some(root_node) = lir.nodes.get(root.0 as usize) else {
+            return false;
+        };
+
+        root_node.text.as_deref() == Some("Deno")
+            || (root_node.text.as_deref() == Some("globalThis")
+                && root_node.children.first().is_some_and(|child| {
+                    lir.nodes
+                        .get(child.0 as usize)
+                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+                }))
+    })
 }
 
 fn collect_functions_from_node(

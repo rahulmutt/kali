@@ -506,6 +506,40 @@ fn run_supports_global_this_deno_pid_in_js_input() {
 }
 
 #[test]
+fn check_build_and_run_accept_deno_env_get_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));\n",
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_GET_SMOKE", "hello-environment")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "hello-environment", "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_global_this_deno_pid_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");

@@ -391,6 +391,29 @@ fn bracketed_global_this_deno_pid_member_calls_lower_to_runtime_pid_import() {
 }
 
 #[test]
+fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
+    let program = parse_and_lower_lir("console.log(Deno.env.get(\"HOME\"));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"env_get\""));
+    assert!(
+        printed.contains("i32.const 4096"),
+        "printed wasm: {printed}"
+    );
+}
+
+#[test]
 fn process_argv_slice_length_lowers_to_runtime_args_length_minus_start() {
     let program = parse_and_lower_lir("console.log(process.argv.slice(2).length);");
     let mut ctx = CodegenCtx::new(TargetConfig {

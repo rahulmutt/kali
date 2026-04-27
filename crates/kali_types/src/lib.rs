@@ -812,6 +812,10 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_late_env_object_member(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
@@ -942,6 +946,24 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "permission escalation API '{}' is unavailable in the Phase-1 Deno permission facade",
+                Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+            ),
+        ));
+        true
+    }
+
+    fn resolve_late_env_object_member(&mut self, expr: &MemberExpression) -> bool {
+        if !matches!(
+            Self::member_access_name(expr).as_deref(),
+            Some("Deno.env.toObject") | Some("globalThis.Deno.env.toObject")
+        ) {
+            return false;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "environment snapshot materialization API '{}' is unavailable until the later env-object materialization path is enabled",
                 Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
             ),
         ));

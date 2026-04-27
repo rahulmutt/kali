@@ -739,6 +739,55 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "env".to_string(),
+                    })),
+                    property: "toObject".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::MemberExpression(Box::new(
+                            kali_ast::MemberExpression {
+                                object: Expression::Identifier("globalThis".to_string()),
+                                property: "Deno".to_string(),
+                            },
+                        )),
+                        property: "env".to_string(),
+                    })),
+                    property: "toObject".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Deno.env.toObject")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("globalThis.Deno.env.toObject")));
+}
+
+#[test]
 fn test_resolution_rejects_unsupported_permission_query_descriptors() {
     let mut ctx = TypeContext::new();
     let statements = vec![

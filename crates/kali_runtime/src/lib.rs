@@ -1103,9 +1103,10 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
                     HostOperation::EnvironmentRead { key: key.clone() },
                 )?;
                 let Some(value) = caller.data().env.get(&key).cloned() else {
-                    return Ok(-1);
+                    return Ok(0);
                 };
-                write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())
+                let written = write_guest_bytes(&mut caller, out_ptr, out_cap, value.as_bytes())?;
+                Ok(written.saturating_add(1))
             },
         )
         .map_err(|error| host_import_error("env_get", error))?;
