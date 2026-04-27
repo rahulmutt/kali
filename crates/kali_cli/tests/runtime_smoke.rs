@@ -8154,6 +8154,176 @@ fn json_run_supports_math_suite_semantics_when_browser_api_surface_is_inherited_
 }
 
 #[test]
+fn run_supports_math_suite_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
+    )
+    .expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    assert!(stdout.contains("3\n"), "json: {json}");
+    assert!(stdout.contains("1\n"), "json: {json}");
+    assert!(stdout.contains("-1\n"), "json: {json}");
+    assert!(stdout.contains("-2\n"), "json: {json}");
+}
+
+#[test]
+fn json_run_supports_math_suite_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
+    )
+    .expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    assert!(stdout.contains("3\n"), "json: {json}");
+    assert!(stdout.contains("1\n"), "json: {json}");
+    assert!(stdout.contains("-1\n"), "json: {json}");
+    assert!(stdout.contains("-2\n"), "json: {json}");
+}
+
+#[test]
+fn test_supports_math_suite_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
+    )
+    .expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3\n"), "stdout: {stdout}");
+    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("-1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("-2\n"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_test_supports_math_suite_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\n",
+    )
+    .expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    let stdout = json["stdout"].as_str().expect("stdout");
+    assert!(stdout.contains("3\n"), "json: {json}");
+    assert!(stdout.contains("1\n"), "json: {json}");
+    assert!(stdout.contains("-1\n"), "json: {json}");
+    assert!(stdout.contains("-2\n"), "json: {json}");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn run_supports_math_clz32_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");

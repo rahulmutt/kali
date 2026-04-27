@@ -1168,7 +1168,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `test` `Math.clz32()` semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.trunc()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.trunc()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
-        "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics when the browser API surface is inherited in `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.trunc()` semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` basic strict equality / inequality semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` boolean conjunction / disjunction semantics in `.ts` and `.js` input",
