@@ -190,3 +190,112 @@ fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_js_input_when
     let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
     assert_browser_runtime_rejection_json(&json, "config");
 }
+
+#[test]
+fn run_rejects_inherited_browser_api_surface_with_sandbox_in_js_input_when_browser_harness_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+    write_browser_api_surface_manifest(&dir);
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_runtime_rejection_text(&stderr);
+}
+
+#[test]
+fn json_run_rejects_inherited_browser_api_surface_with_sandbox_in_js_input_when_browser_harness_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+    write_browser_api_surface_manifest(&dir);
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_browser_runtime_rejection_json(&json, "config");
+}
+
+#[test]
+fn test_rejects_browser_api_surface_with_sandbox_in_js_input_when_browser_harness_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "Kali.test('browser', () => {});").expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_runtime_rejection_text(&stderr);
+}
+
+#[test]
+fn json_test_rejects_browser_api_surface_with_sandbox_in_js_input_when_browser_harness_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "Kali.test('browser', () => {});").expect("write source");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_browser_runtime_rejection_json(&json, "cli");
+}
