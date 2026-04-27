@@ -2448,6 +2448,118 @@ fn browser_runtime_corpus_packages_with_module_entry_chains_remain_executable_an
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_module_entry_chains_remain_executable_and_testable_on_the_browser_surface_in_js_input_with_json_output_when_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_module_only_package(
+            dir.path(),
+            package,
+            "import helper from './internal.mjs';\nexport default function widget() { return helper(); }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        fs::write(
+            dir.path()
+                .join("node_modules")
+                .join(package)
+                .join("internal.mjs"),
+            format!(
+                "export default function helper() {{ return '{package}:module-chain'; }}\n",
+                package = package
+            ),
+        )
+        .expect("write browser internal module");
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nKali.test('{package} module-entry-chain corpus', () => {{\n  console.log(root());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write browser test source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser module-chain package {package} should stay executable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_json = parse_json_stdout(&run);
+        assert_eq!(run_json["command"], "run");
+        assert_eq!(run_json["success"], true);
+        assert_eq!(run_json["exitCode"], 0);
+        assert_eq!(run_json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(run_json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(
+            run_json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .lines()
+                .all(|line| line == "0"),
+            "json: {run_json}"
+        );
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser module-chain package {package} should be testable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_json = parse_json_stdout(&test);
+        assert_eq!(test_json["command"], "test");
+        assert_eq!(test_json["success"], true);
+        assert_eq!(test_json["exitCode"], 0);
+        assert_eq!(test_json["payload"]["passed"], 1);
+        assert_eq!(test_json["payload"]["total"], 1);
+        assert_eq!(test_json["payload"]["failed"], 0);
+        assert_eq!(test_json["payload"]["skipped"], 0);
+        assert_eq!(test_json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(test_json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(
+            test_json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .lines()
+                .all(|line| line == "0"),
+            "json: {test_json}"
+        );
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_packages_with_module_entry_chains_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
 ) {
     for package in ["react", "preact", "vue"] {
