@@ -5272,6 +5272,10 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured_in_j
         .arg("run")
         .arg("--api")
         .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -5456,6 +5460,10 @@ main();
         .arg("test")
         .arg("--api")
         .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -28392,10 +28400,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "const-object-property-access-benchmark-v1",
             "const-object-property-access",
         ),
-        (
-            "math-variant-benchmark-v1",
-            "folded-arithmetic-variant",
-        ),
+        ("math-variant-benchmark-v1", "folded-arithmetic-variant"),
         (
             "layout-specialization-benchmark-v1",
             "layout-specialization",
