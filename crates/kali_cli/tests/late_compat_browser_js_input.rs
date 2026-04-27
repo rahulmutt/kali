@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_env_materialization_source() -> &'static str {
-    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
+    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -308,6 +308,7 @@ fn browser_late_env_materialization_source_includes_bracketed_forms() {
     let source = late_env_materialization_source();
     for expected in [
         r#"Deno.env["toObject"]"#,
+        r#"Deno["env"]["toObject"]"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
     ] {
