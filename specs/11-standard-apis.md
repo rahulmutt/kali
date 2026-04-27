@@ -162,7 +162,7 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 
 **Phase 3 target expansion**
 - `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`, `Deno.lstat`
-- `Deno.env.set`
+- `Deno.env.set` / `Deno.env.delete`
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server / listen path)
 - broader filesystem, networking, and subprocess coverage

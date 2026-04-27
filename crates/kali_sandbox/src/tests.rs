@@ -589,6 +589,7 @@ fn effect_analysis_tracks_phase_three_deno_host_capabilities() {
     let source = write_source_fixture(
         r#"
 Deno.env.set('KALI_CORPUS_FLAG', 'set');
+Deno.env.delete('KALI_CORPUS_FLAG');
 new Deno.Command('sh').spawn();
 Deno.connect('127.0.0.1', 1);
 Deno.listen('127.0.0.1', 0);
@@ -641,6 +642,7 @@ fn effect_analysis_marks_computed_deno_host_access_as_dynamic() {
     let source = write_source_fixture(
         r#"
 globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
+globalThis["Deno"]["env"]["delete"]('KALI_CORPUS_FLAG');
 "#,
     );
 

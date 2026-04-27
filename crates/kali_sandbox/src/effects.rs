@@ -858,7 +858,7 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<EffectMatch> {
                     target: call_string_argument(tokens, next),
                     computed_host_access,
                 }),
-                "set" => Some(EffectMatch {
+                "set" | "delete" => Some(EffectMatch {
                     kind: "Process.EnvWrite",
                     target: call_string_argument(tokens, next),
                     computed_host_access,

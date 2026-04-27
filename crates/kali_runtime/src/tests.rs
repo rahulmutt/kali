@@ -2259,6 +2259,48 @@ fn runtime_exposes_environment_variables() {
 }
 
 #[test]
+fn runtime_deletes_environment_variables() {
+    let mut env = BTreeMap::new();
+    env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());
+    let runtime = RuntimeCtx::with_host_context(
+        None,
+        vec!["alpha".to_string(), "beta".to_string()],
+        env,
+        PathBuf::from("."),
+    );
+
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "env_delete" (func $env_delete (param i32 i32 i32 i32) (result i32)))
+                (import "kali:rt" "env_get" (func $env_get (param i32 i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "KALI_RUNTIME_TEST_ENV")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 21
+                    i32.const 0
+                    i32.const 0
+                    call $env_delete
+                    drop
+                    i32.const 0
+                    i32.const 21
+                    i32.const 128
+                    i32.const 64
+                    call $env_get
+                    i32.eqz
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+}
+
+#[test]
 fn runtime_writes_text_files() {
     let dir = tempfile::tempdir().expect("tempdir");
     let runtime =

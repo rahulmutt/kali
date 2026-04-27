@@ -1109,7 +1109,7 @@ impl Parser {
                 Some(TokenType::Dot) => {
                     let _ = self.stream.advance();
                     match self.stream.current_kind() {
-                        Some(TokenType::Identifier) => {
+                        Some(TokenType::Identifier) | Some(TokenType::Delete) => {
                             let _ = self.stream.advance();
                             if let Some(token) = self.stream.tokens.get(self.stream.position - 1) {
                                 let prop_name = token.value.clone();
