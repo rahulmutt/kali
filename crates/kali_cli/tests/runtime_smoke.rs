@@ -4928,6 +4928,29 @@ fn check_reports_unresolved_identifiers() {
 }
 
 #[test]
+fn check_reports_unresolved_identifiers_inside_default_export_function_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "export default function describe() { missing; }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(stderr.contains("missing"), "stderr: {stderr}");
+}
+
+#[test]
 fn run_executes_the_hello_fixture() {
     let output = Command::new(kali_bin())
         .arg("run")
