@@ -2454,6 +2454,9 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     assert_eq!(schema["properties"]["buildModes"]["minItems"], 3);
     assert_eq!(schema["properties"]["buildModes"]["maxItems"], 3);
 
+    let mut benchmark_names = BTreeSet::new();
+    let mut benchmark_sources = BTreeSet::new();
+
     for entry in fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
         .expect("read benchmark fixture directory")
     {
@@ -2482,6 +2485,16 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
                 expected_key
             );
         }
+        let benchmark_name = metadata["benchmark"]
+            .as_str()
+            .expect("benchmark string")
+            .to_owned();
+        assert!(
+            benchmark_names.insert(benchmark_name.clone()),
+            "duplicate benchmark slug: {} ({})",
+            benchmark_name,
+            path.display()
+        );
         assert_eq!(metadata["version"], 1, "{}", path.display());
         assert_eq!(
             metadata["sourceFile"],
@@ -2499,6 +2512,12 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
             path.display()
         );
         let source_file_name = metadata["sourceFile"].as_str().expect("sourceFile string");
+        assert!(
+            benchmark_sources.insert(source_file_name.to_owned()),
+            "duplicate benchmark source file: {} ({})",
+            source_file_name,
+            path.display()
+        );
         let source_path = path
             .parent()
             .expect("benchmark metadata parent")
