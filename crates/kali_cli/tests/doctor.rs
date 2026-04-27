@@ -152,6 +152,14 @@ fn doctor_reports_unavailable_browser_harness_executable() {
     assert!(stdout.contains("  override: definitely-not-a-real-browser-harness --probe"));
     assert!(stdout.contains("  command: definitely-not-a-real-browser-harness --probe"));
     assert!(stdout.contains("  executable available: false"));
+    assert!(stdout.contains("Browser runtime contract:"));
+    assert!(stdout.contains("  host label: browser-requested"));
+    assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout.contains("  supported commands: run, test"));
+    assert!(stdout.contains("  diagnostic hint:"));
+    assert!(stdout.contains(
+        "  note: browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
+    ));
 }
 
 #[test]
