@@ -1,0 +1,7 @@
+{
+  "benchmark": "layout-specialization",
+  "version": 1,
+  "sourceFile": "layout-specialization-benchmark-v1.ts",
+  "sourceSha256": "sha256-f8e6c798a875e677e3c98bda875cf17d3187875e42cc866777d2d58096274b06",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
