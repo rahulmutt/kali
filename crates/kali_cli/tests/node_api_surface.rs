@@ -491,3 +491,40 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input_with_
         "node test ok\n"
     );
 }
+
+#[test]
+fn explicit_node_timers_helpers_are_callable_in_js_input_on_run_and_test_commands() {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.js");
+    let test_file = dir.path().join("main.test.js");
+    fs::write(
+        &run_file,
+        r#"import timers from 'node:timers';
+const interval = timers.setInterval(() => {}, 0);
+timers.clearInterval(interval);
+console.log('node timers ok');
+"#,
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        r#"import timers from 'node:timers';
+Kali.test('node timers', () => {
+    const interval = timers.setInterval(() => {}, 0);
+    timers.clearInterval(interval);
+    console.log('node timers ok');
+});
+"#,
+    )
+    .expect("write test file");
+
+    let mut run = Command::new(kali_bin());
+    run.current_dir(dir.path())
+        .args(["run", "--api", "node", run_file.to_str().unwrap()]);
+    assert_node_api_succeeds("run", run, "node timers ok\n");
+
+    let mut test = Command::new(kali_bin());
+    test.current_dir(dir.path())
+        .args(["test", "--api", "node", test_file.to_str().unwrap()]);
+    assert_node_api_succeeds("test", test, "node timers ok\n");
+}
