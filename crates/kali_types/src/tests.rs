@@ -963,6 +963,10 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         .diagnostics
         .iter()
         .all(|diag| diag.message.contains("Intl")));
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message
+            .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
+    }));
 }
 
 #[test]
@@ -1122,6 +1126,10 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("globalThis.Proxy.revocable")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| { diag.message.contains(r#"globalThis["Proxy"]["revocable"]"#) }));
 }
 
 #[test]
@@ -1187,6 +1195,14 @@ fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
     assert!(result.diagnostics.iter().any(|diag| diag
         .message
         .contains("Object.prototype.hasOwnProperty.call")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| { diag.message.contains(r#"Object["hasOwn"]"#) }));
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message
+            .contains(r#"Object["prototype"]["hasOwnProperty"]["call"]"#)
+    }));
 }
 
 #[test]

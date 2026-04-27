@@ -259,6 +259,96 @@ fn test_parse_object_literal_expression() {
 }
 
 #[test]
+fn test_parse_bracketed_member_expression_chain() {
+    let tokens = lex(
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a");"#,
+    );
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 3);
+
+    let Statement::ExpressionStatement(first_stmt) = &output.statements[0] else {
+        panic!(
+            "Expected first ExpressionStatement, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Expression::MemberExpression(first_member) = first_stmt.expression.as_ref() else {
+        panic!(
+            "Expected first bracketed MemberExpression, got {:?}",
+            first_stmt.expression
+        );
+    };
+    assert_eq!(first_member.property, "DateTimeFormat");
+    let Expression::MemberExpression(first_root) = &first_member.object else {
+        panic!("Expected first member root, got {:?}", first_member.object);
+    };
+    assert_eq!(first_root.property, "Intl");
+    assert!(matches!(first_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(second_stmt) = &output.statements[1] else {
+        panic!(
+            "Expected second ExpressionStatement, got {:?}",
+            output.statements[1]
+        );
+    };
+    let Expression::CallExpression(second_call) = second_stmt.expression.as_ref() else {
+        panic!(
+            "Expected bracketed call expression, got {:?}",
+            second_stmt.expression
+        );
+    };
+    assert_eq!(second_call.args.len(), 2);
+    let Expression::MemberExpression(second_member) = &second_call.callee else {
+        panic!(
+            "Expected second bracketed callee, got {:?}",
+            second_call.callee
+        );
+    };
+    assert_eq!(second_member.property, "revocable");
+    let Expression::MemberExpression(second_root) = &second_member.object else {
+        panic!(
+            "Expected second member root, got {:?}",
+            second_member.object
+        );
+    };
+    assert_eq!(second_root.property, "Proxy");
+    assert!(matches!(second_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(third_stmt) = &output.statements[2] else {
+        panic!(
+            "Expected third ExpressionStatement, got {:?}",
+            output.statements[2]
+        );
+    };
+    let Expression::CallExpression(third_call) = third_stmt.expression.as_ref() else {
+        panic!(
+            "Expected third bracketed call expression, got {:?}",
+            third_stmt.expression
+        );
+    };
+    assert_eq!(third_call.args.len(), 2);
+    let Expression::MemberExpression(third_member) = &third_call.callee else {
+        panic!(
+            "Expected third bracketed callee, got {:?}",
+            third_call.callee
+        );
+    };
+    assert_eq!(third_member.property, "hasOwn");
+    let Expression::MemberExpression(third_root) = &third_member.object else {
+        panic!("Expected third member root, got {:?}", third_member.object);
+    };
+    assert_eq!(third_root.property, "Object");
+    assert!(matches!(third_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+}
+
+#[test]
 fn test_parse_bigint_literal_expression() {
     let tokens = lex("const value = 42n;");
     let mut parser = Parser::new(FileId::new(0), tokens);

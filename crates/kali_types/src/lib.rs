@@ -980,32 +980,35 @@ impl TypeContext {
     }
 
     fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
         if matches!(
-            Self::member_access_name(expr).as_deref(),
-            Some("Proxy.revocable") | Some("globalThis.Proxy.revocable")
+            dotted.as_str(),
+            "Proxy.revocable" | "globalThis.Proxy.revocable"
         ) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
-                    Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                    "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
+                    dotted, bracketed
                 ),
             ));
             return true;
         }
 
         if matches!(
-            Self::member_access_name(expr).as_deref(),
-            Some("Object.hasOwn")
-                | Some("globalThis.Object.hasOwn")
-                | Some("Object.prototype.hasOwnProperty.call")
-                | Some("globalThis.Object.prototype.hasOwnProperty.call")
+            dotted.as_str(),
+            "Object.hasOwn"
+                | "globalThis.Object.hasOwn"
+                | "Object.prototype.hasOwnProperty.call"
+                | "globalThis.Object.prototype.hasOwnProperty.call"
         ) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
-                    Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                    "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
+                    dotted, bracketed
                 ),
             ));
             return true;
@@ -1029,8 +1032,8 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "late object-model API '{}' is unavailable until the later object-model compatibility path is enabled",
-                Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
+                "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
+                dotted, bracketed
             ),
         ));
         true
