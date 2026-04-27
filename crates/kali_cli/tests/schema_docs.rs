@@ -2178,10 +2178,20 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     );
     assert_eq!(schema["properties"]["buildModes"]["type"], "array");
     assert_eq!(
-        schema["properties"]["buildModes"]["items"]["type"],
-        "string"
+        schema["properties"]["buildModes"]["prefixItems"]
+            .as_array()
+            .expect("buildModes prefixItems array")
+            .iter()
+            .map(|item| item["const"]
+                .as_str()
+                .expect("buildModes prefixItem const")
+                .to_owned())
+            .collect::<Vec<_>>(),
+        vec!["--fast", "--release", "--release-advanced"]
     );
-    assert_eq!(schema["properties"]["buildModes"]["minItems"], 1);
+    assert_eq!(schema["properties"]["buildModes"]["items"], false);
+    assert_eq!(schema["properties"]["buildModes"]["minItems"], 3);
+    assert_eq!(schema["properties"]["buildModes"]["maxItems"], 3);
 
     for entry in fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
         .expect("read benchmark fixture directory")

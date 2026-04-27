@@ -20,10 +20,20 @@
     },
     "buildModes": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "minItems": 1
+      "prefixItems": [
+        {
+          "const": "--fast"
+        },
+        {
+          "const": "--release"
+        },
+        {
+          "const": "--release-advanced"
+        }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
     }
   }
 }
