@@ -249,6 +249,11 @@ fn core_schema_documents_match_current_cli_contracts() {
         "function"
     );
     assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["files"]["items"]
+            ["additionalProperties"],
+        true
+    );
+    assert_eq!(
         test_result["properties"]["coverage"]["properties"]["files"]["items"]["required"]
             .as_array()
             .expect("coverage file required array")
@@ -261,6 +266,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             "functionsCovered",
             "functionsMissed"
         ]
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["summary"]["additionalProperties"],
+        true
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["summary"]["required"]
