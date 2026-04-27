@@ -734,6 +734,22 @@ fn core_schema_documents_match_current_cli_contracts() {
         "array"
     );
     assert_eq!(
+        package_effects["properties"]["report"]["properties"]["entryPoints"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["entryPoints"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicEffects"]["type"],
+        "boolean"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicReasons"]["type"],
+        "array"
+    );
+    assert_eq!(
         package_effects["properties"]["report"]["properties"]["dynamicReasons"]["items"]["type"],
         "string"
     );
@@ -918,6 +934,13 @@ fn core_schema_documents_match_current_cli_contracts() {
             ["function"]["type"],
         "string"
     );
+    assert_eq!(effects["properties"]["entryPoints"]["type"], "array");
+    assert_eq!(
+        effects["properties"]["entryPoints"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(effects["properties"]["dynamicEffects"]["type"], "boolean");
+    assert_eq!(effects["properties"]["dynamicReasons"]["type"], "array");
     assert_eq!(
         effects["properties"]["dynamicReasons"]["items"]["type"],
         "string"
