@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-clz32-builtin",
+  "version": 1,
+  "sourceFile": "math-clz32-benchmark-v1.ts",
+  "sourceSha256": "sha256-3f3ee7c8d1121ff0249b2a65f4b8be80637f6fe40cef75be268c2a50b03e81e5",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

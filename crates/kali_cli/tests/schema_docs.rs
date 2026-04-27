@@ -1941,6 +1941,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "math-benchmark-v1",
         "math-trunc-benchmark-v1",
         "math-imul-benchmark-v1",
+        "math-clz32-benchmark-v1",
         "division-by-one-benchmark-v1",
         "dead-branch-elimination-benchmark-v1",
         "dead-inlined-function-pruning-benchmark-v1",
