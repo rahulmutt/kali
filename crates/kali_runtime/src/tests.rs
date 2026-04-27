@@ -3589,6 +3589,35 @@ fn runtime_rejects_negative_timer_delays() {
 }
 
 #[test]
+fn runtime_rejects_negative_interval_delays() {
+    let runtime =
+        RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "setInterval" (func $set_interval (param i32 i32) (result i32)))
+                (func (export "__kali_callback_10")
+                    unreachable)
+                (func (export "_start")
+                    i32.const 10
+                    i32.const -1
+                    call $set_interval
+                    drop)
+            )
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("negative timer delays should be rejected");
+    assert_eq!(
+        diagnostics[0].code,
+        Some(kali_error::_error_codes::e4::UNCAUGHT_ERROR as u32)
+    );
+    assert!(diagnostics[0].message.contains("runtime trap"));
+}
+
+#[test]
 fn runtime_collects_and_runs_registered_tests() {
     let runtime =
         RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));
