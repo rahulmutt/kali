@@ -10772,6 +10772,32 @@ fn test_supports_math_clz32_semantics_when_browser_harness_is_configured_in_js_i
 }
 
 #[test]
+fn test_supports_math_clz32_semantics_when_browser_harness_is_configured_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "console.log(Math.clz32(1));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("31\n"), "stdout: {stdout}");
+}
+
+#[test]
 fn json_test_supports_math_clz32_semantics_when_browser_harness_is_configured_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
