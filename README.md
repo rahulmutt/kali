@@ -46,6 +46,10 @@ Additional public commands live in the current repository state:
 ```bash
 kali build --capi <file>        # stable public C-ABI embedding flow
 kali build --component <file>   # Component Model packaging flow
+kali build --bundle --sandbox kali.policy.json main.ts
+kali build --lib --sandbox kali.policy.json lib.ts
+kali build --capi --sandbox kali.policy.json lib.ts
+kali build --component --sandbox kali.policy.json lib.ts
 kali effects <file>
 kali package-effects <package>
 kali package-audit <package>
