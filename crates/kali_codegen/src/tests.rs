@@ -295,6 +295,25 @@ fn math_trunc_member_lowers_without_runtime_host_import() {
 }
 
 #[test]
+fn math_ceil_member_lowers_without_runtime_host_import() {
+    let program = parse_and_lower_lir("console.log(Math.ceil(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(!printed.contains("import \"kali:rt\" \"math_ceil\""));
+}
+
+#[test]
 fn unsupported_math_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.floor(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {

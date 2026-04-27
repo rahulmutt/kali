@@ -1036,7 +1036,7 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if callee_node.text.as_deref() == Some("trunc")
+        if matches!(callee_node.text.as_deref(), Some("trunc") | Some("ceil"))
             && callee_node
                 .children
                 .first()
