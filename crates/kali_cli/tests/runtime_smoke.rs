@@ -2225,6 +2225,31 @@ if (
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw new Error('unexpected delete-reinsert ordering');
+}
 console.log(keys.length);
 console.log(entries.length);
 console.log(values.length);
@@ -2250,6 +2275,31 @@ if (
   values[1] !== 2
 ) {
   throw new Error('unexpected numeric-key ordering');
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw new Error('unexpected delete-reinsert ordering');
 }
 console.log(keys.length);
 console.log(entries.length);
@@ -2313,6 +2363,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 console.log(values.length);
 "#
@@ -17565,32 +17640,7 @@ Kali.test('string primitive enumeration', () => {});
 fn run_supports_object_enumeration_semantics_with_overwrite_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        r#"const obj = { "a": 1, "b": 2 };
-obj["a"] = 3;
-const keys = Object.keys(obj);
-const entries = Object.entries(obj);
-const values = Object.values(obj);
-if (
-  keys.length !== 2 ||
-  keys[0] !== 'a' ||
-  keys[1] !== 'b' ||
-  entries.length !== 2 ||
-  entries[0][0] !== 'a' ||
-  entries[0][1] !== 3 ||
-  entries[1][0] !== 'b' ||
-  entries[1][1] !== 2 ||
-  values.length !== 2 ||
-  values[0] !== 3 ||
-  values[1] !== 2
-) {
-  throw 'unexpected overwrite ordering';
-}
-console.log(values.length);
-"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, object_enumeration_overwrite_ordering_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -17613,32 +17663,7 @@ console.log(values.length);
 fn test_supports_object_enumeration_semantics_with_overwrite_ordering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
-    fs::write(
-        &source_path,
-        r#"const obj = { "a": 1, "b": 2 };
-obj["a"] = 3;
-const keys = Object.keys(obj);
-const entries = Object.entries(obj);
-const values = Object.values(obj);
-if (
-  keys.length !== 2 ||
-  keys[0] !== 'a' ||
-  keys[1] !== 'b' ||
-  entries.length !== 2 ||
-  entries[0][0] !== 'a' ||
-  entries[0][1] !== 3 ||
-  entries[1][0] !== 'b' ||
-  entries[1][1] !== 2 ||
-  values.length !== 2 ||
-  values[0] !== 3 ||
-  values[1] !== 2
-) {
-  throw 'unexpected overwrite ordering';
-}
-console.log(values.length);
-"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, object_enumeration_overwrite_ordering_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -17661,32 +17686,7 @@ console.log(values.length);
 fn test_supports_object_enumeration_semantics_with_overwrite_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
-    fs::write(
-        &source_path,
-        r#"const obj = { "a": 1, "b": 2 };
-obj["a"] = 3;
-const keys = Object.keys(obj);
-const entries = Object.entries(obj);
-const values = Object.values(obj);
-if (
-  keys.length !== 2 ||
-  keys[0] !== 'a' ||
-  keys[1] !== 'b' ||
-  entries.length !== 2 ||
-  entries[0][0] !== 'a' ||
-  entries[0][1] !== 3 ||
-  entries[1][0] !== 'b' ||
-  entries[1][1] !== 2 ||
-  values.length !== 2 ||
-  values[0] !== 3 ||
-  values[1] !== 2
-) {
-  throw 'unexpected overwrite ordering';
-}
-console.log(values.length);
-"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, object_enumeration_overwrite_ordering_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
