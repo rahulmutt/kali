@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_env_materialization_source() -> &'static str {
-    "Deno.env.toObject; globalThis.Deno.env.toObject; globalThis[\"Deno\"][\"env\"][\"toObject\"];"
+    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -101,6 +101,8 @@ fn assert_browser_late_env_materialization_rejection(stderr: &str) {
     for expected in [
         "Deno.env.toObject",
         "globalThis.Deno.env.toObject",
+        "Deno[\"env\"][\"toObject\"]",
+        "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
     ] {
         assert!(
@@ -119,6 +121,8 @@ fn assert_browser_late_env_materialization_rejection_json(errors: &[Value]) {
     for expected in [
         "Deno.env.toObject",
         "globalThis.Deno.env.toObject",
+        "Deno[\"env\"][\"toObject\"]",
+        "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
     ] {
         assert!(
@@ -302,10 +306,13 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
 #[test]
 fn browser_late_env_materialization_source_includes_bracketed_forms() {
     let source = late_env_materialization_source();
-    assert!(
-        source.contains(r#"globalThis["Deno"]["env"]["toObject"]"#),
-        "source: {source}"
-    );
+    for expected in [
+        r#"Deno.env["toObject"]"#,
+        r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
 }
 
 #[test]

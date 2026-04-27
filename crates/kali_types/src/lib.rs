@@ -953,9 +953,12 @@ impl TypeContext {
     }
 
     fn resolve_late_env_object_member(&mut self, expr: &MemberExpression) -> bool {
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
         if !matches!(
-            Self::member_access_name(expr).as_deref(),
-            Some("Deno.env.toObject") | Some("globalThis.Deno.env.toObject")
+            dotted.as_str(),
+            "Deno.env.toObject" | "globalThis.Deno.env.toObject"
         ) {
             return false;
         }
@@ -963,8 +966,8 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "environment snapshot materialization API '{}' is unavailable until the later env-object materialization path is enabled",
-                Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                "environment snapshot materialization API '{}' (aka {}) is unavailable until the later env-object materialization path is enabled",
+                dotted, bracketed
             ),
         ));
         true
