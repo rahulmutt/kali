@@ -41040,6 +41040,56 @@ if (direct !== 'hello-environment' || bracketed !== 'hello-environment') {
 }
 
 #[test]
+fn package_effects_reports_direct_deno_network_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"Deno.connect('127.0.0.1', 1);
+Deno.listen('127.0.0.1', 0);
+Deno.serve('127.0.0.1', 0);
+"#,
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["dynamicEffects"], false);
+    assert_eq!(json["report"]["dynamicReasons"], json!([]));
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Network.Connect"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Listen"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_marks_computed_permissions_query_as_dynamic_but_effect_free() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
