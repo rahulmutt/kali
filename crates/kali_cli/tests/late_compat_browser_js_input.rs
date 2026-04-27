@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"];"
+    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -301,9 +301,17 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"Deno["exit"]"#,
         r#"globalThis.Deno["exit"]"#,
         r#"globalThis["process"]["pid"]"#,
+        r#"process["pid"]"#,
+        r#"globalThis.process["pid"]"#,
         r#"globalThis["process"]["cwd"]"#,
+        r#"process["cwd"]"#,
+        r#"globalThis.process["cwd"]"#,
         r#"globalThis["process"]["chdir"]"#,
+        r#"process["chdir"]"#,
+        r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"]["exit"]"#,
+        r#"process["exit"]"#,
+        r#"globalThis.process["exit"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
