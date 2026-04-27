@@ -448,6 +448,22 @@ fn browser_late_permission_escalation_source_includes_bracketed_forms() {
 }
 
 #[test]
+fn browser_late_globalthis_deno_env_and_permission_source_includes_bracketed_forms() {
+    let source = format!(
+        "{} {} globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].env[\"toObject\"];",
+        late_env_materialization_source(),
+        late_permission_escalation_source()
+    );
+    for expected in [
+        r#"globalThis["Deno"].permissions["request"]()"#,
+        r#"globalThis["Deno"].permissions["revoke"]()"#,
+        r#"globalThis["Deno"].env["toObject"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
 fn check_rejects_late_permission_escalation_members_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
