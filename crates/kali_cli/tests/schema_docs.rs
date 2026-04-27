@@ -1745,98 +1745,178 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         assert!(matrix.contains(row), "{message}");
     }
 
+    let assert_row_once = |row: &str, message: &str| {
+        assert_eq!(matrix.matches(row).count(), 1, "{message}");
+    };
+
     let browser_exports_map_row =
         "| browser runtime corpus | browser exports-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_exports_map_row).count(),
-        1,
-        "browser runtime exports-map corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_exports_map_row,
+        "browser runtime exports-map corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_exports_map_inherited_row =
         "| browser runtime corpus | browser exports-map packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_exports_map_inherited_row).count(),
-        1,
-        "browser runtime inherited-browser exports-map corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_exports_map_inherited_row,
+        "browser runtime inherited-browser exports-map corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
+    let browser_replacement_map_row =
+        "| browser runtime corpus | browser replacement-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_replacement_map_row,
+        "browser runtime replacement-map corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_replacement_map_inherited_row =
+        "| browser runtime corpus | browser replacement-map packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_replacement_map_inherited_row,
+        "browser runtime inherited-browser replacement-map corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
+    let browser_string_entry_row =
+        "| browser runtime corpus | browser string-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_entry_row,
+        "browser runtime string-entry corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_entry_inherited_row =
+        "| browser runtime corpus | browser string-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_entry_inherited_row,
+        "browser runtime inherited-browser string-entry corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
+    let browser_string_export_row =
+        "| browser runtime corpus | browser string-export packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_export_row,
+        "browser runtime string-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_export_inherited_row =
+        "| browser runtime corpus | browser string-export packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_export_inherited_row,
+        "browser runtime inherited-browser string-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
+    let browser_condition_export_row =
+        "| npm-style package corpus | browser-condition export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_condition_export_row,
+        "browser condition-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_condition_row =
+        "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_condition_row,
+        "browser condition / browser-deno corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_condition_inherited_row =
+        "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_condition_inherited_row,
+        "browser inherited browser-condition / browser-deno runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
 
     let browser_dual_exports_row =
         "| npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_dual_exports_row).count(),
-        1,
-        "browser dual-exports corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_dual_exports_row,
+        "browser dual-exports corpus row should be recorded exactly once in the package corpus matrix",
     );
 
     let browser_semver_row =
         "| browser runtime corpus | pure JS package (`semver`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_semver_row).count(),
-        1,
-        "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_semver_row,
+        "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_semver_inherited_row =
         "| browser runtime corpus | pure JS package (`semver`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_semver_inherited_row).count(),
-        1,
-        "browser inherited semver runtime corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_semver_inherited_row,
+        "browser inherited semver runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_content_row =
         "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_package_content_row).count(),
-        1,
-        "browser package-content runtime corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_package_content_row,
+        "browser package-content runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_content_inherited_row =
         "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_package_content_inherited_row).count(),
-        1,
-        "browser inherited package-content runtime corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_package_content_inherited_row,
+        "browser inherited package-content runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_fixtures_row =
         "| browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_package_fixtures_row).count(),
-        1,
-        "browser runtime package-fixtures corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_package_fixtures_row,
+        "browser runtime package-fixtures corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_fixtures_inherited_row =
         "| browser runtime corpus | browser package fixtures with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_package_fixtures_inherited_row).count(),
-        1,
-        "browser inherited package-fixtures corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_package_fixtures_inherited_row,
+        "browser inherited package-fixtures corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_module_entry_row =
         "| browser runtime corpus | browser module-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_module_entry_row).count(),
-        1,
-        "browser runtime module-entry corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_module_entry_row,
+        "browser runtime module-entry corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_module_entry_inherited_row =
         "| browser runtime corpus | browser module-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_module_entry_inherited_row).count(),
-        1,
-        "browser inherited module-entry corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        browser_module_entry_inherited_row,
+        "browser inherited module-entry corpus row should be recorded exactly once in the package corpus matrix",
     );
-    let browser_condition_inherited_row =
-        "| browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(browser_condition_inherited_row).count(),
-        1,
-        "browser inherited browser-condition / browser-deno runtime corpus row should be recorded exactly once in the package corpus matrix"
+    let browser_module_entry_chain_row =
+        "| browser runtime corpus | browser module-entry-chain packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_entry_chain_row,
+        "browser runtime module-entry-chain corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_module_entry_chain_inherited_row =
+        "| browser runtime corpus | browser module-entry-chain packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_entry_chain_inherited_row,
+        "browser inherited module-entry-chain corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_pattern_exports_row =
+        "| browser runtime corpus | browser pattern-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_pattern_exports_row,
+        "browser runtime pattern-exports corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_pattern_exports_inherited_row =
+        "| browser runtime corpus | browser pattern-exports packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_pattern_exports_inherited_row,
+        "browser runtime inherited-browser pattern-exports corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_module_only_row =
+        "| browser runtime corpus | browser module-only packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_only_row,
+        "browser runtime module-only corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_module_only_inherited_row =
+        "| browser runtime corpus | browser module-only packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_only_inherited_row,
+        "browser runtime inherited-browser module-only corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
     let default_package_content_test_row =
         "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and test coverage | default standalone | `check`, `build`, `test` | checkable / buildable / testable | `crates/kali_cli/tests/package_corpus.rs` |";
-    assert_eq!(
-        matrix.matches(default_package_content_test_row).count(),
-        1,
-        "default standalone package-content test corpus row should be recorded exactly once in the package corpus matrix"
+    assert_row_once(
+        default_package_content_test_row,
+        "default standalone package-content test corpus row should be recorded exactly once in the package corpus matrix",
     );
 }
 
