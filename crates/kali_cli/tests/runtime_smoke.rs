@@ -191,6 +191,21 @@ fn permission_escalation_bracketed_source() -> &'static str {
     r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#
 }
 
+fn supported_permission_query_const_binding_source() -> &'static str {
+    r#"const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+Deno.permissions.query({ name: read_descriptor });
+Deno.permissions.query({ name: write_descriptor });
+Deno.permissions.query({ name: env_descriptor });
+Deno.permissions.query({ name: net_descriptor });
+globalThis.Deno.permissions.query({ name: read_descriptor });
+globalThis.Deno.permissions.query({ name: write_descriptor });
+globalThis.Deno.permissions.query({ name: env_descriptor });
+globalThis.Deno.permissions.query({ name: net_descriptor });"#
+}
+
 fn assert_permission_escalation_stderr(stderr: &str, expected: &[&str]) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     for expected in expected {
@@ -37761,6 +37776,46 @@ Deno.permissions.query({ name: "net" });
 }
 
 #[test]
+fn effects_command_treats_supported_permission_query_const_bindings_as_effect_free_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        supported_permission_query_const_binding_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    assert!(
+        json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .is_empty(),
+        "unexpected effects: {json}"
+    );
+}
+
+#[test]
 fn effects_command_marks_computed_permissions_query_subset_as_dynamic_but_effect_free_in_js_input()
 {
     let dir = tempdir().expect("tempdir");
@@ -40055,6 +40110,52 @@ fn package_effects_marks_computed_permissions_query_as_dynamic_but_effect_free()
         json["report"]["dynamicReasons"],
         json!(["computed-host-access"])
     );
+    assert!(
+        json["report"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .is_empty(),
+        "unexpected effects: {json}"
+    );
+}
+
+#[test]
+fn package_effects_treats_supported_permission_query_const_bindings_as_effect_free() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        supported_permission_query_const_binding_source(),
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["dynamicEffects"], false);
+    assert_eq!(json["report"]["dynamicReasons"], json!([]));
     assert!(
         json["report"]["effects"]
             .as_array()
