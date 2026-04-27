@@ -4439,19 +4439,29 @@ fn browser_runtime_corpus_packages_remain_executable_on_the_browser_surface_in_j
             "browserpkg" => write_browser_string_package(
                 dir.path(),
                 package,
-                "export default function describe() { return 1; }\n",
-                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }
+",
+                "export default function describe() { return 0; }
+",
             ),
             "browserexports" => write_browser_condition_exports_package(
                 dir.path(),
                 package,
-                "export default function describe() { return 0; }\n",
-                "export default function describe() { return 1; }\n",
-                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "export default function describe() { return 0; }
+",
+                "export default function describe() { return 1; }
+",
+                "const describe = require('./index.js');
+module.exports = describe;
+",
                 "index",
-                "export default function describe() { return 0; }\n",
-                "export default function describe() { return 1; }\n",
-                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "export default function describe() { return 0; }
+",
+                "export default function describe() { return 1; }
+",
+                "const describe = require('./index.js');
+module.exports = describe;
+",
             ),
             _ => unreachable!("unexpected browser runtime package fixture"),
         }
@@ -4460,7 +4470,9 @@ fn browser_runtime_corpus_packages_remain_executable_on_the_browser_surface_in_j
         fs::write(
             &source_path,
             format!(
-                "import describe from '{package}';\nconsole.log(describe());\n",
+                "import describe from '{package}';
+console.log(describe());
+",
                 package = package
             ),
         )
@@ -4477,17 +4489,26 @@ fn browser_runtime_corpus_packages_remain_executable_on_the_browser_surface_in_j
             .expect("run kali");
         assert!(
             run.status.success(),
-            "browser runtime package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            "browser runtime package {package} should stay executable on the browser surface in JS input
+stdout: {}
+stderr: {}",
             String::from_utf8_lossy(&run.stdout),
             String::from_utf8_lossy(&run.stderr)
         );
-        assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+        assert_eq!(
+            String::from_utf8_lossy(&run.stdout),
+            "0
+"
+        );
 
         let test_path = dir.path().join("main.test.js");
         fs::write(
             &test_path,
             format!(
-                "import describe from '{package}';\nconsole.log(describe());\nKali.test('browser runtime package', () => {{ 1 + 1; }});\n",
+                "import describe from '{package}';
+console.log(describe());
+Kali.test('browser runtime package', () => {{ 1 + 1; }});
+",
                 package = package
             ),
         )
@@ -4504,13 +4525,167 @@ fn browser_runtime_corpus_packages_remain_executable_on_the_browser_surface_in_j
             .expect("run kali");
         assert!(
             test.status.success(),
-            "browser runtime package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            "browser runtime package {package} should stay testable on the browser surface in JS input
+stdout: {}
+stderr: {}",
             String::from_utf8_lossy(&test.stdout),
             String::from_utf8_lossy(&test.stderr)
         );
         let stdout = String::from_utf8_lossy(&test.stdout);
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn browser_runtime_corpus_packages_with_internal_browser_rewrites_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["solid-js", "lit"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            "import helper from './internal.js';\nexport default function describe() { return 'node:' + helper(); }\n",
+            "import helper from './internal.js';\nexport default function describe() { return 'browser:' + helper(); }\n",
+            "internal",
+            &format!("export default function helper() {{ return '{package}:node'; }}\n", package = package),
+            &format!("export default function helper() {{ return '{package}:browser'; }}\n", package = package),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\nKali.test('{package} corpus', () => {{\n  console.log(describe());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser internal-browser-rewrite package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert_eq!(
+            run_stdout.as_ref(),
+            "0
+"
+        );
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser internal-browser-rewrite package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+        assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
+    }
+}
+
+#[test]
+fn browser_runtime_corpus_packages_with_internal_browser_rewrites_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    for package in ["solid-js", "lit"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            "import helper from './internal.js';\nexport default function describe() { return 'node:' + helper(); }\n",
+            "import helper from './internal.js';\nexport default function describe() { return 'browser:' + helper(); }\n",
+            "internal",
+            &format!("export default function helper() {{ return '{package}:node'; }}\n", package = package),
+            &format!("export default function helper() {{ return '{package}:browser'; }}\n", package = package),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\nKali.test('{package} corpus', () => {{\n  console.log(describe());\n}});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser internal-browser-rewrite package {package} should stay executable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        let run_stdout = String::from_utf8_lossy(&run.stdout);
+        assert_eq!(
+            run_stdout.as_ref(),
+            "0
+"
+        );
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser internal-browser-rewrite package {package} should stay testable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let test_stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+        assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
     }
 }
 

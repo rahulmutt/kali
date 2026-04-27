@@ -1660,6 +1660,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime inherited-browser corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime internal-browser-rewrite corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser internal-browser-rewrite corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser exports-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime exports-map corpus row should be recorded in the package corpus matrix",
         ),
@@ -1984,6 +1992,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_internal_browser_rewrite_row,
         "browser internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_internal_browser_rewrite_runtime_row =
+        "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_internal_browser_rewrite_runtime_row,
+        "browser runtime internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_internal_browser_rewrite_inherited_runtime_row =
+        "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_internal_browser_rewrite_inherited_runtime_row,
+        "browser runtime inherited-browser internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
     );
 
     let browser_condition_export_row =
