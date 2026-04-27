@@ -35,6 +35,7 @@ The same browser-requested run/test lane now also exercises browser Web Crypto `
 - Progress: the browser-requested run/test harness now also exercises the shared web-baseline `structuredClone` / `AbortController` / `EventTarget` / `CustomEvent` primitives in both TS and `.js` input, including JSON-output coverage on the browser-requested `run` and `test` paths.
 - Progress: the browser-requested run/test web-baseline primitives now also mirror that same `structuredClone` / `AbortController` / `EventTarget` / `CustomEvent` coverage onto the inherited browser `apiSurface` path in both TS and `.js` input, including JSON-output coverage, so the direct and inherited browser harness lanes stay aligned for the shared web-baseline contract.
 - Progress: the standalone `run` / `test` smoke lane now also exercises `globalThis.Deno.pid` handling on `.js` input, and the JSON `test` lane now also covers the direct `globalThis.Deno.pid` spelling in `.js` input, keeping the core runtime baseline aligned with the documented Deno PID surface.
+- Progress: the browser-harness `run` / `test` sandbox rejection path now also has plain-text coverage for both explicit and inherited browser `apiSurface` requests, so the opt-in browser execution path continues to reject `--sandbox` even when the harness command is configured.
 
 ### 7.3 Late host APIs
 
