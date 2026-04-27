@@ -27,6 +27,7 @@ kali doctor                         # inspect local tool/environment selection
 kali init
 kali init --lib                 # create the minimal library scaffold
 kali init --output json         # emit the schema-v1 init result envelope
+kali init --output json --lib    # emit the library scaffold result envelope
 kali install
 kali fmt
 kali lint

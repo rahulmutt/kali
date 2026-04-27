@@ -68,7 +68,10 @@ fn late_env_materialization_source() -> &'static str {
 #[test]
 fn late_env_materialization_source_includes_bracketed_spellings() {
     let source = late_env_materialization_source();
-    assert!(source.contains(r#"globalThis["Deno"]["env"]["toObject"]"#), "source: {source}");
+    assert!(
+        source.contains(r#"globalThis["Deno"]["env"]["toObject"]"#),
+        "source: {source}"
+    );
 }
 
 #[test]
