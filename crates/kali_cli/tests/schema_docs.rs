@@ -942,6 +942,16 @@ fn core_schema_documents_match_current_cli_contracts() {
         "Envelope-only JSON command payload for the later package-audit surface."
     );
     assert_eq!(package_audit["type"], "null");
+    let package_audit_keys = package_audit
+        .as_object()
+        .expect("package-audit schema object")
+        .keys()
+        .map(|key| key.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        package_audit_keys,
+        std::collections::BTreeSet::from(["$schema", "$id", "title", "type", "description",])
+    );
 }
 
 #[test]
