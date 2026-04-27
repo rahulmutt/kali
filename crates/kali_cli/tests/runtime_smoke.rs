@@ -50,7 +50,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
+    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});"
 }
 
 fn late_object_model_own_property_source() -> &'static str {
@@ -84,6 +84,7 @@ fn late_object_model_source_includes_bracketed_spellings() {
         r#"globalThis["Proxy"]"#,
         r#"globalThis["WeakMap"]"#,
         r#"globalThis["WeakSet"]"#,
+        r#"globalThis["WeakRef"]"#,
         r#"globalThis["FinalizationRegistry"]"#,
         r#"globalThis["Proxy"]["revocable"]"#,
     ] {
@@ -3796,7 +3797,7 @@ fn run_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 15);
+    assert_eq!(errors.len(), 17);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
@@ -4132,7 +4133,7 @@ fn test_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 15);
+    assert_eq!(errors.len(), 17);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
