@@ -3784,6 +3784,116 @@ fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_dep
 }
 
 #[test]
+fn browser_corpus_packages_with_web_baseline_primitives_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for package in [
+        "react",
+        "preact",
+        "vue",
+        "solid-js",
+        "date-fns",
+        "dayjs",
+        "d3",
+        "recharts",
+        "luxon",
+        "graphql",
+        "lodash-es",
+        "nanoid",
+        "ramda",
+        "rxjs",
+        "uuid",
+        "clsx",
+        "react-router",
+        "zustand",
+        "zod",
+        "svelte",
+        "lit",
+        "axios",
+        "ajv",
+        "immer",
+        "next",
+        "react-helmet-async",
+        "hono",
+        "@vueuse/core",
+        "@apollo/client",
+        "@emotion/react",
+        "@reduxjs/toolkit",
+        "@floating-ui/react",
+        "@headlessui/react",
+        "@chakra-ui/react",
+        "@mantine/core",
+        "@emotion/styled",
+        "@heroicons/react",
+        "lucide-react",
+        "@storybook/react",
+        "@stripe/react-stripe-js",
+        "@mui/material",
+        "@radix-ui/react-dialog",
+        "@tanstack/react-query",
+        "@tanstack/react-table",
+        "@tanstack/table-core",
+        "@tanstack/react-virtual",
+        "@testing-library/dom",
+        "@testing-library/user-event",
+        "@playwright/test",
+        "mobx",
+        "redux",
+        "recoil",
+        "mitt",
+        "swr",
+        "formik",
+        "jotai",
+        "pinia",
+        "xstate",
+        "valtio",
+        "superjson",
+        "@jridgewell/sourcemap-codec",
+        "@babel/runtime",
+        "@npmcli/package-json",
+        "query-string",
+        "yup",
+        "msw",
+        "yaml",
+        "react-hook-form",
+        "@tanstack/react-form",
+        "@tanstack/router",
+        "@tanstack/react-router",
+        "@tanstack/query-core",
+        "path-to-regexp",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_stub_package(
+            dir.path(),
+            package,
+            "export default function describe(value) { return value; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        write_web_baseline_interop_source(&source_path, package);
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser web-baseline package {package} should be checkable on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser web-baseline package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host(
 ) {
     for package in ["solid-js", "lit"] {
