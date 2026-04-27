@@ -597,6 +597,9 @@ fn test_resolution_allows_shared_web_baseline_globals() {
             expression: Box::new(Expression::Identifier("AbortSignal".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("Event".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::Identifier("EventTarget".to_string())),
         }),
         Statement::ExpressionStatement(ExpressionStatement {

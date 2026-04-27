@@ -1783,6 +1783,10 @@ fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {
   if (!(controller.signal instanceof AbortSignal)) {
     throw new Error('expected AbortSignal from AbortController');
   }
+  const event = new Event('tick');
+  if (event.type !== 'tick') {
+    throw new Error(`unexpected Event behavior ${event.type}`);
+  }
   const target = new EventTarget();
   let count = 0;
   target.addEventListener('tick', () => {
@@ -1825,6 +1829,10 @@ if (cloned.nested.count !== 1 || cloned.values.join(',') !== '1,2,3') {
 const controller = new AbortController();
 if (!(controller.signal instanceof AbortSignal)) {
   throw new Error('expected AbortSignal from AbortController');
+}
+const event = new Event('tick');
+if (event.type !== 'tick') {
+  throw new Error(`unexpected Event behavior ${event.type}`);
 }
 const target = new EventTarget();
 let count = 0;
