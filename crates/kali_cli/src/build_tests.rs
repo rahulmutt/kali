@@ -487,6 +487,52 @@ fn build_artifact_metadata_records_profile_data_hash() {
 }
 
 #[test]
+fn build_artifact_metadata_normalizes_equivalent_profile_data_hashes() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let equivalent_profiles = vec![
+        ProfileData::new(vec![
+            ProfileSample::new(ProfileSampleKind::Function, " hot-path ", 2),
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:hot", 3),
+            ProfileSample::new(ProfileSampleKind::Function, "hot-path", 4),
+        ]),
+        ProfileData::new(vec![
+            ProfileSample::new(ProfileSampleKind::Branch, "branch:hot", 3),
+            ProfileSample::new(ProfileSampleKind::Function, "hot-path", 6),
+        ]),
+    ];
+
+    let expected_hash = {
+        let normalized = equivalent_profiles[0].clone().normalized();
+        let profile_json = serde_json::to_vec(&normalized).expect("serialize profile data");
+        format!("sha256-{:x}", Sha256::digest(profile_json))
+    };
+
+    let hashes: Vec<_> = equivalent_profiles
+        .iter()
+        .map(|profile_data| {
+            let metadata = build_artifact_metadata(
+                &source_path,
+                "component",
+                BuildMode::Release,
+                "deno",
+                &[],
+                16,
+                Some(profile_data),
+                None,
+            )
+            .expect("build metadata");
+
+            metadata.profile_data_hash.expect("profile data hash")
+        })
+        .collect();
+
+    assert_eq!(hashes, vec![expected_hash.clone(), expected_hash.clone()]);
+}
+
+#[test]
 fn build_artifact_metadata_rejects_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

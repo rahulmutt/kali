@@ -39,7 +39,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 - Promote deterministic build-only `--profile` support only with strict schema validation.
 - Keep PGO as an additive build input, not a fourth build mode.
 - Add malformed/unknown-field rejection tests.
-- Progress: CLI integration now rejects malformed PGO profile payloads with version, unknown-field, and top-level shape validation in both text and JSON build output modes.
+- Progress: CLI integration now rejects malformed PGO profile payloads with version, unknown-field, and top-level shape validation in both text and JSON build output modes, and equivalent profile snapshots now hash identically after normalization so the build-only PGO input stays deterministic even when sample order or duplicate samples differ.
 
 ### 9.4 Benchmark lane
 
