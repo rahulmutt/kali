@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-abs-sign-builtin",
+  "version": 1,
+  "sourceFile": "math-abs-sign-benchmark-v1.ts",
+  "sourceSha256": "sha256-1b264635821782e73a820a4d737cc30498896b45b08d65a4a3e6b347e0b18e69",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
