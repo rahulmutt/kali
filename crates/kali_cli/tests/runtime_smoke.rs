@@ -23685,6 +23685,122 @@ fn assert_browser_requested_for_of_array_iteration_rejection_json(errors: &[Valu
 }
 
 #[test]
+fn run_rejects_for_of_array_iteration_in_browser_api_surface_with_harness_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_requested_for_of_array_iteration_rejection_text(&stderr);
+}
+
+#[test]
+fn run_rejects_for_of_array_iteration_in_browser_api_surface_with_harness_ts_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const value of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_requested_for_of_array_iteration_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_for_of_array_iteration_in_browser_api_surface_with_harness_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Kali.test('browser for-of', () => { for (const value of [1, 2]) { console.log(value); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_requested_for_of_array_iteration_rejection_text(&stderr);
+}
+
+#[test]
+fn test_rejects_for_of_array_iteration_in_browser_api_surface_with_harness_ts_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Kali.test('browser for-of', () => { for (const value of [1, 2]) { console.log(value); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_requested_for_of_array_iteration_rejection_json(errors);
+}
+
+#[test]
 fn run_rejects_for_of_array_iteration_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
