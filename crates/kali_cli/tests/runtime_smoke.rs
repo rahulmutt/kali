@@ -5331,7 +5331,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 29 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 30 file(s)"), "stdout: {stdout}");
 }
 
 #[test]

@@ -1,0 +1,7 @@
+{
+  "benchmark": "string-concatenation",
+  "version": 1,
+  "sourceFile": "string-concatenation-benchmark-v1.ts",
+  "sourceSha256": "sha256-827e1e2cdc791e0e32b02216d49314faa0420aa0115a3deaff749a9727659081",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
