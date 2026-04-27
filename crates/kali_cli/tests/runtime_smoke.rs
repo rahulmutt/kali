@@ -17578,6 +17578,103 @@ fn json_test_supports_browser_requested_object_property_deletion_semantics_when_
     assert_json_browser_requested_object_property_deletion_semantics("test", "smoke.test.js");
 }
 
+fn browser_bundle_object_property_deletion_semantics_source() -> &'static str {
+    r#"// kali-tree-shake: objectPropertyDeletionSmoke
+async function objectPropertyDeletionSmoke() {
+  const obj = { a: 1, b: 2 };
+  if (!("a" in obj) || !("b" in obj)) {
+    throw new Error('missing property');
+  }
+  if (delete obj.a !== true) {
+    throw new Error('unexpected delete result');
+  }
+  if ("a" in obj) {
+    throw new Error('delete failed');
+  }
+  console.log('object deletion ok');
+  return 0n;
+}
+"#
+}
+
+#[test]
+fn build_emits_browser_bundle_object_property_deletion_semantics_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        browser_bundle_object_property_deletion_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "objectPropertyDeletionSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_object_property_deletion_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        browser_bundle_object_property_deletion_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "objectPropertyDeletionSmoke");
+}
+
 fn object_type_and_constructor_semantics_source(test_mode: bool) -> String {
     if test_mode {
         return r#"function Box() {}
