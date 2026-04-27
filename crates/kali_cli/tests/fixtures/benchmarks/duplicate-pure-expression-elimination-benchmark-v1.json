@@ -1,0 +1,7 @@
+{
+  "benchmark": "duplicate-pure-expression-elimination",
+  "version": 1,
+  "sourceFile": "duplicate-pure-expression-elimination-benchmark-v1.ts",
+  "sourceSha256": "sha256-119b4da0a3dc319c00da7cada40b276ac5afeacb097b7f4ea916312293a46929",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

@@ -2437,6 +2437,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "identity-chain-benchmark-v1",
         "nested-wrapper-pruning-benchmark-v1",
         "algebraic-simplification-benchmark-v1",
+        "duplicate-pure-expression-elimination-benchmark-v1",
         "nullish-specialization-repeat-benchmark-v1",
         "specialization-reuse-benchmark-v1",
         "boolean-literal-arguments-benchmark-v1",

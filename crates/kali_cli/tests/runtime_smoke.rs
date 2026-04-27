@@ -5331,7 +5331,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 28 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 29 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -30259,6 +30259,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "algebraic-simplification-benchmark-v1",
             "algebraic-simplification",
+        ),
+        (
+            "duplicate-pure-expression-elimination-benchmark-v1",
+            "duplicate-pure-expression-elimination",
         ),
         (
             "nullish-specialization-repeat-benchmark-v1",
