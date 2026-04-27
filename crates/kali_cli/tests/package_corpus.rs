@@ -7319,6 +7319,70 @@ fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_
 }
 
 #[test]
+fn browser_runtime_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context_on_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_blocked_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+        );
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser JS source");
+        let source = source_path.to_str().unwrap();
+
+        for command in ["run", "test"] {
+            for explicit_browser_surface in [true, false] {
+                let args = if explicit_browser_surface {
+                    vec![command, "--api", "browser", source]
+                } else {
+                    vec![command, source]
+                };
+                let output = Command::new(kali_bin())
+                    .current_dir(dir.path())
+                    .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+                    .args(args)
+                    .output()
+                    .expect("run kali");
+                assert!(
+                    !output.status.success(),
+                    "browser-blocked package {package} should be rejected during {command} on JS input with {} browser apiSurface\nstdout: {}\nstderr: {}",
+                    if explicit_browser_surface { "explicit" } else { "inherited" },
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(
+                    stderr.contains("error[E3000]"),
+                    "browser-blocked package {package} should surface the import-resolution failure during {command} on JS input with {} browser apiSurface\nstderr: {}",
+                    if explicit_browser_surface { "explicit" } else { "inherited" },
+                    stderr
+                );
+                assert!(
+                    stderr.contains("could not be resolved"),
+                    "browser-blocked package {package} should not fall back to the non-browser entry during {command} on JS input with {} browser apiSurface\nstderr: {}",
+                    if explicit_browser_surface { "explicit" } else { "inherited" },
+                    stderr
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn utility_corpus_packages_remain_executable_on_the_default_standalone_surface() {
     for package in [
         "react",

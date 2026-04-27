@@ -1660,6 +1660,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime inherited-browser corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser-blocked packages with `.js` input | browser-targeted execution harness | `run`, `test` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime blocked-package corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime internal-browser-rewrite corpus row should be recorded in the package corpus matrix",
         ),
