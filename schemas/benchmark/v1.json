@@ -6,13 +6,15 @@
   "required": ["benchmark", "version", "sourceFile", "sourceSha256", "buildModes"],
   "properties": {
     "benchmark": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
     },
     "version": {
       "const": 1
     },
     "sourceFile": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^[a-z0-9-]+-benchmark-v1\\.ts$"
     },
     "sourceSha256": {
       "type": "string",

@@ -2204,8 +2204,13 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         .collect::<Vec<_>>()
     );
     assert_eq!(schema["properties"]["benchmark"]["type"], "string");
+    assert_eq!(schema["properties"]["benchmark"]["pattern"], "^[a-z0-9-]+$");
     assert_eq!(schema["properties"]["version"]["const"], 1);
     assert_eq!(schema["properties"]["sourceFile"]["type"], "string");
+    assert_eq!(
+        schema["properties"]["sourceFile"]["pattern"],
+        "^[a-z0-9-]+-benchmark-v1\\.ts$"
+    );
     assert_eq!(schema["properties"]["sourceSha256"]["type"], "string");
     assert_eq!(
         schema["properties"]["sourceSha256"]["pattern"],
