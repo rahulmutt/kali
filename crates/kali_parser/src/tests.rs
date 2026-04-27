@@ -261,7 +261,7 @@ fn test_parse_object_literal_expression() {
 #[test]
 fn test_parse_bracketed_member_expression_chain() {
     let tokens = lex(
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a");"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"];"#,
     );
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
@@ -271,7 +271,7 @@ fn test_parse_bracketed_member_expression_chain() {
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 3);
+    assert_eq!(output.statements.len(), 4);
 
     let Statement::ExpressionStatement(first_stmt) = &output.statements[0] else {
         panic!(
@@ -346,6 +346,28 @@ fn test_parse_bracketed_member_expression_chain() {
     };
     assert_eq!(third_root.property, "Object");
     assert!(matches!(third_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(fourth_stmt) = &output.statements[3] else {
+        panic!(
+            "Expected fourth ExpressionStatement, got {:?}",
+            output.statements[3]
+        );
+    };
+    let Expression::MemberExpression(fourth_member) = fourth_stmt.expression.as_ref() else {
+        panic!(
+            "Expected fourth bracketed member expression, got {:?}",
+            fourth_stmt.expression
+        );
+    };
+    assert_eq!(fourth_member.property, "exit");
+    let Expression::MemberExpression(fourth_root) = &fourth_member.object else {
+        panic!(
+            "Expected fourth member root, got {:?}",
+            fourth_member.object
+        );
+    };
+    assert_eq!(fourth_root.property, "Deno");
+    assert!(matches!(fourth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
 }
 
 #[test]
