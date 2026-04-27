@@ -1628,6 +1628,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "default standalone semver bin-entrypoint row should be recorded in the package corpus matrix",
         ),
         (
+            "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints | default standalone | `run` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone pi-coding-agent bin-entrypoint row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | scoped packages with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
             "default standalone scoped corpus row should be recorded in the package corpus matrix",
         ),
@@ -1660,12 +1664,16 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node semver corpus row should be recorded in the package corpus matrix",
         ),
         (
-            "| npm-style package corpus | runner packages with exports maps with `.js` input | Node | `run`, `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
-            "node runner exports-map JS corpus row should be recorded in the package corpus matrix",
-        ),
-        (
             "| binary-entrypoint probe | `semver` bin entrypoints | Node | `run` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
             "node semver bin-entrypoint row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints | Node | `run` | executable on the Node surface; rejected on the default standalone surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node pi-coding-agent bin-entrypoint row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages with exports maps with `.js` input | Node | `run`, `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner exports-map JS corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | Node built-in packages (`node:buffer`, `node:assert`, `node:child_process`, `node:events`, `node:stream`, `node:fs/promises`, `node:path`, `node:os`, `node:crypto`, `node:fs`, `node:url`, `node:util`) on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
