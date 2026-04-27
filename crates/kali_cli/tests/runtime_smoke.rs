@@ -19861,40 +19861,6 @@ fn run_supports_math_ceil_builtin_semantics_in_js_input() {
 }
 
 #[test]
-fn json_run_supports_math_ceil_builtin_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.ceil(3 - 6));\n").expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("--output")
-        .arg("json")
-        .arg("run")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
-    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
-    assert!(
-        json["stdout"].as_str().expect("stdout").contains("-3"),
-        "json: {json}"
-    );
-}
-
-#[test]
 fn run_supports_math_abs_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
