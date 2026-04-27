@@ -17449,6 +17449,196 @@ fn json_test_supports_object_type_and_constructor_semantics_in_js_input() {
     assert_json_object_type_and_constructor_semantics("test", "smoke.test.js", true);
 }
 
+fn assert_json_browser_requested_object_type_and_constructor_semantics(
+    command: &str,
+    filename: &str,
+    test_mode: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        object_type_and_constructor_semantics_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .contains("object type ok"),
+            "json: {json}"
+        );
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        assert_eq!(json["stdout"], "");
+    }
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_type_and_constructor_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_json_browser_requested_object_type_and_constructor_semantics("run", "main.ts", false);
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_type_and_constructor_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_json_browser_requested_object_type_and_constructor_semantics("run", "main.js", false);
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_type_and_constructor_semantics_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_json_browser_requested_object_type_and_constructor_semantics(
+        "test",
+        "smoke.test.ts",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_type_and_constructor_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_json_browser_requested_object_type_and_constructor_semantics(
+        "test",
+        "smoke.test.js",
+        true,
+    );
+}
+
+fn browser_bundle_object_type_and_constructor_semantics_source() -> &'static str {
+    r#"// kali-tree-shake: objectTypeSmoke
+function Box() {}
+async function objectTypeSmoke() {
+  const box = new Box();
+  if (typeof box !== 'object') {
+    throw new Error('expected object from constructor');
+  }
+  if (typeof Box !== 'function') {
+    throw new Error('expected constructor function');
+  }
+  if (typeof null !== 'object') {
+    throw new Error('expected typeof null to be object');
+  }
+  if (!(box instanceof Box)) {
+    throw new Error('expected instanceof to succeed');
+  }
+  console.log('object type ok');
+  return 0n;
+}
+"#
+}
+
+#[test]
+fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        browser_bundle_object_type_and_constructor_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "objectTypeSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        browser_bundle_object_type_and_constructor_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "objectTypeSmoke");
+}
+
 fn unary_void_semantics_source(test_mode: bool) -> String {
     if test_mode {
         return r#"Kali.test('void operator semantics', () => {
