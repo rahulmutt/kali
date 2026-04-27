@@ -261,7 +261,7 @@ fn test_parse_object_literal_expression() {
 #[test]
 fn test_parse_bracketed_member_expression_chain() {
     let tokens = lex(
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"];"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"]; globalThis["Deno"]["pid"]; globalThis["Deno"]["env"]["get"]("HOME"); globalThis["Deno"]["permissions"]["query"]("read");"#,
     );
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
@@ -271,7 +271,7 @@ fn test_parse_bracketed_member_expression_chain() {
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 4);
+    assert_eq!(output.statements.len(), 7);
 
     let Statement::ExpressionStatement(first_stmt) = &output.statements[0] else {
         panic!(
@@ -368,6 +368,93 @@ fn test_parse_bracketed_member_expression_chain() {
     };
     assert_eq!(fourth_root.property, "Deno");
     assert!(matches!(fourth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(fifth_stmt) = &output.statements[4] else {
+        panic!(
+            "Expected fifth ExpressionStatement, got {:?}",
+            output.statements[4]
+        );
+    };
+    let Expression::MemberExpression(fifth_member) = fifth_stmt.expression.as_ref() else {
+        panic!(
+            "Expected fifth bracketed member expression, got {:?}",
+            fifth_stmt.expression
+        );
+    };
+    assert_eq!(fifth_member.property, "pid");
+    let Expression::MemberExpression(fifth_root) = &fifth_member.object else {
+        panic!("Expected fifth member root, got {:?}", fifth_member.object);
+    };
+    assert_eq!(fifth_root.property, "Deno");
+    assert!(matches!(fifth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(sixth_stmt) = &output.statements[5] else {
+        panic!(
+            "Expected sixth ExpressionStatement, got {:?}",
+            output.statements[5]
+        );
+    };
+    let Expression::CallExpression(sixth_call) = sixth_stmt.expression.as_ref() else {
+        panic!(
+            "Expected sixth bracketed call expression, got {:?}",
+            sixth_stmt.expression
+        );
+    };
+    assert_eq!(sixth_call.args.len(), 1);
+    let Expression::MemberExpression(sixth_member) = &sixth_call.callee else {
+        panic!(
+            "Expected sixth callee member expression, got {:?}",
+            sixth_call.callee
+        );
+    };
+    assert_eq!(sixth_member.property, "get");
+    let Expression::MemberExpression(sixth_env) = &sixth_member.object else {
+        panic!("Expected sixth env member, got {:?}", sixth_member.object);
+    };
+    assert_eq!(sixth_env.property, "env");
+    let Expression::MemberExpression(sixth_root) = &sixth_env.object else {
+        panic!("Expected sixth root member, got {:?}", sixth_env.object);
+    };
+    assert_eq!(sixth_root.property, "Deno");
+    assert!(matches!(sixth_root.object, Expression::Identifier(ref name) if name == "globalThis"));
+
+    let Statement::ExpressionStatement(seventh_stmt) = &output.statements[6] else {
+        panic!(
+            "Expected seventh ExpressionStatement, got {:?}",
+            output.statements[6]
+        );
+    };
+    let Expression::CallExpression(seventh_call) = seventh_stmt.expression.as_ref() else {
+        panic!(
+            "Expected seventh bracketed call expression, got {:?}",
+            seventh_stmt.expression
+        );
+    };
+    assert_eq!(seventh_call.args.len(), 1);
+    let Expression::MemberExpression(seventh_member) = &seventh_call.callee else {
+        panic!(
+            "Expected seventh callee member expression, got {:?}",
+            seventh_call.callee
+        );
+    };
+    assert_eq!(seventh_member.property, "query");
+    let Expression::MemberExpression(seventh_permissions) = &seventh_member.object else {
+        panic!(
+            "Expected seventh permissions member, got {:?}",
+            seventh_member.object
+        );
+    };
+    assert_eq!(seventh_permissions.property, "permissions");
+    let Expression::MemberExpression(seventh_root) = &seventh_permissions.object else {
+        panic!(
+            "Expected seventh root member, got {:?}",
+            seventh_permissions.object
+        );
+    };
+    assert_eq!(seventh_root.property, "Deno");
+    assert!(
+        matches!(seventh_root.object, Expression::Identifier(ref name) if name == "globalThis")
+    );
 }
 
 #[test]
