@@ -35131,9 +35131,105 @@ fn effects_reports_node_api_surface() {
 }
 
 #[test]
+fn effects_reports_node_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(process.argv.length);\nconsole.log('node');",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--api")
+        .arg("node")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+}
+
+#[test]
 fn effects_reports_inherited_node_api_surface() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(process.argv.length);\nconsole.log('node');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+}
+
+#[test]
+fn effects_reports_inherited_node_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
         "console.log(process.argv.length);\nconsole.log('node');",
