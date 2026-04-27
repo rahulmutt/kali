@@ -46,7 +46,119 @@ pub fn emit_envelope_value(
         stderr.map_or(Value::Null, Value::String),
     );
     envelope.insert("exitCode".to_string(), json!(exit_code));
-    Value::Object(envelope)
+
+    let value = Value::Object(envelope);
+    validate_envelope_value(&value).expect("constructed CLI envelope must satisfy schema-v1 shape");
+    value
+}
+
+pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
+    const REQUIRED_KEYS: [&str; 9] = [
+        "schemaVersion",
+        "command",
+        "success",
+        "errors",
+        "warnings",
+        "payload",
+        "stdout",
+        "stderr",
+        "exitCode",
+    ];
+
+    let Some(object) = value.as_object() else {
+        return Err("CLI envelope must be a JSON object".to_string());
+    };
+
+    if object.len() != REQUIRED_KEYS.len() {
+        return Err(format!(
+            "CLI envelope must contain exactly {} top-level keys",
+            REQUIRED_KEYS.len()
+        ));
+    }
+
+    for key in REQUIRED_KEYS {
+        if !object.contains_key(key) {
+            return Err(format!("CLI envelope is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("schemaVersion") {
+        Some(Value::Number(number)) if number.as_u64() == Some(1) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope schemaVersion must be the numeric value 1, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("command") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope command must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("success") {
+        Some(Value::Bool(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope success must be a boolean, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("errors") {
+        Some(Value::Array(_)) => {}
+        Some(other) => return Err(format!("CLI envelope errors must be an array, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("warnings") {
+        Some(Value::Array(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope warnings must be an array, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("stdout") {
+        Some(Value::Null) | Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope stdout must be string or null, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("stderr") {
+        Some(Value::Null) | Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope stderr must be string or null, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("exitCode") {
+        Some(Value::Number(number)) if number.as_i64().is_some() || number.as_u64().is_some() => {}
+        Some(other) => {
+            return Err(format!(
+                "CLI envelope exitCode must be an integer, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

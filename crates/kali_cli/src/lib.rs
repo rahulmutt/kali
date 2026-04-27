@@ -554,3 +554,7 @@ fn load_exclude_set(root: &Path) -> GlobSet {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "output_tests.rs"]
+mod output_tests;
