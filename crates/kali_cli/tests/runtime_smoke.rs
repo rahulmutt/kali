@@ -14371,6 +14371,82 @@ console.log(stringKeys.length);
     assert!(stdout.contains('2'), "stdout: {stdout}");
 }
 
+fn object_enumeration_semantics_source() -> &'static str {
+    r#"const obj = { "a": 1, "b": 2 };
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'a' ||
+  keys[1] !== 'b' ||
+  entries.length !== 2 ||
+  entries[0][0] !== 'a' ||
+  entries[0][1] !== 1 ||
+  entries[1][0] !== 'b' ||
+  entries[1][1] !== 2 ||
+  values.length !== 2 ||
+  values[0] !== 1 ||
+  values[1] !== 2
+) {
+  throw 'unexpected enumeration';
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#
+}
+
+fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_enumeration_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "2\n2\n2\n");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_run_supports_object_enumeration_semantics_in_js_input() {
+    assert_json_object_enumeration_semantics("run", "main.js");
+}
+
+#[test]
+fn json_test_supports_object_enumeration_semantics_in_js_input() {
+    assert_json_object_enumeration_semantics("test", "smoke.test.js");
+}
+
 fn object_property_deletion_semantics_source() -> &'static str {
     r#"const obj = { a: 1, b: 2 };
 if (!('a' in obj) || !('b' in obj)) {
