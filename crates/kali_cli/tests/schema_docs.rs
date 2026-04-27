@@ -1251,6 +1251,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `Event`, `EventTarget`, `CustomEvent`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`) when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `Event`, `EventTarget`, `CustomEvent`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`) in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",

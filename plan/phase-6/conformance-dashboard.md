@@ -42,6 +42,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Read-only `Deno.pid` / `globalThis.Deno.pid` handling in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage on the `test` lane) |
 | Basic optional chaining member and element access | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage on the `run` and `test` paths, standalone JSON-output coverage on the `.js` `run` / `test` lanes, plus browser-requested `.js` harness coverage) |
 | Basic try/catch exception handling and try/finally sequencing | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including mirrored `.js` input coverage) |
+| Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser bundle try/catch exception semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic BigInt addition semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in both TS and `.js` inputs) |
 | Basic BigInt addition semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in `.js` input) |
