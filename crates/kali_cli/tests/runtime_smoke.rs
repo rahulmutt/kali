@@ -2393,6 +2393,64 @@ console.log(values.length);
 "#
 }
 
+fn browser_bundle_object_enumeration_overwrite_ordering_source() -> &'static str {
+    r##"// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj["a"] = 1;
+  obj["b"] = 2;
+  obj["a"] = 3;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  if (
+    keys.length !== 2 ||
+    keys[0] !== 'a' ||
+    keys[1] !== 'b' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'a' ||
+    entries[0][1] !== 3 ||
+    entries[1][0] !== 'b' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 3 ||
+    values[1] !== 2
+  ) {
+    throw new Error('unexpected overwrite ordering');
+  }
+  const reinsertion = Object.create(null);
+  reinsertion["a"] = 1;
+  reinsertion["b"] = 2;
+  reinsertion["c"] = 3;
+  delete reinsertion.b;
+  reinsertion.b = 4;
+  const reinsertionKeys = Object.keys(reinsertion);
+  const reinsertionEntries = Object.entries(reinsertion);
+  const reinsertionValues = Object.values(reinsertion);
+  if (
+    reinsertionKeys.length !== 3 ||
+    reinsertionKeys[0] !== 'a' ||
+    reinsertionKeys[1] !== 'c' ||
+    reinsertionKeys[2] !== 'b' ||
+    reinsertionEntries.length !== 3 ||
+    reinsertionEntries[0][0] !== 'a' ||
+    reinsertionEntries[0][1] !== 1 ||
+    reinsertionEntries[1][0] !== 'c' ||
+    reinsertionEntries[1][1] !== 3 ||
+    reinsertionEntries[2][0] !== 'b' ||
+    reinsertionEntries[2][1] !== 4 ||
+    reinsertionValues.length !== 3 ||
+    reinsertionValues[0] !== 1 ||
+    reinsertionValues[1] !== 3 ||
+    reinsertionValues[2] !== 4
+  ) {
+    throw new Error('unexpected delete-reinsert ordering');
+  }
+  return left - left + right - right;
+}
+"##
+}
+
 fn write_browser_runtime_package_fixture(package_dir: &Path, package_name: &str) {
     fs::create_dir_all(package_dir).expect("create browser package dir");
     fs::write(
@@ -5587,6 +5645,31 @@ if (
 ) {
   throw 'unexpected overwrite ordering';
 }
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
+}
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
 const stringValues = Object.values('ab');
@@ -5675,6 +5758,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
@@ -5765,6 +5873,31 @@ if (
 ) {
   throw 'unexpected overwrite ordering';
 }
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
+}
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
 const stringValues = Object.values('ab');
@@ -5854,6 +5987,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
@@ -10165,6 +10323,31 @@ if (
 ) {
   throw 'unexpected overwrite ordering';
 }
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
+}
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
 const stringValues = Object.values('ab');
@@ -10242,6 +10425,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
@@ -10321,6 +10529,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
@@ -10414,6 +10647,31 @@ if (
   values[1] !== 2
 ) {
   throw 'unexpected overwrite ordering';
+}
+const reinsertion = { "a": 1, "b": 2, "c": 3 };
+delete reinsertion.b;
+reinsertion.b = 4;
+const reinsertionKeys = Object.keys(reinsertion);
+const reinsertionEntries = Object.entries(reinsertion);
+const reinsertionValues = Object.values(reinsertion);
+if (
+  reinsertionKeys.length !== 3 ||
+  reinsertionKeys[0] !== 'a' ||
+  reinsertionKeys[1] !== 'c' ||
+  reinsertionKeys[2] !== 'b' ||
+  reinsertionEntries.length !== 3 ||
+  reinsertionEntries[0][0] !== 'a' ||
+  reinsertionEntries[0][1] !== 1 ||
+  reinsertionEntries[1][0] !== 'c' ||
+  reinsertionEntries[1][1] !== 3 ||
+  reinsertionEntries[2][0] !== 'b' ||
+  reinsertionEntries[2][1] !== 4 ||
+  reinsertionValues.length !== 3 ||
+  reinsertionValues[0] !== 1 ||
+  reinsertionValues[1] !== 3 ||
+  reinsertionValues[2] !== 4
+) {
+  throw 'unexpected delete-reinsert ordering';
 }
 const stringKeys = Object.keys('abc');
 const stringEntries = Object.entries('ab');
@@ -22767,30 +23025,7 @@ fn build_emits_browser_bundle_string_enumeration_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const keys = Object.keys('abc');
-  const entries = Object.entries('ab');
-  const values = Object.values('ab');
-  if (
-    keys.length !== 3 ||
-    keys[0] !== '0' ||
-    keys[1] !== '1' ||
-    keys[2] !== '2' ||
-    entries.length !== 2 ||
-    entries[0][0] !== '0' ||
-    entries[0][1] !== 'a' ||
-    entries[1][0] !== '1' ||
-    entries[1][1] !== 'b' ||
-    values.length !== 2 ||
-    values[0] !== 'a' ||
-    values[1] !== 'b'
-  ) {
-    throw new Error('unexpected enumeration');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -22828,30 +23063,7 @@ fn build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const keys = Object.keys('abc');
-  const entries = Object.entries('ab');
-  const values = Object.values('ab');
-  if (
-    keys.length !== 3 ||
-    keys[0] !== '0' ||
-    keys[1] !== '1' ||
-    keys[2] !== '2' ||
-    entries.length !== 2 ||
-    entries[0][0] !== '0' ||
-    entries[0][1] !== 'a' ||
-    entries[1][0] !== '1' ||
-    entries[1][1] !== 'b' ||
-    values.length !== 2 ||
-    values[0] !== 'a' ||
-    values[1] !== 'b'
-  ) {
-    throw new Error('unexpected enumeration');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -22889,30 +23101,7 @@ fn json_build_emits_browser_bundle_string_enumeration_semantics_in_ts_input() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const keys = Object.keys('abc');
-  const entries = Object.entries('ab');
-  const values = Object.values('ab');
-  if (
-    keys.length !== 3 ||
-    keys[0] !== '0' ||
-    keys[1] !== '1' ||
-    keys[2] !== '2' ||
-    entries.length !== 2 ||
-    entries[0][0] !== '0' ||
-    entries[0][1] !== 'a' ||
-    entries[1][0] !== '1' ||
-    entries[1][1] !== 'b' ||
-    values.length !== 2 ||
-    values[0] !== 'a' ||
-    values[1] !== 'b'
-  ) {
-    throw new Error('unexpected enumeration');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -22963,30 +23152,7 @@ fn json_build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const keys = Object.keys('abc');
-  const entries = Object.entries('ab');
-  const values = Object.values('ab');
-  if (
-    keys.length !== 3 ||
-    keys[0] !== '0' ||
-    keys[1] !== '1' ||
-    keys[2] !== '2' ||
-    entries.length !== 2 ||
-    entries[0][0] !== '0' ||
-    entries[0][1] !== 'a' ||
-    entries[1][0] !== '1' ||
-    entries[1][1] !== 'b' ||
-    values.length !== 2 ||
-    values[0] !== 'a' ||
-    values[1] !== 'b'
-  ) {
-    throw new Error('unexpected enumeration');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23037,42 +23203,7 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"b\"] = 1;
-  obj[\"2\"] = 2;
-  obj[\"a\"] = 3;
-  obj[\"1\"] = 4;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 4 ||
-    keys[0] !== '1' ||
-    keys[1] !== '2' ||
-    keys[2] !== 'b' ||
-    keys[3] !== 'a' ||
-    entries.length !== 4 ||
-    entries[0][0] !== '1' ||
-    entries[0][1] !== 4 ||
-    entries[1][0] !== '2' ||
-    entries[1][1] !== 2 ||
-    entries[2][0] !== 'b' ||
-    entries[2][1] !== 1 ||
-    entries[3][0] !== 'a' ||
-    entries[3][1] !== 3 ||
-    values.length !== 4 ||
-    values[0] !== 4 ||
-    values[1] !== 2 ||
-    values[2] !== 1 ||
-    values[3] !== 3
-  ) {
-    throw new Error('unexpected numeric-key ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23109,42 +23240,7 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_input() 
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"b\"] = 1;
-  obj[\"2\"] = 2;
-  obj[\"a\"] = 3;
-  obj[\"1\"] = 4;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 4 ||
-    keys[0] !== '1' ||
-    keys[1] !== '2' ||
-    keys[2] !== 'b' ||
-    keys[3] !== 'a' ||
-    entries.length !== 4 ||
-    entries[0][0] !== '1' ||
-    entries[0][1] !== 4 ||
-    entries[1][0] !== '2' ||
-    entries[1][1] !== 2 ||
-    entries[2][0] !== 'b' ||
-    entries[2][1] !== 1 ||
-    entries[3][0] !== 'a' ||
-    entries[3][1] !== 3 ||
-    values.length !== 4 ||
-    values[0] !== 4 ||
-    values[1] !== 2 ||
-    values[2] !== 1 ||
-    values[3] !== 3
-  ) {
-    throw new Error('unexpected numeric-key ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23182,42 +23278,7 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_inp
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"b\"] = 1;
-  obj[\"2\"] = 2;
-  obj[\"a\"] = 3;
-  obj[\"1\"] = 4;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 4 ||
-    keys[0] !== '1' ||
-    keys[1] !== '2' ||
-    keys[2] !== 'b' ||
-    keys[3] !== 'a' ||
-    entries.length !== 4 ||
-    entries[0][0] !== '1' ||
-    entries[0][1] !== 4 ||
-    entries[1][0] !== '2' ||
-    entries[1][1] !== 2 ||
-    entries[2][0] !== 'b' ||
-    entries[2][1] !== 1 ||
-    entries[3][0] !== 'a' ||
-    entries[3][1] !== 3 ||
-    values.length !== 4 ||
-    values[0] !== 4 ||
-    values[1] !== 2 ||
-    values[2] !== 1 ||
-    values[3] !== 3
-  ) {
-    throw new Error('unexpected numeric-key ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23268,42 +23329,7 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"b\"] = 1;
-  obj[\"2\"] = 2;
-  obj[\"a\"] = 3;
-  obj[\"1\"] = 4;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 4 ||
-    keys[0] !== '1' ||
-    keys[1] !== '2' ||
-    keys[2] !== 'b' ||
-    keys[3] !== 'a' ||
-    entries.length !== 4 ||
-    entries[0][0] !== '1' ||
-    entries[0][1] !== 4 ||
-    entries[1][0] !== '2' ||
-    entries[1][1] !== 2 ||
-    entries[2][0] !== 'b' ||
-    entries[2][1] !== 1 ||
-    entries[3][0] !== 'a' ||
-    entries[3][1] !== 3 ||
-    values.length !== 4 ||
-    values[0] !== 4 ||
-    values[1] !== 2 ||
-    values[2] !== 1 ||
-    values[3] !== 3
-  ) {
-    throw new Error('unexpected numeric-key ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23354,33 +23380,7 @@ fn build_emits_browser_bundle_overwrite_ordering_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"a\"] = 1;
-  obj[\"b\"] = 2;
-  obj[\"a\"] = 3;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 2 ||
-    keys[0] !== 'a' ||
-    keys[1] !== 'b' ||
-    entries.length !== 2 ||
-    entries[0][0] !== 'a' ||
-    entries[0][1] !== 3 ||
-    entries[1][0] !== 'b' ||
-    entries[1][1] !== 2 ||
-    values.length !== 2 ||
-    values[0] !== 3 ||
-    values[1] !== 2
-  ) {
-    throw new Error('unexpected overwrite ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23418,33 +23418,7 @@ fn build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"a\"] = 1;
-  obj[\"b\"] = 2;
-  obj[\"a\"] = 3;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 2 ||
-    keys[0] !== 'a' ||
-    keys[1] !== 'b' ||
-    entries.length !== 2 ||
-    entries[0][0] !== 'a' ||
-    entries[0][1] !== 3 ||
-    entries[1][0] !== 'b' ||
-    entries[1][1] !== 2 ||
-    values.length !== 2 ||
-    values[0] !== 3 ||
-    values[1] !== 2
-  ) {
-    throw new Error('unexpected overwrite ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23482,33 +23456,7 @@ fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_ts_input() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"a\"] = 1;
-  obj[\"b\"] = 2;
-  obj[\"a\"] = 3;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 2 ||
-    keys[0] !== 'a' ||
-    keys[1] !== 'b' ||
-    entries.length !== 2 ||
-    entries[0][0] !== 'a' ||
-    entries[0][1] !== 3 ||
-    entries[1][0] !== 'b' ||
-    entries[1][1] !== 2 ||
-    values.length !== 2 ||
-    values[0] !== 3 ||
-    values[1] !== 2
-  ) {
-    throw new Error('unexpected overwrite ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
@@ -23559,33 +23507,7 @@ fn json_build_emits_browser_bundle_overwrite_ordering_semantics_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: enumSmoke
-async function enumSmoke(left, right) {
-  const obj = Object.create(null);
-  obj[\"a\"] = 1;
-  obj[\"b\"] = 2;
-  obj[\"a\"] = 3;
-  const keys = Object.keys(obj);
-  const entries = Object.entries(obj);
-  const values = Object.values(obj);
-  if (
-    keys.length !== 2 ||
-    keys[0] !== 'a' ||
-    keys[1] !== 'b' ||
-    entries.length !== 2 ||
-    entries[0][0] !== 'a' ||
-    entries[0][1] !== 3 ||
-    entries[1][0] !== 'b' ||
-    entries[1][1] !== 2 ||
-    values.length !== 2 ||
-    values[0] !== 3 ||
-    values[1] !== 2
-  ) {
-    throw new Error('unexpected overwrite ordering');
-  }
-  return left - left + right - right;
-}
-",
+        browser_bundle_object_enumeration_overwrite_ordering_source(),
     )
     .expect("write source");
 
