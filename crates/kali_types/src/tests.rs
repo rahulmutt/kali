@@ -584,6 +584,47 @@ fn test_resolution_allows_browser_stub_globals() {
 }
 
 #[test]
+fn test_resolution_allows_shared_web_baseline_globals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("structuredClone".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("AbortController".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("AbortSignal".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("EventTarget".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("CustomEvent".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("URL".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("URLSearchParams".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("TextEncoder".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("TextDecoder".to_string())),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
