@@ -190,6 +190,48 @@ fn doctor_reports_env_selected_browser_harness_in_pretty_json_under_quiet() {
 }
 
 #[test]
+fn doctor_reports_auto_selected_browser_harness_in_pretty_json_under_quiet() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("--pretty")
+        .arg("--quiet")
+        .arg("doctor")
+        .env_remove("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains('\n'),
+        "pretty JSON should contain newlines: {stdout}"
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    let harness = &json["payload"]["browserHarness"];
+    assert_eq!(harness["source"], "auto");
+    assert!(harness["override"].is_null());
+    let command = harness["command"]
+        .as_array()
+        .expect("browser harness command array");
+    assert!(
+        !command.is_empty(),
+        "browser harness command should not be empty"
+    );
+    assert_eq!(harness["executable"], command[0]);
+    assert_eq!(harness["args"], json!(command[1..]));
+    assert!(harness["executableAvailable"].is_boolean());
+}
+
+#[test]
 fn doctor_reports_auto_selected_browser_harness_in_json() {
     let output = Command::new(kali_bin())
         .arg("--output")
