@@ -27,6 +27,30 @@ fn env_view_is_deterministic_and_mutable() {
 }
 
 #[test]
+fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
+    let mut env = DenoEnv::new(BTreeMap::from([
+        (String::from("BETA"), String::from("2")),
+        (String::from("ALPHA"), String::from("1")),
+    ]));
+
+    let snapshot = env.to_object();
+    assert_eq!(
+        snapshot.keys().cloned().collect::<Vec<_>>(),
+        vec!["ALPHA", "BETA"]
+    );
+    assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
+    assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+
+    env.set("ALPHA", "updated");
+    env.set("GAMMA", "3");
+    env.remove("BETA");
+
+    assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
+    assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+    assert!(!snapshot.contains_key("GAMMA"));
+}
+
+#[test]
 fn args_view_round_trips_host_arguments() {
     let args = DenoArgs::new(vec![String::from("kali"), String::from("run")]);
     assert_eq!(
