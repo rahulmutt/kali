@@ -40645,6 +40645,79 @@ fn phase_three_deno_host_effects_source() -> &'static str {
     "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n"
 }
 
+fn deno_command_spawn_source() -> &'static str {
+    "new Deno.Command('sh').spawn();\n"
+}
+
+#[test]
+fn check_with_sandbox_rejects_deno_command_spawn_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, deno_command_spawn_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
+    assert!(stderr.contains("Process.Spawn"), "stderr: {stderr}");
+}
+
+#[test]
+fn json_check_with_sandbox_rejects_deno_command_spawn_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, deno_command_spawn_source()).expect("write source");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors
+            .iter()
+            .all(|error| matches!(error["code"].as_str(), Some("E9007") | Some("E5506"))),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("Process.Spawn")),
+        "unexpected errors: {errors:?}"
+    );
+}
+
 #[test]
 fn check_with_sandbox_rejects_phase_three_deno_host_effects() {
     let dir = tempdir().expect("tempdir");
