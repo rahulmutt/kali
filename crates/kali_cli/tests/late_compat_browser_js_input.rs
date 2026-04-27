@@ -15,6 +15,10 @@ fn late_env_materialization_source() -> &'static str {
     "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
+fn late_permission_escalation_source() -> &'static str {
+    "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"]();"
+}
+
 fn late_object_model_source() -> &'static str {
     "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
@@ -124,6 +128,75 @@ fn assert_browser_late_env_materialization_rejection_json(errors: &[Value]) {
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
+}
+
+fn assert_browser_late_permission_escalation_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.matches("Deno.permissions.request").count() >= 2,
+        "missing repeated request coverage in stderr: {stderr}"
+    );
+    assert!(
+        stderr.matches("Deno.permissions.revoke").count() >= 2,
+        "missing repeated revoke coverage in stderr: {stderr}"
+    );
+    for expected in [
+        "Deno.permissions.request",
+        "Deno.permissions.revoke",
+        "globalThis.Deno.permissions.request",
+        "globalThis.Deno.permissions.revoke",
+        "permission escalation API",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_permission_escalation_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .filter(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Deno.permissions.request"))
+            .count()
+            >= 2,
+        "missing repeated request coverage in {errors:?}"
+    );
+    assert!(
+        errors
+            .iter()
+            .filter(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Deno.permissions.revoke"))
+            .count()
+            >= 2,
+        "missing repeated revoke coverage in {errors:?}"
+    );
+    for expected in [
+        "Deno.permissions.request",
+        "Deno.permissions.revoke",
+        "globalThis.Deno.permissions.request",
+        "globalThis.Deno.permissions.revoke",
+        "permission escalation API",
     ] {
         assert!(
             errors.iter().any(|error| error["message"]
@@ -340,6 +413,123 @@ fn browser_late_env_materialization_source_includes_bracketed_forms() {
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+}
+
+#[test]
+fn browser_late_permission_escalation_source_includes_bracketed_forms() {
+    let source = late_permission_escalation_source();
+    for expected in [
+        r#"Deno.permissions.request()"#,
+        r#"Deno.permissions.revoke()"#,
+        r#"Deno.permissions["request"]()"#,
+        r#"Deno.permissions["revoke"]()"#,
+        r#"globalThis.Deno.permissions.request()"#,
+        r#"globalThis.Deno.permissions.revoke()"#,
+        r#"globalThis.Deno.permissions["request"]()"#,
+        r#"globalThis.Deno.permissions["revoke"]()"#,
+        r#"globalThis["Deno"]["permissions"]["request"]()"#,
+        r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn check_rejects_late_permission_escalation_members_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_permission_escalation_rejection(&stderr);
+}
+
+#[test]
+fn build_rejects_late_permission_escalation_members_in_browser_bundle_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_permission_escalation_rejection(&stderr);
+}
+
+#[test]
+fn check_rejects_late_permission_escalation_members_in_browser_api_surface_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_permission_escalation_rejection_json(errors);
+}
+
+#[test]
+fn build_rejects_late_permission_escalation_members_in_browser_bundle_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_permission_escalation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_permission_escalation_rejection_json(errors);
 }
 
 #[test]
