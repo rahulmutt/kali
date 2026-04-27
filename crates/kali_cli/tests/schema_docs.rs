@@ -2391,6 +2391,13 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     ] {
         assert_row_once(row, message);
     }
+
+    assert!(
+        matrix.contains(
+            "The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants."
+        ),
+        "package corpus matrix should document browser module-entry-chain JSON-output coverage"
+    );
 }
 
 #[test]
