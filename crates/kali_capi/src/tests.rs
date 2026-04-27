@@ -609,6 +609,8 @@ fn binding_package_manifest_parsing_rejects_invalid_required_field_types() {
         ("artifacts.library", serde_json::json!(1)),
         ("artifacts.metadata", serde_json::json!(null)),
         ("artifacts.exportsHeader", serde_json::json!(["sample.h"])),
+        ("artifacts.glue", serde_json::json!("sample.py")),
+        ("artifacts.glue", serde_json::json!(["sample.py", 1])),
     ];
 
     for (field, value) in cases {
@@ -620,6 +622,7 @@ fn binding_package_manifest_parsing_rejects_invalid_required_field_types() {
             "artifacts.library" => manifest["artifacts"]["library"] = value,
             "artifacts.metadata" => manifest["artifacts"]["metadata"] = value,
             "artifacts.exportsHeader" => manifest["artifacts"]["exportsHeader"] = value,
+            "artifacts.glue" => manifest["artifacts"]["glue"] = value,
             _ => unreachable!("unexpected field: {field}"),
         }
 
@@ -655,6 +658,8 @@ fn binding_package_manifest_summary_rejects_invalid_required_field_types() {
         ("artifacts.library", serde_json::json!(1)),
         ("artifacts.metadata", serde_json::json!(null)),
         ("artifacts.exportsHeader", serde_json::json!(["sample.h"])),
+        ("artifacts.glue", serde_json::json!("sample.py")),
+        ("artifacts.glue", serde_json::json!(["sample.py", 1])),
     ];
 
     for (field, value) in cases {
@@ -666,6 +671,7 @@ fn binding_package_manifest_summary_rejects_invalid_required_field_types() {
             "artifacts.library" => manifest["artifacts"]["library"] = value,
             "artifacts.metadata" => manifest["artifacts"]["metadata"] = value,
             "artifacts.exportsHeader" => manifest["artifacts"]["exportsHeader"] = value,
+            "artifacts.glue" => manifest["artifacts"]["glue"] = value,
             _ => unreachable!("unexpected field: {field}"),
         }
 
