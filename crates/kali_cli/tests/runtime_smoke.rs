@@ -40719,6 +40719,56 @@ fn package_effects_reports_computed_deno_host_access() {
 }
 
 #[test]
+fn package_effects_reports_computed_bracketed_deno_env_delete_as_dynamic() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"globalThis["Deno"]["env"]["delete"]('KALI_CORPUS_FLAG');
+"#,
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["report"]["dynamicEffects"], true);
+    assert_eq!(
+        json["report"]["dynamicReasons"],
+        json!(["computed-host-access"])
+    );
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Process.EnvWrite"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_reports_computed_bracketed_deno_env_get_as_dynamic() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
