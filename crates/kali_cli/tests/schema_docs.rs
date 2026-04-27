@@ -2167,6 +2167,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "boolean-literal-arguments-benchmark-v1",
         "const-array-element-access-benchmark-v1",
         "const-object-property-access-benchmark-v1",
+        "math-variant-benchmark-v1",
         "layout-specialization-benchmark-v1",
         "nullish-benchmark-v1",
         "## Reading rule",
