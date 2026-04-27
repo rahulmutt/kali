@@ -146,6 +146,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Interactive permission escalation APIs (`Deno.permissions.request()` / `revoke()` and similar prompt-style flows) | Rejected by default | Canonical Phase-1 Deno permission-facade gate (`E5506`); `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-targeted `for...of` array iteration | Rejected by default | Canonical iterator-lowering gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs` (`check` / `build --bundle` on `.js` input, including JSON-output coverage) |
 | Browser-requested `run` / `test` `for...of` array iteration in TS and `.js` input | Rejected by default | Canonical iterator-lowering gate (`E5506`); `crates/kali_cli/tests/runtime_smoke.rs` (browser-requested `run` / `test` on TS and `.js` input, including JSON-output coverage) |
+| Unsupported `Math` member calls such as `Math.round()` / `Math.floor()` | Rejected by default | Canonical `E5506` availability gate; `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` |
 | Nullish coalescing `??` | Rejected by default | Parser acceptance plus canonical `E5506` availability gate in `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_js_input.rs`, and `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 
 ## Reading note
