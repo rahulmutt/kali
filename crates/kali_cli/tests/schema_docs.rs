@@ -1173,6 +1173,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.js` input",
         "Browser bundle `crypto.getRandomValues()` plus `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.ts` and `.js` input, including JSON-output coverage",
@@ -1276,6 +1277,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic BigInt addition semantics",
         "Basic BigInt addition semantics in `.js` input",
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.js` input",
+        "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.js` input",
         "CommonJS module lowering",
         "`require(\"literal\")`",
     ];
