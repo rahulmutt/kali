@@ -60,6 +60,8 @@ Widen package compatibility with evidence by support rung instead of broad npm c
 - Progress: `package-effects` and `package-audit` now also reject raw URLs and local/relative path targets in both text and JSON output modes, keeping the single registry-identifier target contract explicit alongside the already-covered explicit-version rejection. The install-command lifecycle-hook lane now also rejects `--allow-scripts` for raw-URL and JSR targets in both text and JSON output modes, keeping the install-time npm hook path separate from registry-only and raw-URL install shapes.
 - Progress: `package-audit` now also rejects `--api`, `--compat`, and `--wasm-threads` in both text and JSON output modes, keeping the command-shape gate aligned with the shared package-analysis-specific-flag contract. The same package-audit lane now also suppresses human output under `--quiet` even when inheriting `eval` plus `wasm-threads`, and the inherited compat/thread context now also has JSON-output quiet coverage; the direct `--wasm-threads` rejection now also has matching JSON-output coverage.
 
+- Progress: the package-corpus matrix drift test now also pins the default standalone exports-map, module-entry, and web-baseline primitive `.js` rows exactly once, keeping the default standalone package-corpus snapshot aligned with the active matrix alongside the browser and Node/Deno slices.
+
 ## Exit gate
 
 - Package support statements name exact rung and context.

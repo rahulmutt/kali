@@ -1800,6 +1800,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "| JSR corpus | `jsr:` packages materialized as on-disk package entries with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
             "jsr corpus row should be recorded in the package corpus matrix",
         ),
+        (
+            "| npm-style package corpus | exports-map packages | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone exports-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry packages | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone module-entry corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | web-baseline primitive packages with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone web-baseline JS corpus row should be recorded in the package corpus matrix",
+        ),
     ] {
         assert!(matrix.contains(row), "{message}");
     }
@@ -1987,6 +1999,25 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_module_only_inherited_row,
         "browser runtime inherited-browser module-only corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
+    let default_exports_map_row =
+        "| npm-style package corpus | exports-map packages | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        default_exports_map_row,
+        "default standalone exports-map corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let default_module_entry_row =
+        "| npm-style package corpus | module-entry packages | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        default_module_entry_row,
+        "default standalone module-entry corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let default_web_baseline_js_row =
+        "| npm-style package corpus | web-baseline primitive packages with `.js` input | default standalone | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        default_web_baseline_js_row,
+        "default standalone web-baseline JS corpus row should be recorded exactly once in the package corpus matrix",
     );
 
     let default_package_content_test_row =
