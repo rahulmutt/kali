@@ -603,8 +603,55 @@ fn core_schema_documents_match_current_cli_contracts() {
         "array"
     );
     assert_eq!(
+        package_effects["properties"]["report"]["properties"]["entryPoints"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
         package_effects["properties"]["report"]["properties"]["effects"]["type"],
         "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]
+            ["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["required"]
+            .as_array()
+            .expect("package-effects effect required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("package-effects effect required string"))
+            .collect::<Vec<_>>(),
+        vec!["kind", "locations"]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["type"],
+        "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["required"]
+            .as_array()
+            .expect("package-effects effect location required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("package-effects effect location required string"))
+            .collect::<Vec<_>>(),
+        vec!["file", "line", "column"]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["properties"]["function"]["type"],
+        "string"
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["dynamicEffects"]["type"],
@@ -613,6 +660,10 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["dynamicReasons"]["type"],
         "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicReasons"]["items"]["type"],
+        "string"
     );
 
     let check: serde_json::Value = serde_json::from_str(
