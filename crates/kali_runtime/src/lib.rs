@@ -2909,7 +2909,7 @@ pub fn browser_bundle_runtime_execute_checked(
             .unwrap_or(RuntimeBackend::BrowserHarness),
         reported_args: summary.args,
         registered_tests: summary.tests,
-        tests_failed: summary.tests_failed,
+        tests_failed: summary.tests_failed.unwrap_or(0),
     })
 }
 
@@ -3148,7 +3148,7 @@ impl BrowserRuntimeExecutionOutcome {
 struct BrowserRuntimeSummary {
     args: Vec<String>,
     tests: Vec<String>,
-    tests_failed: usize,
+    tests_failed: Option<usize>,
     host_contract: Option<RuntimeHostContract>,
     runtime_backend: Option<RuntimeBackend>,
 }
@@ -3195,7 +3195,7 @@ fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSumma
             tests_failed: value
                 .get("testsFailed")
                 .and_then(|value| value.as_u64())
-                .unwrap_or(0) as usize,
+                .map(|value| value as usize),
             host_contract: value
                 .get("hostContract")
                 .and_then(|value| value.as_str())
@@ -3216,6 +3216,9 @@ fn browser_runtime_summary_for_outcome(
     match fs::read_to_string(summary_path) {
         Ok(text) => match parse_browser_runtime_summary_opt(&text) {
             Some(mut summary) => {
+                if summary.tests_failed.is_none() {
+                    summary.tests_failed = stdout_summary.tests_failed;
+                }
                 if summary.host_contract.is_none() {
                     summary.host_contract = stdout_summary.host_contract;
                 }
@@ -3286,7 +3289,7 @@ pub fn browser_runtime_execute_checked(
             .unwrap_or(RuntimeBackend::BrowserHarness),
         reported_args: summary.args,
         registered_tests: summary.tests,
-        tests_failed: summary.tests_failed,
+        tests_failed: summary.tests_failed.unwrap_or(0),
     })
 }
 

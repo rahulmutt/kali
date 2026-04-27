@@ -1104,7 +1104,7 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
-    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.tests_failed, Some(0));
     assert_eq!(summary.host_contract, None);
     assert_eq!(summary.runtime_backend, None);
 }
@@ -1128,7 +1128,37 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_incomplete(
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
-    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.tests_failed, Some(0));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
+fn browser_runtime_summary_merges_missing_tests_failed_from_stdout() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":["zeta"],"tests":["7"],"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
+    )
+    .expect("write partial summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(1),
+        stdout: r#"{"args":["stdout"],"tests":["stdout"],"testsFailed":1,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, Some(1));
     assert_eq!(
         summary.host_contract,
         Some(RuntimeHostContract::BrowserRequested)
@@ -1158,7 +1188,7 @@ fn browser_runtime_summary_uses_stdout_labels_when_summary_file_lacks_them() {
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
-    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.tests_failed, Some(0));
     assert_eq!(
         summary.host_contract,
         Some(RuntimeHostContract::BrowserRequested)
@@ -1190,7 +1220,7 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
-    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.tests_failed, Some(0));
     assert_eq!(
         summary.host_contract,
         Some(RuntimeHostContract::BrowserRequested)
@@ -1226,7 +1256,7 @@ fn browser_runtime_summary_prefers_the_last_json_line_from_a_noisy_summary_file(
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
     assert_eq!(summary.args, vec!["zeta".to_string()]);
     assert_eq!(summary.tests, vec!["7".to_string()]);
-    assert_eq!(summary.tests_failed, 0);
+    assert_eq!(summary.tests_failed, Some(0));
     assert_eq!(
         summary.host_contract,
         Some(RuntimeHostContract::BrowserRequested)
