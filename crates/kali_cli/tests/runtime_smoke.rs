@@ -13552,7 +13552,66 @@ console.log(minVersion('^1.2.3')?.version);
 }
 
 #[test]
-fn test_supports_optional_chaining_semantics_in_js_input() {
+fn json_run_supports_optional_chaining_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/semver");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "semver",
+  "version": "7.7.4",
+  "main": "index.js",
+  "exports": "./index.js"
+}"#,
+    )
+    .expect("write package json");
+    fs::write(
+        package_dir.join("index.js"),
+        r#"export function minVersion(range) { return { version: '1.2.3' }; }
+"#,
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("main.js"),
+        r#"import { minVersion } from 'semver';
+console.log(minVersion('^1.2.3')?.version);
+"#,
+    )
+    .expect("write consumer source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(dir.path().join("main.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("1.2.3\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_supports_optional_chaining_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/semver");
     fs::create_dir_all(&package_dir).expect("create package dir");
@@ -13582,6 +13641,8 @@ console.log(minVersion('^1.2.3')?.version);
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
         .arg("test")
         .arg(dir.path().join("smoke.test.js"))
         .output()
@@ -13593,8 +13654,21 @@ console.log(minVersion('^1.2.3')?.version);
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout, "1.2.3\nok 1\n", "stdout: {stdout}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("1.2.3\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
 }
 
 #[test]
