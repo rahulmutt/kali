@@ -510,6 +510,26 @@ fn binding_package_manifest_helpers_load_discover_and_summarize_manifests() {
     );
 }
 
+fn valid_binding_package_manifest() -> serde_json::Value {
+    serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "binding-package",
+        "moduleName": "sample",
+        "hostAbiVersion": HOST_ABI_VERSION,
+        "minHostAbiVersion": HOST_ABI_VERSION,
+        "maxSpecializations": 8,
+        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "artifacts": {
+            "library": "sample.capi.wasm",
+            "metadata": "sample.cabi.json",
+            "exportsHeader": "sample.h",
+            "glue": ["z.py", "a.py", "z.py"]
+        }
+    })
+}
+
 #[test]
 fn binding_package_manifest_parsing_normalizes_string_lists() {
     let manifest = parse_binding_package_manifest(
@@ -541,23 +561,7 @@ fn binding_package_manifest_parsing_normalizes_string_lists() {
 
 #[test]
 fn binding_package_manifest_summary_normalizes_string_lists() {
-    let manifest = serde_json::json!({
-        "schemaVersion": 1,
-        "kind": "binding-package",
-        "moduleName": "sample",
-        "hostAbiVersion": HOST_ABI_VERSION,
-        "minHostAbiVersion": HOST_ABI_VERSION,
-        "maxSpecializations": 8,
-        "runtimeProfiles": ["wasm-threads", "fiber-threads", "wasm-threads"],
-        "hostContract": "kali-hosted",
-        "runtimeBackend": "wasmtime",
-        "artifacts": {
-            "exportsHeader": "sample.h",
-            "glue": ["z.py", "a.py", "z.py"],
-            "library": "sample.capi.wasm",
-            "metadata": "sample.cabi.json"
-        }
-    });
+    let manifest = valid_binding_package_manifest();
 
     let summary = binding_package_manifest_summary(&manifest).expect("summarize manifest");
 
@@ -597,25 +601,76 @@ fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_invalid_required_field_types() {
+    let cases = [
+        ("moduleName", serde_json::json!(1)),
+        ("hostAbiVersion", serde_json::json!("two")),
+        ("minHostAbiVersion", serde_json::json!(false)),
+        ("artifacts.library", serde_json::json!(1)),
+        ("artifacts.metadata", serde_json::json!(null)),
+        ("artifacts.exportsHeader", serde_json::json!(["sample.h"])),
+    ];
+
+    for (field, value) in cases {
+        let mut manifest = valid_binding_package_manifest();
+        match field {
+            "moduleName" => manifest["moduleName"] = value,
+            "hostAbiVersion" => manifest["hostAbiVersion"] = value,
+            "minHostAbiVersion" => manifest["minHostAbiVersion"] = value,
+            "artifacts.library" => manifest["artifacts"]["library"] = value,
+            "artifacts.metadata" => manifest["artifacts"]["metadata"] = value,
+            "artifacts.exportsHeader" => manifest["artifacts"]["exportsHeader"] = value,
+            _ => unreachable!("unexpected field: {field}"),
+        }
+
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("invalid required field type should fail");
+
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
 fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
-    for (field, value) in [("hostContract", "1"), ("runtimeBackend", "true")] {
-        let error = parse_binding_package_manifest(&format!(
-            r#"{{
-                "schemaVersion": 1,
-                "kind": "binding-package",
-                "moduleName": "sample",
-                "hostAbiVersion": 2,
-                "{}": {},
-                "artifacts": {{
-                    "library": "sample.capi.wasm",
-                    "metadata": "sample.cabi.json",
-                    "exportsHeader": "sample.h",
-                    "glue": []
-                }}
-            }}"#,
-            field, value
-        ))
-        .expect_err("invalid provenance field should fail");
+    for (field, value) in [
+        ("hostContract", serde_json::json!(1)),
+        ("runtimeBackend", serde_json::json!(false)),
+    ] {
+        let mut manifest = valid_binding_package_manifest();
+        manifest[field] = value;
+
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("invalid provenance field should fail");
+
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
+fn binding_package_manifest_summary_rejects_invalid_required_field_types() {
+    let cases = [
+        ("moduleName", serde_json::json!(1)),
+        ("hostAbiVersion", serde_json::json!("two")),
+        ("minHostAbiVersion", serde_json::json!(false)),
+        ("artifacts.library", serde_json::json!(1)),
+        ("artifacts.metadata", serde_json::json!(null)),
+        ("artifacts.exportsHeader", serde_json::json!(["sample.h"])),
+    ];
+
+    for (field, value) in cases {
+        let mut manifest = valid_binding_package_manifest();
+        match field {
+            "moduleName" => manifest["moduleName"] = value,
+            "hostAbiVersion" => manifest["hostAbiVersion"] = value,
+            "minHostAbiVersion" => manifest["minHostAbiVersion"] = value,
+            "artifacts.library" => manifest["artifacts"]["library"] = value,
+            "artifacts.metadata" => manifest["artifacts"]["metadata"] = value,
+            "artifacts.exportsHeader" => manifest["artifacts"]["exportsHeader"] = value,
+            _ => unreachable!("unexpected field: {field}"),
+        }
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("invalid required field type should fail");
 
         assert!(error.contains(field), "unexpected error: {error}");
     }
@@ -627,20 +682,8 @@ fn binding_package_manifest_summary_rejects_non_string_provenance_fields() {
         ("hostContract", serde_json::json!(1)),
         ("runtimeBackend", serde_json::json!(false)),
     ] {
-        let manifest = serde_json::json!({
-            "schemaVersion": 1,
-            "kind": "binding-package",
-            "moduleName": "sample",
-            "hostAbiVersion": HOST_ABI_VERSION,
-            "minHostAbiVersion": HOST_ABI_VERSION,
-            (field): value,
-            "artifacts": {
-                "exportsHeader": "sample.h",
-                "glue": [],
-                "library": "sample.capi.wasm",
-                "metadata": "sample.cabi.json"
-            }
-        });
+        let mut manifest = valid_binding_package_manifest();
+        manifest[field] = value;
 
         let error = binding_package_manifest_summary(&manifest)
             .expect_err("invalid provenance field should fail");

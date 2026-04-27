@@ -1017,7 +1017,28 @@ fn binding_package_metadata_schema_is_pinned() {
     assert_eq!(schema["properties"]["kind"]["const"], "binding-package");
     assert_eq!(schema["properties"]["moduleName"]["type"], "string");
     assert_eq!(schema["properties"]["hostAbiVersion"]["type"], "integer");
+    assert_eq!(schema["properties"]["minHostAbiVersion"]["type"], "integer");
     assert_eq!(schema["properties"]["artifacts"]["type"], "object");
+    assert_eq!(
+        schema["properties"]["artifacts"]["additionalProperties"],
+        true
+    );
+    assert_eq!(
+        schema["properties"]["artifacts"]["properties"]["library"]["type"],
+        "string"
+    );
+    assert_eq!(
+        schema["properties"]["artifacts"]["properties"]["metadata"]["type"],
+        "string"
+    );
+    assert_eq!(
+        schema["properties"]["artifacts"]["properties"]["exportsHeader"]["type"],
+        "string"
+    );
+    assert_eq!(
+        schema["properties"]["artifacts"]["properties"]["glue"]["type"],
+        "array"
+    );
     assert_eq!(
         schema["properties"]["artifacts"]["required"],
         serde_json::json!(["library", "metadata", "exportsHeader", "glue"])

@@ -560,6 +560,13 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
     let mut manifest: Value = serde_json::from_str(manifest_text)
         .map_err(|error| format!("binding package manifest is not valid JSON: {}", error))?;
 
+    validate_integer_field(
+        manifest.get("schemaVersion").ok_or_else(|| {
+            "binding package manifest field 'schemaVersion' must be an integer".to_string()
+        })?,
+        "binding package manifest",
+        "schemaVersion",
+    )?;
     let schema_version = manifest
         .get("schemaVersion")
         .and_then(Value::as_u64)
@@ -573,6 +580,13 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         ));
     }
 
+    validate_string_field(
+        manifest
+            .get("kind")
+            .ok_or_else(|| "binding package manifest field 'kind' must be a string".to_string())?,
+        "binding package manifest",
+        "kind",
+    )?;
     let kind = manifest
         .get("kind")
         .and_then(Value::as_str)
@@ -583,6 +597,21 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
             kind
         ));
     }
+
+    validate_string_field(
+        manifest.get("moduleName").ok_or_else(|| {
+            "binding package manifest field 'moduleName' must be a string".to_string()
+        })?,
+        "binding package manifest",
+        "moduleName",
+    )?;
+    validate_integer_field(
+        manifest.get("hostAbiVersion").ok_or_else(|| {
+            "binding package manifest field 'hostAbiVersion' must be an integer".to_string()
+        })?,
+        "binding package manifest",
+        "hostAbiVersion",
+    )?;
 
     let artifacts = manifest
         .get("artifacts")
@@ -598,7 +627,18 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
             ));
         }
     }
-
+    for key in ["library", "metadata", "exportsHeader"] {
+        validate_string_field(
+            artifacts.get(key).ok_or_else(|| {
+                format!(
+                    "binding package manifest field 'artifacts.{}' is missing",
+                    key
+                )
+            })?,
+            "binding package manifest",
+            &format!("artifacts.{key}"),
+        )?;
+    }
     if let Some(runtime_profiles) = manifest.get("runtimeProfiles") {
         let normalized_runtime_profiles =
             normalize_string_list_value(runtime_profiles, "binding package", "runtimeProfiles")?;
@@ -607,24 +647,32 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         }
     }
 
+    if let Some(min_host_abi_version) = manifest.get("minHostAbiVersion") {
+        validate_integer_field(
+            min_host_abi_version,
+            "binding package manifest",
+            "minHostAbiVersion",
+        )?;
+    }
+
     if let Some(max_specializations) = manifest.get("maxSpecializations") {
-        if max_specializations.as_u64().is_none() {
-            return Err(
-                "binding package field 'maxSpecializations' must be an integer".to_string(),
-            );
-        }
+        validate_integer_field(
+            max_specializations,
+            "binding package manifest",
+            "maxSpecializations",
+        )?;
     }
 
     if let Some(host_contract) = manifest.get("hostContract") {
-        if !host_contract.is_string() {
-            return Err("binding package field 'hostContract' must be a string".to_string());
-        }
+        validate_string_field(host_contract, "binding package manifest", "hostContract")?;
     }
 
     if let Some(runtime_backend) = manifest.get("runtimeBackend") {
-        if !runtime_backend.is_string() {
-            return Err("binding package field 'runtimeBackend' must be a string".to_string());
-        }
+        validate_string_field(
+            runtime_backend,
+            "binding package manifest",
+            "runtimeBackend",
+        )?;
     }
 
     if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
@@ -637,6 +685,28 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
     }
 
     Ok(manifest)
+}
+
+fn validate_string_field(value: &Value, context: &str, field_name: &str) -> Result<(), String> {
+    if value.is_string() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} field '{}' must be a string",
+            context, field_name
+        ))
+    }
+}
+
+fn validate_integer_field(value: &Value, context: &str, field_name: &str) -> Result<(), String> {
+    if value.as_i64().is_some() || value.as_u64().is_some() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} field '{}' must be an integer",
+            context, field_name
+        ))
+    }
 }
 
 fn normalize_string_list_value(
@@ -781,29 +851,62 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
             "binding package manifest summary field 'artifacts' must be a JSON object".to_string()
         })?;
 
-    let exports_header = artifacts.get("exportsHeader").cloned().ok_or_else(|| {
+    let exports_header = artifacts.get("exportsHeader").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.exportsHeader' is missing".to_string()
     })?;
+    validate_string_field(
+        exports_header,
+        "binding package manifest summary",
+        "artifacts.exportsHeader",
+    )?;
     let glue = artifacts.get("glue").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.glue' is missing".to_string()
     })?;
     let glue = normalize_string_list_value(glue, "binding package", "artifacts.glue")?;
-    let library = artifacts.get("library").cloned().ok_or_else(|| {
+    let library = artifacts.get("library").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.library' is missing".to_string()
     })?;
-    let metadata = artifacts.get("metadata").cloned().ok_or_else(|| {
+    validate_string_field(
+        library,
+        "binding package manifest summary",
+        "artifacts.library",
+    )?;
+    let metadata = artifacts.get("metadata").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.metadata' is missing".to_string()
     })?;
+    validate_string_field(
+        metadata,
+        "binding package manifest summary",
+        "artifacts.metadata",
+    )?;
 
-    let module_name = manifest.get("moduleName").cloned().ok_or_else(|| {
+    let module_name = manifest.get("moduleName").ok_or_else(|| {
         "binding package manifest summary field 'moduleName' is missing".to_string()
     })?;
-    let host_abi_version = manifest.get("hostAbiVersion").cloned().ok_or_else(|| {
+    validate_string_field(
+        module_name,
+        "binding package manifest summary",
+        "moduleName",
+    )?;
+    let host_abi_version = manifest.get("hostAbiVersion").ok_or_else(|| {
         "binding package manifest summary field 'hostAbiVersion' is missing".to_string()
     })?;
+    validate_integer_field(
+        host_abi_version,
+        "binding package manifest summary",
+        "hostAbiVersion",
+    )?;
     let min_host_abi_version = manifest
         .get("minHostAbiVersion")
-        .cloned()
+        .map(|value| {
+            validate_integer_field(
+                value,
+                "binding package manifest summary",
+                "minHostAbiVersion",
+            )
+            .map(|_| value.clone())
+        })
+        .transpose()?
         .unwrap_or_else(|| host_abi_version.clone());
     let runtime_profiles = match manifest.get("runtimeProfiles") {
         Some(runtime_profiles) => {
@@ -813,32 +916,30 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     };
     let host_contract = match manifest.get("hostContract") {
         Some(host_contract) => {
-            if !host_contract.is_string() {
-                return Err(
-                    "binding package manifest summary field 'hostContract' must be a string"
-                        .to_string(),
-                );
-            }
+            validate_string_field(
+                host_contract,
+                "binding package manifest summary",
+                "hostContract",
+            )?;
             host_contract.clone()
         }
         None => Value::String("kali-hosted".to_string()),
     };
     let runtime_backend = match manifest.get("runtimeBackend") {
         Some(runtime_backend) => {
-            if !runtime_backend.is_string() {
-                return Err(
-                    "binding package manifest summary field 'runtimeBackend' must be a string"
-                        .to_string(),
-                );
-            }
+            validate_string_field(
+                runtime_backend,
+                "binding package manifest summary",
+                "runtimeBackend",
+            )?;
             runtime_backend.clone()
         }
         None => Value::String("wasmtime".to_string()),
     };
 
     let mut summary = serde_json::Map::new();
-    summary.insert("moduleName".to_string(), module_name);
-    summary.insert("hostAbiVersion".to_string(), host_abi_version);
+    summary.insert("moduleName".to_string(), module_name.clone());
+    summary.insert("hostAbiVersion".to_string(), host_abi_version.clone());
     summary.insert("minHostAbiVersion".to_string(), min_host_abi_version);
     summary.insert("runtimeProfiles".to_string(), runtime_profiles);
     summary.insert("hostContract".to_string(), host_contract);
@@ -852,10 +953,10 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     }
 
     let mut summary_artifacts = serde_json::Map::new();
-    summary_artifacts.insert("exportsHeader".to_string(), exports_header);
+    summary_artifacts.insert("exportsHeader".to_string(), exports_header.clone());
     summary_artifacts.insert("glue".to_string(), glue);
-    summary_artifacts.insert("library".to_string(), library);
-    summary_artifacts.insert("metadata".to_string(), metadata);
+    summary_artifacts.insert("library".to_string(), library.clone());
+    summary_artifacts.insert("metadata".to_string(), metadata.clone());
     summary.insert("artifacts".to_string(), Value::Object(summary_artifacts));
 
     Ok(Value::Object(summary))
