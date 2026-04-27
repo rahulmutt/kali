@@ -2910,6 +2910,32 @@ async function enumSmoke(left, right) {
 "##
 }
 
+fn browser_bundle_string_primitive_enumeration_source() -> &'static str {
+    r##"// kali-tree-shake: stringPrimitiveSmoke
+async function stringPrimitiveSmoke(left, right) {
+  const stringKeys = Object.keys('ab');
+  const stringEntries = Object.entries('ab');
+  const stringValues = Object.values('ab');
+  if (
+    stringKeys.length !== 2 ||
+    stringKeys[0] !== '0' ||
+    stringKeys[1] !== '1' ||
+    stringEntries.length !== 2 ||
+    stringEntries[0][0] !== '0' ||
+    stringEntries[0][1] !== 'a' ||
+    stringEntries[1][0] !== '1' ||
+    stringEntries[1][1] !== 'b' ||
+    stringValues.length !== 2 ||
+    stringValues[0] !== 'a' ||
+    stringValues[1] !== 'b'
+  ) {
+    throw new Error('unexpected string primitive enumeration');
+  }
+  return left - left + right - right;
+}
+"##
+}
+
 fn write_browser_runtime_package_fixture(package_dir: &Path, package_name: &str) {
     fs::create_dir_all(package_dir).expect("create browser package dir");
     fs::write(
@@ -3076,6 +3102,67 @@ console.log(String(result));
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains('0'), "stdout: {stdout}");
+}
+
+fn assert_browser_bundle_string_primitive_enumeration(filename: &str, json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_bundle_string_primitive_enumeration_source(),
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}
+stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let envelope = parse_json_stdout(&output);
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["exitCode"], 0);
+        let payload = envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
+        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+        let kinds: Vec<_> = artifacts
+            .iter()
+            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+            .collect();
+        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+    }
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "stringPrimitiveSmoke");
 }
 
 fn assert_browser_bundle_dynamic_import_loader(bundle_root: &Path, specifier: &str) {
@@ -26387,6 +26474,26 @@ fn json_build_emits_browser_bundle_string_enumeration_semantics_in_js_input() {
     assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
 
     assert_browser_bundle_executes(&dir.path().join("app"), "enumSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_string_primitive_enumeration_semantics() {
+    assert_browser_bundle_string_primitive_enumeration("app.ts", false);
+}
+
+#[test]
+fn build_emits_browser_bundle_string_primitive_enumeration_semantics_in_js_input() {
+    assert_browser_bundle_string_primitive_enumeration("app.js", false);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_string_primitive_enumeration_semantics_in_ts_input() {
+    assert_browser_bundle_string_primitive_enumeration("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_string_primitive_enumeration_semantics_in_js_input() {
+    assert_browser_bundle_string_primitive_enumeration("app.js", true);
 }
 
 #[test]
