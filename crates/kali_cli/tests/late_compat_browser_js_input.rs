@@ -1146,6 +1146,104 @@ fn build_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_js_in
     );
 }
 
+#[test]
+fn check_rejects_threaded_runtime_globals_in_browser_api_surface_ts_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "check",
+        &[],
+        false,
+        true,
+        false,
+        "main.ts",
+    );
+}
+
+#[test]
+fn build_rejects_threaded_runtime_globals_in_browser_bundle_ts_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        true,
+        false,
+        "main.ts",
+    );
+}
+
+#[test]
+fn check_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "check",
+        &[],
+        false,
+        false,
+        true,
+        "main.ts",
+    );
+}
+
+#[test]
+fn build_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_input() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        false,
+        true,
+        "main.ts",
+    );
+}
+
+#[test]
+fn run_rejects_threaded_runtime_globals_in_browser_api_surface_ts_input_with_browser_harness() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "run",
+        &[],
+        true,
+        true,
+        false,
+        "main.ts",
+    );
+}
+
+#[test]
+fn test_rejects_threaded_runtime_globals_in_browser_api_surface_ts_input_with_browser_harness() {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "test",
+        &[],
+        true,
+        true,
+        false,
+        "smoke.test.ts",
+    );
+}
+
+#[test]
+fn run_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_input_with_browser_harness(
+) {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "run",
+        &[],
+        true,
+        false,
+        true,
+        "main.ts",
+    );
+}
+
+#[test]
+fn test_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_input_with_browser_harness(
+) {
+    assert_browser_late_threaded_runtime_rejection_for_command(
+        "test",
+        &[],
+        true,
+        false,
+        true,
+        "smoke.test.ts",
+    );
+}
+
 fn assert_browser_late_nullish_coalescing_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
