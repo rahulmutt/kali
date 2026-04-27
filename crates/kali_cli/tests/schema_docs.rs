@@ -2194,6 +2194,99 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         default_package_content_test_row,
         "default standalone package-content test corpus row should be recorded exactly once in the package corpus matrix",
     );
+
+    for (row, message) in [
+        (
+            "| npm-style package corpus | pure JS package (`semver`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pattern-exports packages with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone pattern-exports corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | exports-map mixed-format interop packages with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone exports-map mixed-format corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry packages with `.js` entrypoints | default standalone | `check`, `run` | checkable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone module-entry JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry packages and module-entry chains | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone module-entry / module-entry-chain corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry packages and module-entry chains with `.js` entrypoints | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone module-entry / module-entry-chain JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | web-baseline primitive packages | default standalone | `build`, `run` | buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone web-baseline TS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | string-export packages | default standalone | `run` | executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone string-export corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | string-export packages with `.js` input | default standalone | `test` | testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone string-export JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pure JS utility packages (`date-fns`, `zod`, `plimit`, `ms`) | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone pure-JS utility corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | pure JS package (`semver`) | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone semver corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) | default standalone | `check`, `build` | checkable / buildable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone package-content TS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone package-content JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | scoped packages | default standalone | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "default standalone scoped corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages (`vitest`, `jest`, `mocha`, `ava`) | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages with exports maps | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner exports-map corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages with exports maps and `node:buffer` built-in usage with `.js` entrypoints | Node | `run`, `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner exports-map JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages with mixed-format entries | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner mixed-format corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | runner packages with mixed-format entries with `.js` entrypoints | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node runner mixed-format JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| package-resolution corpus | Node-assuming packages | Node vs default standalone contrast | `check`, `run` vs rejection paths | gated on the Node surface; rejected by default standalone | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node-versus-standalone package-resolution corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "deno host-control corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| JSR corpus | `jsr:` packages materialized as on-disk package entries | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "jsr corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+    ] {
+        assert_row_once(row, message);
+    }
 }
 
 #[test]
