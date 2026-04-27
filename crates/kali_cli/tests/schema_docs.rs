@@ -1896,6 +1896,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         browser_module_entry_chain_inherited_row,
         "browser inherited module-entry-chain corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_module_only_targeted_row =
+        "| npm-style package corpus | browser module-only packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_only_targeted_row,
+        "browser module-only targeted corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_module_only_targeted_js_row =
+        "| npm-style package corpus | browser module-only packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_module_only_targeted_js_row,
+        "browser module-only targeted JS corpus row should be recorded exactly once in the package corpus matrix",
+    );
     let browser_pattern_exports_row =
         "| browser runtime corpus | browser pattern-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
