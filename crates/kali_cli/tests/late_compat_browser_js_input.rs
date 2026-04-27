@@ -37,7 +37,20 @@ fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
 }
 
 fn late_threaded_runtime_source() -> &'static str {
-    "globalThis.SharedArrayBuffer; globalThis.Atomics;"
+    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+}
+
+#[test]
+fn browser_late_threaded_runtime_source_includes_bracketed_forms() {
+    let source = late_threaded_runtime_source();
+    assert!(
+        source.contains(r#"globalThis["SharedArrayBuffer"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Atomics"]"#),
+        "source: {source}"
+    );
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {
