@@ -1340,6 +1340,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic optional chaining member and element access",
         "Basic BigInt addition semantics",
         "Basic BigInt addition semantics in `.js` input",
+        "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.js` input",
         "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.js` input",
         "CommonJS module lowering",
