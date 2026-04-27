@@ -38106,6 +38106,51 @@ globalThis["Deno"]["env"]["set"]('KALI_CORPUS_FLAG', 'set');
 }
 
 #[test]
+fn effects_command_reports_direct_deno_network_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"
+Deno.connect('127.0.0.1', 1);
+Deno.listen('127.0.0.1', 0);
+Deno.serve('127.0.0.1', 0);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Network.Connect"), "effects: {kinds:?}");
+    assert!(kinds.contains(&"Network.Listen"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_command_reports_computed_bracketed_deno_env_get_as_dynamic() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
