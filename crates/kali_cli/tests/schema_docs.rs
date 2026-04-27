@@ -308,28 +308,83 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read artifact schema"),
     )
     .expect("parse artifact schema");
-    let enum_values = artifact_meta["properties"]["artifactKind"]["enum"]
-        .as_array()
-        .expect("artifactKind enum array")
-        .iter()
-        .map(|value| value.as_str().expect("enum string"))
-        .collect::<Vec<_>>();
+    assert_eq!(artifact_meta["title"], "Kali Artifact Metadata v1");
+    assert_eq!(artifact_meta["type"], "object");
+    assert_eq!(artifact_meta["additionalProperties"], true);
     assert_eq!(
-        enum_values,
-        vec!["executable", "lib", "bundle", "capi", "component"]
+        required_fields(&artifact_meta),
+        [
+            "schemaVersion",
+            "artifactKind",
+            "entrypoint",
+            "buildMode",
+            "apiSurface",
+            "kaliVersion",
+            "sourceHash",
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
     );
-    for property in [
-        "runtimeProfiles",
-        "maxSpecializations",
-        "profileDataHash",
-        "hostContract",
-        "runtimeBackend",
-    ] {
-        assert!(
-            artifact_meta["properties"].get(property).is_some(),
-            "missing artifact metadata property: {property}"
-        );
-    }
+    assert_eq!(artifact_meta["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(
+        artifact_meta["properties"]["artifactKind"]["enum"],
+        serde_json::json!(["executable", "lib", "bundle", "capi", "component"])
+    );
+    assert_eq!(artifact_meta["properties"]["entrypoint"]["type"], "string");
+    assert_eq!(artifact_meta["properties"]["buildMode"]["type"], "string");
+    assert_eq!(
+        artifact_meta["properties"]["buildMode"]["enum"],
+        serde_json::json!(["fast", "release", "release-advanced"])
+    );
+    assert_eq!(artifact_meta["properties"]["apiSurface"]["type"], "string");
+    assert_eq!(
+        artifact_meta["properties"]["runtimeProfiles"]["type"],
+        "array"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["runtimeProfiles"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["maxSpecializations"]["type"],
+        "integer"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["hostContract"]["type"],
+        "string"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["runtimeBackend"]["type"],
+        "string"
+    );
+    assert_eq!(artifact_meta["properties"]["kaliVersion"]["type"], "string");
+    assert_eq!(artifact_meta["properties"]["sourceHash"]["type"], "string");
+    assert_eq!(
+        artifact_meta["properties"]["profileDataHash"]["type"],
+        "string"
+    );
+    assert_eq!(artifact_meta["properties"]["exports"]["type"], "array");
+    assert_eq!(
+        artifact_meta["properties"]["exports"]["items"]["type"],
+        "object"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["exports"]["items"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        artifact_meta["properties"]["exports"]["items"]["required"],
+        serde_json::json!(["name", "signature"])
+    );
+    assert_eq!(
+        artifact_meta["properties"]["exports"]["items"]["properties"]["name"]["type"],
+        "string"
+    );
+    assert_eq!(
+        artifact_meta["properties"]["exports"]["items"]["properties"]["signature"]["type"],
+        "string"
+    );
 
     let binding_package: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/binding-package/v1.json"))
