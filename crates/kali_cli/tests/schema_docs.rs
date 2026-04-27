@@ -1643,6 +1643,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali run <file> [-- args...]",
         "kali test [files...]",
         "kali test --coverage [files...]",
+        "kali check --sandbox kali.policy.json main.ts",
         "kali build --bundle --sandbox kali.policy.json main.ts",
         "kali build --lib --sandbox kali.policy.json lib.ts",
         "kali build --capi --sandbox kali.policy.json lib.ts",
