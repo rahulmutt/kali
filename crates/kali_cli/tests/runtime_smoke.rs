@@ -15165,6 +15165,33 @@ fn run_supports_object_literal_property_access_in_js_input() {
 }
 
 #[test]
+fn run_supports_nested_math_call_composition_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.max(Math.min(1, 2), Math.abs(3 - 6)));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "3", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_crypto_get_random_values_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -18662,6 +18689,33 @@ if (false || false) {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("1\n2\n3\n4\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_nested_math_call_composition_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('nested math calls', () => { console.log(Math.max(Math.min(1, 2), Math.abs(3 - 6))); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
