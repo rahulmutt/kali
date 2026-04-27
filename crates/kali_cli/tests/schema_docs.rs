@@ -1650,6 +1650,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime inherited-browser dual-exports corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | mixed CommonJS/ESM interop packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser mixed-format runtime corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | mixed CommonJS/ESM interop packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited mixed-format runtime corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser internal browser-rewrite packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser internal browser-rewrite corpus row should be recorded in the package corpus matrix",
         ),
@@ -1920,6 +1928,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_semver_inherited_row,
         "browser inherited semver runtime corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_mixed_format_row =
+        "| browser runtime corpus | mixed CommonJS/ESM interop packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_mixed_format_row,
+        "browser mixed-format runtime corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_mixed_format_inherited_row =
+        "| browser runtime corpus | mixed CommonJS/ESM interop packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_mixed_format_inherited_row,
+        "browser inherited mixed-format runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_package_content_row =
         "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";

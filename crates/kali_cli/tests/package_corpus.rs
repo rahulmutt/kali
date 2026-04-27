@@ -3063,6 +3063,166 @@ fn browser_corpus_js_entrypoints_with_minimized_cjs_esm_interop_remain_checkable
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_explicit_and_a_harness_command_is_configured(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+        ("@reduxjs/toolkit", "query"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            "module.exports = function root() { return 0; }\n",
+            "export default function root() { return 0; }\n",
+            subpath,
+            "module.exports = function subpath() { return 0; }\n",
+            "export default function subpath() { return 0; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser mixed-format package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\nKali.test('browser mixed-format package', () => {{\n  if (root() !== 0 || subpath() !== 0) {{\n    throw new Error('browser mixed-format package export mismatch');\n  }}\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser mixed-format package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+        ("@reduxjs/toolkit", "query"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_mixed_format_package(
+            dir.path(),
+            package,
+            "module.exports = function root() { return 0; }\n",
+            "export default function root() { return 0; }\n",
+            subpath,
+            "module.exports = function subpath() { return 0; }\n",
+            "export default function subpath() { return 0; }\n",
+        );
+        write_types_stub_package(dir.path(), package);
+
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser mixed-format package {package} should stay executable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\nKali.test('browser mixed-format package', () => {{\n  if (root() !== 0 || subpath() !== 0) {{\n    throw new Error('browser mixed-format package export mismatch');\n  }}\n}});\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser runtime test source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser mixed-format package {package} should stay testable on the browser surface in JS input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        assert!(stdout.contains("0"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host(
 ) {
     for package in ["react", "preact", "vue"] {
