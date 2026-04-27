@@ -103,7 +103,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage) |
 | Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (browser bundle TS and `.js` input, including JSON-output coverage) |
 | Web Crypto randomness subset (`crypto.getRandomValues`, mapping to the canonical `Random.GetBytes` effect / `effects.random` policy key) | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including browser-requested `run` / `test` `.ts` and `.js` harness coverage and JSON-output coverage for that slice), `crates/kali_api_web/src/tests.rs`, `crates/kali_api_deno/src/tests.rs` |
-| Browser-requested Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | CommonJS module lowering | Phase 1 MVP | `crates/kali_codegen/src/tests.rs` |
 | Mixed CommonJS/ESM package default-import interop | Phase 1 MVP | `crates/kali_cli/tests/package_corpus.rs` |
