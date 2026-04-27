@@ -1436,6 +1436,38 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser semver corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | exports-map packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser exports-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser module-entry corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | module-entry-chain packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser module-entry-chain corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser replacement-map packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser replacement-map corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser-condition / browser-deno preference packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser condition / browser-deno corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser-blocked packages with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser blocked-package corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | typed export branch packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser typed export branch corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | scoped packages with exports maps | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser scoped package corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | exports-map packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser exports-map JS corpus row should be recorded in the package corpus matrix",
         ),
