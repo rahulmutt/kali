@@ -548,19 +548,21 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
         None => return Err("diagnostic context is missing required key `origin`".to_string()),
     }
 
-    for key in ["configPath", "flag", "requestedValue", "effectiveValue"] {
+    for key in ["configPath", "flag"] {
         if let Some(value) = object.get(key) {
             match value {
-                Value::Null
-                | Value::Bool(_)
-                | Value::Number(_)
-                | Value::String(_)
-                | Value::Array(_)
-                | Value::Object(_) => {}
+                Value::Null | Value::String(_) => {}
+                other => {
+                    return Err(format!(
+                        "diagnostic context {key} must be string or null, got {other}"
+                    ))
+                }
             }
         }
     }
 
+    // schema v1 allows requestedValue/effectiveValue to carry any JSON shape, so
+    // validation is intentionally permissive here.
     Ok(())
 }
 
