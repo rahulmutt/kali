@@ -79,6 +79,65 @@ fn validate_envelope_value_allows_schema_permitted_extension_keys() {
 }
 
 #[test]
+fn validate_envelope_value_allows_schema_permitted_timing_extensions() {
+    let extended_timings = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{
+            "phase": "parse",
+            "milliseconds": 1,
+            "label": "warmup",
+            "metadata": {"kind": "synthetic"},
+        }],
+    });
+
+    validate_envelope_value(&extended_timings)
+        .expect("schema-permitted timing extensions should validate");
+}
+
+#[test]
+fn validate_envelope_value_allows_schema_permitted_diagnostic_context_extensions() {
+    let extended_context = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic context",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {
+                    "origin": "config",
+                    "configPath": "compilerOptions.apiSurface",
+                    "requestedValue": {"apiSurface": "browser"},
+                    "effectiveValue": ["browser"]
+                }
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    validate_envelope_value(&extended_context)
+        .expect("schema-permitted diagnostic context extensions should validate");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_timings() {
     let invalid_timings = json!({
         "schemaVersion": 1,
