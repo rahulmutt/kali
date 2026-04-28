@@ -1024,6 +1024,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read doctor schema"),
     )
     .expect("parse doctor schema");
+    assert_eq!(
+        doctor["$id"],
+        "https://kali-lang.org/schemas/result/doctor/v1"
+    );
     assert_eq!(doctor["title"], "Kali Doctor Result v1");
     assert_eq!(doctor["type"], "object");
     assert_eq!(doctor["additionalProperties"], false);
@@ -1163,6 +1167,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/result/init/v1.json")).expect("read init schema"),
     )
     .expect("parse init schema");
+    assert_eq!(init["$id"], "https://kali-lang.org/schemas/result/init/v1");
     assert_eq!(init["title"], "Kali Init Result v1");
     assert_eq!(init["type"], "object");
     assert_eq!(init["additionalProperties"], false);
@@ -1183,6 +1188,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("read package-audit schema"),
     )
     .expect("parse package-audit schema");
+    assert_eq!(
+        package_audit["$id"],
+        "https://kali-lang.org/schemas/result/package-audit/v1"
+    );
     assert_eq!(package_audit["title"], "Kali Package Audit Result v1");
     assert_eq!(
         package_audit["description"],
