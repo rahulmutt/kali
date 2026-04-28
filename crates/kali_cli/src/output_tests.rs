@@ -95,3 +95,49 @@ fn validate_envelope_value_rejects_fractional_exit_code() {
         .expect_err("fractional exitCode should fail validation");
     assert!(err.contains("exitCode"), "unexpected error: {err}");
 }
+
+#[test]
+fn validate_envelope_value_rejects_malformed_diagnostics() {
+    let invalid_diagnostic = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [
+                    {
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "message": "label",
+                        "style": "primary"
+                    }
+                ],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {"origin": "cli", "flag": "--api"}
+            },
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "missing span",
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_diagnostic)
+        .expect_err("malformed diagnostic should fail validation");
+    assert!(err.contains("errors[1]"), "unexpected error: {err}");
+}

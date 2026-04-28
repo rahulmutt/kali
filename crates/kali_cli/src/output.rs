@@ -105,21 +105,8 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    match object.get("errors") {
-        Some(Value::Array(_)) => {}
-        Some(other) => return Err(format!("CLI envelope errors must be an array, got {other}")),
-        None => unreachable!("validated above"),
-    }
-
-    match object.get("warnings") {
-        Some(Value::Array(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "CLI envelope warnings must be an array, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_diagnostic_array(object.get("errors"), "errors")?;
+    validate_diagnostic_array(object.get("warnings"), "warnings")?;
 
     match object.get("stdout") {
         Some(Value::Null) | Some(Value::String(_)) => {}
@@ -149,6 +136,358 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
             ))
         }
         None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("CLI envelope {field} must be an array"));
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        validate_diagnostic_value(item)
+            .map_err(|err| format!("CLI envelope {field}[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("diagnostic must be a JSON object".to_string());
+    };
+
+    for key in [
+        "severity", "code", "message", "span", "labels", "related", "fix", "notes",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!("diagnostic is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("severity") {
+        Some(Value::String(value))
+            if matches!(value.as_str(), "error" | "warning" | "info" | "hint") => {}
+        Some(other) => {
+            return Err(format!(
+                "diagnostic severity must be a canonical severity string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("code") {
+        Some(Value::String(value))
+            if value.as_bytes().len() == 5
+                && matches!(value.as_bytes().first(), Some(b'E' | b'W' | b'I' | b'H'))
+                && value[1..].chars().all(|ch| ch.is_ascii_digit()) => {}
+        Some(other) => {
+            return Err(format!(
+                "diagnostic code must be a canonical code string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("message") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("diagnostic message must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    validate_source_span(
+        object
+            .get("span")
+            .ok_or_else(|| "diagnostic is missing required key `span`".to_string())?,
+    )?;
+    validate_diagnostic_label_array(object.get("labels"))?;
+    validate_related_info_array(object.get("related"))?;
+    validate_suggested_fix(object.get("fix"))?;
+
+    match object.get("notes") {
+        Some(Value::Array(notes)) if notes.iter().all(|note| matches!(note, Value::String(_))) => {}
+        Some(other) => {
+            return Err(format!(
+                "diagnostic notes must be an array of strings, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    if let Some(context) = object.get("context") {
+        validate_diagnostic_context(context)?;
+    }
+
+    Ok(())
+}
+
+fn validate_source_span(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("span must be a JSON object".to_string());
+    };
+
+    for key in ["file", "line", "column", "endLine", "endColumn"] {
+        if !object.contains_key(key) {
+            return Err(format!("span is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("file") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("span file must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    for key in ["line", "column", "endLine", "endColumn"] {
+        match object.get(key) {
+            Some(Value::Number(number)) if number.as_u64().is_some() => {}
+            Some(other) => {
+                return Err(format!(
+                    "span {key} must be a positive integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_label_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("label must be a JSON object".to_string());
+    };
+
+    for key in ["span", "message", "style"] {
+        if !object.contains_key(key) {
+            return Err(format!("label is missing required key `{key}`"));
+        }
+    }
+
+    validate_source_span(
+        object
+            .get("span")
+            .ok_or_else(|| "label is missing required key `span`".to_string())?,
+    )?;
+
+    match object.get("message") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("label message must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("style") {
+        Some(Value::String(value)) if matches!(value.as_str(), "primary" | "secondary") => {}
+        Some(other) => {
+            return Err(format!(
+                "label style must be `primary` or `secondary`, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+fn validate_diagnostic_label_array(value: Option<&Value>) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err("diagnostic labels must be an array".to_string());
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        validate_label_value(item)
+            .map_err(|err| format!("diagnostic labels[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_related_info_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("related item must be a JSON object".to_string());
+    };
+
+    for key in ["message", "span"] {
+        if !object.contains_key(key) {
+            return Err(format!("related item is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("message") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "related item message must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    validate_source_span(
+        object
+            .get("span")
+            .ok_or_else(|| "related item is missing required key `span`".to_string())?,
+    )?;
+    Ok(())
+}
+
+fn validate_related_info_array(value: Option<&Value>) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err("diagnostic related must be an array".to_string());
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        validate_related_info_value(item)
+            .map_err(|err| format!("diagnostic related[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_text_edit_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("text edit must be a JSON object".to_string());
+    };
+
+    for key in ["file", "start", "end", "newText"] {
+        if !object.contains_key(key) {
+            return Err(format!("text edit is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("file") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("text edit file must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    validate_source_location(
+        object
+            .get("start")
+            .ok_or_else(|| "text edit is missing required key `start`".to_string())?,
+    )?;
+    validate_source_location(
+        object
+            .get("end")
+            .ok_or_else(|| "text edit is missing required key `end`".to_string())?,
+    )?;
+
+    match object.get("newText") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("text edit newText must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+fn validate_source_location(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("source location must be a JSON object".to_string());
+    };
+
+    for key in ["file", "line", "column"] {
+        if !object.contains_key(key) {
+            return Err(format!("source location is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("file") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "source location file must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    for key in ["line", "column"] {
+        match object.get(key) {
+            Some(Value::Number(number)) if number.as_u64().is_some() => {}
+            Some(other) => {
+                return Err(format!(
+                    "source location {key} must be a positive integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_suggested_fix(value: Option<&Value>) -> Result<(), String> {
+    match value {
+        Some(Value::Null) | None => Ok(()),
+        Some(Value::Object(object)) => {
+            for key in ["message", "edits"] {
+                if !object.contains_key(key) {
+                    return Err(format!("suggested fix is missing required key `{key}`"));
+                }
+            }
+
+            match object.get("message") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "suggested fix message must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+
+            match object.get("edits") {
+                Some(Value::Array(edits)) => {
+                    for (index, edit) in edits.iter().enumerate() {
+                        validate_text_edit_value(edit).map_err(|err| {
+                            format!("suggested fix edits[{index}] is invalid: {err}")
+                        })?;
+                    }
+                }
+                Some(other) => {
+                    return Err(format!("suggested fix edits must be an array, got {other}"))
+                }
+                None => unreachable!("validated above"),
+            }
+
+            Ok(())
+        }
+        Some(other) => Err(format!(
+            "suggested fix must be null or an object, got {other}"
+        )),
+    }
+}
+
+fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("diagnostic context must be a JSON object".to_string());
+    };
+
+    match object.get("origin") {
+        Some(Value::String(value))
+            if matches!(value.as_str(), "cli" | "config" | "default" | "source") => {}
+        Some(other) => {
+            return Err(format!(
+                "diagnostic context origin must be a canonical origin string, got {other}"
+            ))
+        }
+        None => return Err("diagnostic context is missing required key `origin`".to_string()),
+    }
+
+    for key in ["configPath", "flag", "requestedValue", "effectiveValue"] {
+        if let Some(value) = object.get(key) {
+            match value {
+                Value::Null
+                | Value::Bool(_)
+                | Value::Number(_)
+                | Value::String(_)
+                | Value::Array(_)
+                | Value::Object(_) => {}
+            }
+        }
     }
 
     Ok(())
