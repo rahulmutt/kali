@@ -2164,6 +2164,13 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         assert_eq!(matrix.matches(row).count(), 1, "{message}");
     };
 
+    let browser_semver_targeted_row =
+        "| npm-style package corpus | pure JS package (`semver`) with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_semver_targeted_row,
+        "browser targeted semver corpus row should be recorded exactly once in the package corpus matrix",
+    );
+
     let browser_exports_map_row =
         "| browser runtime corpus | browser exports-map packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
