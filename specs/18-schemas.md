@@ -63,6 +63,7 @@ Used by commands that opt into `--output json`.
 - `stderr: string`
 - `timings: PhaseTiming[]`
 - `exitCode: number` — canonical process exit code for the command invocation when the caller needs it in-band; when present it follows the exit-code mapping from [12 — CLI](12-cli.md), so ordinary compile/check/build semantic failures (including library-export-proof failures such as `E5511`) still report `1`
+- when `success` is `true`, the envelope's `exitCode` is `0`; when `success` is `false`, the envelope's `exitCode` is non-zero
 
 ### Notes
 - `payload` holds command-specific structured data

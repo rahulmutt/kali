@@ -258,3 +258,33 @@ fn validate_envelope_value_rejects_non_string_transport_fields() {
         validate_envelope_value(&invalid_stderr).expect_err("array stderr should fail validation");
     assert!(err.contains("stderr"), "unexpected error: {err}");
 }
+
+#[test]
+#[should_panic(expected = "CLI envelope success=true requires exitCode 0")]
+fn emit_envelope_value_rejects_success_with_nonzero_exit_code() {
+    let _ = emit_envelope_value(
+        "doctor",
+        true,
+        json!([]),
+        json!([]),
+        json!({"answer": 42}),
+        Some("stdout text".to_string()),
+        None,
+        1,
+    );
+}
+
+#[test]
+#[should_panic(expected = "CLI envelope success=false requires a non-zero exitCode")]
+fn emit_envelope_value_rejects_failure_with_zero_exit_code() {
+    let _ = emit_envelope_value(
+        "doctor",
+        false,
+        json!([]),
+        json!([]),
+        serde_json::Value::Null,
+        None,
+        Some("stderr text".to_string()),
+        0,
+    );
+}

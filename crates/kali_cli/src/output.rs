@@ -30,6 +30,13 @@ pub fn emit_envelope_value(
     stderr: Option<String>,
     exit_code: i32,
 ) -> Value {
+    if success && exit_code != 0 {
+        panic!("CLI envelope success=true requires exitCode 0");
+    }
+    if !success && exit_code == 0 {
+        panic!("CLI envelope success=false requires a non-zero exitCode");
+    }
+
     let mut envelope = Map::new();
     envelope.insert("schemaVersion".to_string(), json!(1));
     envelope.insert("command".to_string(), json!(command));
