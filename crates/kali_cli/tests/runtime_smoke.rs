@@ -3591,6 +3591,81 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
 }
 
 #[test]
+fn doctor_emits_human_output_for_browser_harness_override() {
+    let output = Command::new(kali_bin())
+        .arg("doctor")
+        .env(
+            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            "definitely-missing-browser-harness --flag",
+        )
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Browser harness:"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("source: env"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("override: definitely-missing-browser-harness --flag"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("command: definitely-missing-browser-harness --flag"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("executable available: false"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("Browser runtime contract:"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("host label: browser-requested"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("host description: real browser host"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("supported commands: run, test"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("diagnostic hint: Use the Phase-1 browser-targeted command set"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("browser runtime host description: real browser host"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn check_accepts_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
