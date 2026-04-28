@@ -568,6 +568,8 @@ fn browser_late_globalthis_deno_env_and_permission_source_includes_bracketed_for
         late_permission_escalation_source()
     );
     for expected in [
+        r#"globalThis.Deno.permissions["request"]()"#,
+        r#"globalThis.Deno.permissions["revoke"]()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
