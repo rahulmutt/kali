@@ -11169,6 +11169,51 @@ fn run_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_co
 }
 
 #[test]
+fn run_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_configured_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser zero budgets');\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser zero budgets"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_uses_browser_exports_condition_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserexports");
@@ -38644,6 +38689,58 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('browser zero budgets', () => { console.log('browser zero budgets'); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser zero budgets"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_configured_in_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
         "Kali.test('browser zero budgets', () => { console.log('browser zero budgets'); });\n",
