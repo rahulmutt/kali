@@ -1088,6 +1088,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         })
     );
     assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"],
         serde_json::json!({"type": "string"})
     );
@@ -1098,6 +1102,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             "minItems": 1,
             "items": { "type": "string" }
         })
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["items"],
+        serde_json::json!({"type": "string"})
     );
 
     let init: serde_json::Value = serde_json::from_str(
