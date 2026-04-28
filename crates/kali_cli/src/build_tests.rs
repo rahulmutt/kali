@@ -130,6 +130,7 @@ const net_descriptor = "net";
 Deno.permissions.query({ name: read_descriptor });
 Deno.permissions["query"]({ name: read_descriptor });
 Deno["permissions"]["query"]({ name: read_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"].query({ name: write_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
 Deno.permissions.query({ name: env_descriptor });
