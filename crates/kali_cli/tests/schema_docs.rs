@@ -2740,6 +2740,77 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     let mut benchmark_names = BTreeSet::new();
     let mut benchmark_sources = BTreeSet::new();
 
+    let expected_benchmark_names: BTreeSet<String> = [
+        "folded-arithmetic",
+        "math-trunc-builtin",
+        "math-imul-builtin",
+        "math-clz32-builtin",
+        "math-ceil-builtin",
+        "math-abs-sign-builtin",
+        "division-by-one-elimination",
+        "dead-branch-elimination",
+        "dead-inlined-function-pruning",
+        "division-and-identity",
+        "closure-inlining-and-folding",
+        "object-enumeration-folding",
+        "integer-like-object-enumeration-folding",
+        "object-enumeration-alias-chain",
+        "object-enumeration-delete-reinsert",
+        "object-literal-property-order-canonicalization",
+        "identity-chain-and-simplification",
+        "nested-wrapper-pruning",
+        "algebraic-simplification",
+        "duplicate-pure-expression-elimination",
+        "nullish-specialization-repeat",
+        "specialization-reuse",
+        "boolean-literal-arguments",
+        "const-array-element-access",
+        "const-object-property-access",
+        "folded-arithmetic-variant",
+        "string-concatenation",
+        "template-literal-concatenation",
+        "layout-specialization",
+        "nullish-specialization",
+    ]
+    .into_iter()
+    .map(ToOwned::to_owned)
+    .collect();
+    let expected_benchmark_sources: BTreeSet<String> = [
+        "math-benchmark-v1.ts",
+        "math-trunc-benchmark-v1.ts",
+        "math-imul-benchmark-v1.ts",
+        "math-clz32-benchmark-v1.ts",
+        "math-ceil-benchmark-v1.ts",
+        "math-abs-sign-benchmark-v1.ts",
+        "division-by-one-benchmark-v1.ts",
+        "dead-branch-elimination-benchmark-v1.ts",
+        "dead-inlined-function-pruning-benchmark-v1.ts",
+        "call-inlining-benchmark-v1.ts",
+        "closure-inlining-benchmark-v1.ts",
+        "object-enumeration-benchmark-v1.ts",
+        "integer-like-object-enumeration-benchmark-v1.ts",
+        "object-enumeration-alias-chain-benchmark-v1.ts",
+        "object-enumeration-delete-reinsert-benchmark-v1.ts",
+        "object-literal-property-order-canonicalization-benchmark-v1.ts",
+        "identity-chain-benchmark-v1.ts",
+        "nested-wrapper-pruning-benchmark-v1.ts",
+        "algebraic-simplification-benchmark-v1.ts",
+        "duplicate-pure-expression-elimination-benchmark-v1.ts",
+        "nullish-specialization-repeat-benchmark-v1.ts",
+        "specialization-reuse-benchmark-v1.ts",
+        "boolean-literal-arguments-benchmark-v1.ts",
+        "const-array-element-access-benchmark-v1.ts",
+        "const-object-property-access-benchmark-v1.ts",
+        "math-variant-benchmark-v1.ts",
+        "string-concatenation-benchmark-v1.ts",
+        "template-literal-concatenation-benchmark-v1.ts",
+        "layout-specialization-benchmark-v1.ts",
+        "nullish-benchmark-v1.ts",
+    ]
+    .into_iter()
+    .map(ToOwned::to_owned)
+    .collect();
+
     for entry in fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
         .expect("read benchmark fixture directory")
     {
@@ -2809,6 +2880,15 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
         assert_eq!(metadata["sourceSha256"], source_hash, "{}", path.display());
     }
+
+    assert_eq!(
+        benchmark_names, expected_benchmark_names,
+        "benchmark slugs should match the checked-in benchmark corpus"
+    );
+    assert_eq!(
+        benchmark_sources, expected_benchmark_sources,
+        "benchmark source files should match the checked-in benchmark corpus"
+    );
 }
 
 #[test]
