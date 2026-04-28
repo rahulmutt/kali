@@ -141,3 +141,36 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
         .expect_err("malformed diagnostic should fail validation");
     assert!(err.contains("errors[1]"), "unexpected error: {err}");
 }
+
+#[test]
+fn validate_envelope_value_rejects_non_string_transport_fields() {
+    let invalid_stdout = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": 42,
+        "stderr": null,
+        "exitCode": 0,
+    });
+    let err = validate_envelope_value(&invalid_stdout)
+        .expect_err("numeric stdout should fail validation");
+    assert!(err.contains("stdout"), "unexpected error: {err}");
+
+    let invalid_stderr = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": ["bad"],
+        "exitCode": 0,
+    });
+    let err =
+        validate_envelope_value(&invalid_stderr).expect_err("array stderr should fail validation");
+    assert!(err.contains("stderr"), "unexpected error: {err}");
+}
