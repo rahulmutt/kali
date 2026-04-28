@@ -395,6 +395,49 @@ fn validate_envelope_value_rejects_related_item_with_non_string_message() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_malformed_suggested_fix_edits() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix edits",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 1, "column": 1},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2}
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("missing suggested-fix text edit newText should fail validation");
+    assert!(
+        err.contains("suggested fix edits[0]"),
+        "unexpected error: {err}"
+    );
+    assert!(err.contains("newText"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_related_item_with_non_positive_span() {
     let invalid_related_span = json!({
         "schemaVersion": 1,
