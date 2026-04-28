@@ -124,6 +124,7 @@ fn late_env_materialization_source_includes_bracketed_spellings() {
         r#"Deno["env"]["toObject"]"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"globalThis.Deno["env"]["toObject"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -199,6 +200,17 @@ fn permission_escalation_source_includes_bracketed_spellings() {
 }
 
 #[test]
+fn permission_escalation_bracketed_source_includes_inherited_bracketed_spellings() {
+    let source = permission_escalation_bracketed_source();
+    for expected in [
+        r#"globalThis.Deno["permissions"]["request"]"#,
+        r#"globalThis.Deno["permissions"]["revoke"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
 fn broader_intl_source_includes_bracketed_spellings() {
     let source = broader_intl_source();
     for expected in [
@@ -239,9 +251,8 @@ fn permission_escalation_computed_source() -> &'static str {
 }
 
 fn permission_escalation_bracketed_source() -> &'static str {
-    r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#
+    r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis.Deno["permissions"]["request"](); globalThis.Deno["permissions"]["revoke"]();"#
 }
-
 fn supported_permission_query_const_binding_source() -> &'static str {
     r#"const read_descriptor = "read";
 const write_descriptor = "write";
@@ -4419,7 +4430,7 @@ fn check_rejects_bracketed_permission_escalation_members_in_json_in_js_input() {
     assert_permission_escalation_json(
         errors,
         &["Deno.permissions.request", "Deno.permissions.revoke"],
-        4,
+        6,
     );
 }
 
@@ -42030,7 +42041,7 @@ fn json_build_rejects_bracketed_permission_escalation_members_in_js_input() {
     assert_permission_escalation_json(
         errors,
         &["Deno.permissions.request", "Deno.permissions.revoke"],
-        4,
+        6,
     );
 }
 
