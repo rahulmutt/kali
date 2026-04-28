@@ -209,6 +209,134 @@ fn inherited_node_api_surface_builds_in_js_input_with_json_output() {
 }
 
 #[test]
+fn explicit_node_api_surface_builds_library_artifacts_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(
+        &source_path,
+        "import * as path from 'node:path';\nexport function describe() { return typeof path.basename === 'function' ? 0 : 1; }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--lib")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "lib");
+    assert_eq!(payload["buildMode"], "fast");
+    let output_path = PathBuf::from(payload["outputPath"].as_str().expect("output path"));
+    assert_eq!(output_path, source_path.with_file_name("lib.lib.wasm"));
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("lib.lib.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("lib.lib.wit")
+    );
+    assert!(
+        payload["exports"]
+            .as_array()
+            .expect("exports array")
+            .iter()
+            .any(|entry| entry["name"] == "describe"),
+        "build payload exports: {payload:?}"
+    );
+}
+
+#[test]
+fn inherited_node_api_surface_builds_library_artifacts_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(
+        &source_path,
+        "import * as path from 'node:path';\nexport function describe() { return typeof path.basename === 'function' ? 0 : 1; }\n",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "lib");
+    assert_eq!(payload["buildMode"], "fast");
+    let output_path = PathBuf::from(payload["outputPath"].as_str().expect("output path"));
+    assert_eq!(output_path, source_path.with_file_name("lib.lib.wasm"));
+    assert!(
+        output_path.exists(),
+        "expected build artifact at {output_path:?}"
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("lib.lib.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("lib.lib.wit")
+    );
+    assert!(
+        payload["exports"]
+            .as_array()
+            .expect("exports array")
+            .iter()
+            .any(|entry| entry["name"] == "describe"),
+        "build payload exports: {payload:?}"
+    );
+}
+
+#[test]
 fn explicit_node_api_surface_executes_on_run_and_test_commands() {
     let dir = tempdir().expect("tempdir");
     let run_file = dir.path().join("main.ts");
