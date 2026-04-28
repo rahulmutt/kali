@@ -1256,6 +1256,8 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
     let expected_message = "environment mutation API 'process.env' (aka process[\"env\"]) is unavailable until the later mutable env path is enabled";
     let source_variants = [
         r#"process["env"] = {};"#,
+        r#"globalThis.process.env = {};"#,
+        r#"globalThis.process["env"] = {};"#,
         r#"globalThis["process"]["env"] = {};"#,
     ];
 
