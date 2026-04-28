@@ -285,6 +285,15 @@ fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn is_positive_integer(value: &Value) -> bool {
+    matches!(
+        value,
+        Value::Number(number)
+            if number.as_u64().is_some_and(|value| value >= 1)
+                || number.as_i64().is_some_and(|value| value >= 1)
+    )
+}
+
 fn validate_source_span(value: &Value) -> Result<(), String> {
     let Some(object) = value.as_object() else {
         return Err("span must be a JSON object".to_string());
@@ -304,7 +313,7 @@ fn validate_source_span(value: &Value) -> Result<(), String> {
 
     for key in ["line", "column", "endLine", "endColumn"] {
         match object.get(key) {
-            Some(Value::Number(number)) if number.as_u64().is_some() => {}
+            Some(value) if is_positive_integer(value) => {}
             Some(other) => {
                 return Err(format!(
                     "span {key} must be a positive integer, got {other}"
@@ -468,7 +477,7 @@ fn validate_source_location(value: &Value) -> Result<(), String> {
 
     for key in ["line", "column"] {
         match object.get(key) {
-            Some(Value::Number(number)) if number.as_u64().is_some() => {}
+            Some(value) if is_positive_integer(value) => {}
             Some(other) => {
                 return Err(format!(
                     "source location {key} must be a positive integer, got {other}"

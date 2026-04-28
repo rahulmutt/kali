@@ -493,6 +493,22 @@ fn core_schema_documents_match_current_cli_contracts() {
             .collect::<Vec<_>>(),
         vec!["file", "line", "column", "endLine", "endColumn"]
     );
+    for key in ["line", "column", "endLine", "endColumn"] {
+        assert_eq!(
+            diagnostic["properties"]["span"]["properties"][key]["minimum"],
+            1
+        );
+        assert_eq!(
+            diagnostic["properties"]["labels"]["items"]["properties"][key]["minimum"],
+            1
+        );
+    }
+    for key in ["line", "column"] {
+        assert_eq!(
+            diagnostic["properties"]["related"]["items"]["properties"][key]["minimum"],
+            1
+        );
+    }
     assert!(diagnostic["properties"]["context"].is_object());
 
     let manifest: serde_json::Value = serde_json::from_str(

@@ -260,6 +260,71 @@ fn validate_envelope_value_rejects_non_string_transport_fields() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_non_positive_span_and_location_fields() {
+    let invalid_span = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad span",
+                "span": {"file": "src/main.ts", "line": 0, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err =
+        validate_envelope_value(&invalid_span).expect_err("span line zero should fail validation");
+    assert!(err.contains("line"), "unexpected error: {err}");
+
+    let invalid_location = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad fix location",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 0, "column": 1},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "newText": "let answer = 42;"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_location)
+        .expect_err("source location line zero should fail validation");
+    assert!(err.contains("source location"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_inconsistent_success_and_exit_code() {
     let success_with_nonzero_exit_code = json!({
         "schemaVersion": 1,
