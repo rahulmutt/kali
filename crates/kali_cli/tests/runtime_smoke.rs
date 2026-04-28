@@ -24147,6 +24147,202 @@ fn build_accepts_wasm_threads_runtime_profile_in_js_input_for_component_artifact
 }
 
 #[test]
+fn build_accepts_inherited_wasm_threads_runtime_profile_in_js_input_for_library_artifact() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let wasm_path = dir.path().join("math.lib.wasm");
+    let wit_path = dir.path().join("math.lib.wit");
+    let meta_path = dir.path().join("math.lib.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_eq!(metadata["schemaVersion"], 1);
+    assert_eq!(metadata["artifactKind"], "lib");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+    assert_eq!(metadata["maxSpecializations"], 16);
+    assert_eq!(metadata["hostContract"], "kali-hosted");
+    assert_eq!(metadata["runtimeBackend"], "wasmtime");
+    assert!(metadata.get("profileDataHash").is_none());
+    let exports = metadata["exports"].as_array().expect("exports array");
+    assert!(exports.iter().any(|entry| entry["name"] == "add"));
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+    assert!(wit.contains("export add: func();"));
+}
+
+#[test]
+fn build_accepts_inherited_wasm_threads_runtime_profile_in_js_input_for_capi_artifact() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let wasm_path = source_path.with_file_name("lib.capi.wasm");
+    let wit_path = source_path.with_file_name("lib.wit");
+    let header_path = source_path.with_file_name("lib.h");
+    let meta_path = source_path.with_file_name("lib.capi.meta.json");
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(header_path.exists(), "missing {}", header_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+    assert!(
+        binding_package_path.exists(),
+        "missing {}",
+        binding_package_path.display()
+    );
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+    assert_eq!(metadata["kind"], "cabi-metadata");
+
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(
+        binding_package["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+    assert_eq!(binding_package["kind"], "binding-package");
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+}
+
+#[test]
+fn build_accepts_inherited_wasm_threads_runtime_profile_in_js_input_for_component_artifact() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--component")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let component_path = source_path.with_file_name("lib.component.wasm");
+    let wit_path = source_path.with_file_name("lib.wit");
+    let meta_path = source_path.with_file_name("lib.component.meta.json");
+    let binding_package_path = source_path.with_file_name("lib.binding-package.json");
+    assert!(
+        component_path.exists(),
+        "missing {}",
+        component_path.display()
+    );
+    assert!(wit_path.exists(), "missing {}", wit_path.display());
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+    assert!(
+        binding_package_path.exists(),
+        "missing {}",
+        binding_package_path.display()
+    );
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+    assert_eq!(metadata["artifactKind"], "component");
+
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(&binding_package_path).expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(
+        binding_package["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+    assert_eq!(binding_package["kind"], "binding-package");
+
+    let wit = fs::read_to_string(&wit_path).expect("read wit sidecar");
+    assert!(wit.contains("package kali:embed;"));
+}
+
+#[test]
 fn build_rejects_inherited_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
