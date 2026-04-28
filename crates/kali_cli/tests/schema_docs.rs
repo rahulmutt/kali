@@ -1389,6 +1389,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
+        "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Proxy.revocable",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",
@@ -1508,6 +1509,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic BigInt addition semantics in `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Basic unary prefix semantics (`!`, unary `-`, unary `+`, and `void`) in `.ts` and `.js` input, including JSON-output coverage on the standalone `run` / `test` lanes",
+        "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.clz32()` semantics in `.ts` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.ts` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.js` input",
@@ -1534,6 +1536,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
 
     let supported_rows = [
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
+        "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Browser bundle `try/finally` sequencing in `.ts` and `.js` input",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input, including JSON-output coverage, plus inherited browser-api-surface coverage in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
