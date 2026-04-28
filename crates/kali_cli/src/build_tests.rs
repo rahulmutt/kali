@@ -214,14 +214,20 @@ const net_descriptor = "net";
 Deno.permissions.query({ name: read_descriptor });
 Deno.permissions["query"]({ name: read_descriptor });
 Deno["permissions"]["query"]({ name: read_descriptor });
+globalThis.Deno.permissions.query({ name: read_descriptor });
+globalThis.Deno.permissions["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"].query({ name: write_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+globalThis.Deno.permissions.query({ name: write_descriptor });
+globalThis.Deno.permissions["query"]({ name: write_descriptor });
 Deno.permissions.query({ name: env_descriptor });
 Deno.permissions["query"]({ name: env_descriptor });
 Deno["permissions"]["query"]({ name: env_descriptor });
 globalThis["Deno"]["permissions"].query({ name: net_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+globalThis.Deno.permissions.query({ name: net_descriptor });
+globalThis.Deno.permissions["query"]({ name: net_descriptor });
 "#,
     )
     .expect("write source");
@@ -257,14 +263,20 @@ const net_descriptor = "net";
 Deno.permissions.query({ name: read_descriptor });
 Deno.permissions["query"]({ name: read_descriptor });
 Deno["permissions"]["query"]({ name: read_descriptor });
+globalThis.Deno.permissions.query({ name: read_descriptor });
+globalThis.Deno.permissions["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"].query({ name: write_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+globalThis.Deno.permissions.query({ name: write_descriptor });
+globalThis.Deno.permissions["query"]({ name: write_descriptor });
 Deno.permissions.query({ name: env_descriptor });
 Deno.permissions["query"]({ name: env_descriptor });
 Deno["permissions"]["query"]({ name: env_descriptor });
 globalThis["Deno"]["permissions"].query({ name: net_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+globalThis.Deno.permissions.query({ name: net_descriptor });
+globalThis.Deno.permissions["query"]({ name: net_descriptor });
 "#,
     )
     .expect("write source");
@@ -295,6 +307,10 @@ fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_inpu
         &source_path,
         r#"Deno.permissions.query({ name: "ffi" });
 Deno.permissions.query({ name: "sys" });
+globalThis.Deno.permissions.query({ name: "ffi" });
+globalThis.Deno.permissions.query({ name: "sys" });
+globalThis.Deno.permissions["query"]({ name: "ffi" });
+globalThis.Deno.permissions["query"]({ name: "sys" });
 globalThis["Deno"]["permissions"]["query"]({ name: "ffi" });
 globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
 "#,
