@@ -495,6 +495,36 @@ fn test_resolution_reports_unresolved_default_export_aliases_in_ts_input() {
 }
 
 #[test]
+fn test_resolution_reports_unresolved_default_export_aliases_in_jsx_and_tsx_input() {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, "export { missing as default };").unwrap();
+
+        let statements = vec![Statement::ExportNamed(ExportNamedDeclaration {
+            specifiers: vec![ExportSpecifier {
+                local: "missing".to_string(),
+                exported: "default".to_string(),
+            }],
+            source: None,
+        })];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert_eq!(result.diagnostics.len(), 1);
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e3::UNDEFINED_IDENTIFIER as u32)
+        );
+        assert!(
+            result.diagnostics[0].message.contains("missing"),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_reports_unresolved_identifiers_inside_default_export_function_in_js_input() {
     let dir = tempdir().unwrap();
     let source_path = dir.path().join("main.js");
@@ -568,6 +598,47 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_reports_unresolved_identifiers_inside_default_export_function_in_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "export default function describe() { missing; }",
+        )
+        .unwrap();
+
+        let statements = vec![Statement::ExportDefault(
+            ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
+                name: "describe".to_string(),
+                params: vec![],
+                body: Box::new(BlockStatement {
+                    body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                        expression: Box::new(Expression::Identifier("missing".to_string())),
+                    })],
+                }),
+                is_async: false,
+                generator: false,
+            }),
+        )];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert_eq!(result.diagnostics.len(), 1);
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e3::UNDEFINED_IDENTIFIER as u32)
+        );
+        assert!(
+            result.diagnostics[0].message.contains("missing"),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
