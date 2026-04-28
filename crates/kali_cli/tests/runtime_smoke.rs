@@ -17676,6 +17676,89 @@ main();
     assert_eq!(json["stderr"], "");
 }
 
+fn assert_literal_string_dynamic_import_runtime_support(extension: &str, use_json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        dir.path().join(format!("lazy.{extension}")),
+        "export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        format!(
+            r#"async function main() {{
+  await import("./lazy.{extension}");
+  console.log("main loaded");
+}}
+main();
+"#,
+            extension = extension,
+        ),
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command.current_dir(dir.path());
+    if use_json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if use_json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .contains("main loaded"),
+            "json: {json}"
+        );
+        assert_eq!(json["stderr"], "");
+        return;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_literal_string_dynamic_import_targets_in_jsx_input() {
+    assert_literal_string_dynamic_import_runtime_support("jsx", false);
+}
+
+#[test]
+fn json_run_supports_literal_string_dynamic_import_targets_in_jsx_input() {
+    assert_literal_string_dynamic_import_runtime_support("jsx", true);
+}
+
+#[test]
+fn run_supports_literal_string_dynamic_import_targets_in_tsx_input() {
+    assert_literal_string_dynamic_import_runtime_support("tsx", false);
+}
+
+#[test]
+fn json_run_supports_literal_string_dynamic_import_targets_in_tsx_input() {
+    assert_literal_string_dynamic_import_runtime_support("tsx", true);
+}
+
 #[test]
 fn run_supports_browser_web_crypto_subtle_digest_and_random_uuid_when_browser_harness_is_configured_in_ts_input(
 ) {
