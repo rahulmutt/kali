@@ -46,6 +46,7 @@ Additional public commands live in the current repository state:
 ```bash
 kali build --capi <file>        # stable public C-ABI embedding flow
 kali build --component <file>   # Component Model packaging flow
+kali build --profile pgo-profile.json main.ts # load deterministic PGO profile data
 kali check --sandbox kali.policy.json main.ts
 kali build --bundle --sandbox kali.policy.json main.ts
 kali build --lib --sandbox kali.policy.json lib.ts
