@@ -254,6 +254,82 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_js_input(
 }
 
 #[test]
+fn build_source_file_rejects_permission_escalation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("permission escalation APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("permission escalation API")
+                && (diagnostic.message.contains("Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains("globalThis.Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"]["permissions"]["request"]"#))
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_deno_env_to_object_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("env materialization APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("environment snapshot materialization API")
+            && (diagnostic.message.contains("Deno.env.toObject")
+                || diagnostic.message.contains("globalThis.Deno.env.toObject")
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
