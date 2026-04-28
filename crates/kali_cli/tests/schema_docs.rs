@@ -519,8 +519,11 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/manifest/v1.json")).expect("read manifest schema"),
     )
     .expect("parse manifest schema");
+    assert_eq!(manifest["$id"], "https://kali-lang.org/schemas/manifest/v1");
     assert_eq!(manifest["type"], "object");
+    assert_eq!(manifest["additionalProperties"], true);
     assert_eq!(manifest["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(manifest["properties"]["$schema"]["type"], "string");
     assert_eq!(
         manifest["required"]
             .as_array()
@@ -553,8 +556,13 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/lock/v1.json")).expect("read lock schema"),
     )
     .expect("parse lock schema");
+    assert_eq!(lock["$id"], "https://kali-lang.org/schemas/lock/v1");
     assert_eq!(lock["type"], "object");
+    assert_eq!(lock["additionalProperties"], true);
     assert_eq!(lock["properties"]["version"]["const"], 1);
+    assert_eq!(lock["properties"]["schemaVersion"]["type"], "integer");
+    assert_eq!(lock["properties"]["packages"]["type"], "object");
+    assert_eq!(lock["properties"]["rawUrls"]["type"], "object");
     assert_eq!(
         lock["required"]
             .as_array()
@@ -563,6 +571,14 @@ fn core_schema_documents_match_current_cli_contracts() {
             .map(|value| value.as_str().expect("lock required string"))
             .collect::<Vec<_>>(),
         vec!["version"]
+    );
+    assert_eq!(
+        lock["properties"]["packages"]["additionalProperties"]["type"],
+        "object"
+    );
+    assert_eq!(
+        lock["properties"]["packages"]["additionalProperties"]["additionalProperties"],
+        true
     );
     for property in ["registry", "integrity", "resolved"] {
         assert_eq!(
@@ -579,6 +595,15 @@ fn core_schema_documents_match_current_cli_contracts() {
             .collect::<Vec<_>>(),
         vec!["registry", "integrity", "resolved", "dependencies"]
     );
+    assert_eq!(lock["properties"]["rawUrls"]["type"], "object");
+    assert_eq!(
+        lock["properties"]["rawUrls"]["additionalProperties"]["type"],
+        "object"
+    );
+    assert_eq!(
+        lock["properties"]["rawUrls"]["additionalProperties"]["additionalProperties"],
+        true
+    );
     assert_eq!(
         lock["properties"]["rawUrls"]["additionalProperties"]["required"]
             .as_array()
@@ -593,8 +618,20 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/policy/v1.json")).expect("read policy schema"),
     )
     .expect("parse policy schema");
+    assert_eq!(policy["$id"], "https://kali-lang.org/schemas/policy/v1");
     assert_eq!(policy["type"], "object");
+    assert_eq!(policy["additionalProperties"], true);
     assert_eq!(policy["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(policy["properties"]["effects"]["type"], "object");
+    assert_eq!(
+        policy["properties"]["effects"]["additionalProperties"],
+        false
+    );
+    assert_eq!(policy["properties"]["resources"]["type"], "object");
+    assert_eq!(
+        policy["properties"]["resources"]["additionalProperties"],
+        false
+    );
     assert_eq!(
         policy["required"]
             .as_array()
@@ -627,6 +664,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             .expect("policy resource properties")
             .len(),
         5
+    );
+    assert_eq!(
+        policy["properties"]["resources"]["properties"]["maxThreads"]["minimum"],
+        0
     );
 
     let package_effects: serde_json::Value = serde_json::from_str(
