@@ -1056,6 +1056,64 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() {
+    let mut ctx = TypeContext::with_api_surface("browser");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "env".to_string(),
+                    })),
+                    property: "set".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::String("KALI_FLAG".to_string())),
+                    Expression::Literal(LiteralValue::String("1".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "env".to_string(),
+                    })),
+                    property: "delete".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::String(
+                    "KALI_FLAG".to_string(),
+                ))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Deno.env.set")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("globalThis.Deno.env.delete")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("browser API surface")));
+}
+
+#[test]
 fn test_resolution_rejects_unsupported_permission_query_descriptors() {
     let mut ctx = TypeContext::new();
     let statements = vec![

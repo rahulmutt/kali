@@ -823,6 +823,10 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_late_env_mutation_member(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
@@ -974,6 +978,34 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "environment snapshot materialization API '{}' (aka {}) is unavailable until the later env-object materialization path is enabled",
+                dotted, bracketed
+            ),
+        ));
+        true
+    }
+
+    fn resolve_late_env_mutation_member(&mut self, expr: &MemberExpression) -> bool {
+        if self.api_surface != "browser" {
+            return false;
+        }
+
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
+        if !matches!(
+            dotted.as_str(),
+            "Deno.env.set"
+                | "Deno.env.delete"
+                | "globalThis.Deno.env.set"
+                | "globalThis.Deno.env.delete"
+        ) {
+            return false;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
                 dotted, bracketed
             ),
         ));

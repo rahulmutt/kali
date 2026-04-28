@@ -15,6 +15,10 @@ fn late_env_materialization_source() -> &'static str {
     "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
+fn late_env_mutation_source() -> &'static str {
+    r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"]["delete"]('KALI_ENV_DELETE_SMOKE');"#
+}
+
 fn late_permission_escalation_source() -> &'static str {
     "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"]();"
 }
@@ -141,6 +145,55 @@ fn assert_browser_late_env_materialization_rejection_json(errors: &[Value]) {
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
+}
+
+fn assert_browser_late_env_mutation_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "Deno.env.set",
+        "Deno.env.delete",
+        "globalThis.Deno.env.set",
+        "globalThis.Deno.env.delete",
+        r#"Deno["env"]["set"]"#,
+        r#"Deno["env"]["delete"]"#,
+        r#"globalThis["Deno"]["env"]["set"]"#,
+        r#"globalThis["Deno"]["env"]["delete"]"#,
+        "environment mutation API",
+        "browser API surface",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_env_mutation_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    for expected in [
+        "Deno.env.set",
+        "Deno.env.delete",
+        "globalThis.Deno.env.set",
+        "globalThis.Deno.env.delete",
+        r#"Deno["env"]["set"]"#,
+        r#"Deno["env"]["delete"]"#,
+        r#"globalThis["Deno"]["env"]["set"]"#,
+        r#"globalThis["Deno"]["env"]["delete"]"#,
+        "environment mutation API",
+        "browser API surface",
     ] {
         assert!(
             errors.iter().any(|error| error["message"]
@@ -442,6 +495,19 @@ fn browser_late_permission_escalation_source_includes_bracketed_forms() {
         r#"globalThis.Deno.permissions["revoke"]()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_env_mutation_source_includes_bracketed_forms() {
+    let source = late_env_mutation_source();
+    for expected in [
+        r#"Deno["env"]["set"]"#,
+        r#"Deno["env"]["delete"]"#,
+        r#"globalThis["Deno"]["env"]["set"]"#,
+        r#"globalThis["Deno"]["env"]["delete"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -755,6 +821,206 @@ fn build_rejects_late_env_materialization_members_in_browser_bundle_js_input_in_
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_browser_late_env_materialization_rejection_json(errors);
+}
+
+#[test]
+fn check_rejects_late_env_mutation_members_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_env_mutation_rejection(&stderr);
+}
+
+#[test]
+fn check_rejects_late_env_mutation_members_in_browser_api_surface_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_env_mutation_rejection_json(errors);
+}
+
+#[test]
+fn build_rejects_late_env_mutation_members_in_browser_bundle_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_env_mutation_rejection(&stderr);
+}
+
+#[test]
+fn build_rejects_late_env_mutation_members_in_browser_bundle_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_env_mutation_rejection_json(errors);
+}
+
+#[test]
+fn run_rejects_late_env_mutation_members_in_browser_api_surface_js_input_with_browser_harness() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_env_mutation_rejection(&stderr);
+}
+
+#[test]
+fn run_rejects_late_env_mutation_members_in_browser_api_surface_js_input_with_browser_harness_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_env_mutation_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_late_env_mutation_members_in_browser_api_surface_js_input_with_browser_harness() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_env_mutation_rejection(&stderr);
+}
+
+#[test]
+fn test_rejects_late_env_mutation_members_in_browser_api_surface_js_input_with_browser_harness_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_env_mutation_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_env_mutation_rejection_json(errors);
 }
 
 #[test]
