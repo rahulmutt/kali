@@ -196,6 +196,30 @@ fn test_type_annotation_resolution_accepts_known_names_in_js_input() {
 }
 
 #[test]
+fn test_type_annotation_resolution_accepts_nested_known_names_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "const value = 1;").unwrap();
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Foo".to_string(),
+            type_params: vec![],
+            type_annotation: "string".to_string(),
+        }),
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Box".to_string(),
+            type_params: vec![],
+            type_annotation: "Promise<Array<Foo>>".to_string(),
+        }),
+    ];
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_type_checker_collects_annotation_diagnostics() {
     let mut checker = TypeChecker::new();
     checker.check_type_annotation(NodeId::new(1), "Missing | string");
