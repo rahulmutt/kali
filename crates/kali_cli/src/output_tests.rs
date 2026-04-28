@@ -197,6 +197,78 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_malformed_diagnostic_labels() {
+    let invalid_label = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic label",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [
+                    {
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "message": "label",
+                        "style": "tertiary"
+                    }
+                ],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_label)
+        .expect_err("malformed diagnostic label should fail validation");
+    assert!(err.contains("labels[0]"), "unexpected error: {err}");
+    assert!(err.contains("style"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_rejects_malformed_related_items() {
+    let invalid_related = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad related item",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [
+                    {
+                        "message": "follow-up note"
+                    }
+                ],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_related)
+        .expect_err("malformed related item should fail validation");
+    assert!(err.contains("related[0]"), "unexpected error: {err}");
+    assert!(err.contains("span"), "unexpected error: {err}");
+}
+
+#[test]
 #[should_panic(expected = "CLI envelope errors must be an array")]
 fn emit_envelope_value_rejects_non_array_errors() {
     let _ = emit_envelope_value(
