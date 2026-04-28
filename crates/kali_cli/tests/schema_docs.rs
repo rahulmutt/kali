@@ -2210,7 +2210,7 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node built-in corpus row should be recorded in the package corpus matrix",
         ),
         (
-            "| npm-style package corpus | Node built-in packages (`node:buffer`, `node:assert`, `node:events`, `node:timers`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "| npm-style package corpus | Node built-in packages (`node:buffer`, `node:assert`, `node:http`, `node:events`, `node:timers`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "node inherited built-in corpus row should be recorded in the package corpus matrix",
         ),
         (
