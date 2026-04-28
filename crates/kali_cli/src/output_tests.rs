@@ -30,6 +30,27 @@ fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
 }
 
 #[test]
+fn emitted_cli_envelopes_preserve_stdout_and_stderr_strings() {
+    let value = emit_envelope_value(
+        "doctor",
+        false,
+        json!([]),
+        json!([]),
+        serde_json::Value::Null,
+        Some("stdout text".to_string()),
+        Some("stderr text".to_string()),
+        1,
+    );
+
+    validate_envelope_value(&value).expect("constructed envelope should validate");
+
+    let object = value.as_object().expect("envelope object");
+    assert_eq!(object["stdout"], json!("stdout text"));
+    assert_eq!(object["stderr"], json!("stderr text"));
+    assert_eq!(object["exitCode"], json!(1));
+}
+
+#[test]
 fn validate_envelope_value_rejects_wrong_top_level_shapes() {
     let wrong_schema_version = json!({
         "schemaVersion": 2,
