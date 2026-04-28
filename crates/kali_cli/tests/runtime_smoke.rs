@@ -47489,6 +47489,44 @@ fn package_audit_metadata_body_with_stable_and_prerelease_versions() -> &'static
     )
 }
 
+fn package_audit_metadata_body_with_multiple_stable_and_prerelease_versions() -> &'static str {
+    Box::leak(
+        json!({
+            "versions": {
+                "2.0.0-beta.1": {
+                    "name": "lodash",
+                    "version": "2.0.0-beta.1",
+                    "main": "index.js",
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash-prerelease.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                },
+                "1.0.0": {
+                    "name": "lodash",
+                    "version": "1.0.0",
+                    "main": "index.js",
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash-stable-old.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                },
+                "1.2.0": {
+                    "name": "lodash",
+                    "version": "1.2.0",
+                    "main": "index.js",
+                    "dist": {
+                        "tarball": "http://127.0.0.1:0/lodash-stable-new.tgz",
+                        "integrity": "sha512-demo"
+                    }
+                }
+            }
+        })
+        .to_string()
+        .into_boxed_str(),
+    )
+}
+
 fn package_audit_metadata_body_with_prerelease_only_versions() -> &'static str {
     Box::leak(
         json!({
@@ -49616,6 +49654,46 @@ fn package_audit_command_selects_latest_stable_version_over_prerelease() {
         .as_str()
         .expect("stdout string")
         .contains("2.0.0-beta.1"));
+    assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn package_audit_command_prefers_the_highest_stable_version_over_newer_prereleases() {
+    let (registry_url, hits, stop, handle) = start_registry_metadata_server(
+        package_audit_metadata_body_with_multiple_stable_and_prerelease_versions(),
+    );
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    let stdout = json["stdout"].as_str().expect("stdout string");
+    assert!(stdout.contains("lodash@1.2.0"), "stdout: {stdout}");
+    assert!(!stdout.contains("lodash@1.0.0"), "stdout: {stdout}");
+    assert!(!stdout.contains("2.0.0-beta.1"), "stdout: {stdout}");
     assert_eq!(json["warnings"], serde_json::Value::Array(vec![]));
     assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
 }
