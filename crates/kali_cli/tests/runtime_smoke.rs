@@ -202,6 +202,21 @@ fn broader_intl_source_includes_bracketed_spellings() {
     }
 }
 
+fn threaded_runtime_source() -> &'static str {
+    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+}
+
+#[test]
+fn threaded_runtime_source_includes_bracketed_spellings() {
+    let source = threaded_runtime_source();
+    for expected in [
+        r#"globalThis["SharedArrayBuffer"]"#,
+        r#"globalThis["Atomics"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
 fn permission_escalation_source() -> &'static str {
     "Deno.permissions.request(); Deno.permissions.revoke(); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke();"
 }
