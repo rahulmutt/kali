@@ -147,6 +147,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.
 - The Node `node:timers/promises` inherited-surface rejection slice is tracked as a negative contrast row so the explicit Node API boundary stays visible alongside the positive built-in rows.
 - The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
+- The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.
 - The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.

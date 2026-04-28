@@ -2578,6 +2578,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     );
     assert!(
         matrix.contains(
+            "The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant."
+        ),
+        "package corpus matrix should document browser module-only JSON-output coverage"
+    );
+    assert!(
+        matrix.contains(
             "The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants."
         ),
         "package corpus matrix should document browser mixed-format interop JSON-output coverage"
