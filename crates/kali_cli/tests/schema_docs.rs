@@ -86,6 +86,15 @@ fn core_schema_documents_match_current_cli_contracts() {
         envelope["properties"]["timings"]["items"]["additionalProperties"],
         true
     );
+    assert_eq!(
+        envelope["properties"]["stdout"]["type"],
+        serde_json::json!(["string", "null"])
+    );
+    assert_eq!(
+        envelope["properties"]["stderr"]["type"],
+        serde_json::json!(["string", "null"])
+    );
+    assert_eq!(envelope["properties"]["exitCode"]["type"], "integer");
     assert!(envelope["required"]
         .as_array()
         .expect("required array")
