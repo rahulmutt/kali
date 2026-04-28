@@ -96,6 +96,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser-requested `run` / `test` `Math.ceil()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.ceil()` semantics when the browser API surface is inherited in `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.clz32()` semantics in `.ts` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.ts` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` `Math.clz32()` semantics in `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `test` `Math.clz32()` semantics in `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
