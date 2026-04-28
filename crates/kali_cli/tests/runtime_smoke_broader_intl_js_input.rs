@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn broader_intl_js_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Locale; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Locale;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"
 }
 
 fn assert_broader_intl_rejection(stderr: &str) {
@@ -25,12 +25,14 @@ fn assert_broader_intl_rejection(stderr: &str) {
         "globalThis.Intl.RelativeTimeFormat",
         "globalThis.Intl.Collator",
         "globalThis.Intl.DisplayNames",
+        "globalThis.Intl.Segmenter",
         "globalThis.Intl.Locale",
         "Intl.NumberFormat",
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
         "Intl.DisplayNames",
+        "Intl.Segmenter",
         "Intl.Locale",
     ] {
         assert!(
@@ -58,12 +60,14 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         "globalThis.Intl.RelativeTimeFormat",
         "globalThis.Intl.Collator",
         "globalThis.Intl.DisplayNames",
+        "globalThis.Intl.Segmenter",
         "globalThis.Intl.Locale",
         "Intl.NumberFormat",
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
         "Intl.DisplayNames",
+        "Intl.Segmenter",
         "Intl.Locale",
     ] {
         assert!(
