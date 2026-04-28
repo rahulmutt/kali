@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf, process::Command};
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use tempfile::tempdir;
 
 fn kali_bin() -> PathBuf {
@@ -490,6 +490,102 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands_in_js_input_with_
         test_json["stdout"].as_str().expect("stdout"),
         "node test ok\n"
     );
+}
+
+#[test]
+fn explicit_node_api_surface_reports_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:buffer';\nconsole.log(process.argv.length);\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--api")
+        .arg("node")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
+}
+
+#[test]
+fn inherited_node_api_surface_reports_effects_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:buffer';\nconsole.log(process.argv.length);\n",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["entryPoints"],
+        json!([source_path.display().to_string()])
+    );
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"));
 }
 
 #[test]
