@@ -2647,47 +2647,37 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         assert_row_once(row, message);
     }
 
-    assert!(
-        matrix.contains(
-            "The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants."
-        ),
-        "package corpus matrix should document browser module-entry-chain JSON-output coverage"
+    let assert_note_once = |note: &str, message: &str| {
+        assert_eq!(matrix.matches(note).count(), 1, "{message}");
+    };
+
+    assert_note_once(
+        "The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.",
+        "package corpus matrix should document browser module-entry-chain JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant."
-        ),
-        "package corpus matrix should document browser module-only JSON-output coverage"
+    assert_note_once(
+        "The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.",
+        "package corpus matrix should document browser module-only JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants."
-        ),
-        "package corpus matrix should document browser mixed-format interop JSON-output coverage"
+    assert_note_once(
+        "The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser mixed-format interop JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants."
-        ),
-        "package corpus matrix should document browser package-content JSON-output coverage"
+    assert_note_once(
+        "The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser package-content JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants."
-        ),
-        "package corpus matrix should document browser package fixture JSON-output coverage"
+    assert_note_once(
+        "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.",
+        "package corpus matrix should document browser package fixture JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants."
-        ),
-        "package corpus matrix should document browser exports-map JSON-output coverage"
+    assert_note_once(
+        "The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser exports-map JSON-output coverage",
     );
-    assert!(
-        matrix.contains(
-            "The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants."
-        ),
-        "package corpus matrix should document browser semver runtime JSON-output coverage"
+    assert_note_once(
+        "The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.",
+        "package corpus matrix should document browser semver runtime JSON-output coverage",
     );
 }
 
