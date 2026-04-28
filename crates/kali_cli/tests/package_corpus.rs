@@ -4689,9 +4689,37 @@ fn browser_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_b
         String::from_utf8_lossy(&check.stderr)
     );
 
-    let build = run_kali(
+    let check_json = run_kali(
         dir.path(),
         [
+            "--output",
+            "json",
+            "check",
+            "--api",
+            "browser",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        check_json.status.success(),
+        "browser condition package browser-deno should resolve its browser branch for check on js input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], true);
+    assert_eq!(check_envelope["exitCode"], 0);
+    assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+    assert_eq!(check_envelope["payload"]["errorCount"], 0);
+    assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
+    let build_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
             "build",
             "--bundle",
             "--api",
@@ -4700,11 +4728,21 @@ fn browser_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_b
         ],
     );
     assert!(
-        build.status.success(),
-        "browser condition package browser-deno should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&build.stdout),
-        String::from_utf8_lossy(&build.stderr)
+        build_json.status.success(),
+        "browser condition package browser-deno should be deployable-through-host via bundle on js input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
     );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], true);
+    assert_eq!(build_envelope["exitCode"], 0);
+    let payload = build_envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
 }
 
 #[test]
@@ -4734,16 +4772,51 @@ fn browser_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_b
         String::from_utf8_lossy(&check.stderr)
     );
 
-    let build = run_kali(
+    let check_json = run_kali(
         dir.path(),
-        ["build", "--bundle", source_path.to_str().unwrap()],
+        ["--output", "json", "check", source_path.to_str().unwrap()],
     );
     assert!(
-        build.status.success(),
-        "browser condition package browser-deno should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&build.stdout),
-        String::from_utf8_lossy(&build.stderr)
+        check_json.status.success(),
+        "browser condition package browser-deno should resolve its browser branch for check on js input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
     );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], true);
+    assert_eq!(check_envelope["exitCode"], 0);
+    assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+    assert_eq!(check_envelope["payload"]["errorCount"], 0);
+    assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
+    let build_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "build",
+            "--bundle",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build_json.status.success(),
+        "browser condition package browser-deno should be deployable-through-host via bundle on js input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
+    );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], true);
+    assert_eq!(build_envelope["exitCode"], 0);
+    let payload = build_envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
 }
 
 #[test]
