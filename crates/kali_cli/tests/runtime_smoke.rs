@@ -109,7 +109,7 @@ fn late_object_model_own_property_source() -> &'static str {
 }
 
 fn broader_intl_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat;"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.Locale; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"Locale\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.Locale;"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -193,6 +193,8 @@ fn broader_intl_source_includes_bracketed_spellings() {
         r#"globalThis["Intl"]["DateTimeFormat"]"#,
         r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
         r#"globalThis["Intl"]["PluralRules"]"#,
+        r#"globalThis["Intl"]["Collator"]"#,
+        r#"globalThis["Intl"]["Locale"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -4411,6 +4413,22 @@ fn check_rejects_broader_intl_support() {
         stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
         "stderr: {stderr}"
     );
+    assert!(
+        stderr.contains("globalThis.Intl.Collator"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("globalThis.Intl.Locale"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Collator"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Locale"]"#),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4464,6 +4482,22 @@ fn check_rejects_broader_intl_support_in_json() {
         .as_str()
         .expect("error message")
         .contains(r#"globalThis["Intl"]["PluralRules"]"#)));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("globalThis.Intl.Collator")));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("globalThis.Intl.Locale")));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]["Collator"]"#)));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains(r#"globalThis["Intl"]["Locale"]"#)));
 }
 
 #[test]
@@ -4696,6 +4730,22 @@ fn run_rejects_broader_intl_support() {
         stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
         "stderr: {stderr}"
     );
+    assert!(
+        stderr.contains("globalThis.Intl.Collator"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("globalThis.Intl.Locale"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Collator"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Locale"]"#),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -4741,6 +4791,18 @@ fn run_rejects_broader_intl_support_in_json() {
     assert!(messages
         .iter()
         .any(|message| message.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.Collator")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.Locale")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["Collator"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["Locale"]"#)));
 }
 
 #[test]
@@ -4773,6 +4835,22 @@ fn test_rejects_broader_intl_support() {
     );
     assert!(
         stderr.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("globalThis.Intl.Collator"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("globalThis.Intl.Locale"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Collator"]"#),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Intl"]["Locale"]"#),
         "stderr: {stderr}"
     );
 }
@@ -4820,6 +4898,18 @@ fn test_rejects_broader_intl_support_in_json() {
     assert!(messages
         .iter()
         .any(|message| message.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.Collator")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains("globalThis.Intl.Locale")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["Collator"]"#)));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Intl"]["Locale"]"#)));
 }
 
 #[test]
