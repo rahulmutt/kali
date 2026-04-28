@@ -3534,6 +3534,65 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
+fn browser_corpus_packages_with_browser_string_entries_and_web_baseline_primitives_remain_checkable_and_deployable_through_host(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_string_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "const controller = new AbortController();\nconst signal = controller.signal;\nsignal.addEventListener('abort', () => {{\n}});\nconst target = new EventTarget();\ntarget.addEventListener('tick', () => {{\n  controller.abort();\n}});\ntarget.dispatchEvent(new CustomEvent('tick'));\nconst query = new URLSearchParams('alpha=1&beta=two+words');\nquery.set('beta', 'browser');\nstructuredClone(new Blob(['browser corpus']));\nconst encoder = new TextEncoder();\nencoder.encode('browser corpus');\nexport default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(
+            dir.path(),
+            ["check", "--api", "browser", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check.status.success(),
+            "browser string/web-baseline package {package} should resolve its browser override\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            [
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build.status.success(),
+            "browser string/web-baseline package {package} should be deployable-through-host via bundle\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host_on_js_input(
 ) {
     for package in ["react", "preact", "vue"] {
