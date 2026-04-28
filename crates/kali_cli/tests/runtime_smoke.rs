@@ -46187,6 +46187,172 @@ fn json_check_build_run_and_test_accept_zero_budget_policy_in_js_input() {
     assert_eq!(json["stderr"], "");
 }
 
+#[test]
+fn build_with_sandbox_accepts_zero_budget_policy_in_js_input_for_library_and_embedding_artifacts() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "export function add(a, b) { return a + b; }\n",
+    )
+    .expect("write source");
+
+    let cases: [(&[&str], &[&str]); 3] = [
+        (
+            &["--lib"],
+            &["main.lib.wasm", "main.lib.wit", "main.lib.meta.json"],
+        ),
+        (
+            &["--capi"],
+            &[
+                "main.capi.wasm",
+                "main.wit",
+                "main.h",
+                "main.capi.meta.json",
+                "main.binding-package.json",
+            ],
+        ),
+        (
+            &["--component"],
+            &[
+                "main.component.wasm",
+                "main.wit",
+                "main.component.meta.json",
+                "main.binding-package.json",
+            ],
+        ),
+    ];
+
+    for (args, expected_files) in cases {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .args(args)
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "args: {args:?}\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        for expected_file in expected_files {
+            let expected_path = source_path.with_file_name(expected_file);
+            assert!(
+                expected_path.exists(),
+                "missing {}",
+                expected_path.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn json_build_with_sandbox_accepts_zero_budget_policy_in_js_input_for_library_and_embedding_artifacts(
+) {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_valid_policy(&policy_path);
+
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "export function add(a, b) { return a + b; }\n",
+    )
+    .expect("write source");
+
+    let cases: [(&[&str], &str); 3] = [
+        (&["--lib"], "lib"),
+        (&["--capi"], "capi"),
+        (&["--component"], "component"),
+    ];
+
+    for (args, artifact_kind) in cases {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("build")
+            .args(args)
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "args: {args:?}\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        let payload = json["payload"].as_object().expect("build payload object");
+        assert_eq!(payload["artifactKind"], artifact_kind);
+        assert_eq!(payload["buildMode"], "fast");
+
+        match args[0] {
+            "--lib" => {
+                assert_eq!(
+                    PathBuf::from(payload["outputPath"].as_str().expect("output path")),
+                    source_path.with_file_name("main.lib.wasm")
+                );
+            }
+            "--capi" => {
+                assert_eq!(
+                    PathBuf::from(payload["outputPath"].as_str().expect("output path")),
+                    source_path.with_file_name("main.capi.wasm")
+                );
+            }
+            "--component" => {
+                assert_eq!(
+                    PathBuf::from(payload["outputPath"].as_str().expect("output path")),
+                    source_path.with_file_name("main.component.wasm")
+                );
+            }
+            _ => unreachable!(),
+        }
+
+        for expected_file in match args[0] {
+            "--lib" => &["main.lib.wasm", "main.lib.wit", "main.lib.meta.json"][..],
+            "--capi" => &[
+                "main.capi.wasm",
+                "main.wit",
+                "main.h",
+                "main.capi.meta.json",
+                "main.binding-package.json",
+            ][..],
+            "--component" => &[
+                "main.component.wasm",
+                "main.wit",
+                "main.component.meta.json",
+                "main.binding-package.json",
+            ][..],
+            _ => unreachable!(),
+        } {
+            let expected_path = source_path.with_file_name(expected_file);
+            assert!(
+                expected_path.exists(),
+                "missing {}",
+                expected_path.display()
+            );
+        }
+    }
+}
+
 fn phase_three_deno_host_effects_source() -> &'static str {
     "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n"
 }
