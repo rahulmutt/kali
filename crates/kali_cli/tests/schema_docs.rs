@@ -2553,6 +2553,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     );
     assert!(
         matrix.contains(
+            "The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants."
+        ),
+        "package corpus matrix should document browser package-content JSON-output coverage"
+    );
+    assert!(
+        matrix.contains(
             "The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants."
         ),
         "package corpus matrix should document browser semver runtime JSON-output coverage"
