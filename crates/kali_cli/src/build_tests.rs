@@ -62,12 +62,40 @@ fn build_source_file_writes_valid_wasm_artifact_in_js_input() {
 }
 
 #[test]
+fn build_source_file_supports_deno_env_get_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
 fn build_source_file_supports_deno_env_get_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE')); console.log(Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE')); console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));",
+        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));",
     )
     .expect("write source");
 
@@ -96,6 +124,49 @@ fn build_source_file_supports_bracketed_deno_env_get_in_js_input() {
     fs::write(
         &source_path,
         "console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
+fn build_source_file_supports_permission_query_const_bindings_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+Deno.permissions.query({ name: read_descriptor });
+Deno.permissions["query"]({ name: read_descriptor });
+Deno["permissions"]["query"]({ name: read_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
+globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+Deno.permissions.query({ name: env_descriptor });
+Deno.permissions["query"]({ name: env_descriptor });
+Deno["permissions"]["query"]({ name: env_descriptor });
+globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+"#,
     )
     .expect("write source");
 
