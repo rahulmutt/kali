@@ -667,8 +667,18 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["runtimeProfiles"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
             ["compatFeatures"]["type"],
         "array"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["compatFeatures"]["items"]["type"],
+        "string"
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["entryPoints"]["type"],
@@ -905,6 +915,22 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         effects["properties"]["analysisContext"]["additionalProperties"],
         false
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["runtimeProfiles"]["type"],
+        "array"
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["runtimeProfiles"]["items"]["type"],
+        "string"
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["compatFeatures"]["type"],
+        "array"
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["compatFeatures"]["items"]["type"],
+        "string"
     );
     assert_eq!(
         effects["properties"]["effects"]["items"]["required"]
