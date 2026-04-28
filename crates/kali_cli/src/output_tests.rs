@@ -256,6 +256,37 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_diagnostic_with_non_string_help() {
+    let invalid_help = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic help",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "help": 42,
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_help)
+        .expect_err("non-string diagnostic help should fail validation");
+    assert!(err.contains("help"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_diagnostic_labels() {
     let invalid_label = json!({
         "schemaVersion": 1,

@@ -472,6 +472,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         "^[EWI][0-9]{4}$"
     );
     assert_eq!(
+        diagnostic["properties"]["help"],
+        serde_json::json!({"type": ["string", "null"]})
+    );
+    assert_eq!(
         diagnostic["properties"]["span"]["required"]
             .as_array()
             .expect("span required array")

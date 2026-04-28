@@ -278,6 +278,15 @@ fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
+    match object.get("help") {
+        Some(Value::Null) | Some(Value::String(_)) | None => {}
+        Some(other) => {
+            return Err(format!(
+                "diagnostic help must be a string or null, got {other}"
+            ))
+        }
+    }
+
     if let Some(context) = object.get("context") {
         validate_diagnostic_context(context)?;
     }
