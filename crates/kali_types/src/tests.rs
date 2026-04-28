@@ -1350,6 +1350,70 @@ fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bin
 }
 
 #[test]
+fn test_resolution_accepts_supported_permission_query_descriptors_with_const_bindings_in_ts_input()
+{
+    fn member(object: Expression, property: &str) -> Expression {
+        Expression::MemberExpression(Box::new(MemberExpression {
+            object,
+            property: property.to_string(),
+        }))
+    }
+
+    fn const_descriptor(name: &str, value: &str) -> Statement {
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: name.to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(value.to_string()))),
+            }],
+        })
+    }
+
+    fn permission_query(root: Expression, descriptor: &str) -> Statement {
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: member(member(root, "permissions"), "query"),
+                args: vec![Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("name".to_string()),
+                        value: Expression::Identifier(descriptor.to_string()),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })],
+            }))),
+        })
+    }
+
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const descriptor = 'read';\n").expect("write source");
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let statements = vec![
+        const_descriptor("read_descriptor", "read"),
+        permission_query(
+            Expression::Identifier("Deno".to_string()),
+            "read_descriptor",
+        ),
+        const_descriptor("write_descriptor", "write"),
+        permission_query(
+            member(Expression::Identifier("globalThis".to_string()), "Deno"),
+            "write_descriptor",
+        ),
+        const_descriptor("net_descriptor", "net"),
+        permission_query(Expression::Identifier("Deno".to_string()), "net_descriptor"),
+        const_descriptor("env_descriptor", "env"),
+        permission_query(
+            member(Expression::Identifier("globalThis".to_string()), "Deno"),
+            "env_descriptor",
+        ),
+    ];
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_reports_permission_escalation_members_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
