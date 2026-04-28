@@ -160,6 +160,35 @@ globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
 }
 
 #[test]
+fn build_source_file_rejects_bracketed_proxy_revocable_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, r#"globalThis["Proxy"]["revocable"]({}, {});"#).expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late object-model APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis["Proxy"]["revocable"]"#)
+            || diagnostic.message.contains("Proxy.revocable")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
