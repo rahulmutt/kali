@@ -1,7 +1,7 @@
 //! Tokenizer/lexer for TypeScript and JavaScript.
 
 use kali_common::{FileId, Span};
-use kali_error::_error_codes::{e1, e5};
+use kali_error::_error_codes::e1;
 use kali_error::diagnostic::Diagnostic;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -288,10 +288,6 @@ impl Lexer {
                     break;
                 }
             }
-            self.emit_error(
-                e5::FEATURE_UNAVAILABLE,
-                "decimal numeric literals are unavailable in the current phase; use an integer literal or the later compatibility path",
-            );
         }
 
         if self.source.get(self.position) == Some(&'n') {
