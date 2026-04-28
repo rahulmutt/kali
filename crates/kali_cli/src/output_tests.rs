@@ -260,6 +260,39 @@ fn validate_envelope_value_rejects_non_string_transport_fields() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_inconsistent_success_and_exit_code() {
+    let success_with_nonzero_exit_code = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&success_with_nonzero_exit_code)
+        .expect_err("success with nonzero exitCode should fail validation");
+    assert!(err.contains("success=true"), "unexpected error: {err}");
+
+    let failure_with_zero_exit_code = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+    });
+    let err = validate_envelope_value(&failure_with_zero_exit_code)
+        .expect_err("failure with zero exitCode should fail validation");
+    assert!(err.contains("success=false"), "unexpected error: {err}");
+}
+
+#[test]
 #[should_panic(expected = "CLI envelope success=true requires exitCode 0")]
 fn emit_envelope_value_rejects_success_with_nonzero_exit_code() {
     let _ = emit_envelope_value(

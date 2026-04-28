@@ -147,6 +147,16 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
+    let success = matches!(object.get("success"), Some(Value::Bool(true)));
+    let exit_code_is_zero = matches!(object.get("exitCode"), Some(Value::Number(number)) if number.as_i64() == Some(0) || number.as_u64() == Some(0));
+
+    if success && !exit_code_is_zero {
+        return Err("CLI envelope success=true requires exitCode 0".to_string());
+    }
+    if !success && exit_code_is_zero {
+        return Err("CLI envelope success=false requires a non-zero exitCode".to_string());
+    }
+
     Ok(())
 }
 
