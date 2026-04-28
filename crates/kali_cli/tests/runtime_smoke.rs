@@ -186,6 +186,19 @@ fn late_object_model_own_property_source_includes_bracketed_spellings() {
 }
 
 #[test]
+fn permission_escalation_source_includes_bracketed_spellings() {
+    let source = permission_escalation_source();
+    for expected in [
+        r#"Deno.permissions["request"]"#,
+        r#"Deno.permissions["revoke"]"#,
+        r#"globalThis.Deno.permissions["request"]"#,
+        r#"globalThis.Deno.permissions["revoke"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
 fn broader_intl_source_includes_bracketed_spellings() {
     let source = broader_intl_source();
     for expected in [
@@ -218,7 +231,7 @@ fn threaded_runtime_source_includes_bracketed_spellings() {
 }
 
 fn permission_escalation_source() -> &'static str {
-    "Deno.permissions.request(); Deno.permissions.revoke(); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke();"
+    "Deno.permissions.request(); Deno.permissions[\"request\"](); Deno.permissions.revoke(); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"revoke\"]();"
 }
 
 fn permission_escalation_computed_source() -> &'static str {
@@ -4300,7 +4313,7 @@ fn check_rejects_permission_escalation_members_in_json_in_js_input() {
     assert_permission_escalation_json(
         errors,
         &["Deno.permissions.request", "Deno.permissions.revoke"],
-        4,
+        8,
     );
 }
 
@@ -41635,7 +41648,7 @@ fn json_build_rejects_permission_escalation_members_in_js_input() {
     assert_permission_escalation_json(
         errors,
         &["Deno.permissions.request", "Deno.permissions.revoke"],
-        4,
+        8,
     );
 }
 
