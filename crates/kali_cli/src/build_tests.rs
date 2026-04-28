@@ -330,10 +330,14 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_intl_segmenter_in_js_input() {
+fn build_source_file_rejects_broader_intl_apis_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, r#"globalThis["Intl"]["Segmenter"];"#).expect("write source");
+    fs::write(
+        &source_path,
+        r#"globalThis["Intl"]["DateTimeFormat"]; Intl.RelativeTimeFormat; globalThis["Intl"]["PluralRules"]; Intl.Collator; globalThis["Intl"]["DisplayNames"]; Intl.Locale;"#,
+    )
+    .expect("write source");
 
     let error = build_source_file(
         &source_path,
@@ -350,12 +354,24 @@ fn build_source_file_rejects_bracketed_intl_segmenter_in_js_input() {
     assert!(error.iter().any(|diagnostic| diagnostic.code
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
     assert!(
-        error
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("Intl.Segmenter")
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Intl"]["Segmenter"]"#)),
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("broader Intl support")
+                && (diagnostic.message.contains("Intl.DateTimeFormat")
+                    || diagnostic.message.contains("Intl.RelativeTimeFormat")
+                    || diagnostic.message.contains("Intl.PluralRules")
+                    || diagnostic.message.contains("Intl.Collator")
+                    || diagnostic.message.contains("Intl.DisplayNames")
+                    || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["PluralRules"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["DisplayNames"]"#))
+        }),
         "unexpected diagnostics: {error:?}"
     );
 }
