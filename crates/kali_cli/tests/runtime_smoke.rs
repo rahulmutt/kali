@@ -9974,7 +9974,7 @@ fn run_supports_console_level_routing_when_browser_harness_is_configured_in_js_i
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\nconsole.log('done');\n",
+        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\nconsole.log(-1);\n",
     )
     .expect("write source");
 
@@ -10006,7 +10006,7 @@ fn run_supports_console_level_routing_when_browser_harness_is_configured_in_js_i
     assert!(
         json["stdout"].as_str().expect("stdout").contains("info")
             && json["stdout"].as_str().expect("stdout").contains("debug")
-            && json["stdout"].as_str().expect("stdout").contains("done"),
+            && json["stdout"].as_str().expect("stdout").contains("-1"),
         "json: {json}"
     );
     assert!(
@@ -15443,7 +15443,7 @@ fn test_supports_console_level_routing_when_browser_harness_is_configured_in_js_
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\nKali.test('browser console routing', () => { 1 + 1; });\n",
+        "console.info('info');\nconsole.debug('debug');\nconsole.error('err');\nconsole.warn('warn');\nconsole.log(-1);\nKali.test('browser console routing', () => { 1 + 1; });\n",
     )
     .expect("write source");
 
@@ -15472,7 +15472,8 @@ fn test_supports_console_level_routing_when_browser_harness_is_configured_in_js_
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
         json["stdout"].as_str().expect("stdout").contains("info")
-            && json["stdout"].as_str().expect("stdout").contains("debug"),
+            && json["stdout"].as_str().expect("stdout").contains("debug")
+            && json["stdout"].as_str().expect("stdout").contains("-1"),
         "json: {json}"
     );
     assert!(
@@ -27494,7 +27495,7 @@ fn build_emits_browser_bundle_console_level_routing_in_js_input() {
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  return 0n;\n}\n",
+        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  console.log(-1);\n  return 0n;\n}\n",
     )
     .expect("write source");
 
@@ -27585,6 +27586,7 @@ console.log(String(result));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stdout.contains("-1"), "stdout: {stdout}");
     assert!(stdout.contains("0"), "stdout: {stdout}");
     assert!(stderr.contains("err"), "stderr: {stderr}");
     assert!(stderr.contains("warn"), "stderr: {stderr}");
@@ -27596,7 +27598,7 @@ fn build_emits_browser_bundle_console_level_routing_in_js_input_in_json_output()
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  return 0n;\n}\n",
+        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  console.log(-1);\n  return 0n;\n}\n",
     )
     .expect("write source");
 
@@ -27687,6 +27689,7 @@ console.log(String(result));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stdout.contains("-1"), "stdout: {stdout}");
     assert!(stdout.contains("0"), "stdout: {stdout}");
     assert!(stderr.contains("err"), "stderr: {stderr}");
     assert!(stderr.contains("warn"), "stderr: {stderr}");
