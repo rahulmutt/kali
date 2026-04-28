@@ -67,7 +67,7 @@ fn build_source_file_supports_deno_env_get_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));",
+        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE')); console.log(Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));",
     )
     .expect("write source");
 
@@ -129,10 +129,12 @@ const env_descriptor = "env";
 const net_descriptor = "net";
 Deno.permissions.query({ name: read_descriptor });
 Deno.permissions["query"]({ name: read_descriptor });
+Deno["permissions"]["query"]({ name: read_descriptor });
 globalThis["Deno"]["permissions"].query({ name: write_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
 Deno.permissions.query({ name: env_descriptor });
 Deno.permissions["query"]({ name: env_descriptor });
+Deno["permissions"]["query"]({ name: env_descriptor });
 globalThis["Deno"]["permissions"].query({ name: net_descriptor });
 globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
 "#,
