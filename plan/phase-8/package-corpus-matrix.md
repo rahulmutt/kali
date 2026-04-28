@@ -144,7 +144,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The matrix intentionally tracks **current evidence slices**, not a full package-support catalog.
 - Command availability and public support remain phase-gated elsewhere; this file only records where corpus evidence currently exists.
 - Registry-analysis commands (`package-effects`, `package-audit`) are tracked in their own schema/command work packets and are not conflated with the package-corpus rows above.
-- The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, and the prose notes in the roadmap now call that out explicitly.
+- The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.
 - The Node `node:timers/promises` inherited-surface rejection slice is tracked as a negative contrast row so the explicit Node API boundary stays visible alongside the positive built-in rows.
 - The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.

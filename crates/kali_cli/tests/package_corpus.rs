@@ -10648,6 +10648,31 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         );
         assert_eq!(String::from_utf8_lossy(&run.stdout), format!("{expected}\n"));
 
+        let run_json = run_kali(
+            dir.path(),
+            ["--output", "json", "run", source_path.to_str().unwrap()],
+        );
+        assert!(
+            run_json.status.success(),
+            "node built-in package {package} should execute on the inherited Node surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run_json.stdout),
+            String::from_utf8_lossy(&run_json.stderr)
+        );
+        let run_envelope = parse_json_stdout(&run_json);
+        assert_eq!(run_envelope["command"], "run");
+        assert_eq!(run_envelope["success"], true);
+        assert_eq!(run_envelope["exitCode"], 0);
+        assert_eq!(run_envelope["payload"]["exitCode"], 0);
+        assert_eq!(run_envelope["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(run_envelope["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            run_envelope["stdout"]
+                .as_str()
+                .expect("run stdout")
+                .contains(expected),
+            "json run: {run_envelope}"
+        );
+
         let test_source = dir.path().join("tests").join(format!("{package}.test.js"));
         fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
         fs::write(
@@ -10669,6 +10694,34 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         let test_stdout = String::from_utf8_lossy(&test.stdout);
         assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
         assert!(test_stdout.contains(expected), "stdout: {test_stdout}");
+
+        let test_json = run_kali(
+            dir.path(),
+            ["--output", "json", "test", test_source.to_str().unwrap()],
+        );
+        assert!(
+            test_json.status.success(),
+            "node built-in package {package} should be testable on the inherited Node surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test_json.stdout),
+            String::from_utf8_lossy(&test_json.stderr)
+        );
+        let test_envelope = parse_json_stdout(&test_json);
+        assert_eq!(test_envelope["command"], "test");
+        assert_eq!(test_envelope["success"], true);
+        assert_eq!(test_envelope["exitCode"], 0);
+        assert_eq!(test_envelope["payload"]["passed"], 1);
+        assert_eq!(test_envelope["payload"]["total"], 1);
+        assert_eq!(test_envelope["payload"]["failed"], 0);
+        assert_eq!(test_envelope["payload"]["skipped"], 0);
+        assert_eq!(test_envelope["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(test_envelope["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            test_envelope["stdout"]
+                .as_str()
+                .expect("test stdout")
+                .contains(expected),
+            "json test: {test_envelope}"
+        );
     }
 }
 
