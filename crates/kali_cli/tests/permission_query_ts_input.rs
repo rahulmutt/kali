@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn unsupported_permission_query_source() -> &'static str {
-    "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });\nglobalThis.Deno.permissions.query({ name: \"ffi\" });\nglobalThis.Deno.permissions.query({ name: \"sys\" });\nglobalThis.Deno.permissions[\"query\"]({ name: \"ffi\" });\nglobalThis.Deno.permissions[\"query\"]({ name: \"sys\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"ffi\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"sys\" });"
+    "Deno.permissions.query({ name: \"ffi\" });\nDeno.permissions.query({ name: \"sys\" });\nDeno.permissions[\"query\"]({ name: \"ffi\" });\nDeno.permissions[\"query\"]({ name: \"sys\" });\nDeno[\"permissions\"].query({ name: \"ffi\" });\nDeno[\"permissions\"].query({ name: \"sys\" });\nDeno[\"permissions\"][\"query\"]({ name: \"ffi\" });\nDeno[\"permissions\"][\"query\"]({ name: \"sys\" });\nglobalThis.Deno.permissions.query({ name: \"ffi\" });\nglobalThis.Deno.permissions.query({ name: \"sys\" });\nglobalThis.Deno.permissions[\"query\"]({ name: \"ffi\" });\nglobalThis.Deno.permissions[\"query\"]({ name: \"sys\" });\nglobalThis.Deno[\"permissions\"].query({ name: \"ffi\" });\nglobalThis.Deno[\"permissions\"].query({ name: \"sys\" });\nglobalThis.Deno[\"permissions\"][\"query\"]({ name: \"ffi\" });\nglobalThis.Deno[\"permissions\"][\"query\"]({ name: \"sys\" });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: \"ffi\" });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: \"sys\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"ffi\" });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: \"sys\" });"
 }
 
 fn supported_permission_query_const_binding_source() -> &'static str {

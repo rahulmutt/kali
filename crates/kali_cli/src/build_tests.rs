@@ -307,10 +307,22 @@ fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_inpu
         &source_path,
         r#"Deno.permissions.query({ name: "ffi" });
 Deno.permissions.query({ name: "sys" });
+Deno.permissions["query"]({ name: "ffi" });
+Deno.permissions["query"]({ name: "sys" });
+Deno["permissions"].query({ name: "ffi" });
+Deno["permissions"].query({ name: "sys" });
+Deno["permissions"]["query"]({ name: "ffi" });
+Deno["permissions"]["query"]({ name: "sys" });
 globalThis.Deno.permissions.query({ name: "ffi" });
 globalThis.Deno.permissions.query({ name: "sys" });
 globalThis.Deno.permissions["query"]({ name: "ffi" });
 globalThis.Deno.permissions["query"]({ name: "sys" });
+globalThis.Deno["permissions"].query({ name: "ffi" });
+globalThis.Deno["permissions"].query({ name: "sys" });
+globalThis.Deno["permissions"]["query"]({ name: "ffi" });
+globalThis.Deno["permissions"]["query"]({ name: "sys" });
+globalThis["Deno"]["permissions"].query({ name: "ffi" });
+globalThis["Deno"]["permissions"].query({ name: "sys" });
 globalThis["Deno"]["permissions"]["query"]({ name: "ffi" });
 globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
 "#,
