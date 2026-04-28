@@ -563,7 +563,7 @@ fn browser_late_env_mutation_source_includes_bracketed_forms() {
 #[test]
 fn browser_late_globalthis_deno_env_and_permission_source_includes_bracketed_forms() {
     let source = format!(
-        "{} {} globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].env[\"toObject\"];",
+        "{} {} globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"].env[\"toObject\"];",
         late_env_materialization_source(),
         late_permission_escalation_source()
     );
