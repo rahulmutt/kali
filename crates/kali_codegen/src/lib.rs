@@ -152,6 +152,7 @@ struct FunctionEmitter<'a> {
 }
 
 impl<'a> FunctionEmitter<'a> {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         program: &'a LirProgram,
         functions: &'a BTreeMap<String, u32>,
@@ -1858,21 +1859,21 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }
-    if let Some(_) = env_set_import_index {
+    if env_set_import_index.is_some() {
         import_section.import(
             "kali:rt",
             "env_set",
             EntityType::Function(env_get_type_index.unwrap()),
         );
     }
-    if let Some(_) = env_delete_import_index {
+    if env_delete_import_index.is_some() {
         import_section.import(
             "kali:rt",
             "env_delete",
             EntityType::Function(env_get_type_index.unwrap()),
         );
     }
-    if let Some(_) = env_get_import_index {
+    if env_get_import_index.is_some() {
         import_section.import(
             "kali:rt",
             "env_get",

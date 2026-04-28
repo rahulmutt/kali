@@ -520,7 +520,7 @@ fn build_artifact_metadata_normalizes_equivalent_profile_data_hashes() {
     let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "const main = 1;").expect("write source");
 
-    let equivalent_profiles = vec![
+    let equivalent_profiles = [
         ProfileData::new(vec![
             ProfileSample::new(ProfileSampleKind::Function, " hot-path ", 2),
             ProfileSample::new(ProfileSampleKind::Branch, "branch:hot", 3),

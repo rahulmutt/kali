@@ -1200,11 +1200,7 @@ impl Parser {
         let mut bracket_depth = 0usize;
         let mut angle_depth = 0usize;
 
-        loop {
-            let Some(kind) = self.stream.current_kind().copied() else {
-                break;
-            };
-
+        while let Some(kind) = self.stream.current_kind().copied() {
             let top_level_terminator = paren_depth == 0
                 && bracket_depth == 0
                 && angle_depth == 0

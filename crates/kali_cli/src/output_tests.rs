@@ -57,7 +57,25 @@ fn validate_envelope_value_rejects_wrong_top_level_shapes() {
         "stderr": null,
     });
     let err = validate_envelope_value(&missing_key).expect_err("missing exitCode should fail");
-    assert!(err.contains("top-level keys"), "unexpected error: {err}");
+    assert!(err.contains("exitCode"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_allows_schema_permitted_extension_keys() {
+    let extended = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"label": "parse", "elapsedMs": 1}],
+    });
+
+    validate_envelope_value(&extended).expect("schema-permitted extension keys should validate");
 }
 
 #[test]

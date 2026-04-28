@@ -69,13 +69,6 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
         return Err("CLI envelope must be a JSON object".to_string());
     };
 
-    if object.len() != REQUIRED_KEYS.len() {
-        return Err(format!(
-            "CLI envelope must contain exactly {} top-level keys",
-            REQUIRED_KEYS.len()
-        ));
-    }
-
     for key in REQUIRED_KEYS {
         if !object.contains_key(key) {
             return Err(format!("CLI envelope is missing required key `{key}`"));

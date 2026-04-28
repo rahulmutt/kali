@@ -78,7 +78,14 @@ fn core_schema_documents_match_current_cli_contracts() {
         &fs::read_to_string(root.join("schemas/envelope/v1.json")).expect("read envelope schema"),
     )
     .expect("parse envelope schema");
+    assert_eq!(envelope["additionalProperties"], true);
     assert_eq!(envelope["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(envelope["properties"]["timings"]["type"], "array");
+    assert_eq!(envelope["properties"]["timings"]["items"]["type"], "object");
+    assert_eq!(
+        envelope["properties"]["timings"]["items"]["additionalProperties"],
+        true
+    );
     assert!(envelope["required"]
         .as_array()
         .expect("required array")
