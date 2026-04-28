@@ -33,6 +33,7 @@ Improve generated code and performance claims while keeping outputs deterministi
 - Ensure fallback paths preserve JavaScript semantics.
 - Progress: zero-budget tagged-parameter MIR specialization now has a regression that keeps the original call target in place and prevents speculative `add_pair$spec$...` clones.
 - Progress: release-advanced now also has a cap-exactness regression that shows duplicate root-call shapes can inline away without consuming the single specialization slot, while the remaining distinct call shape still produces exactly one MIR-specialized clone once the cap is reached.
+- Progress: the benchmark lane now also includes an object-literal property-order canonicalization workload (`object-literal-property-order-canonicalization-benchmark-v1`) so the object-layout specialization path has an explicit pinned workload alongside the existing object-enumeration and layout-specialization benchmarks.
 
 ### 9.3 PGO input
 

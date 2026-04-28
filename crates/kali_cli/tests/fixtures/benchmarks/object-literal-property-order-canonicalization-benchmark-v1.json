@@ -1,0 +1,7 @@
+{
+  "benchmark": "object-literal-property-order-canonicalization",
+  "version": 1,
+  "sourceFile": "object-literal-property-order-canonicalization-benchmark-v1.ts",
+  "sourceSha256": "sha256-222efa0697e847ec441a63916fe310039954494af999675759f9bbdc51c98058",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
