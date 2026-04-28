@@ -4708,6 +4708,45 @@ fn browser_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_b
 }
 
 #[test]
+fn browser_corpus_packages_prefer_browser_condition_over_deno_condition_on_the_browser_surface_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    write_browser_and_deno_condition_package(
+        dir.path(),
+        "browser-deno",
+        "export default function describe() { return 0; }\n",
+        "export default function describe() { return Deno.env.get('HOME') ? 1 : 2; }\n",
+    );
+    write_types_stub_package(dir.path(), "browser-deno");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import describe from 'browser-deno';\nconsole.log(describe());\n",
+    )
+    .expect("write browser source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "browser condition package browser-deno should resolve its browser branch for check on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(
+        dir.path(),
+        ["build", "--bundle", source_path.to_str().unwrap()],
+    );
+    assert!(
+        build.status.success(),
+        "browser condition package browser-deno should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+}
+
+#[test]
 fn browser_runtime_corpus_packages_remain_executable_on_the_browser_surface_when_a_harness_command_is_configured(
 ) {
     for package in ["browserpkg", "browserexports"] {

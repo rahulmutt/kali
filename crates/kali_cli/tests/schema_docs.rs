@@ -2058,6 +2058,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser condition preference corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser condition preference inherited-browser corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser dual-exports corpus row should be recorded in the package corpus matrix",
         ),
@@ -2217,6 +2221,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_condition_row,
         "browser condition / browser-deno corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_condition_inherited_check_row =
+        "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_condition_inherited_check_row,
+        "browser inherited browser-condition / browser-deno corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_condition_string_web_baseline_row =
         "| npm-style package corpus | browser-condition / browser-string / web-baseline packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
