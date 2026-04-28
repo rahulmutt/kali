@@ -730,6 +730,60 @@ mod member_expressions {
     }
 
     #[test]
+    fn test_parse_bracketed_late_compatibility_member_expressions() {
+        let output = parse(
+            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"];",
+        );
+        assert_eq!(output.statements.len(), 4);
+
+        let assert_two_level_bracket =
+            |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property, property);
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(inner) => {
+                                assert_eq!(inner.property, root);
+                                match &inner.object {
+                                    kali_ast::Expression::Identifier(name) => {
+                                        assert_eq!(name, "globalThis");
+                                    }
+                                    other => {
+                                        panic!("Expected globalThis identifier, got {other:?}")
+                                    }
+                                }
+                            }
+                            other => panic!("Expected nested MemberExpression, got {other:?}"),
+                        }
+                    }
+                    _ => panic!("Expected MemberExpression"),
+                },
+                _ => panic!("Expected ExpressionStatement"),
+            };
+
+        assert_two_level_bracket(&output.statements[0], "Intl", "DateTimeFormat");
+        assert_two_level_bracket(&output.statements[1], "process", "cwd");
+
+        match &output.statements[2] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::MemberExpression(me) => {
+                    assert_eq!(me.property, "exit");
+                    match &me.object {
+                        kali_ast::Expression::Identifier(name) => {
+                            assert_eq!(name, "process");
+                        }
+                        other => panic!("Expected process identifier, got {other:?}"),
+                    }
+                }
+                _ => panic!("Expected MemberExpression"),
+            },
+            _ => panic!("Expected ExpressionStatement"),
+        }
+
+        assert_two_level_bracket(&output.statements[3], "Proxy", "revocable");
+    }
+
+    #[test]
     fn test_parse_array_access() {
         let output = parse("arr[index];");
         assert_eq!(output.statements.len(), 1);
