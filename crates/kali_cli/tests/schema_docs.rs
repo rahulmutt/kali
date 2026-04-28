@@ -2673,7 +2673,7 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     );
     assert!(
         matrix.contains(
-            "The browser runtime package fixture rows also carry JSON-output coverage on the direct browser-harness `run` / `test` variants."
+            "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants."
         ),
         "package corpus matrix should document browser package fixture JSON-output coverage"
     );
