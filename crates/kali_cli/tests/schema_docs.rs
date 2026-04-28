@@ -1986,6 +1986,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser condition-export `.js` corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser-condition export packages with `.js` entrypoints and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited condition-export `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime pi-coding-agent corpus row should be recorded in the package corpus matrix",
         ),
@@ -2201,6 +2205,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_condition_export_row,
         "browser condition-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_condition_export_inherited_row =
+        "| npm-style package corpus | browser-condition export packages with `.js` entrypoints and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_condition_export_inherited_row,
+        "browser inherited condition-export corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_condition_row =
         "| npm-style package corpus | browser-condition / browser-deno preference packages with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";

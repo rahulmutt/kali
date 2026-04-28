@@ -2119,6 +2119,83 @@ fn browser_corpus_packages_with_browser_exports_remain_checkable_and_deployable_
 }
 
 #[test]
+fn browser_corpus_packages_with_browser_exports_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for (package, subpath) in [
+        ("react", "jsx-runtime"),
+        ("preact", "hooks"),
+        ("vue", "runtime-dom"),
+        ("dayjs", "locale"),
+        ("jotai", "store"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_condition_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:import'; }}\n",
+                package = package
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function root() {{ return '{package}:require'; }};\n",
+                package = package
+            ),
+            subpath,
+            &format!(
+                "export default function subpath() {{ return '{package}:{subpath}:browser'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function subpath() {{ return '{package}:{subpath}:import'; }}\n",
+                package = package,
+                subpath = subpath
+            ),
+            &format!(
+                "const assert = require('node:assert');\nassert.ok(true);\nmodule.exports = function subpath() {{ return '{package}:{subpath}:require'; }};\n",
+                package = package,
+                subpath = subpath
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nimport subpath from '{package}/{subpath}';\nconsole.log(root(), subpath());\n",
+                package = package,
+                subpath = subpath
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser conditional-exports package {package} should resolve its browser branch on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser conditional-exports package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_module_entries_remain_checkable_and_deployable_through_host() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
