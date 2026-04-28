@@ -808,6 +808,7 @@ impl TypeContext {
             self.resolve_expression(arg);
         }
         self.resolve_permission_query_call(expr);
+        self.resolve_math_member_call(expr);
     }
 
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
@@ -865,6 +866,36 @@ impl TypeContext {
             format!(
                 "permission query descriptor '{}' is unavailable in the Phase-1 Deno permission facade",
                 descriptor_name
+            ),
+        ));
+    }
+
+    fn resolve_math_member_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = Self::member_access_name(match &expr.callee {
+            Expression::MemberExpression(member) => member,
+            _ => return,
+        }) else {
+            return;
+        };
+
+        let Some(method) = callee_name
+            .strip_prefix("Math.")
+            .or_else(|| callee_name.strip_prefix("globalThis.Math."))
+        else {
+            return;
+        };
+
+        if matches!(
+            method,
+            "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc" | "ceil"
+        ) {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "Math.{method} is unavailable in the current phase; use a supported Math builtin or the later compatibility path"
             ),
         ));
     }

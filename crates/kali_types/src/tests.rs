@@ -1527,6 +1527,46 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_unsupported_math_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "floor".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "round".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.floor")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.round")));
+}
+
+#[test]
 fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_api() {
     let mut ctx = TypeContext::new();
     let statements = vec![
