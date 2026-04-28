@@ -592,7 +592,7 @@ Kali.test('node timers', () => {
 }
 
 #[test]
-fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_test_commands() {
+fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_run_and_test_commands() {
     let dir = tempdir().expect("tempdir");
     let run_file = dir.path().join("main.js");
     let test_file = dir.path().join("main.test.js");
@@ -617,13 +617,15 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
         .expect("run kali");
     assert!(
         !run_output.status.success(),
-        "run should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        "run should be rejected on the Node surface\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&run_output.stdout),
         String::from_utf8_lossy(&run_output.stderr)
     );
     let run_stderr = String::from_utf8_lossy(&run_output.stderr);
     assert!(
-        run_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        run_stderr.contains(
+            "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+        ),
         "run stderr: {run_stderr}"
     );
 
@@ -639,7 +641,7 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
         .expect("run kali");
     assert!(
         !run_json_output.status.success(),
-        "json run should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        "json run should surface the Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&run_json_output.stdout),
         String::from_utf8_lossy(&run_json_output.stderr)
     );
@@ -648,10 +650,10 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
     assert_eq!(run_json["success"], false);
     assert_eq!(run_json["exitCode"], 1);
     assert_eq!(run_json["payload"], serde_json::Value::Null);
-    assert_eq!(run_json["errors"][0]["code"], "E3000");
+    assert_eq!(run_json["errors"][0]["code"], "E5506");
     assert_eq!(
         run_json["errors"][0]["message"],
-        "import source 'node:timers/promises' could not be resolved"
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
     );
 
     let test_output = Command::new(kali_bin())
@@ -664,13 +666,15 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
         .expect("run kali");
     assert!(
         !test_output.status.success(),
-        "test should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        "test should be rejected on the Node surface\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&test_output.stdout),
         String::from_utf8_lossy(&test_output.stderr)
     );
     let test_stderr = String::from_utf8_lossy(&test_output.stderr);
     assert!(
-        test_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        test_stderr.contains(
+            "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+        ),
         "test stderr: {test_stderr}"
     );
 
@@ -686,7 +690,7 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
         .expect("run kali");
     assert!(
         !test_json_output.status.success(),
-        "json test should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        "json test should surface the Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&test_json_output.stdout),
         String::from_utf8_lossy(&test_json_output.stderr)
     );
@@ -700,15 +704,15 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
     assert_eq!(test_json["payload"]["total"], 0);
     assert_eq!(test_json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(test_json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(test_json["errors"][0]["code"], "E3000");
+    assert_eq!(test_json["errors"][0]["code"], "E5506");
     assert_eq!(
         test_json["errors"][0]["message"],
-        "import source 'node:timers/promises' could not be resolved"
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
     );
 }
 
 #[test]
-fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and_build_commands() {
+fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -727,13 +731,15 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
         .expect("run kali");
     assert!(
         !check_output.status.success(),
-        "check should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        "check should be rejected on the Node surface\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&check_output.stdout),
         String::from_utf8_lossy(&check_output.stderr)
     );
     let check_stderr = String::from_utf8_lossy(&check_output.stderr);
     assert!(
-        check_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        check_stderr.contains(
+            "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+        ),
         "check stderr: {check_stderr}"
     );
 
@@ -749,7 +755,7 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
         .expect("run kali");
     assert!(
         !check_json_output.status.success(),
-        "json check should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        "json check should surface the Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&check_json_output.stdout),
         String::from_utf8_lossy(&check_json_output.stderr)
     );
@@ -761,10 +767,10 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
         check_json["payload"],
         serde_json::json!({"errorCount": 2, "filesChecked": 1, "warningCount": 0})
     );
-    assert_eq!(check_json["errors"][0]["code"], "E3000");
+    assert_eq!(check_json["errors"][0]["code"], "E5506");
     assert_eq!(
         check_json["errors"][0]["message"],
-        "import source 'node:timers/promises' could not be resolved"
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
     );
     assert_eq!(check_json["errors"][1]["code"], "E3100");
 
@@ -778,13 +784,15 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
         .expect("run kali");
     assert!(
         !build_output.status.success(),
-        "build should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        "build should be rejected on the Node surface\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&build_output.stdout),
         String::from_utf8_lossy(&build_output.stderr)
     );
     let build_stderr = String::from_utf8_lossy(&build_output.stderr);
     assert!(
-        build_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        build_stderr.contains(
+            "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+        ),
         "build stderr: {build_stderr}"
     );
 
@@ -800,7 +808,7 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
         .expect("run kali");
     assert!(
         !build_json_output.status.success(),
-        "json build should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        "json build should surface the Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&build_json_output.stdout),
         String::from_utf8_lossy(&build_json_output.stderr)
     );
@@ -809,10 +817,10 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and
     assert_eq!(build_json["success"], false);
     assert_eq!(build_json["exitCode"], 1);
     assert_eq!(build_json["payload"], serde_json::Value::Null);
-    assert_eq!(build_json["errors"][0]["code"], "E3000");
+    assert_eq!(build_json["errors"][0]["code"], "E5506");
     assert_eq!(
         build_json["errors"][0]["message"],
-        "import source 'node:timers/promises' could not be resolved"
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
     );
     assert_eq!(build_json["errors"][1]["code"], "E3100");
 }

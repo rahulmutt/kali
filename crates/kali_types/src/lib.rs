@@ -1475,6 +1475,16 @@ impl TypeContext {
             return Ok(true);
         }
 
+        if self.api_surface == "node" && source.starts_with("node:") {
+            return Err(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "node builtin '{}' is not available on the explicit Node API surface",
+                    source
+                ),
+            ));
+        }
+
         let base_dir = self
             .base_path
             .as_ref()
