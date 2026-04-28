@@ -216,6 +216,29 @@ mod expression_statements {
             _ => panic!("Expected ExpressionStatement"),
         }
     }
+
+    #[test]
+    fn test_parse_bracketed_process_control_member_access() {
+        let output = parse(r#"globalThis["process"]["cwd"]; globalThis["process"]["exit"];"#);
+        assert_eq!(output.statements.len(), 2);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+
+        for statement in &output.statements {
+            match statement {
+                kali_ast::Statement::ExpressionStatement(es) => {
+                    assert!(matches!(
+                        es.expression.as_ref(),
+                        kali_ast::Expression::MemberExpression(_)
+                    ));
+                }
+                _ => panic!("Expected ExpressionStatement"),
+            }
+        }
+    }
 }
 
 /// Tests for binary expressions - ORIGINALLY FAILING

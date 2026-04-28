@@ -261,7 +261,7 @@ fn test_parse_object_literal_expression() {
 #[test]
 fn test_parse_bracketed_member_expression_chain() {
     let tokens = lex(
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"]; globalThis["Deno"]["pid"]; globalThis["Deno"]["env"]["get"]("HOME"); globalThis["Deno"]["permissions"]["query"]("read"); globalThis["Intl"]["Locale"]; globalThis["WeakRef"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["PluralRules"];"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"]; globalThis["Deno"]["pid"]; globalThis["Deno"]["env"]["get"]("HOME"); globalThis["Deno"]["permissions"]["query"]("read"); globalThis["Intl"]["Locale"]; globalThis["WeakRef"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["PluralRules"]; globalThis["process"]["cwd"]; globalThis["process"]["exit"];"#,
     );
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
@@ -271,7 +271,7 @@ fn test_parse_bracketed_member_expression_chain() {
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 11);
+    assert_eq!(output.statements.len(), 13);
 
     let Statement::ExpressionStatement(first_stmt) = &output.statements[0] else {
         panic!(
@@ -536,6 +536,55 @@ fn test_parse_bracketed_member_expression_chain() {
     assert_eq!(eleventh_root.property, "Intl");
     assert!(
         matches!(eleventh_root.object, Expression::Identifier(ref name) if name == "globalThis")
+    );
+
+    let Statement::ExpressionStatement(twelfth_stmt) = &output.statements[11] else {
+        panic!(
+            "Expected twelfth ExpressionStatement, got {:?}",
+            output.statements[11]
+        );
+    };
+    let Expression::MemberExpression(twelfth_member) = twelfth_stmt.expression.as_ref() else {
+        panic!(
+            "Expected twelfth bracketed member expression, got {:?}",
+            twelfth_stmt.expression
+        );
+    };
+    assert_eq!(twelfth_member.property, "cwd");
+    let Expression::MemberExpression(twelfth_root) = &twelfth_member.object else {
+        panic!(
+            "Expected twelfth member root, got {:?}",
+            twelfth_member.object
+        );
+    };
+    assert_eq!(twelfth_root.property, "process");
+    assert!(
+        matches!(twelfth_root.object, Expression::Identifier(ref name) if name == "globalThis")
+    );
+
+    let Statement::ExpressionStatement(thirteenth_stmt) = &output.statements[12] else {
+        panic!(
+            "Expected thirteenth ExpressionStatement, got {:?}",
+            output.statements[12]
+        );
+    };
+    let Expression::MemberExpression(thirteenth_member) = thirteenth_stmt.expression.as_ref()
+    else {
+        panic!(
+            "Expected thirteenth bracketed member expression, got {:?}",
+            thirteenth_stmt.expression
+        );
+    };
+    assert_eq!(thirteenth_member.property, "exit");
+    let Expression::MemberExpression(thirteenth_root) = &thirteenth_member.object else {
+        panic!(
+            "Expected thirteenth member root, got {:?}",
+            thirteenth_member.object
+        );
+    };
+    assert_eq!(thirteenth_root.property, "process");
+    assert!(
+        matches!(thirteenth_root.object, Expression::Identifier(ref name) if name == "globalThis")
     );
 }
 
