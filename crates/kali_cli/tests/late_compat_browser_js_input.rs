@@ -298,12 +298,16 @@ fn assert_browser_late_object_model_rejection(stderr: &str) {
         "globalThis.Object.prototype.hasOwnProperty.call",
         r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
         "WeakMap",
+        "globalThis.WeakMap",
         r#"globalThis["WeakMap"]"#,
         "WeakSet",
+        "globalThis.WeakSet",
         r#"globalThis["WeakSet"]"#,
         "WeakRef",
+        "globalThis.WeakRef",
         r#"globalThis["WeakRef"]"#,
         "FinalizationRegistry",
+        "globalThis.FinalizationRegistry",
         r#"globalThis["FinalizationRegistry"]"#,
     ] {
         assert!(
@@ -345,12 +349,16 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
         "globalThis.Object.prototype.hasOwnProperty.call",
         r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
         "WeakMap",
+        "globalThis.WeakMap",
         r#"globalThis["WeakMap"]"#,
         "WeakSet",
+        "globalThis.WeakSet",
         r#"globalThis["WeakSet"]"#,
         "WeakRef",
+        "globalThis.WeakRef",
         r#"globalThis["WeakRef"]"#,
         "FinalizationRegistry",
+        "globalThis.FinalizationRegistry",
         r#"globalThis["FinalizationRegistry"]"#,
     ] {
         assert!(
@@ -446,10 +454,13 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
         r#"globalThis["Proxy"]["revocable"]"#,
         r#"globalThis["Object"]["hasOwn"]"#,
         r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
+        "globalThis.WeakMap",
         r#"globalThis["WeakMap"]"#,
+        "globalThis.WeakSet",
         r#"globalThis["WeakSet"]"#,
         "globalThis.WeakRef",
         r#"globalThis["WeakRef"]"#,
+        "globalThis.FinalizationRegistry",
         r#"globalThis["FinalizationRegistry"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
