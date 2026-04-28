@@ -83,6 +83,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser-requested `run` / `test` integer-like key ordering semantics in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` integer-like key ordering semantics when the browser API surface is inherited in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage for the browser-requested JS-input lane) |
+| Browser-requested `run` / `test` boolean conjunction / disjunction semantics when the browser API surface is inherited in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage) |
 | Browser-requested `run` / `test` basic strict equality / inequality semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (including JSON-output coverage in `.ts` and `.js` input) |
 | Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input under the configured browser harness | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
