@@ -242,7 +242,7 @@ fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
 
     match object.get("code") {
         Some(Value::String(value))
-            if value.as_bytes().len() == 5
+            if value.len() == 5
                 && matches!(value.as_bytes().first(), Some(b'E' | b'W' | b'I' | b'H'))
                 && value[1..].chars().all(|ch| ch.is_ascii_digit()) => {}
         Some(other) => {

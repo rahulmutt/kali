@@ -245,8 +245,7 @@ globalThis.Deno.permissions.query({ name: net_descriptor });"#
 }
 
 fn supported_permission_query_const_binding_runtime_source() -> String {
-    format!(
-        r#"async function main() {{
+    r#"async function main() {{
 const read_descriptor = "read";
 const write_descriptor = "write";
 const env_descriptor = "env";
@@ -271,12 +270,11 @@ await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
 }}
 main();
 "#
-    )
+    .to_string()
 }
 
 fn supported_permission_query_const_binding_test_source() -> String {
-    format!(
-        r#"async function main() {{
+    r#"async function main() {{
 const read_descriptor = "read";
 const write_descriptor = "write";
 const env_descriptor = "env";
@@ -300,7 +298,7 @@ await globalThis["Deno"]["permissions"]["query"]({{ name: net_descriptor }});
 }}
 Kali.test('permission query const bindings', () => main());
 "#
-    )
+    .to_string()
 }
 
 fn assert_permission_escalation_stderr(stderr: &str, expected: &[&str]) {

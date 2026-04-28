@@ -269,6 +269,42 @@ fn validate_envelope_value_rejects_malformed_related_items() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_related_item_with_non_positive_span() {
+    let invalid_related_span = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad related item span",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [
+                    {
+                        "message": "follow-up note",
+                        "span": {"file": "src/main.ts", "line": 0, "column": 1, "endLine": 1, "endColumn": 2}
+                    }
+                ],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_related_span)
+        .expect_err("non-positive related item span should fail validation");
+    assert!(err.contains("related[0]"), "unexpected error: {err}");
+    assert!(err.contains("line"), "unexpected error: {err}");
+}
+
+#[test]
 #[should_panic(expected = "CLI envelope errors must be an array")]
 fn emit_envelope_value_rejects_non_array_errors() {
     let _ = emit_envelope_value(
