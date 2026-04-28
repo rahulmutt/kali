@@ -49,7 +49,7 @@ Move from broad working coverage to measurable language conformance for the surf
 - Current progress: browser-requested JSON-output coverage now also mirrors object-enumeration and integer-like key ordering in both TS and `.js` input on the browser-requested run/test harness, closing the remaining machine-readable browser-requested gap on that object-enumeration slice.
 - Current progress: the phase-6 dashboard now also tracks the standalone string-primitive enumeration row for `Object.keys()` / `Object.entries()` / `Object.values()` in `.js` input, keeping the basic browser-agnostic object-enumeration slice visible alongside the existing overwrite/delete-reinsert and browser-requested/browser-bundle rows.
 - Current progress: the phase-6 dashboard drift net now also pins the browser bundle basic object property deletion / `in`-operator row explicitly, so the browser-bundle object-model snapshot stays aligned with the current runtime smoke.
-
+- Current progress: the phase-6 dashboard drift net now also pins the browser-requested try/catch / try/finally row plus the browser-bundle object-deletion, `try/finally`, and console-routing rows explicitly, so the supported browser-runtime snapshot stays aligned with the current smoke evidence.
 - Current progress: the phase-6 dashboard drift net now also pins the browser bundle async/await and queueMicrotask rows explicitly, so the browser-bundle ordering/timing snapshot stays aligned with the current runtime smoke.
 
 ### 6.3 Module and dynamic-loading semantics

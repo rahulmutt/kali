@@ -1496,6 +1496,30 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
     }
 }
 
+#[test]
+fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_rows() {
+    let root = repo_root();
+    let dashboard = fs::read_to_string(root.join("plan/phase-6/conformance-dashboard.md"))
+        .expect("read conformance dashboard");
+
+    let supported_rows = [
+        "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
+        "Browser bundle `try/finally` sequencing in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input, including JSON-output coverage, plus inherited browser-api-surface coverage in `.ts` and `.js` input",
+        "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
+    ];
+
+    let mut last = 0;
+    for row in supported_rows {
+        let pos = dashboard.find(row).expect("supported row");
+        assert!(
+            pos >= last,
+            "supported rows should be stable and sorted in their section"
+        );
+        last = pos;
+    }
+}
+
 fn collect_proof_theorem_names(root: &Path) -> BTreeSet<String> {
     fn visit(dir: &Path, names: &mut BTreeSet<String>) {
         for entry in fs::read_dir(dir).expect("read proof directory") {
