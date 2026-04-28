@@ -100,6 +100,7 @@ Used by commands that opt into `--output json`.
   "browserRuntimeContract": {
     "hostLabel": "browser-requested",
     "hostDescription": "real browser host",
+    "hostDescriptionNote": "browser runtime host description: real browser host",
     "supportedCommands": ["run", "test"],
     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
     "diagnosticNotes": [
@@ -132,6 +133,7 @@ Required fields:
 Required fields:
 - `hostLabel: string` — canonical label for the browser-requested host contract used in diagnostics
 - `hostDescription: string` — short human-readable description of the intended browser host
+- `hostDescriptionNote: string` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output
 - `supportedCommands: string[]` — non-empty command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands
 - `diagnosticHint: string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane
 - `diagnosticNotes: string[]` — non-empty stable ordered notes that summarize the browser runtime contract; diagnostic metadata only and not a browser-runtime support claim

@@ -3519,6 +3519,10 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
         "real browser host"
     );
     assert_eq!(
+        browser_runtime_contract["hostDescriptionNote"],
+        "browser runtime host description: real browser host"
+    );
+    assert_eq!(
         browser_runtime_contract["supportedCommands"],
         json!(["run", "test"])
     );

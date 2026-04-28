@@ -535,7 +535,7 @@ kali doctor
 kali doctor --output json
 ```
 
-Status: Phase 1 MVP. `kali doctor` is an environment/debugging command. In schema v1 it reports the effective browser bundle/runtime harness command selected from `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` or from Kali's auto-detection fallback, plus a declarative browser runtime contract snapshot for diagnostic use. It has no source-file arguments and no semantic/context flags; global presentation flags such as `--output json`, `--pretty`, `--quiet`, and `--verbose` retain their ordinary meanings.
+Status: Phase 1 MVP. `kali doctor` is an environment/debugging command. In schema v1 it reports the effective browser bundle/runtime harness command selected from `KALI_BROWSER_BUNDLE_HARNESS_COMMAND` or from Kali's auto-detection fallback, plus a declarative browser runtime contract snapshot for diagnostic use, including the browser host description note in the machine-readable snapshot. It has no source-file arguments and no semantic/context flags; global presentation flags such as `--output json`, `--pretty`, `--quiet`, and `--verbose` retain their ordinary meanings.
 
 Behavior:
 - text output prints a compact browser-harness summary plus the browser runtime contract snapshot intended for humans

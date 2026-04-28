@@ -65,6 +65,7 @@
       "required": [
         "hostLabel",
         "hostDescription",
+        "hostDescriptionNote",
         "supportedCommands",
         "diagnosticHint",
         "diagnosticNotes"
@@ -74,6 +75,9 @@
           "type": "string"
         },
         "hostDescription": {
+          "type": "string"
+        },
+        "hostDescriptionNote": {
           "type": "string"
         },
         "supportedCommands": {

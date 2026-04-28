@@ -1063,6 +1063,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         [
             "hostLabel",
             "hostDescription",
+            "hostDescriptionNote",
             "supportedCommands",
             "diagnosticHint",
             "diagnosticNotes"
@@ -1077,6 +1078,10 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescription"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescriptionNote"],
         serde_json::json!({"type": "string"})
     );
     assert_eq!(

@@ -44,6 +44,10 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
     assert_eq!(contract["hostLabel"], "browser-requested");
     assert_eq!(contract["hostDescription"], "real browser host");
     assert_eq!(
+        contract["hostDescriptionNote"],
+        "browser runtime host description: real browser host"
+    );
+    assert_eq!(
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
@@ -278,6 +282,10 @@ fn doctor_reports_auto_selected_browser_harness_in_json() {
     assert_eq!(contract["hostLabel"], "browser-requested");
     assert_eq!(contract["hostDescription"], "real browser host");
     assert_eq!(
+        contract["hostDescriptionNote"],
+        "browser runtime host description: real browser host"
+    );
+    assert_eq!(
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
@@ -331,6 +339,10 @@ fn doctor_reports_unavailable_browser_harness_executable_in_json() {
     let contract = &json["payload"]["browserRuntimeContract"];
     assert_eq!(contract["hostLabel"], "browser-requested");
     assert_eq!(contract["hostDescription"], "real browser host");
+    assert_eq!(
+        contract["hostDescriptionNote"],
+        "browser runtime host description: real browser host"
+    );
     assert_eq!(
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])

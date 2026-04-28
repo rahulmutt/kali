@@ -371,6 +371,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         "browserRuntimeContract": {
             "hostLabel": browser_runtime_contract.host_label,
             "hostDescription": browser_runtime_contract.host_description,
+            "hostDescriptionNote": browser_runtime_contract.host_description_note,
             "supportedCommands": browser_runtime_contract.supported_commands,
             "diagnosticHint": browser_runtime_contract.diagnostic_hint,
             "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
