@@ -826,6 +826,150 @@ fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_check_and_buil
 }
 
 #[test]
+fn inherited_node_api_surface_rejects_node_timers_promises_helpers_in_js_input_on_check_build_run_and_test_commands(
+) {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.js");
+    let test_file = dir.path().join("main.test.js");
+    fs::write(
+        &run_file,
+        "import { setTimeout as delay } from 'node:timers/promises';\ndelay(0).then(() => console.log('node timers/promises ok'));\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import { setTimeout as delay } from 'node:timers/promises';\nKali.test('node timers/promises', () => delay(0).then(() => console.log('node timers/promises ok')));\n",
+    )
+    .expect("write test file");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let expected_message =
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface";
+
+    for command in ["check", "build"] {
+        let mut text_command = Command::new(kali_bin());
+        text_command.current_dir(dir.path()).arg(command);
+        text_command.arg(&run_file);
+
+        let text_output = text_command.output().expect("run kali");
+        assert!(
+            !text_output.status.success(),
+            "{command} should be rejected on the inherited Node surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&text_output.stdout),
+            String::from_utf8_lossy(&text_output.stderr)
+        );
+        let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+        assert!(
+            text_stderr.contains(expected_message),
+            "{command} stderr: {text_stderr}"
+        );
+
+        let mut json_command = Command::new(kali_bin());
+        json_command
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg(command)
+            .arg(&run_file);
+
+        let json_output = json_command.output().expect("run kali");
+        assert!(
+            !json_output.status.success(),
+            "json {command} should surface the inherited Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&json_output.stdout),
+            String::from_utf8_lossy(&json_output.stderr)
+        );
+        let json = parse_json_stdout(&json_output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        assert_eq!(json["errors"][0]["code"], "E5506");
+        assert_eq!(json["errors"][0]["message"], expected_message);
+    }
+
+    let mut run = Command::new(kali_bin());
+    run.current_dir(dir.path()).arg("run").arg(&run_file);
+    let run_output = run.output().expect("run kali");
+    assert!(
+        !run_output.status.success(),
+        "run should be rejected on the inherited Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run_output.stdout),
+        String::from_utf8_lossy(&run_output.stderr)
+    );
+    let run_stderr = String::from_utf8_lossy(&run_output.stderr);
+    assert!(
+        run_stderr.contains(expected_message),
+        "run stderr: {run_stderr}"
+    );
+
+    let run_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&run_file)
+        .output()
+        .expect("run kali");
+    assert!(
+        !run_json_output.status.success(),
+        "json run should surface the inherited Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run_json_output.stdout),
+        String::from_utf8_lossy(&run_json_output.stderr)
+    );
+    let run_json = parse_json_stdout(&run_json_output);
+    assert_eq!(run_json["command"], "run");
+    assert_eq!(run_json["success"], false);
+    assert_eq!(run_json["exitCode"], 1);
+    assert_eq!(run_json["errors"][0]["code"], "E5506");
+    assert_eq!(run_json["errors"][0]["message"], expected_message);
+
+    let mut test = Command::new(kali_bin());
+    test.current_dir(dir.path()).arg("test").arg(&test_file);
+    let test_output = test.output().expect("run kali");
+    assert!(
+        !test_output.status.success(),
+        "test should be rejected on the inherited Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_output.stdout),
+        String::from_utf8_lossy(&test_output.stderr)
+    );
+    let test_stderr = String::from_utf8_lossy(&test_output.stderr);
+    assert!(
+        test_stderr.contains(expected_message),
+        "test stderr: {test_stderr}"
+    );
+
+    let test_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&test_file)
+        .output()
+        .expect("run kali");
+    assert!(
+        !test_json_output.status.success(),
+        "json test should surface the inherited Node builtin rejection as machine-readable output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_json_output.stdout),
+        String::from_utf8_lossy(&test_json_output.stderr)
+    );
+    let test_json = parse_json_stdout(&test_json_output);
+    assert_eq!(test_json["command"], "test");
+    assert_eq!(test_json["success"], false);
+    assert_eq!(test_json["exitCode"], 1);
+    assert_eq!(test_json["errors"][0]["code"], "E5506");
+    assert_eq!(test_json["errors"][0]["message"], expected_message);
+}
+
+#[test]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_and_build_commands() {
     let members = [
         "process.pid",
