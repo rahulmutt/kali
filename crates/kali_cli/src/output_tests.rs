@@ -162,6 +162,36 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+#[should_panic(expected = "CLI envelope errors must be an array")]
+fn emit_envelope_value_rejects_non_array_errors() {
+    let _ = emit_envelope_value(
+        "doctor",
+        true,
+        json!({"severity": "error"}),
+        json!([]),
+        json!({"answer": 42}),
+        Some("stdout text".to_string()),
+        None,
+        0,
+    );
+}
+
+#[test]
+#[should_panic(expected = "CLI envelope warnings must be an array")]
+fn emit_envelope_value_rejects_non_array_warnings() {
+    let _ = emit_envelope_value(
+        "doctor",
+        true,
+        json!([]),
+        json!({"severity": "warning"}),
+        json!({"answer": 42}),
+        Some("stdout text".to_string()),
+        None,
+        0,
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_non_string_transport_fields() {
     let invalid_stdout = json!({
         "schemaVersion": 1,
