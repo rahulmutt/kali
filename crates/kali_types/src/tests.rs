@@ -1,11 +1,11 @@
 use super::*;
 use kali_ast::{
-    BinaryExpression, BlockStatement, CallExpression, ExportDefaultDeclaration,
-    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
-    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
-    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    SatisfiesExpression, TypeAliasDeclaration, TypeAssertion, VariableDeclaration,
-    VariableDeclarator, YieldExpression,
+    AssignmentExpression, AssignmentOperator, BinaryExpression, BlockStatement, CallExpression,
+    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
+    ExpressionStatement, ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression,
+    LiteralValue, MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ParenthesizedExpression, PropertyName, SatisfiesExpression, TypeAliasDeclaration,
+    TypeAssertion, VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -1238,6 +1238,59 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     assert!(result.diagnostics.iter().any(|diag| diag
         .message
         .contains("globalThis[\"Deno\"][\"env\"][\"toObject\"]")));
+}
+
+#[test]
+fn test_resolution_rejects_process_env_assignment_as_unavailable_in_node_api_surface() {
+    let mut ctx = TypeContext::with_api_surface("node");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("process".to_string()),
+                        property: "env".to_string(),
+                    })),
+                    right: Expression::Literal(LiteralValue::Number(1.0)),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "process".to_string(),
+                        })),
+                        property: "env".to_string(),
+                    })),
+                    right: Expression::Literal(LiteralValue::Number(2.0)),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("process.env")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("globalThis.process.env")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("later mutable env path")));
 }
 
 #[test]

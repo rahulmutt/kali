@@ -583,6 +583,13 @@ fn analyze_source_file(
         source
     };
 
+    if source_uses_process_env_mutation(&source) {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "environment mutation API 'process.env' (aka process[\"env\"]) is unavailable until the later mutable env path is enabled",
+        )]);
+    }
+
     let lexer = Lexer::new(FileId::new(0), source.clone());
     let tokens = lexer.lex_all().tokens;
     if !compat_eval && source_uses_eval_compat(&tokens) {
@@ -616,6 +623,21 @@ fn analyze_source_file(
         statements: parsed.statements,
         diagnostics,
     })
+}
+
+fn source_uses_process_env_mutation(source: &str) -> bool {
+    let patterns = [
+        "process.env =",
+        "globalThis.process.env =",
+        "process[\"env\"] =",
+        "process['env'] =",
+        "globalThis.process[\"env\"] =",
+        "globalThis.process['env'] =",
+        "globalThis[\"process\"][\"env\"] =",
+        "globalThis['process']['env'] =",
+    ];
+
+    patterns.iter().any(|pattern| source.contains(pattern))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

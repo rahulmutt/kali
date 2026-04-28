@@ -6,8 +6,8 @@
 
 use indexmap::IndexMap;
 use kali_ast::{
-    ArrayExpression, ArrowFunctionExpression, BlockStatement, BreakStatement, CallExpression,
-    CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, BlockStatement, BreakStatement,
+    CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement,
     DecoratedExpression, DoWhileStatement, EnumDeclaration, EnumMember, Expression,
     ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
@@ -611,6 +611,7 @@ impl TypeContext {
             Expression::AssignmentExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
+                self.resolve_late_env_assignment_mutation(expr);
             }
             Expression::LogicalExpression(expr) => {
                 self.resolve_expression(&expr.left);
@@ -1071,6 +1072,32 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
+                dotted, bracketed
+            ),
+        ));
+        true
+    }
+
+    fn resolve_late_env_assignment_mutation(&mut self, expr: &AssignmentExpression) -> bool {
+        let Expression::MemberExpression(member) = &expr.left else {
+            return false;
+        };
+
+        let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
+        let bracketed =
+            Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
+        let is_process_env = matches!(dotted.as_str(), "process.env" | "globalThis.process.env")
+            || dotted.starts_with("process.env.")
+            || dotted.starts_with("globalThis.process.env.");
+
+        if !is_process_env {
+            return false;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
                 dotted, bracketed
             ),
         ));
