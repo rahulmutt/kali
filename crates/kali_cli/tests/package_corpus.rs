@@ -4913,6 +4913,242 @@ stderr: {}",
 }
 
 #[test]
+fn json_browser_runtime_corpus_browser_fixtures_remain_executable_on_the_browser_surface_when_a_harness_command_is_configured(
+) {
+    for package in ["browserpkg", "browserexports"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+
+        match package {
+            "browserpkg" => write_browser_string_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 1; }\n",
+                "export default function describe() { return 0; }\n",
+            ),
+            "browserexports" => write_browser_condition_exports_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "index",
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+            ),
+            _ => unreachable!("unexpected browser runtime package fixture"),
+        }
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser runtime package {package} should stay executable on the browser surface with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_browser_runtime_json_output(&run, "run", "0\n");
+    }
+}
+
+#[test]
+fn json_browser_runtime_corpus_browser_fixtures_remain_testable_on_the_browser_surface_when_a_harness_command_is_configured(
+) {
+    for package in ["browserpkg", "browserexports"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+
+        match package {
+            "browserpkg" => write_browser_string_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 1; }\n",
+                "export default function describe() { return 0; }\n",
+            ),
+            "browserexports" => write_browser_condition_exports_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "index",
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+            ),
+            _ => unreachable!("unexpected browser runtime package fixture"),
+        }
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.test.ts");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\nKali.test('browser runtime package', () => {{ 1 + 1; }});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser runtime package {package} should stay testable on the browser surface with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert_browser_runtime_json_output(&test, "test", "0\n");
+    }
+}
+
+#[test]
+fn json_browser_runtime_corpus_browser_fixtures_remain_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["browserpkg", "browserexports"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+
+        match package {
+            "browserpkg" => write_browser_string_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 1; }\n",
+                "export default function describe() { return 0; }\n",
+            ),
+            "browserexports" => write_browser_condition_exports_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "index",
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+            ),
+            _ => unreachable!("unexpected browser runtime package fixture"),
+        }
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let run = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run.status.success(),
+            "browser runtime package {package} should stay executable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run.stdout),
+            String::from_utf8_lossy(&run.stderr)
+        );
+        assert_browser_runtime_json_output(&run, "run", "0\n");
+    }
+}
+
+#[test]
+fn json_browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    for package in ["browserpkg", "browserexports"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+
+        match package {
+            "browserpkg" => write_browser_string_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 1; }\n",
+                "export default function describe() { return 0; }\n",
+            ),
+            "browserexports" => write_browser_condition_exports_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+                "index",
+                "export default function describe() { return 0; }\n",
+                "export default function describe() { return 1; }\n",
+                "const describe = require('./index.js');\nmodule.exports = describe;\n",
+            ),
+            _ => unreachable!("unexpected browser runtime package fixture"),
+        }
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.test.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import describe from '{package}';\nconsole.log(describe());\nKali.test('browser runtime package', () => {{ 1 + 1; }});\n",
+                package = package
+            ),
+        )
+        .expect("write browser runtime source");
+
+        let test = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test.status.success(),
+            "browser runtime package {package} should stay testable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        assert_browser_runtime_json_output(&test, "test", "0\n");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_packages_with_internal_browser_rewrites_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for package in ["solid-js", "lit"] {
@@ -6273,7 +6509,7 @@ fn browser_runtime_corpus_packages_prefer_browser_condition_over_deno_condition_
 }
 
 #[test]
-fn json_browser_runtime_corpus_packages_remain_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+fn json_browser_runtime_corpus_browser_deno_preference_remain_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("browser"));
