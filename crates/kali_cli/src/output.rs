@@ -166,11 +166,34 @@ fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
     };
 
     for (index, item) in items.iter().enumerate() {
-        let Some(_object) = item.as_object() else {
-            return Err(format!(
-                "CLI envelope timings[{index}] must be a JSON object"
-            ));
-        };
+        validate_timing_value(item)
+            .map_err(|err| format!("CLI envelope timings[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_timing_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("timing must be a JSON object".to_string());
+    };
+
+    for key in ["phase", "milliseconds"] {
+        if !object.contains_key(key) {
+            return Err(format!("timing is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("phase") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("timing phase must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("milliseconds") {
+        Some(Value::Number(_)) => {}
+        Some(other) => return Err(format!("timing milliseconds must be a number, got {other}")),
+        None => unreachable!("validated above"),
     }
 
     Ok(())

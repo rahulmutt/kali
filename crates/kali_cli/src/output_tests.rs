@@ -72,7 +72,7 @@ fn validate_envelope_value_allows_schema_permitted_extension_keys() {
         "stdout": null,
         "stderr": null,
         "exitCode": 0,
-        "timings": [{"label": "parse", "elapsedMs": 1}],
+        "timings": [{"phase": "parse", "milliseconds": 1}],
     });
 
     validate_envelope_value(&extended).expect("schema-permitted extension keys should validate");
@@ -95,6 +95,41 @@ fn validate_envelope_value_rejects_malformed_timings() {
     let err = validate_envelope_value(&invalid_timings)
         .expect_err("non-object timings items should fail validation");
     assert!(err.contains("timings[0]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_rejects_malformed_timing_objects() {
+    let missing_phase = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"milliseconds": 1}],
+    });
+    let err = validate_envelope_value(&missing_phase)
+        .expect_err("timings missing phase should fail validation");
+    assert!(err.contains("phase"), "unexpected error: {err}");
+
+    let invalid_milliseconds = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": "parse", "milliseconds": "fast"}],
+    });
+    let err = validate_envelope_value(&invalid_milliseconds)
+        .expect_err("timings with string milliseconds should fail validation");
+    assert!(err.contains("milliseconds"), "unexpected error: {err}");
 }
 
 #[test]
