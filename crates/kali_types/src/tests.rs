@@ -4,7 +4,8 @@ use kali_ast::{
     ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
     ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
     ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    TypeAliasDeclaration, VariableDeclaration, VariableDeclarator, YieldExpression,
+    SatisfiesExpression, TypeAliasDeclaration, TypeAssertion, VariableDeclaration,
+    VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -58,6 +59,80 @@ fn test_type_annotation_resolution_accepts_known_names() {
 
     let result = ctx.resolve_statements(&statements);
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_accepts_type_assertion_and_satisfies_with_known_type_names() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Foo".to_string(),
+            type_params: vec![],
+            type_annotation: "string".to_string(),
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::TypeAssertion(Box::new(TypeAssertion {
+                type_name: "Foo".to_string(),
+                expression: Box::new(Expression::Identifier("value".to_string())),
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::SatisfiesExpression(Box::new(
+                SatisfiesExpression {
+                    type_name: "Foo".to_string(),
+                    expression: Box::new(Expression::Identifier("value".to_string())),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_reports_unknown_type_names_in_type_assertion_and_satisfies_expressions() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::TypeAssertion(Box::new(TypeAssertion {
+                type_name: "Missing".to_string(),
+                expression: Box::new(Expression::Identifier("value".to_string())),
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::SatisfiesExpression(Box::new(
+                SatisfiesExpression {
+                    type_name: "Missing".to_string(),
+                    expression: Box::new(Expression::Identifier("value".to_string())),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Missing")));
 }
 
 #[test]

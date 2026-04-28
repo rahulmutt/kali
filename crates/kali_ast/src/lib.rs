@@ -1121,6 +1121,7 @@ pub struct TypeAssertion {
 /// Satisfies expression
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SatisfiesExpression {
+    pub type_name: String,
     pub expression: Box<Expression>,
 }
 

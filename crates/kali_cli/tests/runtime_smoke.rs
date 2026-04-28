@@ -1196,6 +1196,39 @@ fn check_build_and_run_accept_deno_env_get_in_js_input() {
 }
 
 #[test]
+fn check_build_and_run_accept_type_assertion_and_satisfies_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const value = 'ok' as string;\nconst echoed = value satisfies unknown;\nconsole.log(echoed);\n",
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "ok", "stdout: {stdout}");
+}
+
+#[test]
 fn json_run_accepts_deno_env_get_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

@@ -1267,10 +1267,12 @@ impl TypeContext {
     }
 
     fn resolve_type_assertion(&mut self, expr: &TypeAssertion) {
+        self.resolve_type_annotation_text(&expr.type_name);
         self.resolve_expression(&expr.expression);
     }
 
     fn resolve_satisfies_expression(&mut self, expr: &kali_ast::SatisfiesExpression) {
+        self.resolve_type_annotation_text(&expr.type_name);
         self.resolve_expression(&expr.expression);
     }
 

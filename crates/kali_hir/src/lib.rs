@@ -833,20 +833,8 @@ impl HirLowerer {
             Expression::JsxElement(_expr) => self.builder.alloc(HirNodeKind::JsxElement, None),
             Expression::JsxFragment(_expr) => self.builder.alloc(HirNodeKind::JsxFragment, None),
             Expression::JsxEmptyExpression => self.builder.alloc(HirNodeKind::Unknown, None),
-            Expression::TypeAssertion(expr) => {
-                let id = self.builder.alloc_text(
-                    HirNodeKind::TypeAssertion,
-                    None,
-                    expr.type_name.clone(),
-                );
-                push_child!(self, id, self.lower_expression(&expr.expression));
-                id
-            }
-            Expression::SatisfiesExpression(expr) => {
-                let id = self.builder.alloc(HirNodeKind::SatisfiesExpr, None);
-                push_child!(self, id, self.lower_expression(&expr.expression));
-                id
-            }
+            Expression::TypeAssertion(expr) => self.lower_expression(&expr.expression),
+            Expression::SatisfiesExpression(expr) => self.lower_expression(&expr.expression),
             Expression::ThisExpression => self.builder.alloc(HirNodeKind::ThisExpr, None),
             Expression::SuperExpression => {
                 self.builder.alloc_text(HirNodeKind::Unknown, None, "super")

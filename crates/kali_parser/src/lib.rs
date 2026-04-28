@@ -7,8 +7,9 @@ use kali_ast::{
     FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
     ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ObjectExpression,
     ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, ReturnStatement,
-    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, UnaryExpression,
-    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
+    SatisfiesExpression, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
+    TypeAssertion, UnaryExpression, VariableDeclaration, VariableDeclarator, WhileStatement,
+    YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -1134,6 +1135,27 @@ impl Parser {
                     let _ = self.stream.advance();
                     expr = self.parse_optional_chain_expression(expr);
                 }
+                Some(TokenType::As) => {
+                    let _ = self.stream.advance();
+                    let type_name = self.parse_type_reference_text();
+                    expr = Expression::TypeAssertion(Box::new(TypeAssertion {
+                        type_name,
+                        expression: Box::new(expr),
+                    }));
+                }
+                Some(TokenType::Identifier)
+                    if self
+                        .stream
+                        .current()
+                        .is_some_and(|token| token.value == "satisfies") =>
+                {
+                    let _ = self.stream.advance();
+                    let type_name = self.parse_type_reference_text();
+                    expr = Expression::SatisfiesExpression(Box::new(SatisfiesExpression {
+                        type_name,
+                        expression: Box::new(expr),
+                    }));
+                }
                 _ => break,
             }
             iterations += 1;
@@ -1170,6 +1192,75 @@ impl Parser {
         } else {
             value.to_string()
         }
+    }
+
+    fn parse_type_reference_text(&mut self) -> String {
+        let mut rendered = String::new();
+        let mut paren_depth = 0usize;
+        let mut bracket_depth = 0usize;
+        let mut angle_depth = 0usize;
+
+        loop {
+            let Some(kind) = self.stream.current_kind().copied() else {
+                break;
+            };
+
+            let top_level_terminator = paren_depth == 0
+                && bracket_depth == 0
+                && angle_depth == 0
+                && matches!(
+                    kind,
+                    TokenType::Semicolon
+                        | TokenType::Comma
+                        | TokenType::RightParen
+                        | TokenType::RightBracket
+                        | TokenType::RightBrace
+                        | TokenType::Eof
+                        | TokenType::Plus
+                        | TokenType::Minus
+                        | TokenType::Star
+                        | TokenType::Slash
+                        | TokenType::Percent
+                        | TokenType::AndAnd
+                        | TokenType::OrOr
+                        | TokenType::Eq
+                        | TokenType::EqEquals
+                        | TokenType::EqEqEq
+                        | TokenType::Neq
+                        | TokenType::NeqNeq
+                        | TokenType::LtEq
+                        | TokenType::GtEq
+                        | TokenType::LtLt
+                        | TokenType::GtGt
+                        | TokenType::Question
+                        | TokenType::QuestionDot
+                        | TokenType::NullCoalesce
+                        | TokenType::InstanceOf
+                        | TokenType::In
+                );
+
+            if top_level_terminator {
+                break;
+            }
+
+            match kind {
+                TokenType::LeftParen => paren_depth += 1,
+                TokenType::RightParen if paren_depth > 0 => paren_depth -= 1,
+                TokenType::LeftBracket => bracket_depth += 1,
+                TokenType::RightBracket if bracket_depth > 0 => bracket_depth -= 1,
+                TokenType::Lt => angle_depth += 1,
+                TokenType::Gt if angle_depth > 0 => angle_depth -= 1,
+                _ => {}
+            }
+
+            if let Some(token) = self.stream.advance() {
+                rendered.push_str(&token.value);
+            } else {
+                break;
+            }
+        }
+
+        rendered.trim().to_string()
     }
 
     fn parse_optional_chain_expression(&mut self, object: Expression) -> Expression {
