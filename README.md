@@ -54,7 +54,9 @@ kali build --capi --sandbox kali.policy.json lib.ts
 kali build --component --sandbox kali.policy.json lib.ts
 kali effects <file>
 kali package-effects <package>
+kali package-effects --output json lodash
 kali package-audit <package>
+kali package-audit --output json lodash
 ```
 
 Helpful flags you will see often:

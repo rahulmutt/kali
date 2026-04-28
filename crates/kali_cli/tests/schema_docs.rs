@@ -1847,7 +1847,9 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali build --component --sandbox kali.policy.json lib.ts",
         "kali effects <file>",
         "kali package-effects <package>",
+        "kali package-effects --output json lodash",
         "kali package-audit <package>",
+        "kali package-audit --output json lodash",
     ] {
         assert!(
             readme.contains(expected),
