@@ -56,7 +56,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.ts` and `.js` input) |
 | Browser-requested `run` / `test` runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
-| Browser bundle runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
+| Browser bundle runtime object type / constructor semantics (`typeof`, `instanceof`) in `.ts` and `.js` input, including JSON-output coverage | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.keys()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.js` input) |
 | Basic `Object.entries()` enumeration semantics, including overwrite/delete-reinsert ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Object.entries()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.js` input) |
