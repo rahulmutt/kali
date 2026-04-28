@@ -547,6 +547,58 @@ fn validate_envelope_value_rejects_non_positive_span_and_location_fields() {
         validate_envelope_value(&invalid_span).expect_err("span line zero should fail validation");
     assert!(err.contains("line"), "unexpected error: {err}");
 
+    let invalid_column = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad span column",
+                "span": {"file": "src/main.ts", "line": 1, "column": 0, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_column)
+        .expect_err("span column zero should fail validation");
+    assert!(err.contains("column"), "unexpected error: {err}");
+
+    let invalid_end_column = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad span end column",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 0},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_end_column)
+        .expect_err("span end column zero should fail validation");
+    assert!(err.contains("endColumn"), "unexpected error: {err}");
+
     let invalid_location = json!({
         "schemaVersion": 1,
         "command": "doctor",
