@@ -3193,6 +3193,15 @@ fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
     }
 }
 
+fn parse_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+    let items = value?.as_array()?;
+    let mut strings = Vec::with_capacity(items.len());
+    for item in items {
+        strings.push(item.as_str()?.to_owned());
+    }
+    Some(strings)
+}
+
 fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
     parse_browser_runtime_summary_opt(stdout).unwrap_or_default()
 }
@@ -3205,17 +3214,11 @@ fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSumma
         }
 
         let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
-        let args = value.get("args")?.as_array()?;
-        let tests = value.get("tests")?.as_array()?;
+        let args = parse_string_array_field(value.get("args"))?;
+        let tests = parse_string_array_field(value.get("tests"))?;
         Some(BrowserRuntimeSummary {
-            args: args
-                .iter()
-                .filter_map(|value| value.as_str().map(ToOwned::to_owned))
-                .collect(),
-            tests: tests
-                .iter()
-                .filter_map(|value| value.as_str().map(ToOwned::to_owned))
-                .collect(),
+            args,
+            tests,
             tests_failed: value
                 .get("testsFailed")
                 .and_then(|value| value.as_u64())

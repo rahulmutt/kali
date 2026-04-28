@@ -1569,6 +1569,44 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 }
 
 #[test]
+fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items(
+) {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[1],\"tests\":[\"browser invalid array items\"],\"testsFailed\":4,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser invalid array items\"],\"testsFailed\":9,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["zeta".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 9);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser invalid array items".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":9"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let bundle_root = tempdir.path().join("browser-app");
@@ -1686,6 +1724,65 @@ export async function loadWithImports(importObject) {
         outcome
             .stdout
             .contains("\"runtimeBackend\":\"browser-harness\""),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[1],\"testsFailed\":2,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser invalid array items\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["zeta".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 8);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser invalid array items".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":8"),
         "stdout: {}",
         outcome.stdout
     );
