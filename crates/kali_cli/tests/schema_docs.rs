@@ -1849,6 +1849,31 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 }
 
 #[test]
+fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
+    let root = repo_root();
+    let readme =
+        fs::read_to_string(root.join("plan/phase-7/README.md")).expect("read phase 7 README");
+
+    assert!(
+        readme.contains(
+            "the browser harness sandbox-rejection matrix in JS input now covers all `run` / `test` × direct/inherited browser-api-surface quadrants, including JSON-output coverage"
+        ),
+        "phase 7 README should keep the browser-harness sandbox matrix note explicit"
+    );
+    assert!(
+        readme.contains(
+            "The browser-runtime and browser-bundle summary parsers now also merge missing `testsFailed` data from stdout when a summary file omits it"
+        ),
+        "phase 7 README should keep the summary-fallback note explicit"
+    );
+    assert!(
+        readme
+            .contains("and the CLI schema-doc drift net now also pins this summary-fallback note"),
+        "phase 7 README should keep the schema-doc drift-net note explicit"
+    );
+}
+
+#[test]
 fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     let root = repo_root();
     let matrix = fs::read_to_string(root.join("plan/phase-8/package-corpus-matrix.md"))
