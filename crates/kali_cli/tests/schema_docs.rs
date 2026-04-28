@@ -1086,6 +1086,21 @@ fn core_schema_documents_match_current_cli_contracts() {
         })
     );
     assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["executable"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["args"],
+        serde_json::json!({
+            "type": "array",
+            "items": { "type": "string" }
+        })
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]["args"]["items"],
+        serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
         false
     );
