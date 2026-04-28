@@ -706,3 +706,113 @@ fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_run_and_t
         "import source 'node:timers/promises' could not be resolved"
     );
 }
+
+#[test]
+fn explicit_node_timers_promises_helpers_remain_unresolved_on_js_input_check_and_build_commands() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "import { setTimeout as delay } from 'node:timers/promises';\ndelay(0).then(() => console.log('node timers/promises ok'));\n",
+    )
+    .expect("write source");
+
+    let check_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+    assert!(
+        !check_output.status.success(),
+        "check should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_output.stdout),
+        String::from_utf8_lossy(&check_output.stderr)
+    );
+    let check_stderr = String::from_utf8_lossy(&check_output.stderr);
+    assert!(
+        check_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        "check stderr: {check_stderr}"
+    );
+
+    let check_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+    assert!(
+        !check_json_output.status.success(),
+        "json check should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json_output.stdout),
+        String::from_utf8_lossy(&check_json_output.stderr)
+    );
+    let check_json = parse_json_stdout(&check_json_output);
+    assert_eq!(check_json["command"], "check");
+    assert_eq!(check_json["success"], false);
+    assert_eq!(check_json["exitCode"], 1);
+    assert_eq!(
+        check_json["payload"],
+        serde_json::json!({"errorCount": 2, "filesChecked": 1, "warningCount": 0})
+    );
+    assert_eq!(check_json["errors"][0]["code"], "E3000");
+    assert_eq!(
+        check_json["errors"][0]["message"],
+        "import source 'node:timers/promises' could not be resolved"
+    );
+    assert_eq!(check_json["errors"][1]["code"], "E3100");
+
+    let build_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+    assert!(
+        !build_output.status.success(),
+        "build should remain unresolved on the Node surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_output.stdout),
+        String::from_utf8_lossy(&build_output.stderr)
+    );
+    let build_stderr = String::from_utf8_lossy(&build_output.stderr);
+    assert!(
+        build_stderr.contains("import source 'node:timers/promises' could not be resolved"),
+        "build stderr: {build_stderr}"
+    );
+
+    let build_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+    assert!(
+        !build_json_output.status.success(),
+        "json build should surface the unresolved Node import as machine-readable output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json_output.stdout),
+        String::from_utf8_lossy(&build_json_output.stderr)
+    );
+    let build_json = parse_json_stdout(&build_json_output);
+    assert_eq!(build_json["command"], "build");
+    assert_eq!(build_json["success"], false);
+    assert_eq!(build_json["exitCode"], 1);
+    assert_eq!(build_json["payload"], serde_json::Value::Null);
+    assert_eq!(build_json["errors"][0]["code"], "E3000");
+    assert_eq!(
+        build_json["errors"][0]["message"],
+        "import source 'node:timers/promises' could not be resolved"
+    );
+    assert_eq!(build_json["errors"][1]["code"], "E3100");
+}
