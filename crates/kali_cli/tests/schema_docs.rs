@@ -87,6 +87,21 @@ fn core_schema_documents_match_current_cli_contracts() {
         true
     );
     assert_eq!(
+        required_fields(&envelope["properties"]["timings"]["items"]),
+        ["phase", "milliseconds"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        envelope["properties"]["timings"]["items"]["properties"]["phase"]["type"],
+        "string"
+    );
+    assert_eq!(
+        envelope["properties"]["timings"]["items"]["properties"]["milliseconds"]["type"],
+        "number"
+    );
+    assert_eq!(
         envelope["properties"]["stdout"]["type"],
         serde_json::json!(["string", "null"])
     );

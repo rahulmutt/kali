@@ -72,6 +72,18 @@
       "type": "array",
       "items": {
         "type": "object",
+        "required": [
+          "phase",
+          "milliseconds"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string"
+          },
+          "milliseconds": {
+            "type": "number"
+          }
+        },
         "additionalProperties": true
       }
     },
