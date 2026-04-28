@@ -1,4 +1,5 @@
 use super::*;
+use kali_error::_error_codes::e5;
 
 #[test]
 fn test_lexer_eof() {
@@ -34,6 +35,16 @@ fn test_lexer_number() {
     let mut lexer = Lexer::new(FileId::new(0), "42".to_string());
     let token = lexer.next_token().unwrap();
     assert_eq!(token.kind, TokenType::NumericLiteral);
+}
+
+#[test]
+fn test_lexer_rejects_decimal_numeric_literals() {
+    let lexer = Lexer::new(FileId::new(0), "1.6".to_string());
+    let result = lexer.lex_all();
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
 }
 
 #[test]

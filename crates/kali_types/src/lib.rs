@@ -889,6 +889,18 @@ impl TypeContext {
             method,
             "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc" | "ceil"
         ) {
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path"
+                    ),
+                ));
+            }
             return;
         }
 
@@ -898,6 +910,28 @@ impl TypeContext {
                 "Math.{method} is unavailable in the current phase; use a supported Math builtin or the later compatibility path"
             ),
         ));
+    }
+
+    fn contains_non_integer_numeric_literal(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => value.fract() != 0.0,
+            Expression::ParenthesizedExpression(expr) => {
+                self.contains_non_integer_numeric_literal(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
+                self.contains_non_integer_numeric_literal(&expr.argument)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.contains_non_integer_numeric_literal(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.contains_non_integer_numeric_literal(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.contains_non_integer_numeric_literal(&expr.expression)
+            }
+            _ => false,
+        }
     }
 
     fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {

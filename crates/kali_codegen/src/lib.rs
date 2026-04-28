@@ -910,9 +910,19 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *first_arg, true);
+            if !self.emit_integer_math_arg(function, *first_arg, "max") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "max") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Call(import_index));
             }
             return EmittedValue {
@@ -931,9 +941,19 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *first_arg, true);
+            if !self.emit_integer_math_arg(function, *first_arg, "min") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "min") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Call(import_index));
             }
             return EmittedValue {
@@ -952,10 +972,20 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *first_arg, true);
+            if !self.emit_integer_math_arg(function, *first_arg, "abs") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             function.instruction(&Instruction::Call(import_index));
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "abs") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
             }
             return EmittedValue {
@@ -974,10 +1004,20 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *first_arg, true);
+            if !self.emit_integer_math_arg(function, *first_arg, "sign") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             function.instruction(&Instruction::Call(import_index));
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "sign") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
             }
             return EmittedValue {
@@ -996,7 +1036,12 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
             let Some(right) = args.next() else {
-                let _ = self.emit_node(function, *left, true);
+                if !self.emit_integer_math_arg(function, *left, "imul") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
                 function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
@@ -1005,11 +1050,26 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *left, true);
-            let _ = self.emit_node(function, *right, true);
+            if !self.emit_integer_math_arg(function, *left, "imul") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            if !self.emit_integer_math_arg(function, *right, "imul") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             function.instruction(&Instruction::Call(import_index));
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "imul") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
             }
             return EmittedValue {
@@ -1028,10 +1088,20 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *value, true);
+            if !self.emit_integer_math_arg(function, *value, "clz32") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             function.instruction(&Instruction::Call(import_index));
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, "clz32") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
             }
             return EmittedValue {
@@ -1048,6 +1118,7 @@ impl<'a> FunctionEmitter<'a> {
                 .and_then(|object| self.node(object).text.as_deref())
                 == Some("Math")
         {
+            let method = callee_node.text.as_deref().unwrap_or("trunc").to_string();
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
                 function.instruction(&Instruction::I64Const(0));
@@ -1057,9 +1128,19 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let _ = self.emit_node(function, *value, true);
+            if !self.emit_integer_math_arg(function, *value, method.as_str()) {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
             for arg in args {
-                let _ = self.emit_node(function, *arg, true);
+                if !self.emit_integer_math_arg(function, *arg, method.as_str()) {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 function.instruction(&Instruction::Drop);
             }
             return EmittedValue {
@@ -1376,6 +1457,16 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn emit_integer_math_arg(
+        &mut self,
+        function: &mut Function,
+        arg: LirNodeId,
+        method: &str,
+    ) -> bool {
+        let _ = self.emit_node(function, arg, true);
+        true
     }
 
     fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {

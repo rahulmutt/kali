@@ -1779,6 +1779,30 @@ fn test_resolution_reports_unsupported_math_member_calls_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_rejects_non_integer_numeric_literals_in_math_member_calls() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "ceil".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("non-integer numeric literals"));
+}
+
+#[test]
 fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_api() {
     let mut ctx = TypeContext::new();
     let statements = vec![
