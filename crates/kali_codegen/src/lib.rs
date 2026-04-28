@@ -1465,8 +1465,39 @@ impl<'a> FunctionEmitter<'a> {
         arg: LirNodeId,
         method: &str,
     ) -> bool {
+        if self.contains_non_integer_numeric_literal(arg) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return false;
+        }
+
         let _ = self.emit_node(function, arg, true);
         true
+    }
+
+    fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
+        let node = self.node(arg);
+        if node.kind == LirNodeKind::Literal {
+            if let Some(text) = node.text.as_deref() {
+                if parse_number_literal(text).is_none() {
+                    let trimmed = text.trim();
+                    if matches!(trimmed.chars().next(), Some('0'..='9' | '+' | '-')) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if node.children.len() == 1 {
+            return self.contains_non_integer_numeric_literal(node.children[0]);
+        }
+
+        false
     }
 
     fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
