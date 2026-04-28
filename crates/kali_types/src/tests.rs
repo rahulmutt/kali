@@ -2590,6 +2590,86 @@ fn test_resolution_rejects_generator_function_lowering_in_js_input() {
 }
 
 #[test]
+fn test_resolution_rejects_generator_function_lowering_in_jsx_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.jsx");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
+
+    let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
+        name: "main".to_string(),
+        params: vec![],
+        body: Box::new(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                    delegate: true,
+                    argument: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                        elements: vec![],
+                    })),
+                }))),
+            })],
+        }),
+        is_async: false,
+        generator: true,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("generator function lowering is unavailable"));
+}
+
+#[test]
+fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.tsx");
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();").unwrap();
+
+    let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
+        name: "main".to_string(),
+        params: vec![],
+        body: Box::new(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                    delegate: true,
+                    argument: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                        elements: vec![],
+                    })),
+                }))),
+            })],
+        }),
+        is_async: false,
+        generator: true,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("generator function lowering is unavailable"));
+}
+
+#[test]
 fn test_resolution_rejects_for_of_array_iteration() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
