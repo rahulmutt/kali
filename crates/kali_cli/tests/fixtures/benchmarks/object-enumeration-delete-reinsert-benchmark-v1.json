@@ -1,0 +1,7 @@
+{
+  "benchmark": "object-enumeration-delete-reinsert",
+  "version": 1,
+  "sourceFile": "object-enumeration-delete-reinsert-benchmark-v1.ts",
+  "sourceSha256": "sha256-46f7423f0e12806369f7a2c8bbfab9207d38005d15ad9c560595dd137667b4b1",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

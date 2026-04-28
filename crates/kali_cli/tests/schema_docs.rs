@@ -2712,6 +2712,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "object-enumeration-benchmark-v1",
         "integer-like-object-enumeration-benchmark-v1",
         "object-enumeration-alias-chain-benchmark-v1",
+        "object-enumeration-delete-reinsert-benchmark-v1",
         "object-literal-property-order-canonicalization-benchmark-v1",
         "identity-chain-benchmark-v1",
         "nested-wrapper-pruning-benchmark-v1",
