@@ -1375,6 +1375,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.ceil()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.ceil()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` `Math.ceil()` semantics when the browser API surface is inherited in `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` object-enumeration semantics in `.ts` and `.js` input, including overwrite/delete-reinsert ordering plus string-primitive enumeration in `.js` input and JSON-output coverage",
         "Browser-requested `run` / `test` object-enumeration semantics when the browser API surface is inherited in `.ts` and `.js` input, including overwrite/delete-reinsert ordering plus string-primitive enumeration in `.js` input",
         "Browser-requested `run` / `test` basic object property deletion / `in`-operator semantics in `.ts` and `.js` input, including JSON-output coverage",
