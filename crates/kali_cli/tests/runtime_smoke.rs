@@ -11663,6 +11663,58 @@ fn json_run_rejects_browser_api_surface_with_sandbox_when_browser_harness_is_con
 }
 
 #[test]
+fn json_run_rejects_inherited_browser_api_surface_with_sandbox_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "console.log('browser run');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
+    );
+}
+
+#[test]
 fn json_run_rejects_browser_api_surface_with_guest_args_in_phase_one() {
     let output = Command::new(kali_bin())
         .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
@@ -37782,6 +37834,58 @@ fn json_test_rejects_browser_api_surface_with_sandbox_when_browser_harness_is_co
         .arg("test")
         .arg("--api")
         .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5506");
+    assert_browser_runtime_rejection_message(
+        errors[0]["message"]
+            .as_str()
+            .expect("browser rejection message"),
+    );
+    assert_browser_runtime_rejection_notes(
+        errors[0]["notes"]
+            .as_array()
+            .expect("browser rejection notes"),
+    );
+}
+
+#[test]
+fn json_test_rejects_inherited_browser_api_surface_with_sandbox_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, "test('browser', () => {});").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+    write_valid_policy(&policy_path);
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
         .arg("--sandbox")
         .arg(&policy_path)
         .arg(&source_path)
