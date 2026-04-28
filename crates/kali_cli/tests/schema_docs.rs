@@ -1912,7 +1912,7 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
 
     assert!(
         readme.contains(
-            "the browser harness sandbox-rejection matrix in JS input now covers all `run` / `test` × direct/inherited browser-api-surface quadrants, including JSON-output coverage"
+            "the browser harness sandbox-rejection matrix in JS and TS input now covers all `run` / `test` × direct/inherited browser-api-surface quadrants, including JSON-output coverage"
         ),
         "phase 7 README should keep the browser-harness sandbox matrix note explicit"
     );
