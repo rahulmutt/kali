@@ -3215,6 +3215,25 @@ fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executa
         );
         assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
 
+        let run_json = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run_json.status.success(),
+            "browser mixed-format package {package} should stay executable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run_json.stdout),
+            String::from_utf8_lossy(&run_json.stderr)
+        );
+        assert_browser_runtime_json_output(&run_json, "run", "0\n");
+
         let test_path = dir.path().join("main.test.js");
         fs::write(
             &test_path,
@@ -3244,6 +3263,25 @@ fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executa
         let stdout = String::from_utf8_lossy(&test.stdout);
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         assert!(stdout.contains("0"), "stdout: {stdout}");
+
+        let test_json = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test_json.status.success(),
+            "browser mixed-format package {package} should stay testable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test_json.stdout),
+            String::from_utf8_lossy(&test_json.stderr)
+        );
+        assert_browser_runtime_json_output(&test_json, "test", "0\n");
     }
 }
 
@@ -3295,6 +3333,23 @@ fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executa
         );
         assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
 
+        let run_json = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg(source_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            run_json.status.success(),
+            "browser mixed-format package {package} should stay executable on the browser surface in JS input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&run_json.stdout),
+            String::from_utf8_lossy(&run_json.stderr)
+        );
+        assert_browser_runtime_json_output(&run_json, "run", "0\n");
+
         let test_path = dir.path().join("main.test.js");
         fs::write(
             &test_path,
@@ -3322,6 +3377,23 @@ fn browser_runtime_corpus_packages_with_minimized_cjs_esm_interop_remain_executa
         let stdout = String::from_utf8_lossy(&test.stdout);
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         assert!(stdout.contains("0"), "stdout: {stdout}");
+
+        let test_json = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg(test_path.to_str().unwrap())
+            .output()
+            .expect("run kali");
+        assert!(
+            test_json.status.success(),
+            "browser mixed-format package {package} should stay testable on the browser surface in JS input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test_json.stdout),
+            String::from_utf8_lossy(&test_json.stderr)
+        );
+        assert_browser_runtime_json_output(&test_json, "test", "0\n");
     }
 }
 

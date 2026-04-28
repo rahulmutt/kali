@@ -142,3 +142,4 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - Registry-analysis commands (`package-effects`, `package-audit`) are tracked in their own schema/command work packets and are not conflated with the package-corpus rows above.
 - The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, and the prose notes in the roadmap now call that out explicitly.
 - The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
+- The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
