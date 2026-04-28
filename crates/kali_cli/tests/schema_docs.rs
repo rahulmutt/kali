@@ -2269,11 +2269,11 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node-assuming corpus row should be recorded in the package corpus matrix",
         ),
         (
-            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) with `.js` input | Deno | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "deno host-control corpus row should be recorded in the package corpus matrix",
         ),
         (
-            "| JSR corpus | `jsr:` packages materialized as on-disk package entries with `.js` input | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "| JSR corpus | `jsr:` packages materialized as on-disk package entries with `.js` input | Deno | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "jsr corpus row should be recorded in the package corpus matrix",
         ),
         (
@@ -2679,11 +2679,11 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node-versus-standalone package-resolution corpus row should be recorded exactly once in the package corpus matrix",
         ),
         (
-            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "| Deno-host package corpus | host-control packages (`Deno.env`, `Deno.Command`, `Deno.listen`, `Deno.serve`) | Deno | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "deno host-control corpus row should be recorded exactly once in the package corpus matrix",
         ),
         (
-            "| JSR corpus | `jsr:` packages materialized as on-disk package entries | Deno | `check`, `build`, `run` | checkable / buildable / executable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "| JSR corpus | `jsr:` packages materialized as on-disk package entries | Deno | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "jsr corpus row should be recorded exactly once in the package corpus matrix",
         ),
     ] {

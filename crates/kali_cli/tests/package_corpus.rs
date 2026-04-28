@@ -10236,6 +10236,114 @@ fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_de
 }
 
 #[test]
+fn deno_host_corpus_packages_remain_testable_on_the_deno_surface() {
+    for (package, body, expected) in [
+        (
+            "fresh-env",
+            "export default function mutate() {\n  Deno.env.set('KALI_CORPUS_FLAG', 'set');\n  return Deno.env.get('KALI_CORPUS_FLAG');\n}\n",
+            "set",
+        ),
+        (
+            "spawn-tools",
+            "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+            "spawn",
+        ),
+        (
+            "listen-tools",
+            "export default function listen() {\n  Deno.listen('127.0.0.1', 0);\n  return 'listen';\n}\n",
+            "listen",
+        ),
+        (
+            "serve-tools",
+            "export default function serve() {\n  Deno.serve('127.0.0.1', 0);\n  return 'serve';\n}\n",
+            "serve",
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("deno"));
+        write_deno_host_package(dir.path(), package, body);
+        let test_path = dir.path().join("tests").join(format!("{package}.test.ts"));
+        fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nKali.test('{package} corpus', () => {{\n  const value = root();\n  if (value !== '{expected}') {{ throw new Error('{package} test mismatch: ' + value); }}\n  console.log(value);\n}});\n",
+                package = package,
+                expected = expected
+            ),
+        )
+        .expect("write deno host test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "deno", test_path.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "deno host package {package} should be testable on the Deno surface\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn deno_host_corpus_packages_remain_testable_on_the_deno_surface_in_js_input() {
+    for (package, body, expected) in [
+        (
+            "fresh-env",
+            "export default function mutate() {\n  Deno.env.set('KALI_CORPUS_FLAG', 'set');\n  return Deno.env.get('KALI_CORPUS_FLAG');\n}\n",
+            "set",
+        ),
+        (
+            "spawn-tools",
+            "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+            "spawn",
+        ),
+        (
+            "listen-tools",
+            "export default function listen() {\n  Deno.listen('127.0.0.1', 0);\n  return 'listen';\n}\n",
+            "listen",
+        ),
+        (
+            "serve-tools",
+            "export default function serve() {\n  Deno.serve('127.0.0.1', 0);\n  return 'serve';\n}\n",
+            "serve",
+        ),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("deno"));
+        write_deno_host_package(dir.path(), package, body);
+        let test_path = dir.path().join("tests").join(format!("{package}.test.js"));
+        fs::create_dir_all(test_path.parent().expect("test dir")).expect("create test dir");
+        fs::write(
+            &test_path,
+            format!(
+                "import root from '{package}';\nKali.test('{package} corpus', () => {{\n  const value = root();\n  if (value !== '{expected}') {{ throw new Error('{package} test mismatch: ' + value); }}\n  console.log(value);\n}});\n",
+                package = package,
+                expected = expected
+            ),
+        )
+        .expect("write deno host JS test source");
+
+        let test = run_kali(
+            dir.path(),
+            ["test", "--api", "deno", test_path.to_str().unwrap()],
+        );
+        assert!(
+            test.status.success(),
+            "deno host package {package} should be testable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&test.stdout),
+            String::from_utf8_lossy(&test.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&test.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface() {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("deno"));
@@ -10432,6 +10540,74 @@ fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_sur
         String::from_utf8_lossy(&run.stdout),
         String::from_utf8_lossy(&run.stderr)
     );
+}
+
+#[test]
+fn jsr_corpus_packages_remain_testable_on_the_deno_surface() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("deno"));
+    write_jsr_package(
+        dir.path(),
+        "jsr:@std/path",
+        r#"module.exports = function joinPath(left, right) {
+    return `${left}/${right}`;
+};
+"#,
+    );
+    let test_source = dir.path().join("tests").join("std-path.test.ts");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        "import joinPath from '@std/path';\nKali.test('jsr corpus', () => {\n  const value = joinPath('alpha', 'beta');\n  if (value !== 'alpha/beta') { throw new Error('jsr test mismatch: ' + value); }\n  console.log(value);\n});\n",
+    )
+    .expect("write jsr test source");
+
+    let test = run_kali(
+        dir.path(),
+        ["test", "--api", "deno", test_source.to_str().unwrap()],
+    );
+    assert!(
+        test.status.success(),
+        "jsr package should be testable on the Deno surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn jsr_corpus_packages_remain_testable_on_the_deno_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("deno"));
+    write_jsr_package(
+        dir.path(),
+        "jsr:@std/path",
+        r#"module.exports = function joinPath(left, right) {
+    return `${left}/${right}`;
+};
+"#,
+    );
+    let test_source = dir.path().join("tests").join("std-path.test.js");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        "import joinPath from '@std/path';\nKali.test('jsr corpus', () => {\n  const value = joinPath('alpha', 'beta');\n  if (value !== 'alpha/beta') { throw new Error('jsr test mismatch: ' + value); }\n  console.log(value);\n});\n",
+    )
+    .expect("write jsr JS test source");
+
+    let test = run_kali(
+        dir.path(),
+        ["test", "--api", "deno", test_source.to_str().unwrap()],
+    );
+    assert!(
+        test.status.success(),
+        "jsr package should be testable on the Deno surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
 #[test]

@@ -33980,7 +33980,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "boolean-literal-arguments-benchmark-v1",
             "boolean-literal-arguments",
         ),
-        ("branch-specialization-repeat-benchmark-v1", "branch-specialization-repeat"),
+        (
+            "branch-specialization-repeat-benchmark-v1",
+            "branch-specialization-repeat",
+        ),
         (
             "const-array-element-access-benchmark-v1",
             "const-array-element-access",
