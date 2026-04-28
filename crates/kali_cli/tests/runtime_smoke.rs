@@ -28631,6 +28631,43 @@ fn json_check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js
 }
 
 #[test]
+fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+
+    for command in ["check", "build"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            output.arg("--api").arg("browser").arg(&source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_unsupported_math_member_calls_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_unsupported_math_member_calls_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
 fn check_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -29132,6 +29169,63 @@ fn test_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_w
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_unsupported_math_member_calls_rejection_json(errors);
+}
+
+#[test]
+fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_with_harness_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let run_source_path = dir.path().join("main.ts");
+    let test_source_path = dir.path().join("smoke.test.ts");
+    fs::write(&run_source_path, "console.log(Math.floor(1.6));\n").expect("write run source");
+    fs::write(
+        &test_source_path,
+        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+    )
+    .expect("write test source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    for command in ["run", "test"] {
+        let source_path = if command == "run" {
+            &run_source_path
+        } else {
+            &test_source_path
+        };
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command).arg(source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_unsupported_math_member_calls_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_unsupported_math_member_calls_rejection_text(&stderr);
+            }
+        }
+    }
 }
 
 fn assert_browser_requested_nullish_coalescing_rejection_text(stderr: &str) {
