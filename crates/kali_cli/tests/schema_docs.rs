@@ -2127,6 +2127,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node inherited built-in corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | Node built-in packages (`node:timers/promises`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node inherited timers/promises rejection row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | node-assuming packages with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "node-assuming corpus row should be recorded in the package corpus matrix",
         ),
@@ -2520,6 +2524,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         (
             "| npm-style package corpus | runner packages with mixed-format entries with `.js` entrypoints | Node | `test` | executable on the Node surface | `crates/kali_cli/tests/package_corpus.rs` |",
             "node runner mixed-format JS corpus row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | Node built-in packages (`node:timers/promises`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node inherited timers/promises rejection row should be recorded exactly once in the package corpus matrix",
         ),
         (
             "| package-resolution corpus | Node-assuming packages | Node vs default standalone contrast | `check`, `run` vs rejection paths | gated on the Node surface; rejected by default standalone | `crates/kali_cli/tests/package_corpus.rs` |",

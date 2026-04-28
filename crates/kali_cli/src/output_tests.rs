@@ -79,6 +79,25 @@ fn validate_envelope_value_allows_schema_permitted_extension_keys() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_malformed_timings() {
+    let invalid_timings = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": ["parse"],
+    });
+    let err = validate_envelope_value(&invalid_timings)
+        .expect_err("non-object timings items should fail validation");
+    assert!(err.contains("timings[0]"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_fractional_exit_code() {
     let invalid_exit_code = json!({
         "schemaVersion": 1,

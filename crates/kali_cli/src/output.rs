@@ -128,6 +128,8 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
+    validate_timings_array(object.get("timings"))?;
+
     match object.get("exitCode") {
         Some(Value::Number(number)) if number.as_i64().is_some() || number.as_u64().is_some() => {}
         Some(other) => {
@@ -149,6 +151,26 @@ fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), S
     for (index, item) in items.iter().enumerate() {
         validate_diagnostic_value(item)
             .map_err(|err| format!("CLI envelope {field}[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    let Some(items) = value.as_array() else {
+        return Err("CLI envelope timings must be an array".to_string());
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        let Some(_object) = item.as_object() else {
+            return Err(format!(
+                "CLI envelope timings[{index}] must be a JSON object"
+            ));
+        };
     }
 
     Ok(())
