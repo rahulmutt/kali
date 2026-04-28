@@ -732,9 +732,9 @@ mod member_expressions {
     #[test]
     fn test_parse_bracketed_late_compatibility_member_expressions() {
         let output = parse(
-            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"];",
+            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"];",
         );
-        assert_eq!(output.statements.len(), 4);
+        assert_eq!(output.statements.len(), 6);
 
         let assert_two_level_bracket =
             |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
@@ -781,6 +781,49 @@ mod member_expressions {
         }
 
         assert_two_level_bracket(&output.statements[3], "Proxy", "revocable");
+        assert_two_level_bracket(&output.statements[4], "Object", "hasOwn");
+
+        match &output.statements[5] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::MemberExpression(call) => {
+                    assert_eq!(call.property, "call");
+                    match &call.object {
+                        kali_ast::Expression::MemberExpression(has_own_property) => {
+                            assert_eq!(has_own_property.property, "hasOwnProperty");
+                            match &has_own_property.object {
+                                kali_ast::Expression::MemberExpression(prototype) => {
+                                    assert_eq!(prototype.property, "prototype");
+                                    match &prototype.object {
+                                        kali_ast::Expression::MemberExpression(object) => {
+                                            assert_eq!(object.property, "Object");
+                                            match &object.object {
+                                                kali_ast::Expression::Identifier(name) => {
+                                                    assert_eq!(name, "globalThis");
+                                                }
+                                                other => panic!(
+                                                    "Expected globalThis identifier, got {other:?}"
+                                                ),
+                                            }
+                                        }
+                                        other => panic!(
+                                            "Expected nested Object MemberExpression, got {other:?}"
+                                        ),
+                                    }
+                                }
+                                other => panic!(
+                                    "Expected nested prototype MemberExpression, got {other:?}"
+                                ),
+                            }
+                        }
+                        other => {
+                            panic!("Expected nested hasOwnProperty MemberExpression, got {other:?}")
+                        }
+                    }
+                }
+                _ => panic!("Expected MemberExpression"),
+            },
+            _ => panic!("Expected ExpressionStatement"),
+        }
     }
 
     #[test]
