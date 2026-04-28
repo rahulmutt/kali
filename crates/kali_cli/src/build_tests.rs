@@ -288,6 +288,48 @@ globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
 }
 
 #[test]
+fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"Deno.permissions.query({ name: "ffi" });
+Deno.permissions.query({ name: "sys" });
+globalThis["Deno"]["permissions"]["query"]({ name: "ffi" });
+globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
+"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("unsupported permission query descriptors should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("permission query descriptor 'ffi'")),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("permission query descriptor 'sys'")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_bracketed_proxy_revocable_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
