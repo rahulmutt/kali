@@ -714,42 +714,60 @@ mod member_expressions {
 
     #[test]
     fn test_parse_bracketed_string_literal_permissions_query_member_expression() {
-        let output = parse("globalThis[\"Deno\"][\"permissions\"][\"query\"];");
-        assert_eq!(output.statements.len(), 1);
+        let output = parse(
+            "Deno[\"permissions\"][\"query\"]; globalThis[\"Deno\"][\"permissions\"][\"query\"];",
+        );
+        assert_eq!(output.statements.len(), 2);
 
-        match &output.statements[0] {
-            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
-                kali_ast::Expression::MemberExpression(me) => {
-                    assert_eq!(me.property, "query");
-                    match &me.object {
-                        kali_ast::Expression::MemberExpression(inner) => {
-                            assert_eq!(inner.property, "permissions");
-                            match &inner.object {
-                                kali_ast::Expression::MemberExpression(root) => {
-                                    assert_eq!(root.property, "Deno");
-                                    match &root.object {
-                                        kali_ast::Expression::Identifier(name) => {
-                                            assert_eq!(name, "globalThis");
+        let assert_permissions_query_chain = |statement: &kali_ast::Statement, inherited: bool| {
+            match statement {
+                kali_ast::Statement::ExpressionStatement(es) => {
+                    match es.expression.as_ref() {
+                        kali_ast::Expression::MemberExpression(me) => {
+                            assert_eq!(me.property, "query");
+                            match &me.object {
+                                kali_ast::Expression::MemberExpression(inner) => {
+                                    assert_eq!(inner.property, "permissions");
+                                    if inherited {
+                                        match &inner.object {
+                                            kali_ast::Expression::MemberExpression(root) => {
+                                                assert_eq!(root.property, "Deno");
+                                                match &root.object {
+                                                kali_ast::Expression::Identifier(name) => {
+                                                    assert_eq!(name, "globalThis");
+                                                }
+                                                other => panic!("Expected globalThis identifier, got {other:?}"),
+                                            }
+                                            }
+                                            other => {
+                                                panic!("Expected nested Deno MemberExpression, got {other:?}")
+                                            }
                                         }
-                                        other => {
-                                            panic!("Expected globalThis identifier, got {other:?}")
+                                    } else {
+                                        match &inner.object {
+                                            kali_ast::Expression::Identifier(name) => {
+                                                assert_eq!(name, "Deno");
+                                            }
+                                            other => {
+                                                panic!("Expected Deno identifier, got {other:?}")
+                                            }
                                         }
                                     }
                                 }
                                 other => {
-                                    panic!("Expected nested Deno MemberExpression, got {other:?}")
+                                    panic!("Expected nested permissions MemberExpression, got {other:?}")
                                 }
                             }
                         }
-                        other => {
-                            panic!("Expected nested permissions MemberExpression, got {other:?}")
-                        }
+                        _ => panic!("Expected MemberExpression"),
                     }
                 }
-                _ => panic!("Expected MemberExpression"),
-            },
-            _ => panic!("Expected ExpressionStatement"),
-        }
+                _ => panic!("Expected ExpressionStatement"),
+            }
+        };
+
+        assert_permissions_query_chain(&output.statements[0], false);
+        assert_permissions_query_chain(&output.statements[1], true);
     }
 
     #[test]
