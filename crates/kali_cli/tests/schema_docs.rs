@@ -580,8 +580,14 @@ fn core_schema_documents_match_current_cli_contracts() {
         diagnostic["properties"]["context"]["properties"]["flag"]["type"],
         serde_json::json!(["string", "null"])
     );
-    assert!(diagnostic["properties"]["context"]["properties"]["requestedValue"].is_object());
-    assert!(diagnostic["properties"]["context"]["properties"]["effectiveValue"].is_object());
+    assert_eq!(
+        diagnostic["properties"]["context"]["properties"]["requestedValue"],
+        serde_json::json!({})
+    );
+    assert_eq!(
+        diagnostic["properties"]["context"]["properties"]["effectiveValue"],
+        serde_json::json!({})
+    );
 
     let manifest: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/manifest/v1.json")).expect("read manifest schema"),

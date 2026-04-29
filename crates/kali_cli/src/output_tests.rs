@@ -159,6 +159,40 @@ fn validate_envelope_value_allows_schema_permitted_diagnostic_context_extensions
 }
 
 #[test]
+fn validate_envelope_value_allows_arbitrary_diagnostic_context_value_shapes() {
+    let arbitrary_context_shapes = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "diagnostic context values can be any JSON shape",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {
+                    "origin": "source",
+                    "requestedValue": ["browser", "deno"],
+                    "effectiveValue": false
+                }
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    validate_envelope_value(&arbitrary_context_shapes)
+        .expect("arbitrary diagnostic context shapes should validate");
+}
+
+#[test]
 fn validate_envelope_value_allows_schema_permitted_suggested_fix_extensions() {
     let extended_fix = json!({
         "schemaVersion": 1,
