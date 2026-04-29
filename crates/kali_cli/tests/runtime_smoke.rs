@@ -5949,6 +5949,40 @@ fn check_reports_unresolved_identifiers_inside_default_export_function_in_js_inp
 }
 
 #[test]
+fn json_check_reports_unresolved_identifiers_inside_default_export_function_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "export default function describe() { missing; }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "json: {json}");
+    assert!(errors.iter().any(|error| error["code"] == "E3100"));
+    assert!(errors.iter().any(|error| error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("missing")));
+}
+
+#[test]
 fn run_executes_the_hello_fixture() {
     let output = Command::new(kali_bin())
         .arg("run")
