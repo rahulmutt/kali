@@ -170,3 +170,4 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime string/web-baseline rows also carry JSON-output coverage on the direct and inherited browser harness variants.
 - The browser runtime browser-condition / browser-deno rows are duplication-checked exactly once on both the direct and inherited browser harness paths.
 - The browser scoped exports-map row now also has an inherited browser `apiSurface` companion slice on `.js` input, keeping the scoped browser deployability evidence aligned with the rest of the browser matrix.
+- The browser bundle `--format cjs` artifact-mode evidence is tracked separately in Phase 7 and the schema-doc drift net, and is not represented as a package-corpus row here.

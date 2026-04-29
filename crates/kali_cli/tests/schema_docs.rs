@@ -2922,6 +2922,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document browser pi-coding-agent bin-entrypoint rejection",
     );
     assert_note_once(
+        "The browser bundle `--format cjs` artifact-mode evidence is tracked separately in Phase 7 and the schema-doc drift net, and is not represented as a package-corpus row here.",
+        "package corpus matrix should keep browser bundle cjs evidence out of the package-corpus rows",
+    );
+    assert_note_once(
         "The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.",
         "package corpus matrix should document the Node timers evidence note",
     );
