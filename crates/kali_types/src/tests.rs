@@ -1815,11 +1815,57 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "NumberFormat".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "DisplayNames".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "Locale".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
                     object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Intl".to_string(),
                     })),
                     property: "NumberFormat".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Intl".to_string(),
+                    })),
+                    property: "DisplayNames".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Intl".to_string(),
+                    })),
+                    property: "Locale".to_string(),
                 },
             ))),
         }),
@@ -1832,7 +1878,6 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
             ))),
         }),
     ];
-
     let result = ctx.resolve_statements(&statements);
     assert!(result.diagnostics.len() >= 2);
     assert!(result
@@ -1847,6 +1892,14 @@ fn test_resolution_reports_broader_intl_support_as_unavailable() {
         diag.message
             .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
     }));
+    assert!(result.diagnostics.iter().any(|diag| {
+        diag.message
+            .contains(r#"globalThis["Intl"]["DisplayNames"]"#)
+    }));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| { diag.message.contains(r#"globalThis["Intl"]["Locale"]"#) }));
 }
 
 #[test]
