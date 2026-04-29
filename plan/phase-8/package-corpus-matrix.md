@@ -53,6 +53,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | browser runtime corpus | browser package fixtures with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser package fixtures with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser-blocked packages with `.js` input | browser-targeted execution harness | `run`, `test` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
+| browser runtime corpus | browser-blocked packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser internal browser-rewrite packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser internal browser-rewrite packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser module-entry packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
@@ -154,6 +155,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The default standalone package-content rows also carry JSON-output coverage on the direct standalone `run` / `test` variants.
 - The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.
+- The browser runtime browser-blocked package row also carries JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants, keeping the rejected-by-default browser package slice machine-readable too.
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.

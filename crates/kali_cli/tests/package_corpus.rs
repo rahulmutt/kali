@@ -8342,6 +8342,19 @@ fn browser_runtime_corpus_packages_that_block_the_selected_path_are_rejected_in_
                     if explicit_browser_surface { "explicit" } else { "inherited" },
                     stderr
                 );
+
+                let json_args = if explicit_browser_surface {
+                    vec!["--output", "json", command, "--api", "browser", source]
+                } else {
+                    vec!["--output", "json", command, source]
+                };
+                let json_output = Command::new(kali_bin())
+                    .current_dir(dir.path())
+                    .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+                    .args(json_args)
+                    .output()
+                    .expect("run kali");
+                assert_browser_blocked_package_json_rejection(&json_output, command);
             }
         }
     }
