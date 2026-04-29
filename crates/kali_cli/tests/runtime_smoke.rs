@@ -1713,15 +1713,21 @@ fn check_build_and_run_accept_bracketed_deno_pid_in_js_input() {
 }
 
 #[test]
-fn check_build_and_run_accept_deno_filesystem_apis_in_js_input() {
+fn check_build_run_and_test_accept_deno_filesystem_apis_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
+    let test_path = dir.path().join("main.test.js");
     fs::write(dir.path().join("input.txt"), "alpha").expect("write input");
     fs::write(
         &source_path,
         "Deno.mkdir('./nested', false);\nDeno.rename('./input.txt', './nested/renamed.txt');\nDeno.lstat('./nested/renamed.txt');\nDeno.remove('./nested/renamed.txt');\nDeno.remove('./nested', true);\nconsole.log('done');\n",
     )
     .expect("write source");
+    fs::write(
+        &test_path,
+        "Kali.test('filesystem', () => { Deno.mkdir('./nested', false); Deno.rename('./input.txt', './nested/renamed.txt'); Deno.lstat('./nested/renamed.txt'); Deno.remove('./nested/renamed.txt'); Deno.remove('./nested', true); console.log('done'); });\n",
+    )
+    .expect("write test source");
 
     for command in ["check", "build"] {
         let output = Command::new(kali_bin())
@@ -1744,6 +1750,55 @@ fn check_build_and_run_accept_deno_filesystem_apis_in_js_input() {
     assert!(output.status.success(), "run failed: {:?}", output);
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(stdout.trim(), "done", "stdout: {stdout}");
+
+    fs::write(dir.path().join("input.txt"), "alpha").expect("reset test input");
+
+    let test_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&test_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        test_output.status.success(),
+        "test failed: {:?}",
+        test_output
+    );
+    let test_stdout = String::from_utf8_lossy(&test_output.stdout);
+    assert!(test_stdout.contains("done"), "stdout: {test_stdout}");
+
+    let test_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&test_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        test_json_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_json_output.stdout),
+        String::from_utf8_lossy(&test_json_output.stderr)
+    );
+    let test_json = parse_json_stdout(&test_json_output);
+    assert_eq!(test_json["schemaVersion"], 1);
+    assert_eq!(test_json["command"], "test");
+    assert_eq!(test_json["success"], true);
+    assert_eq!(test_json["exitCode"], 0);
+    assert_eq!(test_json["payload"]["passed"], 1);
+    assert_eq!(test_json["payload"]["total"], 1);
+    assert_eq!(test_json["payload"]["failed"], 0);
+    assert_eq!(test_json["payload"]["skipped"], 0);
+    assert!(
+        test_json["stdout"]
+            .as_str()
+            .expect("test stdout")
+            .contains("done"),
+        "json test: {test_json}"
+    );
 }
 
 #[test]
