@@ -2184,6 +2184,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser pi-coding-agent bin-entrypoint corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input and inherited browser `apiSurface` | browser-targeted | `check` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited pi-coding-agent bin-entrypoint corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | exports-map packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser exports-map corpus row should be recorded in the package corpus matrix",
         ),
@@ -3038,6 +3042,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser binary-entrypoint probe now also rejects the `@mariozechner/pi-coding-agent` package bin entrypoint on the browser-targeted `check` / `build --bundle` path in `.js` input, keeping host-heavier published CLI entrypoints distinct from ordinary browser deployability rows.",
         "package corpus matrix should document browser pi-coding-agent bin-entrypoint rejection",
+    );
+    assert_note_once(
+        "The browser binary-entrypoint probe now also rejects the `@mariozechner/pi-coding-agent` package bin entrypoint on the inherited browser `apiSurface` check path in `.js` input, keeping host-heavier published CLI entrypoints distinct from ordinary browser deployability rows.",
+        "package corpus matrix should document inherited browser pi-coding-agent bin-entrypoint rejection",
     );
     assert_note_once(
         "The browser binary-entrypoint probe now also rejects the `semver` package bin entrypoint on the inherited browser `apiSurface` path in `.js` input, keeping published npm CLI entrypoints distinct from ordinary browser deployability rows.",

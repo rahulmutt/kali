@@ -1144,6 +1144,56 @@ fn browser_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_th
 }
 
 #[test]
+fn browser_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_the_inherited_browser_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let bin_path = package_dir.join("dist/cli.js");
+    let check = run_kali(dir.path(), ["check", bin_path.to_str().unwrap()]);
+    assert!(
+        !check.status.success(),
+        "browser pi-coding-agent package bin entrypoint should be rejected on the inherited browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let check_stderr = String::from_utf8_lossy(&check.stderr);
+    assert!(check_stderr.contains("E3100"), "stderr: {check_stderr}");
+    assert!(check_stderr.contains("require"), "stderr: {check_stderr}");
+
+    let check_json = run_kali(
+        dir.path(),
+        ["--output", "json", "check", bin_path.to_str().unwrap()],
+    );
+    assert!(
+        !check_json.status.success(),
+        "json browser check should surface the inherited pi-coding-agent bin entrypoint rejection\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], false);
+    assert_eq!(check_envelope["exitCode"], 1);
+    assert_eq!(
+        check_envelope["payload"],
+        serde_json::json!({"errorCount": 1, "filesChecked": 1, "warningCount": 0})
+    );
+    assert!(
+        check_envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|error| error["code"] == "E3100"),
+        "check json: {check_envelope}"
+    );
+}
+
+#[test]
 fn browser_runtime_corpus_semver_style_package_remains_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
