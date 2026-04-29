@@ -36566,6 +36566,103 @@ fn json_build_emits_inherited_browser_bundle_cjs_artifacts_in_js_input() {
 }
 
 #[test]
+fn json_build_emits_browser_bundle_cjs_artifacts_with_sandbox_in_js_input() {
+    for inherited_browser_api_surface in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("app.js");
+        fs::write(
+            &source_path,
+            "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+        )
+        .expect("write source");
+        if inherited_browser_api_surface {
+            fs::write(
+                dir.path().join("kali.json"),
+                r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+            )
+            .expect("write manifest");
+        }
+
+        let policy_path = dir.path().join("kali.policy.json");
+        write_valid_policy(&policy_path);
+
+        let mut command = Command::new(kali_bin());
+        command
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("build");
+        if !inherited_browser_api_surface {
+            command.arg("--api").arg("browser");
+        }
+        let output = command
+            .arg("--bundle")
+            .arg("--format")
+            .arg("cjs")
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "inherited_browser_api_surface={inherited_browser_api_surface}\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let bundle_dir = dir.path().join("app");
+        let js_path = bundle_dir.join("app.cjs");
+        let source_map_path = bundle_dir.join("app.cjs.map");
+        let meta_path = bundle_dir.join("app.meta.json");
+        assert!(js_path.exists(), "missing {}", js_path.display());
+        assert!(
+            source_map_path.exists(),
+            "missing {}",
+            source_map_path.display()
+        );
+        assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+        let source_map: Value =
+            serde_json::from_str(&fs::read_to_string(&source_map_path).expect("read source map"))
+                .expect("parse source map json");
+        assert_eq!(source_map["file"], "app.cjs");
+
+        let metadata: Value =
+            serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+                .expect("parse metadata json");
+        assert_eq!(metadata["apiSurface"], "browser");
+        assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+
+        let envelope = parse_json_stdout(&output);
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["success"], true);
+        assert_eq!(envelope["exitCode"], 0);
+        let payload = envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "cjs");
+        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+        let kinds: Vec<_> = artifacts
+            .iter()
+            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+            .collect();
+        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+    }
+}
+
+#[test]
 fn release_build_constant_folds_literal_expressions() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");
