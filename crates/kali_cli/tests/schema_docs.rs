@@ -2858,10 +2858,14 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     .map(ToOwned::to_owned)
     .collect();
 
-    for entry in fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
-        .expect("read benchmark fixture directory")
-    {
-        let path = entry.expect("benchmark fixture entry").path();
+    let mut benchmark_entries: Vec<_> =
+        fs::read_dir(root.join("crates/kali_cli/tests/fixtures/benchmarks"))
+            .expect("read benchmark fixture directory")
+            .map(|entry| entry.expect("benchmark fixture entry").path())
+            .collect();
+    benchmark_entries.sort();
+
+    for path in benchmark_entries {
         if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
             continue;
         }
