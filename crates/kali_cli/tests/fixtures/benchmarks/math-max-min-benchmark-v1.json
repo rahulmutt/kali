@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-max-min-builtin",
+  "version": 1,
+  "sourceFile": "math-max-min-benchmark-v1.ts",
+  "sourceSha256": "sha256-df4e1786f0aa83f9434b2a941c7fb2323ab4a8d88b660c12ad43c634c3477c6b",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
