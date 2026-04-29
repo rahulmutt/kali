@@ -1,0 +1,11 @@
+{
+  "benchmark": "numeric-literal-arguments",
+  "version": 1,
+  "sourceFile": "numeric-literal-arguments-benchmark-v1.ts",
+  "sourceSha256": "sha256-4eb4377fcb75cfed01df77964db439e928e43bb5623672a3636ac695d7135f76",
+  "buildModes": [
+    "--fast",
+    "--release",
+    "--release-advanced"
+  ]
+}

@@ -6083,7 +6083,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 43 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 44 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -37346,6 +37346,7 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "reflect-own-keys-const-bound-literal"
             | "reflect-own-keys-alias-chain"
             | "array-literal-arguments"
+            | "numeric-literal-arguments"
     ) {
         assert!(
             release_size < fast_size
@@ -37361,7 +37362,10 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
         "expected release-advanced build to improve at least one footprint metric further (release size={release_size}, advanced size={advanced_size}; release instructions={release_instructions}, advanced instructions={advanced_instructions}; release adds={release_adds}, advanced adds={advanced_adds})"
     );
 
-    if benchmark_name != "array-literal-arguments" {
+    if !matches!(
+        benchmark_name,
+        "array-literal-arguments" | "numeric-literal-arguments"
+    ) {
         assert!(
             release_adds <= fast_adds,
             "expected release build to avoid more add instructions than fast (fast={fast_adds}, release={release_adds})"
@@ -37478,6 +37482,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "bigint-multiplication-chain-benchmark-v1",
             "bigint-multiplication-chain",
+        ),
+        (
+            "numeric-literal-arguments-benchmark-v1",
+            "numeric-literal-arguments",
         ),
         (
             "boolean-literal-arguments-benchmark-v1",
