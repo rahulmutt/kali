@@ -2434,6 +2434,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node inherited timers/promises rejection row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | Node built-in packages (`node:net`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node explicit net rejection row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | node-assuming packages with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
             "node-assuming corpus row should be recorded in the package corpus matrix",
         ),
@@ -2868,6 +2872,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node inherited timers/promises rejection row should be recorded exactly once in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | Node built-in packages (`node:net`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node explicit net rejection row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
             "| package-resolution corpus | Node-assuming packages | Node vs default standalone contrast | `check`, `run` vs rejection paths | gated on the Node surface; rejected by default standalone | `crates/kali_cli/tests/package_corpus.rs` |",
             "node-versus-standalone package-resolution corpus row should be recorded exactly once in the package corpus matrix",
         ),
@@ -2938,6 +2946,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.",
         "package corpus matrix should document the Node timers evidence note",
+    );
+    assert_note_once(
+        "The Node `node:net` rejection slice is tracked as a negative contrast row so the late network-module boundary stays visible alongside the other late Node-module rows.",
+        "package corpus matrix should document the Node net rejection note",
     );
 }
 

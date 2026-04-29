@@ -134,6 +134,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | Node built-in packages (`node:buffer`, `node:assert`, `node:http`, `node:events`, `node:timers`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | Node built-in packages (`node:timers/promises`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |
 | npm-style package corpus | Node built-in packages (`node:timers/promises`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |
+| npm-style package corpus | Node built-in packages (`node:net`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |
 | npm-style package corpus | node-assuming packages with `.js` input | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |
 | binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints | Node | `run` | executable on the Node surface; rejected on the default standalone surface | `crates/kali_cli/tests/package_corpus.rs` |
 | package-resolution corpus | Node-assuming packages | Node vs default standalone contrast | `check`, `run` vs rejection paths | gated on the Node surface; rejected by default standalone | `crates/kali_cli/tests/package_corpus.rs` |
@@ -154,6 +155,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - Registry-analysis commands (`package-effects`, `package-audit`) are tracked in their own schema/command work packets and are not conflated with the package-corpus rows above.
 - The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.
 - The Node `node:timers/promises` explicit- and inherited-surface rejection slices are tracked as negative contrast rows so the explicit Node API boundary stays visible alongside the positive built-in rows.
+- The Node `node:net` rejection slice is tracked as a negative contrast row so the late network-module boundary stays visible alongside the other late Node-module rows.
 - The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.
 - The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
