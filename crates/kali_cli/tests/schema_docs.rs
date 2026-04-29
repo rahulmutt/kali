@@ -1947,6 +1947,28 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
 }
 
 #[test]
+fn feature_maturity_current_repository_snapshot_tracks_the_live_surface() {
+    let root = repo_root();
+    let maturity = fs::read_to_string(root.join("specs/19-feature-maturity.md"))
+        .expect("read feature maturity matrix");
+
+    for expected in [
+        "Current repository snapshot",
+        "| Public effect reporting | `kali effects`, `kali package-effects`, and the policy-comparison half on `check/build --sandbox` are implemented",
+        "| Embedding surface | `kali build --lib` now emits the stable WIT-sidecar form",
+        "| Coverage reporting | `kali test --coverage` ships the stable deterministic function-coverage contract",
+        "| Browser runtime nuance | browser-runtime harness/helper work exists",
+        "| Node compatibility breadth | `run` / `test` remain live on the documented Node execution subset",
+        "| Threaded runtime profile | `run` / `test` now accept the explicit `--wasm-threads` opt-in",
+    ] {
+        assert!(
+            maturity.contains(expected),
+            "specs/19-feature-maturity.md is missing maturity snapshot marker: {expected}"
+        );
+    }
+}
+
+#[test]
 fn cli_spec_examples_track_the_current_repository_surface() {
     let root = repo_root();
     let cli_spec = fs::read_to_string(root.join("specs/12-cli.md")).expect("read CLI spec");
