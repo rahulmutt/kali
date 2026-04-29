@@ -341,6 +341,39 @@ fn validate_doctor_payload_value_rejects_unexpected_keys() {
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_unexpected_browser_runtime_contract_keys() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "env",
+            "override": "node --test",
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime host description: real browser host"
+            ],
+            "unexpected": true,
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("unexpected browserRuntimeContract keys should fail");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_stdout_and_stderr_strings() {
     let value = emit_envelope_value(
         "doctor",

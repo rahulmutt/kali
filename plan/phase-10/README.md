@@ -39,7 +39,7 @@ Widen proof-backed and machine-contract confidence while keeping claim boundarie
 - Progress: schema-document assertions already cover the core result payloads, the native JSON emission path now validates the `effects`, `package-effects`, and `package-audit` payload shapes before printing, the `check`, `run`, and `test` JSON payloads now also validate before emission, and the envelope timing checks now also pin a non-string `phase` field so the timing-item contract stays explicit.
 - Progress: generated artifact metadata, generated C ABI metadata, and binding-package manifests now round-trip through their schema parsers before the helpers return, so the artifact-manifest contract is validated at generation time instead of only when a file is later reloaded from disk.
 - Progress: the build-result JSON payload now validates its browser-bundle `bundleFormat` field before emission and the schema-doc drift net now pins that `esm` / `cjs` variant explicitly, keeping the browser bundle contract aligned across code and schema.
-- Progress: the `doctor` JSON payload now also validates its browser-harness and browser-runtime-contract blocks before emission, and the `init`, `fmt`, `lint`, and `install` JSON payloads now validate their schema-v1 shapes before printing, keeping the command/result contract explicit at the surface instead of only in schema files.
+- Progress: the `doctor` JSON payload now also validates its browser-harness and browser-runtime-contract blocks before emission, including nested unexpected-key rejection coverage, and the `init`, `fmt`, `lint`, and `install` JSON payloads now validate their schema-v1 shapes before printing, keeping the command/result contract explicit at the surface instead of only in schema files.
 
 ## Exit gate
 
