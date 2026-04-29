@@ -1289,7 +1289,7 @@ impl BuildResult {
     }
 
     fn artifact_json(&self) -> Value {
-        match self {
+        let value = match self {
             BuildResult::Executable {
                 output_path,
                 wasm_bytes,
@@ -1416,7 +1416,11 @@ impl BuildResult {
                     metadata,
                 )
             }
-        }
+        };
+
+        build::validate_build_result_value(&value)
+            .expect("constructed build result must satisfy schema-v1 shape");
+        value
     }
 
     fn human_message(&self) -> String {

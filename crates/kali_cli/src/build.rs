@@ -1693,6 +1693,310 @@ fn validate_generated_artifact_metadata(metadata: &ArtifactMetadata) -> Result<(
     validate_artifact_metadata_value(&value)
 }
 
+pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("build result must be a JSON object".to_string());
+    };
+
+    let artifact_kind = object
+        .get("artifactKind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "build result field 'artifactKind' must be a string".to_string())?;
+
+    for key in [
+        "artifactKind",
+        "outputPath",
+        "sizeBytes",
+        "buildMode",
+        "sourceHash",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!("build result is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("outputPath") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "build result outputPath must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("sizeBytes") {
+        Some(Value::Number(number)) if number.as_u64().is_some() => {}
+        Some(other) => {
+            return Err(format!(
+                "build result sizeBytes must be an integer, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("buildMode") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "build result buildMode must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("sourceHash") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "build result sourceHash must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    if let Some(profile_data_hash) = object.get("profileDataHash") {
+        if !profile_data_hash.is_string() {
+            return Err(format!(
+                "build result profileDataHash must be a string, got {profile_data_hash}"
+            ));
+        }
+    }
+
+    match artifact_kind {
+        "executable" => {}
+        "lib" => {
+            for key in ["metadataPath", "witPath", "artifacts", "exports"] {
+                if !object.contains_key(key) {
+                    return Err(format!("build result is missing required key `{key}`"));
+                }
+            }
+            match object.get("metadataPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result metadataPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            if let Some(wit_path) = object.get("witPath") {
+                if !wit_path.is_string() {
+                    return Err(format!(
+                        "build result witPath must be a string, got {wit_path}"
+                    ));
+                }
+            }
+            validate_build_result_artifacts_array(
+                object.get("artifacts"),
+                "build result artifacts",
+            )?;
+            validate_build_result_exports_array(object.get("exports"), "build result exports")?;
+        }
+        "bundle" => {
+            for key in ["artifacts", "exports", "bundleFormat"] {
+                if !object.contains_key(key) {
+                    return Err(format!("build result is missing required key `{key}`"));
+                }
+            }
+            validate_build_result_artifacts_array(
+                object.get("artifacts"),
+                "build result artifacts",
+            )?;
+            validate_build_result_exports_array(object.get("exports"), "build result exports")?;
+            match object.get("bundleFormat") {
+                Some(Value::String(format)) if matches!(format.as_str(), "esm" | "cjs") => {}
+                Some(Value::String(format)) => {
+                    return Err(format!("unsupported build result bundleFormat '{format}'"));
+                }
+                Some(other) => {
+                    return Err(format!(
+                        "build result bundleFormat must be a string, got {other}"
+                    ));
+                }
+                None => unreachable!("validated above"),
+            }
+        }
+        "capi" => {
+            for key in [
+                "metadataPath",
+                "witPath",
+                "headerPath",
+                "artifacts",
+                "exports",
+            ] {
+                if !object.contains_key(key) {
+                    return Err(format!("build result is missing required key `{key}`"));
+                }
+            }
+            match object.get("metadataPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result metadataPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            match object.get("headerPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result headerPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            match object.get("witPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result witPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            validate_build_result_artifacts_array(
+                object.get("artifacts"),
+                "build result artifacts",
+            )?;
+            validate_build_result_exports_array(object.get("exports"), "build result exports")?;
+        }
+        "component" => {
+            for key in [
+                "metadataPath",
+                "witPath",
+                "bindingPackagePath",
+                "artifacts",
+                "exports",
+            ] {
+                if !object.contains_key(key) {
+                    return Err(format!("build result is missing required key `{key}`"));
+                }
+            }
+            match object.get("metadataPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result metadataPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            match object.get("witPath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result witPath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            match object.get("bindingPackagePath") {
+                Some(Value::String(_)) => {}
+                Some(other) => {
+                    return Err(format!(
+                        "build result bindingPackagePath must be a string, got {other}"
+                    ))
+                }
+                None => unreachable!("validated above"),
+            }
+            validate_build_result_artifacts_array(
+                object.get("artifacts"),
+                "build result artifacts",
+            )?;
+            validate_build_result_exports_array(object.get("exports"), "build result exports")?;
+        }
+        other => return Err(format!("unsupported build result artifactKind '{other}'")),
+    }
+
+    Ok(())
+}
+
+fn validate_build_result_artifacts_array(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        let Some(object) = item.as_object() else {
+            return Err(format!("{context}[{index}] must be an object, got {item}"));
+        };
+
+        match object.get("kind") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{context}[{index}].kind must be a string, got {other}"
+                ))
+            }
+            None => return Err(format!("{context}[{index}] is missing required key `kind`")),
+        }
+        match object.get("path") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{context}[{index}].path must be a string, got {other}"
+                ))
+            }
+            None => return Err(format!("{context}[{index}] is missing required key `path`")),
+        }
+        if let Some(role) = object.get("role") {
+            if !role.is_string() {
+                return Err(format!(
+                    "{context}[{index}].role must be a string, got {role}"
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        let Some(object) = item.as_object() else {
+            return Err(format!("{context}[{index}] must be an object, got {item}"));
+        };
+        if object.len() != 2 || !object.contains_key("name") || !object.contains_key("signature") {
+            return Err(format!(
+                "{context}[{index}] must contain only 'name' and 'signature'"
+            ));
+        }
+        match object.get("name") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{context}[{index}].name must be a string, got {other}"
+                ))
+            }
+            None => return Err(format!("{context}[{index}] is missing required key `name`")),
+        }
+        match object.get("signature") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{context}[{index}].signature must be a string, got {other}"
+                ))
+            }
+            None => {
+                return Err(format!(
+                    "{context}[{index}] is missing required key `signature`"
+                ))
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub fn serialize_artifact_metadata(metadata: &ArtifactMetadata) -> Vec<u8> {
     validate_generated_artifact_metadata(metadata)
         .expect("serialized artifact metadata must satisfy schema-v1 shape");

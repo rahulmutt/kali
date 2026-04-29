@@ -45,6 +45,8 @@
         "buildMode",
         "sourceHash",
         "metadataPath",
+        "witPath",
+        "artifacts",
         "exports"
       ],
       "properties": {
@@ -74,7 +76,23 @@
           "type": "string"
         },
         "exports": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "signature"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -88,7 +106,8 @@
         "buildMode",
         "sourceHash",
         "artifacts",
-        "exports"
+        "exports",
+        "bundleFormat"
       ],
       "properties": {
         "artifactKind": {
@@ -110,6 +129,13 @@
         "profileDataHash": {
           "type": "string"
         },
+        "bundleFormat": {
+          "type": "string",
+          "enum": [
+            "esm",
+            "cjs"
+          ]
+        },
         "artifacts": {
           "type": "array",
           "items": {
@@ -130,7 +156,23 @@
           }
         },
         "exports": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "signature"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -144,6 +186,7 @@
         "buildMode",
         "sourceHash",
         "metadataPath",
+        "witPath",
         "headerPath",
         "artifacts",
         "exports"
@@ -181,7 +224,23 @@
           "type": "array"
         },
         "exports": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "signature"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -195,6 +254,8 @@
         "buildMode",
         "sourceHash",
         "metadataPath",
+        "witPath",
+        "bindingPackagePath",
         "artifacts",
         "exports"
       ],
@@ -231,7 +292,23 @@
           "type": "array"
         },
         "exports": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "signature"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

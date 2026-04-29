@@ -189,6 +189,8 @@ fn core_schema_documents_match_current_cli_contracts() {
             "buildMode",
             "sourceHash",
             "metadataPath",
+            "witPath",
+            "artifacts",
             "exports",
         ]
         .iter()
@@ -210,11 +212,46 @@ fn core_schema_documents_match_current_cli_contracts() {
             "sourceHash",
             "artifacts",
             "exports",
+            "bundleFormat",
         ]
         .iter()
         .map(|value| value.to_string())
         .collect::<Vec<_>>()
     );
+    assert_eq!(
+        build_variants[2]["properties"]["bundleFormat"]["type"],
+        "string"
+    );
+    assert_eq!(
+        build_variants[2]["properties"]["bundleFormat"]["enum"]
+            .as_array()
+            .expect("bundle format enum")
+            .iter()
+            .map(|value| value.as_str().expect("bundle format enum string"))
+            .collect::<Vec<_>>(),
+        vec!["esm", "cjs"]
+    );
+    for variant_index in [1, 2, 3, 4] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["exports"]["type"],
+            "array"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["exports"]["items"]["type"],
+            "object"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["exports"]["items"]["additionalProperties"],
+            false
+        );
+        assert_eq!(
+            required_fields(&build_variants[variant_index]["properties"]["exports"]["items"]),
+            ["name", "signature"]
+                .iter()
+                .map(|value| value.to_string())
+                .collect::<Vec<_>>()
+        );
+    }
 
     assert_eq!(
         build_variants[3]["properties"]["artifactKind"]["const"],
@@ -229,6 +266,7 @@ fn core_schema_documents_match_current_cli_contracts() {
             "buildMode",
             "sourceHash",
             "metadataPath",
+            "witPath",
             "headerPath",
             "artifacts",
             "exports",
@@ -251,6 +289,8 @@ fn core_schema_documents_match_current_cli_contracts() {
             "buildMode",
             "sourceHash",
             "metadataPath",
+            "witPath",
+            "bindingPackagePath",
             "artifacts",
             "exports",
         ]

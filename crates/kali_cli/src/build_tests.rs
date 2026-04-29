@@ -1528,6 +1528,26 @@ fn build_artifact_metadata_round_trips_through_schema_validation() {
 }
 
 #[test]
+fn build_browser_bundle_result_round_trips_through_schema_validation() {
+    let value = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "source-map", "path": "browser.js.map" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    validate_build_result_value(&value).expect("browser bundle result should validate");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
@@ -1549,6 +1569,27 @@ fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let err = validate_artifact_metadata_value(&invalid_metadata)
         .expect_err("extra export keys should fail validation");
     assert!(err.contains("exports[0]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_invalid_bundle_format() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": "umd"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("unsupported bundleFormat should fail validation");
+    assert!(err.contains("bundleFormat"), "unexpected error: {err}");
 }
 
 #[test]
