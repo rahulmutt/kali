@@ -1310,38 +1310,47 @@ impl Parser {
     }
 
     fn try_parse_arrow_function_expression(&mut self) -> Option<Expression> {
-        let start = self.stream.position;
-        if self
-            .stream
-            .tokens
-            .get(start)
-            .is_none_or(|token| token.kind != TokenType::LeftParen)
-        {
-            return None;
-        }
+        self.try_parse_arrow_function_expression_from(self.stream.position, false)
+    }
 
-        let mut scan = start + 1;
+    fn try_parse_arrow_function_expression_from(
+        &mut self,
+        start: usize,
+        is_async: bool,
+    ) -> Option<Expression> {
+        let mut scan = start;
         let mut params = Vec::new();
         match self.stream.tokens.get(scan).map(|token| &token.kind) {
-            Some(TokenType::RightParen) => {
+            Some(TokenType::LeftParen) => {
                 scan += 1;
+                match self.stream.tokens.get(scan).map(|token| &token.kind) {
+                    Some(TokenType::RightParen) => {
+                        scan += 1;
+                    }
+                    Some(TokenType::Identifier) => loop {
+                        let token = self.stream.tokens.get(scan)?;
+                        params.push(token.value.clone());
+                        scan += 1;
+
+                        match self.stream.tokens.get(scan).map(|token| &token.kind) {
+                            Some(TokenType::Comma) => {
+                                scan += 1;
+                            }
+                            Some(TokenType::RightParen) => {
+                                scan += 1;
+                                break;
+                            }
+                            _ => return None,
+                        }
+                    },
+                    _ => return None,
+                }
             }
-            Some(TokenType::Identifier) => loop {
+            Some(TokenType::Identifier) => {
                 let token = self.stream.tokens.get(scan)?;
                 params.push(token.value.clone());
                 scan += 1;
-
-                match self.stream.tokens.get(scan).map(|token| &token.kind) {
-                    Some(TokenType::Comma) => {
-                        scan += 1;
-                    }
-                    Some(TokenType::RightParen) => {
-                        scan += 1;
-                        break;
-                    }
-                    _ => return None,
-                }
-            },
+            }
             _ => return None,
         }
 
@@ -1363,7 +1372,7 @@ impl Parser {
                     .map(|name| FunctionParam { name })
                     .collect(),
                 body,
-                is_async: false,
+                is_async,
                 returnType: None,
             },
         )))
@@ -1667,6 +1676,10 @@ impl Parser {
             TokenType::Async => {
                 if self.stream.peek_next_kind() == Some(&TokenType::Function) {
                     self.parse_function_expression_with_async(true)
+                } else if let Some(expr) =
+                    self.try_parse_arrow_function_expression_from(self.stream.position + 1, true)
+                {
+                    expr
                 } else {
                     let token = self.stream.advance();
                     let name = token
