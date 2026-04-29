@@ -6177,6 +6177,97 @@ fn run_accepts_the_browser_api_surface_when_a_harness_command_is_configured_in_j
     );
 }
 
+fn assert_browser_requested_unary_prefix_semantics(
+    command: &str,
+    filename: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        unary_prefix_semantics_source(command == "test"),
+    )
+    .expect("write source");
+
+    let mut cmd = Command::new(kali_bin());
+    cmd.current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    let output = cmd
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        if command == "run" {
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            assert_eq!(json["payload"]["total"], 1);
+            assert_eq!(json["payload"]["passed"], 1);
+            assert_eq!(json["payload"]["failed"], 0);
+        }
+    }
+}
+
+#[test]
+fn run_supports_unary_prefix_semantics_when_browser_harness_is_configured() {
+    assert_browser_requested_unary_prefix_semantics("run", "main.ts", false);
+}
+
+#[test]
+fn run_supports_unary_prefix_semantics_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_requested_unary_prefix_semantics("run", "main.js", false);
+}
+
+#[test]
+fn json_run_supports_unary_prefix_semantics_when_browser_harness_is_configured() {
+    assert_browser_requested_unary_prefix_semantics("run", "main.ts", true);
+}
+
+#[test]
+fn json_run_supports_unary_prefix_semantics_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_requested_unary_prefix_semantics("run", "main.js", true);
+}
+
+#[test]
+fn test_supports_unary_prefix_semantics_when_browser_harness_is_configured() {
+    assert_browser_requested_unary_prefix_semantics("test", "smoke.test.ts", false);
+}
+
+#[test]
+fn test_supports_unary_prefix_semantics_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_requested_unary_prefix_semantics("test", "smoke.test.js", false);
+}
+
+#[test]
+fn json_test_supports_unary_prefix_semantics_when_browser_harness_is_configured() {
+    assert_browser_requested_unary_prefix_semantics("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn json_test_supports_unary_prefix_semantics_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_requested_unary_prefix_semantics("test", "smoke.test.js", true);
+}
+
 #[test]
 fn run_supports_async_await_sequencing_when_browser_harness_is_configured() {
     let dir = tempdir().expect("tempdir");
