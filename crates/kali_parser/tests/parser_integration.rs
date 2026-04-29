@@ -239,6 +239,32 @@ mod expression_statements {
             }
         }
     }
+
+    #[test]
+    fn test_parse_mixed_bracket_dot_process_env_assignment() {
+        let output = parse(r#"globalThis["process"].env = {};"#);
+        assert_eq!(
+            output.statements.len(),
+            1,
+            "statements: {:?}",
+            output.statements
+        );
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+
+        match &output.statements[0] {
+            kali_ast::Statement::ExpressionStatement(es) => {
+                assert!(matches!(
+                    es.expression.as_ref(),
+                    kali_ast::Expression::AssignmentExpression(_)
+                ));
+            }
+            _ => panic!("Expected ExpressionStatement"),
+        }
+    }
 }
 
 /// Tests for binary expressions - ORIGINALLY FAILING

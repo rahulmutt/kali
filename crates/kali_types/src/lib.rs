@@ -1086,9 +1086,19 @@ impl TypeContext {
         let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
-        let is_process_env = matches!(dotted.as_str(), "process.env" | "globalThis.process.env")
-            || dotted.starts_with("process.env.")
-            || dotted.starts_with("globalThis.process.env.");
+        let is_process_env = Self::is_process_env_assignment_target(member)
+            || matches!(dotted.as_str(), "process.env" | "globalThis.process.env")
+            || dotted.contains("process")
+                && (dotted.ends_with(".env") || dotted.ends_with(r#"["env"]"#))
+            || matches!(
+                bracketed.as_str(),
+                r#"process["env"]"#
+                    | r#"globalThis.process["env"]"#
+                    | r#"globalThis["process"]["env"]"#
+                    | r#"globalThis["process"].env"#
+            )
+            || bracketed.contains("process")
+                && (bracketed.ends_with(".env") || bracketed.ends_with(r#"["env"]"#));
 
         if !is_process_env {
             return false;
@@ -1102,6 +1112,23 @@ impl TypeContext {
             ),
         ));
         true
+    }
+
+    fn is_process_env_assignment_target(member: &MemberExpression) -> bool {
+        if member.property != "env" {
+            return false;
+        }
+
+        match &member.object {
+            Expression::Identifier(name) if name == "process" => true,
+            Expression::MemberExpression(parent) => {
+                matches!(
+                    Self::member_access_name(parent).as_deref(),
+                    Some("globalThis.process")
+                )
+            }
+            _ => false,
+        }
     }
 
     fn resolve_late_intl_member(&mut self, expr: &MemberExpression) -> bool {

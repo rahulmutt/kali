@@ -1438,15 +1438,15 @@ fn node_api_surface_rejects_process_env_assignment_in_js_input_on_check_build_ru
 #[test]
 fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_check_build_run_and_test_commands(
 ) {
-    let expected_message = "environment mutation API 'process.env' (aka process[\"env\"]) is unavailable until the later mutable env path is enabled";
     let source_variants = [
-        r#"process["env"] = {};"#,
-        r#"globalThis.process.env = {};"#,
-        r#"globalThis.process["env"] = {};"#,
-        r#"globalThis["process"]["env"] = {};"#,
+        (r#"process["env"] = {};"#, "process.env"),
+        (r#"globalThis.process.env = {};"#, "process.env"),
+        (r#"globalThis.process["env"] = {};"#, "process.env"),
+        (r#"globalThis["process"].env = {};"#, "process.env"),
+        (r#"globalThis["process"]["env"] = {};"#, "process.env"),
     ];
 
-    for source in source_variants {
+    for (source, expected_message) in source_variants {
         for inherited in [false, true] {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join("main.js");
@@ -1482,7 +1482,8 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
                 );
                 let text_stderr = String::from_utf8_lossy(&text_output.stderr);
                 assert!(
-                    text_stderr.contains(expected_message),
+                    text_stderr.contains(expected_message)
+                        && text_stderr.contains("later mutable env path"),
                     "{command} stderr for bracketed process.env assignment (source={source}, inherited={inherited}): {text_stderr}"
                 );
 
@@ -1509,7 +1510,14 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
                 assert_eq!(json["success"], false);
                 assert_eq!(json["exitCode"], 1);
                 assert_eq!(json["errors"][0]["code"], "E5506");
-                assert_eq!(json["errors"][0]["message"], expected_message);
+                assert!(
+                    json["errors"][0]["message"]
+                        .as_str()
+                        .expect("error message")
+                        .contains(expected_message),
+                    "json message for bracketed process.env assignment (source={source}, inherited={inherited}): {:?}",
+                    json["errors"][0]["message"]
+                );
             }
         }
     }

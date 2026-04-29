@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 use kali_ast::{
-    ASTBuilder, ArrayExpression, ArrowFunctionExpression, BinaryExpression, BlockStatement,
-    BreakStatement, CallExpression, CatchClause, ClassDeclaration, ContinueStatement,
-    DebuggerStatement, DoWhileStatement, Expression, ExpressionOrSpread, ExpressionStatement,
-    ForInit, ForOfLefthand, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression,
-    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportName,
-    ImportNamedSpecifier, ImportSpecifier, LiteralValue, MemberExpression, ObjectExpression,
-    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, ReturnStatement,
-    SatisfiesExpression, Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement,
-    TypeAssertion, UnaryExpression, VariableDeclaration, VariableDeclarator, WhileStatement,
-    YieldExpression, AST,
+    ASTBuilder, ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
+    BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
+    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, Expression,
+    ExpressionOrSpread, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
+    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
+    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
+    MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ParenthesizedExpression, PropertyName, ReturnStatement, SatisfiesExpression, Statement,
+    SwitchCase, SwitchStatement, ThrowStatement, TryStatement, TypeAssertion, UnaryExpression,
+    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -940,7 +940,23 @@ impl Parser {
     }
 
     fn parse_expression(&mut self) -> Expression {
-        self.parse_binary_expression(0)
+        self.parse_assignment_expression()
+    }
+
+    fn parse_assignment_expression(&mut self) -> Expression {
+        let left = self.parse_binary_expression(0);
+
+        if !matches!(self.stream.current_kind(), Some(TokenType::Eq)) {
+            return left;
+        }
+
+        let _ = self.stream.advance();
+        let right = self.parse_assignment_expression();
+        Expression::AssignmentExpression(Box::new(AssignmentExpression {
+            operator: AssignmentOperator::Assign,
+            left,
+            right,
+        }))
     }
 
     fn parse_unary_expression(&mut self) -> Expression {

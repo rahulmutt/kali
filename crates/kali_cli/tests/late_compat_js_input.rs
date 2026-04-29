@@ -12,7 +12,14 @@ fn kali_bin() -> String {
 }
 
 fn late_js_compatibility_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"]; null ?? 1;"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"]; null ?? 1;"
+}
+
+fn late_js_compatibility_source_with_mixed_process_forms() -> String {
+    format!(
+        "{} globalThis[\"process\"].pid; globalThis[\"process\"].cwd; globalThis[\"process\"].chdir; globalThis[\"process\"].exit;",
+        late_js_compatibility_source()
+    )
 }
 
 fn assert_late_js_compatibility_rejection(stderr: &str) {
@@ -210,7 +217,7 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
 
 #[test]
 fn late_js_compatibility_source_includes_bracketed_intl_forms() {
-    let source = late_js_compatibility_source();
+    let source = late_js_compatibility_source_with_mixed_process_forms();
     assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
     assert!(
         source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
@@ -245,7 +252,7 @@ fn late_js_compatibility_source_includes_bracketed_intl_forms() {
 
 #[test]
 fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms() {
-    let source = late_js_compatibility_source();
+    let source = late_js_compatibility_source_with_mixed_process_forms();
     for expected in [
         r#"globalThis["Deno"]["cwd"]"#,
         r#"Deno["cwd"]"#,
@@ -263,15 +270,19 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"].pid"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"].exit"#,
         r#"globalThis["Proxy"]"#,
         r#"Proxy.revocable"#,
         r#"globalThis.Proxy.revocable"#,
@@ -295,7 +306,7 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
 
 #[test]
 fn late_js_compatibility_source_includes_bracketed_permission_escalation_forms() {
-    let source = late_js_compatibility_source();
+    let source = late_js_compatibility_source_with_mixed_process_forms();
     for expected in [
         r#"Deno.permissions["request"]()"#,
         r#"Deno.permissions["revoke"]()"#,
@@ -314,7 +325,7 @@ fn late_js_compatibility_source_includes_bracketed_permission_escalation_forms()
 fn late_js_compatibility_source_includes_bracketed_globalthis_deno_env_and_permission_forms() {
     let source = format!(
         "{} globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].env[\"toObject\"];",
-        late_js_compatibility_source()
+        late_js_compatibility_source_with_mixed_process_forms()
     );
     for expected in [
         r#"globalThis.Deno.permissions["request"]()"#,
@@ -330,7 +341,7 @@ fn late_js_compatibility_source_includes_bracketed_globalthis_deno_env_and_permi
 
 #[test]
 fn late_js_compatibility_source_includes_bracketed_threaded_runtime_forms() {
-    let source = late_js_compatibility_source();
+    let source = late_js_compatibility_source_with_mixed_process_forms();
     for expected in [
         r#"globalThis["SharedArrayBuffer"]"#,
         r#"globalThis["Atomics"]"#,
@@ -343,7 +354,11 @@ fn late_js_compatibility_source_includes_bracketed_threaded_runtime_forms() {
 fn check_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -362,7 +377,11 @@ fn check_rejects_late_compatibility_members_in_js_input() {
 fn check_rejects_late_compatibility_members_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -387,7 +406,11 @@ fn check_rejects_late_compatibility_members_in_js_input_in_json() {
 fn run_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -406,7 +429,11 @@ fn run_rejects_late_compatibility_members_in_js_input() {
 fn build_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -425,7 +452,11 @@ fn build_rejects_late_compatibility_members_in_js_input() {
 fn build_rejects_late_compatibility_members_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -450,7 +481,11 @@ fn build_rejects_late_compatibility_members_in_js_input_in_json() {
 fn run_rejects_late_compatibility_members_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -475,7 +510,11 @@ fn run_rejects_late_compatibility_members_in_js_input_in_json() {
 fn test_rejects_late_compatibility_members_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -494,7 +533,11 @@ fn test_rejects_late_compatibility_members_in_js_input() {
 fn test_rejects_late_compatibility_members_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
-    fs::write(&source_path, late_js_compatibility_source()).expect("write source");
+    fs::write(
+        &source_path,
+        late_js_compatibility_source_with_mixed_process_forms(),
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
