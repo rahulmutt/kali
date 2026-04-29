@@ -19872,6 +19872,54 @@ fn json_test_supports_browser_requested_promise_all_sequencing_in_js_input_when_
 }
 
 #[test]
+fn run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.ts", false, false);
+}
+
+#[test]
+fn run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.ts", false, true);
+}
+
+#[test]
+fn json_run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.ts", true, false);
+}
+
+#[test]
+fn json_run_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.ts", true, true);
+}
+
+#[test]
+fn test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.ts", false, false);
+}
+
+#[test]
+fn test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.ts", false, true);
+}
+
+#[test]
+fn json_test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.ts", true, false);
+}
+
+#[test]
+fn json_test_supports_browser_requested_promise_all_sequencing_in_ts_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.ts", true, true);
+}
+
+#[test]
 fn run_supports_queue_microtask_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
