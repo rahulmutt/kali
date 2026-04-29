@@ -29,6 +29,29 @@ console.log('reflect ownKeys ok');
 "#
 }
 
+fn reflect_own_keys_test_source() -> &'static str {
+    r#"Kali.test('reflect ownKeys', () => {
+  const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const keys = globalThis.Reflect.ownKeys(obj);
+  const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    bracketedKeys.length !== 4 ||
+    bracketedKeys[0] !== '1' ||
+    bracketedKeys[1] !== '2' ||
+    bracketedKeys[2] !== 'b' ||
+    bracketedKeys[3] !== 'a'
+  ) {
+    throw new Error('unexpected Reflect.ownKeys ordering');
+  }
+});
+"#
+}
+
 #[test]
 fn check_accepts_reflect_own_keys_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -108,4 +131,61 @@ fn json_run_accepts_reflect_own_keys_in_js_input() {
             .contains("reflect ownKeys ok"),
         "json: {json}"
     );
+}
+
+#[test]
+fn test_accepts_reflect_own_keys_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(&source_path, reflect_own_keys_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn json_test_accepts_reflect_own_keys_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(&source_path, reflect_own_keys_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
 }
