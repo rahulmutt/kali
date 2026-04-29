@@ -2084,6 +2084,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser semver corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser pi-coding-agent bin-entrypoint corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | exports-map packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser exports-map corpus row should be recorded in the package corpus matrix",
         ),
@@ -2597,6 +2601,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         browser_semver_row,
         "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_pi_coding_agent_bin_entrypoint_row =
+        "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_pi_coding_agent_bin_entrypoint_row,
+        "browser pi-coding-agent bin-entrypoint corpus row should be recorded exactly once in the package corpus matrix",
+    );
     let browser_semver_inherited_row =
         "| browser runtime corpus | pure JS package (`semver`) with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
@@ -2906,6 +2916,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.",
         "package corpus matrix should document browser semver runtime JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser binary-entrypoint probe now also rejects the `@mariozechner/pi-coding-agent` package bin entrypoint on the browser-targeted `check` / `build --bundle` path in `.js` input, keeping host-heavier published CLI entrypoints distinct from ordinary browser deployability rows.",
+        "package corpus matrix should document browser pi-coding-agent bin-entrypoint rejection",
     );
     assert_note_once(
         "The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.",

@@ -936,6 +936,119 @@ fn browser_corpus_semver_style_package_bin_entrypoint_is_rejected_on_the_browser
 }
 
 #[test]
+fn browser_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_the_browser_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let bin_path = package_dir.join("dist/cli.js");
+    let check = run_kali(
+        dir.path(),
+        ["check", "--api", "browser", bin_path.to_str().unwrap()],
+    );
+    assert!(
+        !check.status.success(),
+        "browser pi-coding-agent package bin entrypoint should be rejected on the browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let check_stderr = String::from_utf8_lossy(&check.stderr);
+    assert!(check_stderr.contains("E3100"), "stderr: {check_stderr}");
+    assert!(check_stderr.contains("require"), "stderr: {check_stderr}");
+
+    let check_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "check",
+            "--api",
+            "browser",
+            bin_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        !check_json.status.success(),
+        "json browser check should surface the pi-coding-agent bin entrypoint rejection\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], false);
+    assert_eq!(check_envelope["exitCode"], 1);
+    assert_eq!(
+        check_envelope["payload"],
+        serde_json::json!({"errorCount": 1, "filesChecked": 1, "warningCount": 0})
+    );
+    assert!(
+        check_envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|error| error["code"] == "E3100"),
+        "check json: {check_envelope}"
+    );
+
+    let build = run_kali(
+        dir.path(),
+        [
+            "build",
+            "--bundle",
+            "--api",
+            "browser",
+            bin_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        !build.status.success(),
+        "browser pi-coding-agent package bin entrypoint should be rejected during bundle emission\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let build_stderr = String::from_utf8_lossy(&build.stderr);
+    assert!(build_stderr.contains("E3100"), "stderr: {build_stderr}");
+    assert!(build_stderr.contains("require"), "stderr: {build_stderr}");
+
+    let build_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "build",
+            "--bundle",
+            "--api",
+            "browser",
+            bin_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        !build_json.status.success(),
+        "json browser build should surface the pi-coding-agent bin entrypoint rejection\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
+    );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], false);
+    assert_eq!(build_envelope["exitCode"], 1);
+    assert_eq!(build_envelope["payload"], serde_json::Value::Null);
+    assert!(
+        build_envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .iter()
+            .any(|error| error["code"] == "E3100"),
+        "build json: {build_envelope}"
+    );
+}
+
+#[test]
 fn browser_runtime_corpus_semver_style_package_remains_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
