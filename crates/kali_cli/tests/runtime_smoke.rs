@@ -1751,6 +1751,37 @@ fn check_build_run_and_test_accept_deno_filesystem_apis_in_js_input() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(stdout.trim(), "done", "stdout: {stdout}");
 
+    fs::write(dir.path().join("input.txt"), "alpha").expect("reset json run input");
+
+    let json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        json_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&json_output.stdout),
+        String::from_utf8_lossy(&json_output.stderr)
+    );
+    let json = parse_json_stdout(&json_output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(json["stdout"]
+        .as_str()
+        .expect("run stdout")
+        .contains("done"));
+    assert_eq!(json["stderr"], "");
+
     fs::write(dir.path().join("input.txt"), "alpha").expect("reset test input");
 
     let test_output = Command::new(kali_bin())
