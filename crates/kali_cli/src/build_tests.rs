@@ -593,10 +593,9 @@ fn build_source_file_rejects_promise_all_settled_in_js_input() {
     );
 }
 
-#[test]
-fn build_source_file_rejects_generator_functions_in_ts_input() {
+fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, "function* main() { yield* []; }\nmain();\n").expect("write source");
 
     let error = build_source_file(
@@ -623,32 +622,23 @@ fn build_source_file_rejects_generator_functions_in_ts_input() {
 }
 
 #[test]
+fn build_source_file_rejects_generator_functions_in_ts_input() {
+    assert_build_source_file_rejects_generator_lowering_in_input("ts");
+}
+
+#[test]
 fn build_source_file_rejects_generator_functions_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "function* main() { yield* []; }\nmain();\n").expect("write source");
+    assert_build_source_file_rejects_generator_lowering_in_input("js");
+}
 
-    let error = build_source_file(
-        &source_path,
-        BuildMode::Fast,
-        ApiSurface::Deno,
-        false,
-        &[],
-        16,
-        None,
-        None,
-    )
-    .expect_err("generator lowering should fail");
+#[test]
+fn build_source_file_rejects_generator_functions_in_jsx_input() {
+    assert_build_source_file_rejects_generator_lowering_in_input("jsx");
+}
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(
-            |diagnostic| diagnostic.message.contains("generator function lowering")
-                || diagnostic.message.contains("yield expressions")
-        ),
-        "unexpected diagnostics: {error:?}"
-    );
+#[test]
+fn build_source_file_rejects_generator_functions_in_tsx_input() {
+    assert_build_source_file_rejects_generator_lowering_in_input("tsx");
 }
 
 #[test]
