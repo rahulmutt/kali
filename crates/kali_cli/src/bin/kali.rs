@@ -14,7 +14,11 @@ use kali_capi::{
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy,
-    output::{self, validate_doctor_payload_value, CliOutputOptions},
+    output::{
+        self, validate_doctor_payload_value, validate_effects_payload_value,
+        validate_package_audit_payload_value, validate_package_effects_payload_value,
+        CliOutputOptions,
+    },
     Args, BundleFormat, Commands,
 };
 use kali_error::{
@@ -4573,18 +4577,26 @@ fn emit_native_json_payload<T: serde::Serialize>(
     payload: &T,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
+    let value = serde_json::to_value(payload).expect("serialize native json payload");
+    match command {
+        "effects" => validate_effects_payload_value(&value),
+        "package-effects" => validate_package_effects_payload_value(&value),
+        "package-audit" => validate_package_audit_payload_value(&value),
+        _ => Ok(()),
+    }
+    .expect("constructed native json payload must satisfy schema-v1 shape");
+
     if output.is_json() {
-        let value = serde_json::to_value(payload).expect("serialize native json payload");
         print_envelope(command, true, vec![], vec![], value, None, None, 0, output);
     } else if output.pretty {
         println!(
             "{}",
-            serde_json::to_string_pretty(payload).expect("serialize native json payload")
+            serde_json::to_string_pretty(&value).expect("serialize native json payload")
         );
     } else {
         println!(
             "{}",
-            serde_json::to_string(payload).expect("serialize native json payload")
+            serde_json::to_string(&value).expect("serialize native json payload")
         );
     }
     Ok(())
@@ -4706,9 +4718,11 @@ fn single_diagnostic_to_values(
 
 #[cfg(test)]
 mod tests {
-    use super::sort_package_audit_findings;
+    use super::{emit_native_json_payload, sort_package_audit_findings, CliOutputOptions};
+    use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
     use kali_error::{_error_codes::e5, Diagnostic};
+    use serde_json::json;
 
     fn diagnostic_with_span(file_id: u32, start: u32, end: u32) -> Diagnostic {
         Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "shared finding").with_span(Span::new(
@@ -4750,5 +4764,25 @@ mod tests {
         let diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, "feature unavailable");
 
         assert_eq!(super::diagnostics_exit_code(&[diagnostic]), 5);
+    }
+
+    #[test]
+    fn native_json_payload_emission_validates_effects_payload_shape() {
+        let output = CliOutputOptions {
+            format: OutputFormat::Json,
+            pretty: false,
+            verbose: false,
+            quiet: false,
+            color: ColorChoice::Auto,
+        };
+
+        let result = std::panic::catch_unwind(|| {
+            let _ = emit_native_json_payload("effects", &json!({"schemaVersion": 1}), &output);
+        });
+
+        assert!(
+            result.is_err(),
+            "invalid effects payload should panic before emission"
+        );
     }
 }

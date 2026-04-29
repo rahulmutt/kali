@@ -1,6 +1,10 @@
 use serde_json::json;
 
-use crate::output::{emit_envelope_value, validate_doctor_payload_value, validate_envelope_value};
+use crate::output::{
+    emit_envelope_value, validate_doctor_payload_value, validate_effects_payload_value,
+    validate_envelope_value, validate_package_audit_payload_value,
+    validate_package_effects_payload_value,
+};
 
 #[test]
 fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
@@ -57,6 +61,65 @@ fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
     });
 
     validate_doctor_payload_value(&value).expect("doctor payload should validate");
+}
+
+#[test]
+fn validate_effects_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "compatFeatures": [],
+        },
+        "entryPoints": ["src/main.ts"],
+        "effects": [{
+            "kind": "Network.Fetch",
+            "locations": [{
+                "file": "src/main.ts",
+                "line": 12,
+                "column": 3,
+                "function": "main",
+            }],
+        }],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    validate_effects_payload_value(&value).expect("effects payload should validate");
+}
+
+#[test]
+fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    validate_package_effects_payload_value(&value)
+        .expect("package-effects payload should validate");
+}
+
+#[test]
+fn validate_package_audit_payload_value_accepts_null() {
+    validate_package_audit_payload_value(&serde_json::Value::Null)
+        .expect("package-audit payload should validate");
 }
 
 #[test]

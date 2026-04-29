@@ -181,6 +181,102 @@ pub fn validate_doctor_payload_value(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+pub fn validate_effects_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("effects payload must be a JSON object".to_string());
+    };
+
+    for key in [
+        "schemaVersion",
+        "analysisContext",
+        "entryPoints",
+        "effects",
+        "dynamicEffects",
+        "dynamicReasons",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!("effects payload is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &[
+            "schemaVersion",
+            "analysisContext",
+            "entryPoints",
+            "effects",
+            "dynamicEffects",
+            "dynamicReasons",
+        ],
+        "effects payload",
+    )?;
+
+    validate_schema_version_one(object.get("schemaVersion"), "effects payload")?;
+    validate_analysis_context_value(
+        object.get("analysisContext"),
+        "effects payload analysisContext",
+    )?;
+    validate_string_array_value(
+        object.get("entryPoints"),
+        "effects payload entryPoints",
+        true,
+    )?;
+    validate_effect_occurrences_value(object.get("effects"), "effects payload effects")?;
+
+    match object.get("dynamicEffects") {
+        Some(Value::Bool(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "effects payload dynamicEffects must be a boolean, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    validate_string_array_value(
+        object.get("dynamicReasons"),
+        "effects payload dynamicReasons",
+        true,
+    )?;
+    Ok(())
+}
+
+pub fn validate_package_effects_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("package-effects payload must be a JSON object".to_string());
+    };
+
+    for key in ["schemaVersion", "package", "report"] {
+        if !object.contains_key(key) {
+            return Err(format!(
+                "package-effects payload is missing required key `{key}`"
+            ));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["schemaVersion", "package", "report"],
+        "package-effects payload",
+    )?;
+
+    validate_schema_version_one(object.get("schemaVersion"), "package-effects payload")?;
+    validate_package_coordinate_value(object.get("package"))?;
+    validate_effects_payload_value(
+        object
+            .get("report")
+            .expect("validated package-effects payload report key"),
+    )?;
+    Ok(())
+}
+
+pub fn validate_package_audit_payload_value(value: &Value) -> Result<(), String> {
+    if value.is_null() {
+        Ok(())
+    } else {
+        Err(format!("package-audit payload must be null, got {value}"))
+    }
+}
+
 fn reject_unexpected_keys(
     object: &serde_json::Map<String, Value>,
     allowed_keys: &[&str],
@@ -191,6 +287,199 @@ fn reject_unexpected_keys(
             return Err(format!("{context} contains unexpected key `{key}`"));
         }
     }
+    Ok(())
+}
+
+fn validate_schema_version_one(value: Option<&Value>, context: &str) -> Result<(), String> {
+    match value {
+        Some(Value::Number(number)) if number.as_u64() == Some(1) => Ok(()),
+        Some(other) => Err(format!(
+            "{context} schemaVersion must be the numeric value 1, got {other}"
+        )),
+        None => Err(format!("{context} is missing required key `schemaVersion`")),
+    }
+}
+
+fn validate_string_array_value(
+    value: Option<&Value>,
+    context: &str,
+    allow_empty: bool,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    if !allow_empty && items.is_empty() {
+        return Err(format!("{context} must contain at least one item"));
+    }
+
+    for (index, item) in items.iter().enumerate() {
+        if !item.is_string() {
+            return Err(format!("{context}[{index}] must be a string, got {item}"));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+    let Some(object) = value.and_then(Value::as_object) else {
+        return Err(format!("{context} must be a JSON object"));
+    };
+
+    for key in ["apiSurface", "runtimeProfiles", "compatFeatures"] {
+        if !object.contains_key(key) {
+            return Err(format!("{context} is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["apiSurface", "runtimeProfiles", "compatFeatures"],
+        context,
+    )?;
+
+    match object.get("apiSurface") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "{context} apiSurface must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    validate_string_array_value(
+        object.get("runtimeProfiles"),
+        &format!("{context} runtimeProfiles"),
+        true,
+    )?;
+    validate_string_array_value(
+        object.get("compatFeatures"),
+        &format!("{context} compatFeatures"),
+        true,
+    )?;
+    Ok(())
+}
+
+fn validate_effect_location_value(value: &Value, context: &str) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err(format!("{context} must be a JSON object"));
+    };
+
+    for key in ["file", "line", "column"] {
+        if !object.contains_key(key) {
+            return Err(format!("{context} is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(object, &["file", "line", "column", "function"], context)?;
+
+    match object.get("file") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("{context} file must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    for key in ["line", "column"] {
+        match object.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!(
+                    "{context} {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    if let Some(other) = object.get("function") {
+        if !other.is_string() {
+            return Err(format!("{context} function must be a string, got {other}"));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_effect_occurrences_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    for (index, item) in items.iter().enumerate() {
+        let Some(object) = item.as_object() else {
+            return Err(format!(
+                "{context}[{index}] must be a JSON object, got {item}"
+            ));
+        };
+        for key in ["kind", "locations"] {
+            if !object.contains_key(key) {
+                return Err(format!(
+                    "{context}[{index}] is missing required key `{key}`"
+                ));
+            }
+        }
+        reject_unexpected_keys(
+            object,
+            &["kind", "locations"],
+            &format!("{context}[{index}]"),
+        )?;
+
+        match object.get("kind") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{context}[{index}] kind must be a string, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+
+        let Some(Value::Array(locations)) = object.get("locations") else {
+            return Err(format!("{context}[{index}] locations must be an array"));
+        };
+        for (location_index, location) in locations.iter().enumerate() {
+            validate_effect_location_value(
+                location,
+                &format!("{context}[{index}].locations[{location_index}]"),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String> {
+    let Some(object) = value.and_then(Value::as_object) else {
+        return Err("package-effects payload package must be a JSON object".to_string());
+    };
+
+    for key in ["name", "version", "registry"] {
+        if !object.contains_key(key) {
+            return Err(format!(
+                "package-effects payload package is missing required key `{key}`"
+            ));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["name", "version", "registry"],
+        "package-effects payload package",
+    )?;
+
+    for key in ["name", "version", "registry"] {
+        match object.get(key) {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "package-effects payload package {key} must be a string, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
     Ok(())
 }
 
