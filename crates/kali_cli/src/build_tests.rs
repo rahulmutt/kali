@@ -566,6 +566,34 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_js_input(
 }
 
 #[test]
+fn build_source_file_rejects_promise_all_settled_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("Promise.allSettled should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("Promise.allSettled")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_permission_escalation_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
