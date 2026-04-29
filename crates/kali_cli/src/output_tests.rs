@@ -348,6 +348,35 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+fn validate_envelope_value_allows_null_diagnostic_help() {
+    let valid_help = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "optional diagnostic help",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "help": null,
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    validate_envelope_value(&valid_help).expect("null diagnostic help should validate");
+}
+
+#[test]
 fn validate_envelope_value_rejects_diagnostic_with_non_string_help() {
     let invalid_help = json!({
         "schemaVersion": 1,
