@@ -253,6 +253,31 @@ fn core_schema_documents_match_current_cli_contracts() {
         );
     }
 
+    let build_artifact = &build["$defs"]["buildArtifact"];
+    assert_eq!(build_artifact["type"], "object");
+    assert_eq!(build_artifact["additionalProperties"], false);
+    assert_eq!(
+        required_fields(build_artifact),
+        ["kind", "path"]
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(build_artifact["properties"]["kind"]["type"], "string");
+    assert_eq!(build_artifact["properties"]["path"]["type"], "string");
+    assert_eq!(build_artifact["properties"]["role"]["type"], "string");
+
+    for variant_index in [1, 2, 3, 4, 5] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["artifacts"]["type"],
+            "array"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["artifacts"]["items"]["$ref"],
+            "#/$defs/buildArtifact"
+        );
+    }
+
     assert_eq!(
         build_variants[3]["properties"]["artifactKind"]["const"],
         "capi"

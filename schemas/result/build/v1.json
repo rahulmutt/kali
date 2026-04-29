@@ -93,6 +93,12 @@
               }
             }
           }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildArtifact"
+          }
         }
       }
     },
@@ -139,20 +145,7 @@
         "artifacts": {
           "type": "array",
           "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "required": [
-              "kind",
-              "path"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string"
-              },
-              "path": {
-                "type": "string"
-              }
-            }
+            "$ref": "#/$defs/buildArtifact"
           }
         },
         "exports": {
@@ -221,7 +214,10 @@
           "type": "string"
         },
         "artifacts": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildArtifact"
+          }
         },
         "exports": {
           "type": "array",
@@ -289,7 +285,10 @@
           "type": "string"
         },
         "artifacts": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildArtifact"
+          }
         },
         "exports": {
           "type": "array",
@@ -320,9 +319,33 @@
       ],
       "properties": {
         "artifacts": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildArtifact"
+          }
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "buildArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    }
+  }
 }

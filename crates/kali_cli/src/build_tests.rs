@@ -1653,6 +1653,30 @@ fn build_browser_bundle_result_accepts_cjs_format_through_schema_validation() {
 }
 
 #[test]
+fn build_component_result_accepts_artifact_roles_through_schema_validation() {
+    let value = serde_json::json!({
+        "artifactKind": "component",
+        "outputPath": "/workspace/dist/component",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "metadataPath": "/workspace/dist/component/component.meta.json",
+        "witPath": "/workspace/dist/component/component.wit",
+        "bindingPackagePath": "/workspace/dist/component/component.binding-package.json",
+        "artifacts": [
+            { "kind": "wasm-component", "path": "component.wasm", "role": "primary-component" },
+            { "kind": "wit", "path": "component.wit", "role": "interface-wit" },
+            { "kind": "meta-json", "path": "component.meta.json", "role": "embedding-metadata" },
+            { "kind": "binding-package", "path": "component.binding-package.json", "role": "binding-package-manifest" }
+        ],
+        "exports": []
+    });
+
+    validate_build_result_value(&value)
+        .expect("component result with artifact roles should validate");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_unexpected_top_level_keys() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
