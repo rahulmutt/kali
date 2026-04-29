@@ -2499,6 +2499,10 @@ fn assert_browser_runtime_rejection_text(text: &str) {
         "stderr: {text}"
     );
     assert!(
+        text.contains("supported browser runtime commands: run, test"),
+        "stderr: {text}"
+    );
+    assert!(
         text.contains("browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"),
         "stderr: {text}"
     );
