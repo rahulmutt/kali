@@ -348,6 +348,87 @@ fn release_constant_folds_string_concatenation() {
 }
 
 #[test]
+fn release_constant_folds_bigint_addition_chain() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+    let one = literal(&mut builder, "1n");
+    let two = literal(&mut builder, "2n");
+    let three = literal(&mut builder, "3n");
+    let four = literal(&mut builder, "4n");
+    let five = literal(&mut builder, "5n");
+    let six = literal(&mut builder, "6n");
+    let seven = literal(&mut builder, "7n");
+    let eight = literal(&mut builder, "8n");
+    builder.node_mut(add1).unwrap().children = vec![one, two];
+    builder.node_mut(add2).unwrap().children = vec![add1, three];
+    builder.node_mut(add3).unwrap().children = vec![add2, four];
+    builder.node_mut(add4).unwrap().children = vec![add3, five];
+    let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add5).unwrap().children = vec![add4, six];
+    let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add6).unwrap().children = vec![add5, seven];
+    let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add7).unwrap().children = vec![add6, eight];
+    builder.node_mut(root).unwrap().children = vec![add7];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let node = &program.nodes[add7.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Literal);
+    assert_eq!(node.text.as_deref(), Some("36n"));
+}
+
+#[test]
+fn release_constant_folds_bigint_multiplication_chain() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let add1 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add2 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add3 = builder.alloc_text(LirNodeKind::Value, "+");
+    let add4 = builder.alloc_text(LirNodeKind::Value, "+");
+    let mul = builder.alloc_text(LirNodeKind::Value, "*");
+    let one = literal(&mut builder, "1n");
+    let two = literal(&mut builder, "2n");
+    let three = literal(&mut builder, "3n");
+    let four = literal(&mut builder, "4n");
+    let five = literal(&mut builder, "5n");
+    let six = literal(&mut builder, "6n");
+    let seven = literal(&mut builder, "7n");
+    let eight = literal(&mut builder, "8n");
+    let identity = literal(&mut builder, "1n");
+    builder.node_mut(add1).unwrap().children = vec![one, two];
+    builder.node_mut(add2).unwrap().children = vec![add1, three];
+    builder.node_mut(add3).unwrap().children = vec![add2, four];
+    builder.node_mut(add4).unwrap().children = vec![add3, five];
+    builder.node_mut(mul).unwrap().children = vec![add4, identity];
+    let add5 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add5).unwrap().children = vec![mul, six];
+    let add6 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add6).unwrap().children = vec![add5, seven];
+    let add7 = builder.alloc_text(LirNodeKind::Value, "+");
+    builder.node_mut(add7).unwrap().children = vec![add6, eight];
+    builder.node_mut(root).unwrap().children = vec![add7];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let node = &program.nodes[add7.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Literal);
+    assert_eq!(node.text.as_deref(), Some("36n"));
+}
+
+#[test]
 fn optimizer_carries_normalized_profile_data() {
     let optimizer =
         Optimizer::new(OptimizationLevel::Release).with_profile_data(ProfileData::new(vec![
