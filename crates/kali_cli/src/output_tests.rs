@@ -416,6 +416,29 @@ fn validate_init_payload_value_rejects_unexpected_keys() {
 }
 
 #[test]
+fn validate_init_payload_value_rejects_non_string_and_non_boolean_fields() {
+    for (field, value) in [
+        ("root", json!(1)),
+        ("manifestPath", json!(false)),
+        ("sourcePath", json!(["src/main.ts"])),
+        ("library", json!("yes")),
+    ] {
+        let payload = json!({
+            "root": "/workspace/example",
+            "manifestPath": "/workspace/example/kali.json",
+            "sourcePath": "/workspace/example/src/main.ts",
+            "library": false,
+        });
+        let mut payload = payload.as_object().expect("init payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_init_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("invalid init payload field should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_install_payload_value_rejects_non_string_entries() {
     let value = json!({
         "manifestPath": "/workspace/example/kali.json",
@@ -428,6 +451,28 @@ fn validate_install_payload_value_rejects_non_string_entries() {
     let err =
         validate_install_payload_value(&value).expect_err("non-string install entries should fail");
     assert!(err.contains("installed[1]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_install_payload_value_rejects_non_string_manifest_and_lock_paths() {
+    for (field, value) in [
+        ("manifestPath", json!(1)),
+        ("lockPath", json!(["lock.json"])),
+    ] {
+        let payload = json!({
+            "manifestPath": "/workspace/example/kali.json",
+            "lockPath": null,
+            "installed": [],
+            "updated": [],
+            "removed": [],
+        });
+        let mut payload = payload.as_object().expect("install payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_install_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("invalid install payload path should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
 }
 
 #[test]
