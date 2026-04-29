@@ -1556,6 +1556,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "First-class JavaScript compilation with bounded inference",
         "TypeScript assertion / satisfies expressions (`as`, `satisfies`)",
         "Budgeted local/intra-module constraint solving inside the shared bounded inference contract",
+        "Basic arithmetic precedence and array length semantics",
+        "Basic arithmetic precedence and array length semantics in `.js` input",
         "CommonJS module lowering",
         "`require(\"literal\")`",
         "Basic `Math.sign()` built-in semantics",
