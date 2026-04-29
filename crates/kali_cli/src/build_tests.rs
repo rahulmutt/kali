@@ -1723,6 +1723,64 @@ fn build_component_result_accepts_artifact_roles_through_schema_validation() {
 }
 
 #[test]
+fn build_result_variants_accept_artifact_roles_through_schema_validation() {
+    let values = [
+        serde_json::json!({
+            "artifactKind": "lib",
+            "outputPath": "/workspace/dist/lib",
+            "sizeBytes": 42,
+            "buildMode": "release",
+            "sourceHash": "sha256-deadbeef",
+            "profileDataHash": "sha256-feedface",
+            "metadataPath": "/workspace/dist/lib/lib.meta.json",
+            "witPath": "/workspace/dist/lib/lib.wit",
+            "artifacts": [
+                { "kind": "wasm-module", "path": "lib.wasm", "role": "primary-module" },
+                { "kind": "meta-json", "path": "lib.meta.json", "role": "metadata" }
+            ],
+            "exports": [
+                { "name": "main", "signature": "(input) => number" }
+            ]
+        }),
+        serde_json::json!({
+            "artifactKind": "bundle",
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+            "artifacts": [
+                { "kind": "wasm-module", "path": "browser.wasm", "role": "bundle-module" },
+                { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" }
+            ],
+            "exports": [],
+            "bundleFormat": "esm"
+        }),
+        serde_json::json!({
+            "artifactKind": "capi",
+            "outputPath": "/workspace/dist/capi",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+            "profileDataHash": "sha256-feedface",
+            "metadataPath": "/workspace/dist/capi/capi.meta.json",
+            "witPath": "/workspace/dist/capi/capi.wit",
+            "headerPath": "/workspace/dist/capi/capi.h",
+            "artifacts": [
+                { "kind": "wasm-module", "path": "capi.wasm", "role": "primary-module" },
+                { "kind": "meta-json", "path": "capi.meta.json", "role": "metadata" },
+                { "kind": "header", "path": "capi.h", "role": "header" }
+            ],
+            "exports": []
+        }),
+    ];
+
+    for value in values {
+        validate_build_result_value(&value)
+            .expect("build result variant with artifact roles should validate");
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_non_string_artifact_roles() {
     let invalid_component = serde_json::json!({
         "artifactKind": "component",
