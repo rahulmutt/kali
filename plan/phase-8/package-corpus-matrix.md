@@ -154,3 +154,4 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
+- The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.
