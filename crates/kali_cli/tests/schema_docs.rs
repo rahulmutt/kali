@@ -1709,6 +1709,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Browser-requested `run` / `test` literal-string dynamic-import directory-index targets in `.ts` and `.js` input, including JSON-output coverage",
+        "Browser bundle runtime dynamic-import loader and specifier normalization in `.js` input, including directory-index targets",
         "Directory-index dynamic-import targets in `.tsx` and `.jsx` input",
         "Unsupported `Deno.permissions.query(...)` descriptor kinds such as `ffi` / `sys`",
         "Mutable environment access (`Deno.env.set`, `Deno.env.delete`, `process.env = ...`-style host mutation)",
@@ -1813,6 +1814,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
 
     let supported_rows = [
         "Browser-requested `run` / `test` literal-string dynamic-import directory-index targets in `.ts` and `.js` input, including JSON-output coverage",
+        "Browser bundle runtime dynamic-import loader and specifier normalization in `.js` input, including directory-index targets",
         "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
