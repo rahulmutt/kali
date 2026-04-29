@@ -1,0 +1,7 @@
+{
+  "benchmark": "bigint-multiplication-chain",
+  "version": 1,
+  "sourceFile": "bigint-multiplication-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-1c7af2b219a44a995fdcecca6ad58a7516f89bc0305de3fbc76d49336ab872ae",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
