@@ -157,4 +157,5 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.
+- The browser runtime browser-condition / browser-deno rows are duplication-checked exactly once on both the direct and inherited browser harness paths.
 - The browser scoped exports-map row now also has an inherited browser `apiSurface` companion slice on `.js` input, keeping the scoped browser deployability evidence aligned with the rest of the browser matrix.
