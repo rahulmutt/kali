@@ -2320,6 +2320,98 @@ fn browser_corpus_packages_with_module_entries_remain_checkable_and_deployable_t
 }
 
 #[test]
+fn browser_corpus_packages_with_module_entries_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_module_only_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function widget() {{ return '{package}:module'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser module-only package {package} should be checkable on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let check_json = run_kali(
+            dir.path(),
+            ["--output", "json", "check", source_path.to_str().unwrap()],
+        );
+        assert!(
+            check_json.status.success(),
+            "browser module-only package {package} should be checkable on js input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check_json.stdout),
+            String::from_utf8_lossy(&check_json.stderr)
+        );
+        let check_envelope = parse_json_stdout(&check_json);
+        assert_eq!(check_envelope["schemaVersion"], 1);
+        assert_eq!(check_envelope["command"], "check");
+        assert_eq!(check_envelope["success"], true);
+        assert_eq!(check_envelope["exitCode"], 0);
+        assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+        assert_eq!(check_envelope["payload"]["errorCount"], 0);
+        assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser module-only package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+
+        let build_json = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build_json.status.success(),
+            "browser module-only package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build_json.stdout),
+            String::from_utf8_lossy(&build_json.stderr)
+        );
+        let build_envelope = parse_json_stdout(&build_json);
+        assert_eq!(build_envelope["schemaVersion"], 1);
+        assert_eq!(build_envelope["command"], "build");
+        assert_eq!(build_envelope["success"], true);
+        assert_eq!(build_envelope["exitCode"], 0);
+        let payload = build_envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_packages_with_module_entries_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for package in ["react", "preact", "vue"] {
