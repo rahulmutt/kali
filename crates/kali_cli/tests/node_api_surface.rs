@@ -214,7 +214,7 @@ fn explicit_node_api_surface_builds_library_artifacts_in_js_input() {
     let source_path = dir.path().join("lib.js");
     fs::write(
         &source_path,
-        "import * as path from 'node:path';\nexport function describe() { return typeof path.basename === 'function' ? 0 : 1; }\n",
+        "import * as path from 'node:path';\nimport * as timers from 'node:timers';\nexport function describe() { return typeof path.basename === 'function' && typeof timers.clearInterval === 'function' ? 0 : 1; }\n",
     )
     .expect("write source");
 
@@ -274,7 +274,7 @@ fn inherited_node_api_surface_builds_library_artifacts_in_js_input() {
     let source_path = dir.path().join("lib.js");
     fs::write(
         &source_path,
-        "import * as path from 'node:path';\nexport function describe() { return typeof path.basename === 'function' ? 0 : 1; }\n",
+        "import * as path from 'node:path';\nimport * as timers from 'node:timers';\nexport function describe() { return typeof path.basename === 'function' && typeof timers.clearInterval === 'function' ? 0 : 1; }\n",
     )
     .expect("write source");
     fs::write(
