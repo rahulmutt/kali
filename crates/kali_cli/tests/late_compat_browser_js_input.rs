@@ -23,6 +23,10 @@ fn late_permission_escalation_source() -> &'static str {
     "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"]();"
 }
 
+fn late_subprocess_source() -> &'static str {
+    "new Deno.Command('sh').spawn();"
+}
+
 fn late_object_model_source() -> &'static str {
     "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Locale\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
@@ -272,6 +276,26 @@ fn assert_browser_late_permission_escalation_rejection_json(errors: &[Value]) {
             "missing {expected} in {errors:?}"
         );
     }
+}
+
+fn assert_browser_late_subprocess_rejection(stderr: &str) {
+    assert!(stderr.contains("E9007"), "stderr: {stderr}");
+    assert!(stderr.contains("Process.Spawn"), "stderr: {stderr}");
+}
+
+fn assert_browser_late_subprocess_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E9007"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("Process.Spawn")),
+        "missing Process.Spawn in {errors:?}"
+    );
 }
 
 fn assert_browser_late_object_model_rejection(stderr: &str) {
@@ -649,6 +673,60 @@ fn check_rejects_late_permission_escalation_members_in_browser_api_surface_js_in
 }
 
 #[test]
+fn check_rejects_late_subprocess_members_in_browser_api_surface_js_input_with_sandbox_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, late_subprocess_source()).expect("write source");
+    fs::write(
+        &policy_path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"#,
+    )
+    .expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_subprocess_rejection_json(errors);
+}
+
+#[test]
 fn build_rejects_late_permission_escalation_members_in_browser_bundle_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -677,6 +755,61 @@ fn build_rejects_late_permission_escalation_members_in_browser_bundle_js_input_i
 }
 
 #[test]
+fn build_rejects_late_subprocess_members_in_browser_bundle_js_input_with_sandbox_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, late_subprocess_source()).expect("write source");
+    fs::write(
+        &policy_path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"#,
+    )
+    .expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_subprocess_rejection_json(errors);
+}
+
+#[test]
 fn check_rejects_late_process_control_members_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -695,6 +828,54 @@ fn check_rejects_late_process_control_members_in_browser_api_surface_js_input() 
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_browser_late_process_control_rejection(&stderr);
+}
+
+#[test]
+fn check_rejects_late_subprocess_members_in_browser_api_surface_js_input_with_sandbox() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, late_subprocess_source()).expect("write source");
+    fs::write(
+        &policy_path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"#,
+    )
+    .expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_subprocess_rejection(&stderr);
 }
 
 #[test]
@@ -717,6 +898,55 @@ fn build_rejects_late_process_control_members_in_browser_bundle_js_input() {
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_browser_late_process_control_rejection(&stderr);
+}
+
+#[test]
+fn build_rejects_late_subprocess_members_in_browser_bundle_js_input_with_sandbox() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, late_subprocess_source()).expect("write source");
+    fs::write(
+        &policy_path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 0
+  }
+}"#,
+    )
+    .expect("write policy");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_subprocess_rejection(&stderr);
 }
 
 #[test]
