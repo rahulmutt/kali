@@ -159,6 +159,77 @@ fn validate_envelope_value_allows_schema_permitted_diagnostic_context_extensions
 }
 
 #[test]
+fn validate_envelope_value_allows_schema_permitted_suggested_fix_extensions() {
+    let extended_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix extension",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 1, "column": 1},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "newText": "console.log(1);",
+                            "metadata": {"kind": "replacement"}
+                        }
+                    ],
+                    "metadata": {"origin": "autofix"}
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    validate_envelope_value(&extended_fix)
+        .expect("schema-permitted suggested fix extensions should validate");
+}
+
+#[test]
+fn validate_envelope_value_rejects_non_object_fix() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad fix shape",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": [],
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("non-object suggested fix should fail validation");
+    assert!(err.contains("suggested fix"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_timings() {
     let invalid_timings = json!({
         "schemaVersion": 1,
