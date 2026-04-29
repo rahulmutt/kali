@@ -2005,6 +2005,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
 
     for expected in [
         "kali doctor                         # inspect local tool/environment selection",
+        "kali doctor --output json           # emit the schema-v1 doctor result envelope",
         "kali init",
         "kali init --lib                 # create the minimal library scaffold",
         "kali init --output json         # emit the schema-v1 init result envelope",
