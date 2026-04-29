@@ -136,6 +136,21 @@ fn validate_run_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_run_payload_value_rejects_non_string_provenance_fields() {
+    for (field, value) in [("hostContract", json!(true)), ("runtimeBackend", json!(42))] {
+        let payload = json!({
+            "exitCode": 0,
+            "runtimeMs": 12,
+            field: value,
+        });
+
+        let err = validate_run_payload_value(&payload)
+            .expect_err("invalid run payload provenance field should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_test_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "total": 4,
@@ -165,6 +180,37 @@ fn validate_test_payload_value_accepts_the_current_contract_shape() {
     });
 
     validate_test_payload_value(&value).expect("test payload should validate");
+}
+
+#[test]
+fn validate_test_payload_value_rejects_non_string_provenance_fields() {
+    for (field, value) in [
+        ("hostContract", json!(null)),
+        ("runtimeBackend", json!(["wasmtime"])),
+    ] {
+        let payload = json!({
+            "total": 4,
+            "passed": 3,
+            "failed": 1,
+            "skipped": 0,
+            "runtimeMs": 27,
+            field: value,
+            "coverage": {
+                "mode": "function",
+                "files": [],
+                "summary": {
+                    "functionsTotal": 4,
+                    "functionsCovered": 3,
+                    "functionsMissed": 1,
+                    "coveragePercent": 75.0,
+                },
+            },
+        });
+
+        let err = validate_test_payload_value(&payload)
+            .expect_err("invalid test payload provenance field should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
 }
 
 #[test]
