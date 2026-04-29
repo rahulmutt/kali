@@ -1,0 +1,7 @@
+{
+  "benchmark": "object-enumeration-const-bound-literal",
+  "version": 1,
+  "sourceFile": "object-enumeration-const-bound-literal-benchmark-v1.ts",
+  "sourceSha256": "sha256-3c05dac6175dd4d903ac87a9287d1aa0b2994ee7c36e4950422d66621fcbf11f",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

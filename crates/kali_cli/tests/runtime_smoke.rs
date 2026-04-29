@@ -5953,7 +5953,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 35 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 36 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -35668,6 +35668,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "object-enumeration-alias-chain-benchmark-v1",
             "object-enumeration-alias-chain",
+        ),
+        (
+            "object-enumeration-const-bound-literal-benchmark-v1",
+            "object-enumeration-const-bound-literal",
         ),
         (
             "object-enumeration-delete-reinsert-benchmark-v1",
