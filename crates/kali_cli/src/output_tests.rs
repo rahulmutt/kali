@@ -408,6 +408,63 @@ fn validate_envelope_value_rejects_diagnostic_with_non_string_help() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_diagnostic_notes_that_are_not_string_arrays() {
+    let invalid_notes_item = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic notes",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "help": null,
+                "fix": null,
+                "notes": ["ok", 42]
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_notes_item)
+        .expect_err("non-string diagnostic note should fail validation");
+    assert!(err.contains("notes"), "unexpected error: {err}");
+
+    let invalid_notes_shape = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic notes shape",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "help": null,
+                "fix": null,
+                "notes": null
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_notes_shape)
+        .expect_err("non-array diagnostic notes should fail validation");
+    assert!(err.contains("notes"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_diagnostic_labels() {
     let invalid_label = json!({
         "schemaVersion": 1,
