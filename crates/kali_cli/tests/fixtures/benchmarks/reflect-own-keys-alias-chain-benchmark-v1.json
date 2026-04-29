@@ -1,0 +1,7 @@
+{
+  "benchmark": "reflect-own-keys-alias-chain",
+  "version": 1,
+  "sourceFile": "reflect-own-keys-alias-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-bf3b706324fb9ae1ad8ad32d71daf7a0eb8ae76f71aab373ed1a1c05081df0c0",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
