@@ -51,6 +51,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Browser bundle try/catch exception semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic BigInt addition semantics | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in both TS and `.js` inputs) |
 | Basic BigInt addition semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, plus browser bundle smoke coverage in `.js` input) |
+| Browser bundle BigInt addition semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.keys()` enumeration semantics, including overwrite/delete-reinsert ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic object property deletion / `in`-operator semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.ts` and `.js` input) |
 | Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |

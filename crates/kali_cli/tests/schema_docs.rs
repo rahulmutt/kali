@@ -1548,6 +1548,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic optional chaining member and element access",
         "Basic BigInt addition semantics",
         "Basic BigInt addition semantics in `.js` input",
+        "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Open-ended or unstable cross-module/public-API constraint solving",
         "Literal-string `import()`",
         "Directory-index dynamic-import targets in `.tsx` and `.jsx` input",
@@ -1621,6 +1622,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Basic optional chaining member and element access",
         "Basic BigInt addition semantics",
         "Basic BigInt addition semantics in `.js` input",
+        "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Basic unary prefix semantics (`!`, unary `-`, unary `+`, and `void`) in `.ts` and `.js` input, including JSON-output coverage on the standalone `run` / `test` lanes",
         "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
@@ -1649,6 +1651,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
         .expect("read conformance dashboard");
 
     let supported_rows = [
+        "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
         "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Browser bundle `try/finally` sequencing in `.ts` and `.js` input",
