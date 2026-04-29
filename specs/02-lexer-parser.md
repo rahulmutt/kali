@@ -54,7 +54,7 @@ struct Token {
   - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties and literal computed keys that canonicalize to static property names
   - Destructuring (nested, with defaults)
   - Generators and async generators
-  - Arrow function expressions, including async arrow forms
+  - Arrow function expressions, including async arrow forms and optional return type annotations
   - `for-in`, `for-of`, `for-await-of`
   - Optional chaining (`?.`), nullish coalescing (`??`)
   - Dynamic `import()` *(parsed in Phase 1; semantic support stays phase-gated — literal-string `import()` is a Phase 3 lowering path, while non-literal `import(expr)` remains a later compatibility boundary)*

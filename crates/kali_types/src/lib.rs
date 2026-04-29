@@ -1276,6 +1276,9 @@ impl TypeContext {
     fn resolve_arrow_function(&mut self, expr: &ArrowFunctionExpression) {
         self.push_scope(ScopeType::Function);
         self.bind_function_params(&expr.params);
+        if let Some(return_type) = &expr.returnType {
+            self.resolve_type_annotation_text(return_type);
+        }
         self.resolve_expression(&expr.body);
         self.pop_scope();
     }

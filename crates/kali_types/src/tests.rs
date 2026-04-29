@@ -1,11 +1,11 @@
 use super::*;
 use kali_ast::{
-    AssignmentExpression, AssignmentOperator, BinaryExpression, BlockStatement, CallExpression,
-    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
-    ExpressionStatement, ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression,
-    LiteralValue, MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
-    ParenthesizedExpression, PropertyName, SatisfiesExpression, TypeAliasDeclaration,
-    TypeAssertion, VariableDeclaration, VariableDeclarator, YieldExpression,
+    ArrowFunctionExpression, AssignmentExpression, AssignmentOperator, BinaryExpression,
+    BlockStatement, CallExpression, ExportDefaultDeclaration, ExportNamedDeclaration,
+    ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand, ForOfStatement,
+    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
+    TypeAliasDeclaration, TypeAssertion, VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -88,6 +88,33 @@ fn test_resolution_accepts_type_assertion_and_satisfies_with_known_type_names() 
                 SatisfiesExpression {
                     type_name: "Foo".to_string(),
                     expression: Box::new(Expression::Identifier("value".to_string())),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_accepts_arrow_function_return_type_annotations() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Foo".to_string(),
+            type_params: vec![],
+            type_annotation: "string".to_string(),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                ArrowFunctionExpression {
+                    params: vec![FunctionParam {
+                        name: "value".to_string(),
+                    }],
+                    body: Expression::Identifier("value".to_string()),
+                    is_async: true,
+                    returnType: Some("Foo".to_string()),
                 },
             ))),
         }),

@@ -13,7 +13,7 @@ Bootstrap-normalization note:
 - in practice, early Kali should borrow principled ideas about inference, purity, effects, and constraints while still behaving like a pragmatic TypeScript superset with explicit annotation boundaries and predictable compile costs
 
 Implementation order matters:
-- **Phase 1**: preserve TypeScript compatibility, ship **first-class JavaScript compilation** from [SPEC.md](../SPEC.md), and apply the shared **bounded inference contract** to locals, unannotated parameters where the call/context makes them obvious, and function return types when the body stays within the cheap local-inference fragment.
+- **Phase 1**: preserve TypeScript compatibility, ship **first-class JavaScript compilation** from [SPEC.md](../SPEC.md), and apply the shared **bounded inference contract** to locals, unannotated parameters where the call/context makes them obvious, and function return types (including arrow function return type annotations) when the body stays within the cheap local-inference fragment.
 - **Phase 2**: extend that inference more confidently across module boundaries, stabilize the built-in capability-effect model, and expose the user-facing effect-report/effect-annotation surface.
 - **Phase 3 target**: expand bounded advanced constraints where compile-time cost stays predictable.
 - **Later compatibility**: effect polymorphism and other higher-complexity type-system extensions land only after the built-in capability/effect contract is stable.

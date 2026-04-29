@@ -1249,6 +1249,7 @@ impl Parser {
                         | TokenType::NullCoalesce
                         | TokenType::InstanceOf
                         | TokenType::In
+                        | TokenType::Arrow
                 );
 
             if top_level_terminator {
@@ -1320,8 +1321,10 @@ impl Parser {
     ) -> Option<Expression> {
         let mut scan = start;
         let mut params = Vec::new();
+        let mut allow_return_type = false;
         match self.stream.tokens.get(scan).map(|token| &token.kind) {
             Some(TokenType::LeftParen) => {
+                allow_return_type = true;
                 scan += 1;
                 match self.stream.tokens.get(scan).map(|token| &token.kind) {
                     Some(TokenType::RightParen) => {
@@ -1354,6 +1357,21 @@ impl Parser {
             _ => return None,
         }
 
+        let mut return_type = None;
+        if allow_return_type
+            && self.stream.tokens.get(scan).map(|token| &token.kind) == Some(&TokenType::Colon)
+        {
+            let saved_position = self.stream.position;
+            self.stream.position = scan + 1;
+            let parsed_return_type = self.parse_type_reference_text();
+            scan = self.stream.position;
+            self.stream.position = saved_position;
+            if parsed_return_type.is_empty() {
+                return None;
+            }
+            return_type = Some(parsed_return_type);
+        }
+
         if self.stream.tokens.get(scan).map(|token| &token.kind) != Some(&TokenType::Arrow) {
             return None;
         }
@@ -1373,7 +1391,7 @@ impl Parser {
                     .collect(),
                 body,
                 is_async,
-                returnType: None,
+                returnType: return_type,
             },
         )))
     }
