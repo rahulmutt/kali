@@ -1151,6 +1151,14 @@ fn core_schema_documents_match_current_cli_contracts() {
             .map(|value| value.to_string())
             .collect::<Vec<_>>()
     );
+    assert_eq!(doctor["properties"]["browserHarness"]["type"], "object");
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["properties"]
+            .as_object()
+            .expect("browser harness properties")
+            .len(),
+        7
+    );
     assert_eq!(
         doctor["properties"]["browserHarness"]["additionalProperties"],
         false
@@ -1216,6 +1224,17 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["args"]["items"],
         serde_json::json!({"type": "string"})
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["type"],
+        "object"
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]
+            .as_object()
+            .expect("browser runtime contract properties")
+            .len(),
+        6
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
