@@ -11443,6 +11443,18 @@ fn run_uses_browser_entrypoint_for_browser_like_executables() {
 
 #[cfg(unix)]
 #[test]
+fn run_uses_browser_entrypoint_for_source_paths_with_spaces() {
+    browser_entrypoint_smoke(
+        "run",
+        "browser entry.ts",
+        "console.log('browser run');",
+        "browser run",
+        "chromium",
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn run_uses_browser_entrypoint_for_google_chrome_stable_executables() {
     for browser_name in ["google-chrome-stable", "google chrome stable"] {
         run_browser_entrypoint_smoke(browser_name);
@@ -11649,6 +11661,18 @@ fn run_uses_browser_entrypoint_for_additional_privacy_browser_aliases() {
 #[test]
 fn test_uses_browser_entrypoint_for_browser_like_executables() {
     test_browser_entrypoint_smoke("chromium");
+}
+
+#[cfg(unix)]
+#[test]
+fn test_uses_browser_entrypoint_for_source_paths_with_spaces() {
+    browser_entrypoint_smoke(
+        "test",
+        "browser entry.test.ts",
+        "console.log('browser test');\nKali.test('browser test', () => { 1 + 1; });",
+        "browser test",
+        "chromium",
+    );
 }
 
 #[cfg(unix)]
