@@ -45080,6 +45080,57 @@ fn effects_accepts_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn effects_accepts_inherited_node_api_surface_with_wasm_threads_runtime_profile() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log('ok');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "node");
+    assert_eq!(
+        json["payload"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(json["payload"]["dynamicEffects"], false);
+    assert_eq!(json["payload"]["dynamicReasons"], json!([]));
+    let kinds = json["payload"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+}
+
+#[test]
 fn effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
