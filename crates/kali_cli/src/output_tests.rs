@@ -239,6 +239,61 @@ fn validate_test_payload_value_rejects_malformed_coverage() {
 }
 
 #[test]
+fn validate_test_payload_value_rejects_malformed_coverage_files() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "function",
+            "files": [1],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("malformed coverage file entry should fail validation");
+    assert!(
+        err.contains("coverage files[0] must be an object"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_test_payload_value_rejects_malformed_coverage_summary() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("malformed coverage summary should fail validation");
+    assert!(
+        err.contains("coverage summary is missing required key `functionsTotal`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_effects_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "schemaVersion": 1,
