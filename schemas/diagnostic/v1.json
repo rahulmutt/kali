@@ -149,7 +149,35 @@
     },
     "context": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": true,
+      "required": [
+        "origin"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "enum": [
+            "cli",
+            "config",
+            "default",
+            "source"
+          ]
+        },
+        "configPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "flag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestedValue": {},
+        "effectiveValue": {}
+      }
     }
   }
 }

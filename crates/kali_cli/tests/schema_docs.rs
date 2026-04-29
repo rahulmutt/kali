@@ -517,7 +517,36 @@ fn core_schema_documents_match_current_cli_contracts() {
             1
         );
     }
-    assert!(diagnostic["properties"]["context"].is_object());
+    assert_eq!(diagnostic["properties"]["context"]["type"], "object");
+    assert_eq!(
+        diagnostic["properties"]["context"]["additionalProperties"],
+        true
+    );
+    assert_eq!(
+        required_fields(&diagnostic["properties"]["context"]),
+        vec!["origin"]
+    );
+    assert_eq!(
+        diagnostic["properties"]["context"]["properties"]["origin"]["enum"]
+            .as_array()
+            .expect("diagnostic context origin enum array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("diagnostic context origin enum string"))
+            .collect::<Vec<_>>(),
+        vec!["cli", "config", "default", "source"]
+    );
+    assert_eq!(
+        diagnostic["properties"]["context"]["properties"]["configPath"]["type"],
+        serde_json::json!(["string", "null"])
+    );
+    assert_eq!(
+        diagnostic["properties"]["context"]["properties"]["flag"]["type"],
+        serde_json::json!(["string", "null"])
+    );
+    assert!(diagnostic["properties"]["context"]["properties"]["requestedValue"].is_object());
+    assert!(diagnostic["properties"]["context"]["properties"]["effectiveValue"].is_object());
 
     let manifest: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/manifest/v1.json")).expect("read manifest schema"),
