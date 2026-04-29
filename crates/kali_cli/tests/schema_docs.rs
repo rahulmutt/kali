@@ -2066,8 +2066,18 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
-            "The browser bundle `--format cjs` path now also has first-class `.js` input coverage in both explicit and inherited browser API-surface modes, including JSON-output coverage in those JS-input lanes, keeping the alternate browser wrapper format aligned with the same JS-input evidence lane. The schema-doc drift net now also pins that `cjs` note, keeping the alternate wrapper-format matrix explicit too."
+            "The browser bundle `--format cjs` path now also has first-class `.js` input coverage in both explicit and inherited browser API-surface modes, including JSON-output coverage in those JS-input lanes, keeping the alternate browser wrapper format aligned with the same JS-input evidence lane."
         ),
+        "phase 7 README should keep the browser bundle cjs browser-evidence note explicit"
+    );
+    assert!(
+        readme.contains(
+            "The standalone `build --lib` / `build --capi` JSON smoke now also covers explicit and inherited JS-input threaded-profile cases, keeping the remaining artifact-mode lanes machine-readable too."
+        ),
+        "phase 7 README should keep the threaded artifact-mode note explicit"
+    );
+    assert!(
+        readme.contains("The schema-doc drift net now also pins that `cjs` note"),
         "phase 7 README should keep the browser bundle cjs drift-net note explicit"
     );
 }

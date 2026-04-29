@@ -25943,6 +25943,306 @@ fn build_emits_component_json_artifacts_with_wasm_threads_runtime_profile_in_js_
 }
 
 #[test]
+fn build_emits_library_json_artifacts_with_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg("--wasm-threads")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "lib");
+    assert_eq!(payload["buildMode"], "fast");
+    assert_eq!(
+        PathBuf::from(payload["outputPath"].as_str().expect("output path")),
+        source_path.with_file_name("math.lib.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("math.lib.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("math.lib.wit")
+    );
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"wit"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["artifactKind"], "lib");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+}
+
+#[test]
+fn build_emits_library_json_artifacts_with_inherited_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "lib");
+    assert_eq!(payload["buildMode"], "fast");
+    assert_eq!(
+        PathBuf::from(payload["outputPath"].as_str().expect("output path")),
+        source_path.with_file_name("math.lib.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("math.lib.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("math.lib.wit")
+    );
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"wit"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["artifactKind"], "lib");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+}
+
+#[test]
+fn build_emits_capi_json_artifacts_with_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg("--wasm-threads")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "capi");
+    assert_eq!(payload["buildMode"], "fast");
+    assert_eq!(
+        PathBuf::from(payload["outputPath"].as_str().expect("capi output path")),
+        source_path.with_file_name("lib.capi.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(payload["headerPath"].as_str().expect("c header path")),
+        source_path.with_file_name("lib.h")
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("lib.capi.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("lib.wit")
+    );
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    assert!(artifacts
+        .iter()
+        .any(|artifact| artifact["kind"] == "cabi-metadata"));
+
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("lib.capi.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["kind"], "cabi-metadata");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("lib.binding-package.json"))
+            .expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(
+        binding_package["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+}
+
+#[test]
+fn build_emits_capi_json_artifacts_with_inherited_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("lib.js");
+    fs::write(&source_path, "export function add(a, b) { return a + b; }").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--capi")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "capi");
+    assert_eq!(payload["buildMode"], "fast");
+    assert_eq!(
+        PathBuf::from(payload["outputPath"].as_str().expect("capi output path")),
+        source_path.with_file_name("lib.capi.wasm")
+    );
+    assert_eq!(
+        PathBuf::from(payload["headerPath"].as_str().expect("c header path")),
+        source_path.with_file_name("lib.h")
+    );
+    assert_eq!(
+        PathBuf::from(payload["metadataPath"].as_str().expect("metadata path")),
+        source_path.with_file_name("lib.capi.meta.json")
+    );
+    assert_eq!(
+        PathBuf::from(payload["witPath"].as_str().expect("wit path")),
+        source_path.with_file_name("lib.wit")
+    );
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    assert!(artifacts
+        .iter()
+        .any(|artifact| artifact["kind"] == "cabi-metadata"));
+
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("lib.capi.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["kind"], "cabi-metadata");
+    assert_eq!(
+        metadata["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+
+    let binding_package: Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("lib.binding-package.json"))
+            .expect("read binding package manifest"),
+    )
+    .expect("parse binding package manifest json");
+    assert_eq!(binding_package["kind"], "binding-package");
+    assert_eq!(
+        binding_package["runtimeProfiles"],
+        serde_json::json!(["wasm-threads"])
+    );
+}
+
+#[test]
 fn build_rejects_inherited_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
