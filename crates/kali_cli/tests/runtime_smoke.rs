@@ -19676,6 +19676,108 @@ fn test_supports_promise_all_sequencing_in_js_input() {
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
+fn assert_browser_requested_promise_all_sequencing(
+    command: &str,
+    filename: &str,
+    json_output: bool,
+    inherited_browser_api_surface: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, promise_all_sequencing_source()).expect("write source");
+    if inherited_browser_api_surface {
+        write_browser_api_surface_manifest(dir.path());
+    }
+
+    let mut command_line = Command::new(kali_bin());
+    command_line.current_dir(dir.path());
+    command_line.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+    if json_output {
+        command_line.arg("--output").arg("json");
+    }
+    command_line
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path);
+
+    let output = command_line.output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        if command == "run" {
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            assert_eq!(json["payload"]["total"], 1);
+            assert_eq!(json["payload"]["passed"], 1);
+            assert_eq!(json["payload"]["failed"], 0);
+        }
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else if command == "test" {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.js", false, false);
+}
+
+#[test]
+fn run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.js", false, true);
+}
+
+#[test]
+fn json_run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.js", true, false);
+}
+
+#[test]
+fn json_run_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("run", "main.js", true, true);
+}
+
+#[test]
+fn test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.js", false, false);
+}
+
+#[test]
+fn test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.js", false, true);
+}
+
+#[test]
+fn json_test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.js", true, false);
+}
+
+#[test]
+fn json_test_supports_browser_requested_promise_all_sequencing_in_js_input_when_browser_api_surface_is_inherited_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_promise_all_sequencing("test", "smoke.test.js", true, true);
+}
+
 #[test]
 fn run_supports_queue_microtask_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
