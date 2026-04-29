@@ -1,0 +1,7 @@
+{
+  "benchmark": "bigint-addition-chain",
+  "version": 1,
+  "sourceFile": "bigint-addition-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-9d00c64616b1ed761bdd053e41404e66980dc342ff1f8bc232951bc810f67a36",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

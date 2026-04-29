@@ -5955,7 +5955,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 37 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 38 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -35859,6 +35859,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "bigint-literal-arguments-benchmark-v1",
             "bigint-literal-arguments",
+        ),
+        (
+            "bigint-addition-chain-benchmark-v1",
+            "bigint-addition-chain",
         ),
         (
             "boolean-literal-arguments-benchmark-v1",
