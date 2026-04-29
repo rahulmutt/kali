@@ -36,6 +36,7 @@ kali check [files...]
 kali build <file>
 kali build --validate-ir <file>  # run internal HIR/MIR/LIR validators
 kali build --bundle <file>      # browser-targeted build lane
+kali build --bundle --format cjs <file> # browser-targeted CommonJS browser bundle wrapper
 kali build --lib <file>         # base library artifact for exact-version consumers
 kali run <file> [-- args...]
 kali test [files...]

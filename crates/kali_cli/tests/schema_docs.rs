@@ -2018,6 +2018,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali build --validate-ir <file>  # run internal HIR/MIR/LIR validators",
         "kali build --profile pgo-profile.json main.ts # load deterministic PGO profile data",
         "kali build --bundle <file>      # browser-targeted build lane",
+        "kali build --bundle --format cjs <file> # browser-targeted CommonJS browser bundle wrapper",
         "kali build --lib <file>         # base library artifact for exact-version consumers",
         "kali build --capi <file>        # stable public C-ABI embedding flow",
         "kali build --component <file>   # Component Model packaging flow",
