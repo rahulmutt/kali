@@ -2867,6 +2867,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document browser package-content JSON-output coverage",
     );
     assert_note_once(
+        "The browser-targeted `@mariozechner/pi-coding-agent` package-content rows also carry JSON-output coverage on the direct and inherited browser-harness `check` / `build --bundle` variants.",
+        "package corpus matrix should document browser-targeted package-content JSON-output coverage",
+    );
+    assert_note_once(
         "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.",
         "package corpus matrix should document browser package fixture JSON-output coverage",
     );

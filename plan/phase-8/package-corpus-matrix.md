@@ -156,6 +156,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.
 - The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
+- The browser-targeted `@mariozechner/pi-coding-agent` package-content rows also carry JSON-output coverage on the direct and inherited browser-harness `check` / `build --bundle` variants.
 - The default standalone package-content rows also carry JSON-output coverage on the direct standalone `run` / `test` variants.
 - The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.
 - The browser runtime browser-blocked package row also carries JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants, keeping the rejected-by-default browser package slice machine-readable too.

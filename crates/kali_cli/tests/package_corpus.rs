@@ -1214,6 +1214,32 @@ console.log(codingAgent());
         String::from_utf8_lossy(&check.stderr)
     );
 
+    let check_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "check",
+            "--api",
+            "browser",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        check_json.status.success(),
+        "pi-coding-agent corpus package content should be checkable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], true);
+    assert_eq!(check_envelope["exitCode"], 0);
+    assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+    assert_eq!(check_envelope["payload"]["errorCount"], 0);
+    assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
     let build = run_kali(
         dir.path(),
         [
@@ -1230,6 +1256,31 @@ console.log(codingAgent());
         String::from_utf8_lossy(&build.stdout),
         String::from_utf8_lossy(&build.stderr)
     );
+
+    let build_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "build",
+            "--bundle",
+            "--api",
+            "browser",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build_json.status.success(),
+        "pi-coding-agent corpus package content should be deployable-through-host via browser bundle in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
+    );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], true);
+    assert_eq!(build_envelope["exitCode"], 0);
+    assert_eq!(build_envelope["payload"]["artifactKind"], "bundle");
 }
 
 #[test]
@@ -1259,6 +1310,25 @@ console.log(codingAgent());
         String::from_utf8_lossy(&check.stderr)
     );
 
+    let check_json = run_kali(
+        dir.path(),
+        ["--output", "json", "check", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check_json.status.success(),
+        "pi-coding-agent corpus package content should be checkable on the browser surface in JS input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], true);
+    assert_eq!(check_envelope["exitCode"], 0);
+    assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+    assert_eq!(check_envelope["payload"]["errorCount"], 0);
+    assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
     let build = run_kali(
         dir.path(),
         ["build", "--bundle", source_path.to_str().unwrap()],
@@ -1269,6 +1339,29 @@ console.log(codingAgent());
         String::from_utf8_lossy(&build.stdout),
         String::from_utf8_lossy(&build.stderr)
     );
+
+    let build_json = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "build",
+            "--bundle",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build_json.status.success(),
+        "pi-coding-agent corpus package content should be deployable-through-host via browser bundle in JS input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
+    );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], true);
+    assert_eq!(build_envelope["exitCode"], 0);
+    assert_eq!(build_envelope["payload"]["artifactKind"], "bundle");
 }
 
 #[test]
