@@ -524,6 +524,8 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     assert!(browser_harness_uses_html_entrypoint("waterfox"));
     assert!(browser_harness_uses_html_entrypoint("mullvad-browser"));
     assert!(browser_harness_uses_html_entrypoint("mullvad browser"));
+    assert!(browser_harness_uses_html_entrypoint("privacy-browser"));
+    assert!(browser_harness_uses_html_entrypoint("privacy browser"));
     assert!(browser_harness_uses_html_entrypoint("opera"));
     assert!(browser_harness_uses_html_entrypoint("vivaldi"));
     assert!(browser_harness_uses_html_entrypoint("Mullvad Browser.app"));

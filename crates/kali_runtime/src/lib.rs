@@ -2509,6 +2509,8 @@ const BROWSER_HARNESS_BROWSER_EXECUTABLE_NAMES: &[&str] = &[
     "waterfox",
     "mullvad-browser",
     "mullvad browser",
+    "privacy-browser",
+    "privacy browser",
     "zen-browser",
     "zen browser",
     "thorium-browser",
