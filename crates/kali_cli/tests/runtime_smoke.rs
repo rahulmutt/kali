@@ -48575,9 +48575,9 @@ fn json_check_with_sandbox_rejects_inferred_effects_in_js_input() {
 }
 
 #[test]
-fn build_with_sandbox_rejects_inferred_effects_in_js_input() {
+fn build_with_sandbox_rejects_inferred_effects_in_ts_input() {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "fetch('https://api.example.com/data');").expect("write source");
     let policy_path = dir.path().join("kali.policy.json");
     write_valid_policy(&policy_path);
@@ -48602,9 +48602,9 @@ fn build_with_sandbox_rejects_inferred_effects_in_js_input() {
 }
 
 #[test]
-fn json_build_with_sandbox_rejects_inferred_effects_in_js_input() {
+fn json_build_with_sandbox_rejects_inferred_effects_in_ts_input() {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join("main.ts");
     fs::write(&source_path, "fetch('https://api.example.com/data');").expect("write source");
     let policy_path = dir.path().join("kali.policy.json");
     write_valid_policy(&policy_path);
