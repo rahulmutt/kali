@@ -266,6 +266,8 @@ fn permission_escalation_bracketed_source_includes_inherited_bracketed_spellings
     for expected in [
         r#"globalThis.Deno["permissions"]["request"]"#,
         r#"globalThis.Deno["permissions"]["revoke"]"#,
+        r#"globalThis["Deno"]["permissions"]["request"]"#,
+        r#"globalThis["Deno"]["permissions"]["revoke"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
