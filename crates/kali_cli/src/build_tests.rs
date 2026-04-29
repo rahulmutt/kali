@@ -956,7 +956,7 @@ fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -998,6 +998,9 @@ fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["DisplayNames"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["Segmenter"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["Locale"]"#))
@@ -1012,7 +1015,7 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -1054,6 +1057,9 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["DisplayNames"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["Segmenter"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["Locale"]"#))
