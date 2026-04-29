@@ -2176,6 +2176,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser semver corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| binary-entrypoint probe | `semver` bin entrypoints with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited semver bin-entrypoint corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser pi-coding-agent bin-entrypoint corpus row should be recorded in the package corpus matrix",
         ),
@@ -2701,6 +2705,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         browser_semver_row,
         "browser semver runtime corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_semver_inherited_bin_entrypoint_row =
+        "| binary-entrypoint probe | `semver` bin entrypoints with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_semver_inherited_bin_entrypoint_row,
+        "browser inherited semver bin-entrypoint corpus row should be recorded exactly once in the package corpus matrix",
+    );
     let browser_pi_coding_agent_bin_entrypoint_row =
         "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
@@ -3028,6 +3038,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser binary-entrypoint probe now also rejects the `@mariozechner/pi-coding-agent` package bin entrypoint on the browser-targeted `check` / `build --bundle` path in `.js` input, keeping host-heavier published CLI entrypoints distinct from ordinary browser deployability rows.",
         "package corpus matrix should document browser pi-coding-agent bin-entrypoint rejection",
+    );
+    assert_note_once(
+        "The browser binary-entrypoint probe now also rejects the `semver` package bin entrypoint on the inherited browser `apiSurface` path in `.js` input, keeping published npm CLI entrypoints distinct from ordinary browser deployability rows.",
+        "package corpus matrix should document inherited browser semver bin-entrypoint rejection",
     );
     assert_note_once(
         "The browser bundle `--format cjs` artifact-mode evidence is tracked separately in Phase 7 and the schema-doc drift net, and is not represented as a package-corpus row here.",
