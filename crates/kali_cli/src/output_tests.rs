@@ -609,6 +609,131 @@ fn validate_doctor_payload_value_rejects_unexpected_browser_runtime_contract_key
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_contract_items() {
+    for (field, payload, expected_fragment) in [
+        (
+            "browserHarness command",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", 42],
+                    "executable": "node",
+                    "args": ["--test"],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", "test"],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "command[1]",
+        ),
+        (
+            "browserHarness args",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", "--test"],
+                    "executable": "node",
+                    "args": ["--test", false],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", "test"],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "args[1]",
+        ),
+        (
+            "browserRuntimeContract supportedCommands",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", "--test"],
+                    "executable": "node",
+                    "args": ["--test"],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", null],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "supportedCommands[1]",
+        ),
+        (
+            "browserRuntimeContract diagnosticNotes",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", "--test"],
+                    "executable": "node",
+                    "args": ["--test"],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", "test"],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        17,
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "diagnosticNotes[1]",
+        ),
+    ] {
+        let err = validate_doctor_payload_value(&payload)
+            .expect_err("non-string doctor array entries should fail");
+        assert!(
+            err.contains(expected_fragment),
+            "{field} error mismatch: {err}"
+        );
+    }
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_stdout_and_stderr_strings() {
     let value = emit_envelope_value(
         "doctor",
