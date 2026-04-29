@@ -42,6 +42,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | browser-condition / browser-string / web-baseline packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | scoped packages with exports maps | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | scoped packages with exports maps with `.js` input | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | scoped packages with exports maps with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser package fixtures | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser-condition / browser-deno preference packages | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | browser runtime corpus | browser-condition / browser-deno preference packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
@@ -156,3 +157,4 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.
+- The browser scoped exports-map row now also has an inherited browser `apiSurface` companion slice on `.js` input, keeping the scoped browser deployability evidence aligned with the rest of the browser matrix.
