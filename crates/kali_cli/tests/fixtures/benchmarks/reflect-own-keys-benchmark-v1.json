@@ -1,0 +1,7 @@
+{
+  "benchmark": "reflect-own-keys-folding",
+  "version": 1,
+  "sourceFile": "reflect-own-keys-benchmark-v1.ts",
+  "sourceSha256": "sha256-467665811eec3b1e2b62674f5a822e4a94923b860e60332a40dc58fe84e3a023",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
