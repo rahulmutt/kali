@@ -1266,23 +1266,27 @@ fn specialized_artifact_metadata_schemas_share_the_base_artifact_contract() {
     let expected = [
         (
             "schemas/artifact-meta/lib-wit/v1.json",
+            "https://kali-lang.org/schemas/artifact-meta/lib-wit/v1",
             "Kali Library WIT Artifact Metadata v1",
         ),
         (
             "schemas/artifact-meta/capi/v1.json",
+            "https://kali-lang.org/schemas/artifact-meta/capi/v1",
             "Kali C ABI Artifact Metadata v1",
         ),
         (
             "schemas/artifact-meta/component/v1.json",
+            "https://kali-lang.org/schemas/artifact-meta/component/v1",
             "Kali Component Artifact Metadata v1",
         ),
     ];
 
-    for (relative, title) in expected {
+    for (relative, id, title) in expected {
         let schema: serde_json::Value = serde_json::from_str(
             &fs::read_to_string(root.join(relative)).expect("read specialized artifact schema"),
         )
         .expect("parse specialized artifact schema");
+        assert_eq!(schema["$id"], id);
         assert_eq!(schema["title"], title);
         assert_eq!(
             schema["description"],
@@ -1305,6 +1309,10 @@ fn binding_package_metadata_schema_is_pinned() {
     )
     .expect("parse binding package schema");
 
+    assert_eq!(
+        schema["$id"],
+        "https://kali-lang.org/schemas/artifact-meta/binding-package/v1"
+    );
     assert_eq!(schema["title"], "Kali Binding Package Manifest v1");
     assert_eq!(schema["type"], "object");
     assert_eq!(schema["additionalProperties"], true);
