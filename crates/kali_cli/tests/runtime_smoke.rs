@@ -107,6 +107,33 @@ main();
 "#
 }
 
+fn browser_bundle_unary_prefix_semantics_source() -> &'static str {
+    r#"// kali-tree-shake: unaryPrefixSmoke
+export function unaryPrefixSmoke() {
+  const notTrue = !true;
+  if (notTrue !== false) {
+    throw new Error('expected logical negation to invert the boolean');
+  }
+  const negative = -(1 + 2);
+  if (negative !== -3) {
+    throw new Error('expected unary minus to negate the value');
+  }
+  const positive = +(1 + 2);
+  if (positive !== 3) {
+    throw new Error('expected unary plus to preserve the numeric value');
+  }
+  const value = void (1 + 2);
+  if (value !== void 0) {
+    throw new Error('expected void to evaluate to undefined');
+  }
+  if (typeof value !== 'undefined') {
+    throw new Error('expected void result to be undefined');
+  }
+  return 0n;
+}
+"#
+}
+
 fn browser_bundle_promise_all_sequencing_source() -> &'static str {
     r#"// kali-tree-shake: promiseAllSmoke
 export async function promiseAllSmoke(left, right) {
@@ -3489,6 +3516,62 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "promiseAllSmoke");
+}
+
+fn assert_browser_bundle_unary_prefix_semantics(filename: &str, json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, browser_bundle_unary_prefix_semantics_source()).expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let envelope = parse_json_stdout(&output);
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["exitCode"], 0);
+        let payload = envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
+        let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+        let kinds: Vec<_> = artifacts
+            .iter()
+            .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+            .collect();
+        assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+        assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+    }
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "unaryPrefixSmoke");
 }
 
 fn assert_browser_bundle_string_primitive_enumeration(filename: &str, json_output: bool) {
@@ -28314,6 +28397,26 @@ fn json_build_emits_browser_bundle_boolean_logic_semantics_in_js_input() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "logicSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_unary_prefix_semantics() {
+    assert_browser_bundle_unary_prefix_semantics("app.ts", false);
+}
+
+#[test]
+fn build_emits_browser_bundle_unary_prefix_semantics_in_js_input() {
+    assert_browser_bundle_unary_prefix_semantics("app.js", false);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_unary_prefix_semantics() {
+    assert_browser_bundle_unary_prefix_semantics("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_unary_prefix_semantics_in_js_input() {
+    assert_browser_bundle_unary_prefix_semantics("app.js", true);
 }
 
 #[test]
