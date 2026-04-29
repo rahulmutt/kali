@@ -97,7 +97,11 @@ main();
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; process[\"cwd\"]; globalThis.process[\"cwd\"]; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; process[\"chdir\"]; globalThis.process[\"chdir\"]; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis.process.exit; process[\"exit\"]; globalThis.process[\"exit\"]; globalThis[\"process\"][\"exit\"];"
+    r#"globalThis.Deno.cwd; globalThis["Deno"]["cwd"]; Deno["cwd"]; globalThis.Deno["cwd"]; Deno.chdir; globalThis.Deno.chdir; globalThis["Deno"]["chdir"]; Deno["chdir"]; globalThis.Deno["chdir"]; globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
+}
+
+fn late_process_env_mutation_source() -> &'static str {
+    r#"process.env = {}; globalThis.process.env = {}; process["env"] = {}; globalThis.process["env"] = {}; globalThis["process"]["env"] = {};"#
 }
 
 fn late_object_model_source() -> &'static str {
@@ -157,6 +161,63 @@ fn late_process_control_source_includes_bracketed_spellings() {
         r#"globalThis["process"]["exit"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn late_process_env_mutation_source_includes_bracketed_spellings() {
+    let source = late_process_env_mutation_source();
+    for expected in [
+        r#"process["env"]"#,
+        r#"globalThis.process["env"]"#,
+        r#"globalThis["process"]["env"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn late_process_env_mutation_source_is_rejected_on_the_default_standalone_surface() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_process_env_mutation_source()).expect("write source");
+
+    for command in ["check", "build", "run", "test"] {
+        for json_output in [false, true] {
+            let mut command_line = Command::new(kali_bin());
+            command_line.current_dir(dir.path());
+            if json_output {
+                command_line.arg("--output").arg("json");
+            }
+            command_line.arg(command).arg(&source_path);
+
+            let output = command_line.output().expect("run kali");
+            assert!(
+                !output.status.success(),
+                "{command} should reject late process env mutation (json={json_output})\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(output.status.code(), Some(1));
+
+            if json_output {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert!(errors.iter().any(|error| error["code"] == "E5506"));
+                assert!(errors.iter().any(|error| {
+                    error["message"]
+                        .as_str()
+                        .expect("error message")
+                        .contains("process.env")
+                }));
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                assert!(stderr.contains("process.env"), "stderr: {stderr}");
+            }
+        }
     }
 }
 
