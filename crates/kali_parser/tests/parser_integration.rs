@@ -753,6 +753,68 @@ mod member_expressions {
     }
 
     #[test]
+    fn test_parse_bracketed_string_literal_permission_escalation_member_expressions() {
+        let output = parse(
+            "Deno[\"permissions\"][\"request\"]; Deno[\"permissions\"][\"revoke\"]; globalThis[\"Deno\"][\"permissions\"][\"request\"]; globalThis[\"Deno\"][\"permissions\"][\"revoke\"];",
+        );
+        assert_eq!(output.statements.len(), 4);
+
+        let assert_permission_chain = |statement: &kali_ast::Statement,
+                                       inherited: bool,
+                                       property: &str| {
+            match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property, property);
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(permissions) => {
+                                assert_eq!(permissions.property, "permissions");
+                                if inherited {
+                                    match &permissions.object {
+                                        kali_ast::Expression::MemberExpression(root) => {
+                                            assert_eq!(root.property, "Deno");
+                                            match &root.object {
+                                                kali_ast::Expression::Identifier(name) => {
+                                                    assert_eq!(name, "globalThis");
+                                                }
+                                                other => {
+                                                    panic!("Expected globalThis identifier, got {other:?}")
+                                                }
+                                            }
+                                        }
+                                        other => {
+                                            panic!("Expected nested Deno MemberExpression, got {other:?}")
+                                        }
+                                    }
+                                } else {
+                                    match &permissions.object {
+                                        kali_ast::Expression::Identifier(name) => {
+                                            assert_eq!(name, "Deno");
+                                        }
+                                        other => {
+                                            panic!("Expected Deno identifier, got {other:?}")
+                                        }
+                                    }
+                                }
+                            }
+                            other => panic!(
+                                "Expected nested permissions MemberExpression, got {other:?}"
+                            ),
+                        }
+                    }
+                    _ => panic!("Expected MemberExpression"),
+                },
+                _ => panic!("Expected ExpressionStatement"),
+            }
+        };
+
+        assert_permission_chain(&output.statements[0], false, "request");
+        assert_permission_chain(&output.statements[1], false, "revoke");
+        assert_permission_chain(&output.statements[2], true, "request");
+        assert_permission_chain(&output.statements[3], true, "revoke");
+    }
+
+    #[test]
     fn test_parse_bracketed_late_compatibility_member_expressions() {
         let output = parse(
             "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"];",
