@@ -207,6 +207,43 @@ fn embedding_operation_context_carries_file_network_and_env_details() {
         process_env_write.details.get("key").map(String::as_str),
         Some("KALI_FLAG")
     );
+
+    let process_pid = OperationContext::from_operation(&HostOperation::ProcessPid { pid: 42 });
+    assert_eq!(process_pid.capability, "effects.process.pid");
+    assert_eq!(process_pid.resource, "42");
+    assert_eq!(process_pid.operation, HostOperation::ProcessPid { pid: 42 });
+    assert_eq!(
+        process_pid.details.get("pid").map(String::as_str),
+        Some("42")
+    );
+
+    let process_cwd = OperationContext::from_operation(&HostOperation::ProcessCwd {
+        cwd: std::path::PathBuf::from("/workspace"),
+    });
+    assert_eq!(process_cwd.capability, "effects.process.cwd");
+    assert_eq!(process_cwd.resource, "/workspace");
+    assert_eq!(
+        process_cwd.details.get("cwd").map(String::as_str),
+        Some("/workspace")
+    );
+
+    let process_chdir = OperationContext::from_operation(&HostOperation::ProcessChdir {
+        path: std::path::PathBuf::from("/workspace/project"),
+    });
+    assert_eq!(process_chdir.capability, "effects.process.chdir");
+    assert_eq!(process_chdir.resource, "/workspace/project");
+    assert_eq!(
+        process_chdir.details.get("path").map(String::as_str),
+        Some("/workspace/project")
+    );
+
+    let process_exit = OperationContext::from_operation(&HostOperation::ProcessExit { code: 3 });
+    assert_eq!(process_exit.capability, "effects.process.exit");
+    assert_eq!(process_exit.resource, "3");
+    assert_eq!(
+        process_exit.details.get("code").map(String::as_str),
+        Some("3")
+    );
 }
 
 #[test]
