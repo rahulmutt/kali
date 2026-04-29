@@ -12,7 +12,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_env_materialization_source() -> &'static str {
-    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
+    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
 fn late_env_mutation_source() -> &'static str {

@@ -128,7 +128,7 @@ fn broader_intl_source() -> &'static str {
 }
 
 fn late_env_materialization_source() -> &'static str {
-    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
+    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
 #[test]
@@ -138,6 +138,7 @@ fn late_env_materialization_source_includes_bracketed_spellings() {
         r#"Deno.env["toObject"]"#,
         r#"Deno["env"]["toObject"]"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis.Deno.env["toObject"]"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
@@ -4782,7 +4783,7 @@ fn check_rejects_late_env_materialization_members_in_json_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 8, "unexpected errors: {errors:?}");
+    assert_eq!(errors.len(), 9, "unexpected errors: {errors:?}");
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     for expected in [
         "Deno.env.toObject",
@@ -4848,7 +4849,7 @@ fn build_rejects_late_env_materialization_members_in_json_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 8, "unexpected errors: {errors:?}");
+    assert_eq!(errors.len(), 9, "unexpected errors: {errors:?}");
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     for expected in [
         "Deno.env.toObject",
@@ -4914,7 +4915,7 @@ fn test_rejects_late_env_materialization_members_in_json_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 8, "unexpected errors: {errors:?}");
+    assert_eq!(errors.len(), 9, "unexpected errors: {errors:?}");
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     for expected in [
         "Deno.env.toObject",
@@ -43744,8 +43745,9 @@ fn effects_command_reports_computed_bracketed_deno_env_get_as_dynamic() {
 const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
 const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
 const mixed = globalThis.Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const mixedDot = globalThis.Deno.env["get"]('KALI_ENV_GET_SMOKE');
 const inherited = globalThis["Deno"].env["get"]('KALI_ENV_GET_SMOKE');
-if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') {
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || mixedDot !== 'hello-environment' || inherited !== 'hello-environment') {
   throw new Error('expected env get');
 }
 "#,
@@ -46404,8 +46406,9 @@ fn package_effects_reports_computed_bracketed_deno_env_get_as_dynamic() {
         r#"const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
 const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
 const mixed = globalThis.Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const mixedDot = globalThis.Deno.env["get"]('KALI_ENV_GET_SMOKE');
 const inherited = globalThis["Deno"].env["get"]('KALI_ENV_GET_SMOKE');
-if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') {
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || mixedDot !== 'hello-environment' || inherited !== 'hello-environment') {
   throw new Error('expected env get');
 }
 "#,
