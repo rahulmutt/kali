@@ -86,6 +86,33 @@ fn build_object_enumeration_call(builder: &mut LirBuilder, callee_name: &str) ->
     call
 }
 
+fn build_reflect_own_keys_call(builder: &mut LirBuilder) -> LirNodeId {
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "ownKeys");
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Reflect");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+
+    let object = builder.alloc(LirNodeKind::Value);
+    let prop_b = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_b_key = literal(builder, "b");
+    let prop_b_value = literal(builder, "1");
+    builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
+
+    let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_value = literal(builder, "2");
+    builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
+
+    let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_value = literal(builder, "4");
+    builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
+
+    builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
+    builder.node_mut(call).unwrap().children = vec![callee, object];
+    call
+}
+
 fn build_const_bound_object_enumeration_call(
     builder: &mut LirBuilder,
     callee_name: &str,
@@ -1045,6 +1072,78 @@ fn release_folds_object_values_calls_over_literal_object_shapes() {
         .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
         .collect();
     assert_eq!(values, vec!["4", "2", "1"]);
+}
+
+#[test]
+fn fast_folds_reflect_own_keys_calls_over_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_reflect_own_keys_call(&mut builder);
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Fast).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    let values: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+}
+
+#[test]
+fn release_folds_reflect_own_keys_calls_over_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_reflect_own_keys_call(&mut builder);
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    let values: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+}
+
+#[test]
+fn release_advanced_folds_reflect_own_keys_calls_over_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_reflect_own_keys_call(&mut builder);
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    let values: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
 }
 
 #[test]

@@ -1743,7 +1743,9 @@ impl Optimizer {
     ) -> Option<LirNodeId> {
         let receiver = callee_node.children.first().copied()?;
         let receiver_name = program.nodes.get(receiver.0 as usize)?.text.as_deref()?;
-        if receiver_name != "Object" {
+        let is_object_receiver = matches!(receiver_name, "Object" | "globalThis.Object");
+        let is_reflect_receiver = matches!(receiver_name, "Reflect" | "globalThis.Reflect");
+        if !is_object_receiver && !is_reflect_receiver {
             return None;
         }
 
@@ -1755,14 +1757,21 @@ impl Optimizer {
 
         let properties = self.ordered_object_literal_properties(program, object_id)?;
         match callee_node.text.as_deref()? {
-            "keys" => {
+            "keys" if is_object_receiver => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
                     elements.push(self.clone_string_literal(program, key));
                 }
                 Some(self.push_array_literal(program, elements))
             }
-            "values" => {
+            "ownKeys" if is_reflect_receiver => {
+                let mut elements = Vec::with_capacity(properties.len());
+                for (key, _) in properties {
+                    elements.push(self.clone_string_literal(program, key));
+                }
+                Some(self.push_array_literal(program, elements))
+            }
+            "values" if is_object_receiver => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (_, value) in properties {
                     elements.push(self.clone_subtree_with_substitution(
@@ -1774,7 +1783,7 @@ impl Optimizer {
                 }
                 Some(self.push_array_literal(program, elements))
             }
-            "entries" => {
+            "entries" if is_object_receiver => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, value) in properties {
                     let key_id = self.clone_string_literal(program, key);
