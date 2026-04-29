@@ -13255,6 +13255,63 @@ fn run_accepts_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn run_accepts_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log('threaded run');").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--wasm-threads")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("threaded run"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_accepts_inherited_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log('threaded run');").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("threaded run"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_rejects_inherited_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -17726,6 +17783,58 @@ fn test_accepts_wasm_threads_runtime_profile() {
 fn test_accepts_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "1 + 2;").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_wasm_threads_runtime_profile_in_js_input() {
+    let output = Command::new(kali_bin())
+        .arg("test")
+        .arg("--wasm-threads")
+        .arg(fixture_path("tests/smoke.test.js"))
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_inherited_wasm_threads_runtime_profile_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
     fs::write(&source_path, "1 + 2;").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
