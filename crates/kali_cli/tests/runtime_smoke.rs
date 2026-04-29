@@ -599,7 +599,7 @@ fn json_check_accepts_deno_env_get_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));\n",
+        "console.log(Deno.env.get('KALI_ENV_GET_SMOKE'));\nconsole.log(globalThis.Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));\nconsole.log(globalThis[\"Deno\"].env[\"get\"]('KALI_ENV_GET_SMOKE'));\n",
     )
     .expect("write source");
 
@@ -634,7 +634,7 @@ fn test_supports_bracketed_deno_env_get_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment') { throw new Error('expected env get'); } });\n",
+        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const mixed = globalThis.Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const inherited = globalThis[\"Deno\"].env[\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') { throw new Error('expected env get'); } });\n",
     )
     .expect("write source");
 
@@ -655,7 +655,7 @@ fn json_test_supports_bracketed_deno_env_get_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment') { throw new Error('expected env get'); } });\n",
+        "Kali.test('env get', () => { const direct = Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const bracketed = globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const mixed = globalThis.Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'); const inherited = globalThis[\"Deno\"].env[\"get\"]('KALI_ENV_GET_SMOKE'); if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') { throw new Error('expected env get'); } });\n",
     )
     .expect("write source");
 
@@ -42988,7 +42988,9 @@ fn effects_command_reports_computed_bracketed_deno_env_get_as_dynamic() {
         r#"
 const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
 const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
-if (direct !== 'hello-environment' || bracketed !== 'hello-environment') {
+const mixed = globalThis.Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const inherited = globalThis["Deno"].env["get"]('KALI_ENV_GET_SMOKE');
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') {
   throw new Error('expected env get');
 }
 "#,
@@ -45595,7 +45597,9 @@ fn package_effects_reports_computed_bracketed_deno_env_get_as_dynamic() {
         package_dir.join("index.js"),
         r#"const direct = Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
 const bracketed = globalThis["Deno"]["env"]["get"]('KALI_ENV_GET_SMOKE');
-if (direct !== 'hello-environment' || bracketed !== 'hello-environment') {
+const mixed = globalThis.Deno["env"]["get"]('KALI_ENV_GET_SMOKE');
+const inherited = globalThis["Deno"].env["get"]('KALI_ENV_GET_SMOKE');
+if (direct !== 'hello-environment' || bracketed !== 'hello-environment' || mixed !== 'hello-environment' || inherited !== 'hello-environment') {
   throw new Error('expected env get');
 }
 "#,

@@ -179,7 +179,7 @@ fn build_source_file_supports_bracketed_deno_env_get_in_js_input_global_this() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));",
+        "console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE')); console.log(globalThis.Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE')); console.log(globalThis[\"Deno\"].env[\"get\"]('KALI_ENV_GET_SMOKE'));",
     )
     .expect("write source");
 
@@ -207,7 +207,7 @@ fn build_source_file_supports_bracketed_deno_env_get_in_ts_input_global_this() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE'));",
+        "console.log(globalThis[\"Deno\"][\"env\"][\"get\"]('KALI_ENV_GET_SMOKE')); console.log(globalThis.Deno[\"env\"][\"get\"]('KALI_ENV_GET_SMOKE')); console.log(globalThis[\"Deno\"].env[\"get\"]('KALI_ENV_GET_SMOKE'));",
     )
     .expect("write source");
 
