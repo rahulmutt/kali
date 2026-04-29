@@ -347,6 +347,61 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
+    let invalid_package = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+            "unexpected": true,
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&invalid_package)
+        .expect_err("unexpected package keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+
+    let invalid_report = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+            "unexpected": true,
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&invalid_report)
+        .expect_err("unexpected report keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_init_payload_value_rejects_unexpected_keys() {
     let value = json!({
         "root": "/workspace/example",
