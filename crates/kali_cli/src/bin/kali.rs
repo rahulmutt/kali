@@ -16,8 +16,9 @@ use kali_cli::{
     load_sandbox_policy,
     output::{
         self, validate_doctor_payload_value, validate_effects_payload_value,
-        validate_package_audit_payload_value, validate_package_effects_payload_value,
-        CliOutputOptions,
+        validate_fmt_payload_value, validate_init_payload_value, validate_install_payload_value,
+        validate_lint_payload_value, validate_package_audit_payload_value,
+        validate_package_effects_payload_value, CliOutputOptions,
     },
     Args, BundleFormat, Commands,
 };
@@ -211,6 +212,8 @@ fn main() {
                             "sourcePath": summary.source_path,
                             "library": summary.library,
                         });
+                        validate_init_payload_value(&payload)
+                            .expect("constructed init payload must satisfy schema-v1 shape");
                         print_envelope(
                             "init",
                             true,
@@ -3402,6 +3405,8 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
     if selected_files.is_empty() {
         if output.is_json() {
             let payload = json!({"filesFormatted": 0, "filesChecked": 0});
+            validate_fmt_payload_value(&payload)
+                .expect("constructed fmt payload must satisfy schema-v1 shape");
             print_envelope("fmt", true, vec![], vec![], payload, None, None, 0, output);
         } else if !output.quiet {
             println!("{} 0 file(s)", if check { "Checked" } else { "Formatted" });
@@ -3459,6 +3464,8 @@ fn fmt_command(files: Vec<String>, check: bool, output: &CliOutputOptions) -> Re
 
     if output.is_json() {
         let payload = json!({"filesFormatted": changed, "filesChecked": processed});
+        validate_fmt_payload_value(&payload)
+            .expect("constructed fmt payload must satisfy schema-v1 shape");
         let success = !check || changed == 0;
         print_envelope(
             "fmt",
@@ -3497,6 +3504,8 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
         if output.is_json() {
             let payload =
                 json!({"filesLinted": 0, "errorCount": 0, "warningCount": 0, "fixedCount": 0});
+            validate_lint_payload_value(&payload)
+                .expect("constructed lint payload must satisfy schema-v1 shape");
             print_envelope("lint", true, vec![], vec![], payload, None, None, 0, output);
         } else if !output.quiet {
             println!("Linted 0 file(s)");
@@ -3566,6 +3575,8 @@ fn lint_command(files: Vec<String>, fix: bool, output: &CliOutputOptions) -> Res
             "warningCount": warnings.len(),
             "fixedCount": fixed,
         });
+        validate_lint_payload_value(&payload)
+            .expect("constructed lint payload must satisfy schema-v1 shape");
         print_envelope(
             "lint",
             !had_error,
@@ -4169,6 +4180,8 @@ fn install_command(
                     "updated": [],
                     "removed": [],
                 });
+                validate_install_payload_value(&payload)
+                    .expect("constructed install payload must satisfy schema-v1 shape");
                 print_envelope(
                     "install",
                     true,

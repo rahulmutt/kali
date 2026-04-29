@@ -269,6 +269,130 @@ pub fn validate_package_effects_payload_value(value: &Value) -> Result<(), Strin
     Ok(())
 }
 
+pub fn validate_init_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("init payload must be a JSON object".to_string());
+    };
+
+    for key in ["root", "manifestPath", "sourcePath", "library"] {
+        if !object.contains_key(key) {
+            return Err(format!("init payload is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["root", "manifestPath", "sourcePath", "library"],
+        "init payload",
+    )?;
+
+    for key in ["root", "manifestPath", "sourcePath"] {
+        match object.get(key) {
+            Some(Value::String(_)) => {}
+            Some(other) => return Err(format!("init payload {key} must be a string, got {other}")),
+            None => unreachable!("validated above"),
+        }
+    }
+
+    match object.get("library") {
+        Some(Value::Bool(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "init payload library must be a boolean, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+pub fn validate_fmt_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("fmt payload must be a JSON object".to_string());
+    };
+
+    for key in ["filesFormatted", "filesChecked"] {
+        if !object.contains_key(key) {
+            return Err(format!("fmt payload is missing required key `{key}`"));
+        }
+    }
+
+    for key in ["filesFormatted", "filesChecked"] {
+        match object.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!(
+                    "fmt payload {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
+}
+
+pub fn validate_lint_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("lint payload must be a JSON object".to_string());
+    };
+
+    for key in ["filesLinted", "errorCount", "warningCount", "fixedCount"] {
+        if !object.contains_key(key) {
+            return Err(format!("lint payload is missing required key `{key}`"));
+        }
+    }
+
+    for key in ["filesLinted", "errorCount", "warningCount", "fixedCount"] {
+        match object.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!(
+                    "lint payload {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
+}
+
+pub fn validate_install_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("install payload must be a JSON object".to_string());
+    };
+
+    for key in ["installed", "updated", "removed"] {
+        if !object.contains_key(key) {
+            return Err(format!("install payload is missing required key `{key}`"));
+        }
+    }
+
+    for key in ["manifestPath", "lockPath"] {
+        if let Some(other) = object.get(key) {
+            match other {
+                Value::Null | Value::String(_) => {}
+                _ => {
+                    return Err(format!(
+                        "install payload {key} must be a string or null, got {other}"
+                    ))
+                }
+            }
+        }
+    }
+
+    for key in ["installed", "updated", "removed"] {
+        validate_string_array_value(object.get(key), &format!("install payload {key}"), true)?;
+    }
+
+    Ok(())
+}
+
 pub fn validate_package_audit_payload_value(value: &Value) -> Result<(), String> {
     if value.is_null() {
         Ok(())

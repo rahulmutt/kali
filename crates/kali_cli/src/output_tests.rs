@@ -2,8 +2,9 @@ use serde_json::json;
 
 use crate::output::{
     emit_envelope_value, validate_doctor_payload_value, validate_effects_payload_value,
-    validate_envelope_value, validate_package_audit_payload_value,
-    validate_package_effects_payload_value,
+    validate_envelope_value, validate_fmt_payload_value, validate_init_payload_value,
+    validate_install_payload_value, validate_lint_payload_value,
+    validate_package_audit_payload_value, validate_package_effects_payload_value,
 };
 
 #[test]
@@ -64,6 +65,53 @@ fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_init_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "root": "/workspace/example",
+        "manifestPath": "/workspace/example/kali.json",
+        "sourcePath": "/workspace/example/src/main.ts",
+        "library": false,
+    });
+
+    validate_init_payload_value(&value).expect("init payload should validate");
+}
+
+#[test]
+fn validate_fmt_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "filesFormatted": 2,
+        "filesChecked": 3,
+    });
+
+    validate_fmt_payload_value(&value).expect("fmt payload should validate");
+}
+
+#[test]
+fn validate_lint_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "filesLinted": 4,
+        "errorCount": 1,
+        "warningCount": 2,
+        "fixedCount": 3,
+    });
+
+    validate_lint_payload_value(&value).expect("lint payload should validate");
+}
+
+#[test]
+fn validate_install_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "manifestPath": "/workspace/example/kali.json",
+        "lockPath": null,
+        "installed": ["semver"],
+        "updated": [],
+        "removed": [],
+    });
+
+    validate_install_payload_value(&value).expect("install payload should validate");
+}
+
+#[test]
 fn validate_effects_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "schemaVersion": 1,
@@ -114,6 +162,35 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 
     validate_package_effects_payload_value(&value)
         .expect("package-effects payload should validate");
+}
+
+#[test]
+fn validate_init_payload_value_rejects_unexpected_keys() {
+    let value = json!({
+        "root": "/workspace/example",
+        "manifestPath": "/workspace/example/kali.json",
+        "sourcePath": "/workspace/example/src/main.ts",
+        "library": false,
+        "extra": true,
+    });
+
+    let err = validate_init_payload_value(&value).expect_err("unexpected init keys should fail");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_install_payload_value_rejects_non_string_entries() {
+    let value = json!({
+        "manifestPath": "/workspace/example/kali.json",
+        "lockPath": null,
+        "installed": ["semver", 1],
+        "updated": [],
+        "removed": [],
+    });
+
+    let err =
+        validate_install_payload_value(&value).expect_err("non-string install entries should fail");
+    assert!(err.contains("installed[1]"), "unexpected error: {err}");
 }
 
 #[test]
