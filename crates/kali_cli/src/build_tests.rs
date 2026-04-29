@@ -1596,6 +1596,26 @@ fn build_browser_bundle_result_round_trips_through_schema_validation() {
 }
 
 #[test]
+fn build_browser_bundle_result_accepts_cjs_format_through_schema_validation() {
+    let value = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.cjs" },
+            { "kind": "source-map", "path": "browser.cjs.map" }
+        ],
+        "exports": [],
+        "bundleFormat": "cjs"
+    });
+
+    validate_build_result_value(&value).expect("browser bundle cjs result should validate");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
