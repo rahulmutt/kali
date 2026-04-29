@@ -1,0 +1,7 @@
+{
+  "benchmark": "bigint-literal-arguments",
+  "version": 1,
+  "sourceFile": "bigint-literal-arguments-benchmark-v1.ts",
+  "sourceSha256": "sha256-3c979e9726c3756225518aa0ea2254438a7adb367d501050a3f0f3942ba6eefb",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
