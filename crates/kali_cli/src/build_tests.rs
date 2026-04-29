@@ -1723,6 +1723,29 @@ fn build_component_result_accepts_artifact_roles_through_schema_validation() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_non_string_artifact_roles() {
+    let invalid_component = serde_json::json!({
+        "artifactKind": "component",
+        "outputPath": "/workspace/dist/component",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "metadataPath": "/workspace/dist/component/component.meta.json",
+        "witPath": "/workspace/dist/component/component.wit",
+        "bindingPackagePath": "/workspace/dist/component/component.binding-package.json",
+        "artifacts": [
+            { "kind": "wasm-component", "path": "component.wasm", "role": 1 },
+            { "kind": "wit", "path": "component.wit", "role": "interface-wit" }
+        ],
+        "exports": []
+    });
+
+    let err = validate_build_result_value(&invalid_component)
+        .expect_err("non-string artifact roles should fail validation");
+    assert!(err.contains("role"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_unexpected_top_level_keys() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
