@@ -14,6 +14,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | `crates/kali_types/src/tests.rs`, `crates/kali_runtime/src/tests.rs` |
 | Static ESM `import` / `export` | Phase 1 MVP | `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs` |
 | Literal-string `import()` lowering over the linked graph, including directory-index targets | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (standalone run/test TS and `.js` input, including JSON-output coverage for the `run` / `test` lanes, browser-requested `run` / `test` TS and `.js` input with JSON-output coverage on the browser-requested `test` lane, plus browser-targeted bundle smoke) |
+| Browser-requested `run` / `test` literal-string dynamic-import directory-index targets in `.ts` and `.js` input, including JSON-output coverage | Phase 3 target | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Directory-index dynamic-import targets in `.tsx` and `.jsx` input | Phase 3 target | `crates/kali_types/src/tests.rs`, `crates/kali_cli/src/build_tests.rs` |
 | Async function declarations / expressions and async generator syntax | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
 | Arrow function expressions with concise bodies | Phase 1 MVP | `crates/kali_parser/src/tests.rs` |
