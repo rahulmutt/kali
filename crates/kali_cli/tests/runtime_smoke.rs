@@ -46970,7 +46970,7 @@ fn package_effects_reports_inherited_node_analysis_context() {
     .expect("write package.json");
     fs::write(
         package_dir.join("index.js"),
-        "console.log(process.argv.length);\nconsole.log('hello');",
+        "process.env = {};\nconsole.log(process.argv.length);\nconsole.log('hello');",
     )
     .expect("write package entry");
 
@@ -47005,6 +47005,7 @@ fn package_effects_reports_inherited_node_analysis_context() {
         .map(|entry| entry["kind"].as_str().expect("kind string"))
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Console.Write"));
+    assert!(kinds.contains(&"Process.EnvWrite"), "kinds: {kinds:?}");
 }
 
 #[test]

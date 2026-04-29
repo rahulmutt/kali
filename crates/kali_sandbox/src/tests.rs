@@ -660,6 +660,33 @@ globalThis["Deno"]["env"]["delete"]('KALI_CORPUS_FLAG');
 }
 
 #[test]
+fn effect_analysis_tracks_node_process_env_assignment_in_js_input() {
+    let source = write_source_fixture_with_extension(
+        r#"
+process.env = {};
+process["env"] = {};
+globalThis.process.env = {};
+globalThis.process["env"] = {};
+globalThis["process"].env = {};
+globalThis["process"]["env"] = {};
+"#,
+        "js",
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("node"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Process.EnvWrite"));
+}
+
+#[test]
 fn effect_analysis_tracks_direct_deno_network_calls_in_js_input() {
     let source = write_source_fixture_with_extension(
         r#"

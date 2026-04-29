@@ -395,7 +395,8 @@ fn visit_source_root(
         return Err(parsed.diagnostics);
     }
 
-    let file_effects = scan_tokens_for_effects(root, &source, &lexed.tokens, dynamic_reasons)?;
+    let file_effects =
+        scan_tokens_for_effects(root, &source, &lexed.tokens, dynamic_reasons, context)?;
     effects.extend(file_effects);
 
     for import_spec in collect_relative_imports(&parsed.statements) {
@@ -535,6 +536,7 @@ fn scan_tokens_for_effects(
     source: &str,
     tokens: &[Token],
     dynamic_reasons: &mut BTreeSet<String>,
+    context: &EffectAnalysisContext,
 ) -> Result<Vec<ObservedEffect>, Vec<Diagnostic>> {
     let mut effects = Vec::<ObservedEffect>::new();
     let mut i = 0usize;
@@ -622,6 +624,23 @@ fn scan_tokens_for_effects(
             ));
             i += 1;
             continue;
+        }
+
+        if context.api_surface == "node" {
+            if let Some(effect) = is_process_env_assignment(tokens, i) {
+                if effect.computed_host_access {
+                    dynamic_reasons.insert("computed-host-access".to_string());
+                }
+                effects.push(observed_effect(
+                    file,
+                    token,
+                    source,
+                    effect.kind,
+                    effect.target,
+                ));
+                i += 1;
+                continue;
+            }
         }
 
         if let Some((kind, target)) = is_global_effect_call(tokens, i) {
@@ -788,6 +807,23 @@ fn read_deno_root(tokens: &[Token], index: usize) -> Option<(usize, bool)> {
     }
 }
 
+fn read_process_root(tokens: &[Token], index: usize) -> Option<(usize, bool)> {
+    match tokens.get(index)? {
+        token if token.kind == TokenType::Identifier && token.value == "process" => {
+            Some((index + 1, false))
+        }
+        token if token.kind == TokenType::Identifier && token.value == "globalThis" => {
+            let (root, next, computed) = read_property_segment(tokens, index + 1)?;
+            if root == "process" {
+                Some((next, computed))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 fn is_deno_command_constructor(tokens: &[Token], index: usize) -> Option<EffectMatch> {
     if !matches!(tokens.get(index), Some(token) if token.kind == TokenType::New) {
         return None;
@@ -875,6 +911,23 @@ fn is_deno_host_call(tokens: &[Token], index: usize) -> Option<EffectMatch> {
         kind,
         target: call_string_argument(tokens, next),
         computed_host_access,
+    })
+}
+
+fn is_process_env_assignment(tokens: &[Token], index: usize) -> Option<EffectMatch> {
+    let (cursor, computed_host_access) = read_process_root(tokens, index)?;
+    let (member, next, computed_member_access) = read_property_segment(tokens, cursor)?;
+    if member != "env" {
+        return None;
+    }
+    if !matches!(tokens.get(next).map(|t| t.kind), Some(TokenType::Eq)) {
+        return None;
+    }
+
+    Some(EffectMatch {
+        kind: "Process.EnvWrite",
+        target: Some("process.env".to_string()),
+        computed_host_access: computed_host_access || computed_member_access,
     })
 }
 
