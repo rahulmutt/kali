@@ -590,6 +590,13 @@ fn analyze_source_file(
         )]);
     }
 
+    if source_uses_promise_all_settled(&source) {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Promise.allSettled is unavailable in the current phase; use Promise.all or the later compatibility path",
+        )]);
+    }
+
     let lexer = Lexer::new(FileId::new(0), source.clone());
     let tokens = lexer.lex_all().tokens;
     if !compat_eval && source_uses_eval_compat(&tokens) {
@@ -635,6 +642,17 @@ fn source_uses_process_env_mutation(source: &str) -> bool {
         "globalThis.process['env'] =",
         "globalThis[\"process\"][\"env\"] =",
         "globalThis['process']['env'] =",
+    ];
+
+    patterns.iter().any(|pattern| source.contains(pattern))
+}
+
+fn source_uses_promise_all_settled(source: &str) -> bool {
+    let patterns = [
+        "Promise.allSettled(",
+        "Promise[\"allSettled\"](",
+        "Promise['allSettled'](",
+        "globalThis.Promise.allSettled(",
     ];
 
     patterns.iter().any(|pattern| source.contains(pattern))

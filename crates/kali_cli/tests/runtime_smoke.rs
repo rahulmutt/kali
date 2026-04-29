@@ -30782,6 +30782,11 @@ fn assert_nullish_coalescing_rejection_json(errors: &[Value]) {
     );
 }
 
+fn assert_promise_all_settled_rejection_text(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
+}
+
 fn assert_promise_all_settled_rejection_json(errors: &[Value]) {
     assert!(!errors.is_empty(), "errors array should not be empty");
     assert!(
@@ -30851,6 +30856,50 @@ fn json_check_rejects_nullish_coalescing_in_js_input() {
 }
 
 #[test]
+fn check_rejects_promise_all_settled_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_promise_all_settled_rejection_text(&stderr);
+}
+
+#[test]
+fn json_check_rejects_promise_all_settled_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_promise_all_settled_rejection_json(errors);
+}
+
+#[test]
 fn run_rejects_promise_all_settled_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -30866,8 +30915,7 @@ fn run_rejects_promise_all_settled_in_js_input() {
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
+    assert_promise_all_settled_rejection_text(&stderr);
 }
 
 #[test]
@@ -30946,6 +30994,58 @@ fn json_run_rejects_nullish_coalescing_in_js_input() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_nullish_coalescing_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_promise_all_settled_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_promise_all_settled_rejection_text(&stderr);
+}
+
+#[test]
+fn json_test_rejects_promise_all_settled_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_promise_all_settled_rejection_json(errors);
 }
 
 #[test]
