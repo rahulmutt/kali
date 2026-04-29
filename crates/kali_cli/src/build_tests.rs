@@ -447,7 +447,11 @@ globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
 fn build_source_file_rejects_bracketed_proxy_revocable_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, r#"globalThis["Proxy"]["revocable"]({}, {});"#).expect("write source");
+    fs::write(
+        &source_path,
+        r#"globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {});"#,
+    )
+    .expect("write source");
 
     let error = build_source_file(
         &source_path,
@@ -467,6 +471,9 @@ fn build_source_file_rejects_bracketed_proxy_revocable_in_js_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains(r#"globalThis["Proxy"]["revocable"]"#)
+            || diagnostic
+                .message
+                .contains(r#"globalThis["Proxy"].revocable"#)
             || diagnostic.message.contains("Proxy.revocable")),
         "unexpected diagnostics: {error:?}"
     );
