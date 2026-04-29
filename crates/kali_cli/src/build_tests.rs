@@ -594,6 +594,45 @@ fn build_source_file_rejects_promise_all_settled_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_permission_escalation_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("permission escalation APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("permission escalation API")
+                && (diagnostic.message.contains("Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains("globalThis.Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"]["permissions"]["request"]"#))
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_permission_escalation_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -628,6 +667,46 @@ fn build_source_file_rejects_permission_escalation_in_js_input() {
                         .message
                         .contains(r#"globalThis["Deno"]["permissions"]["request"]"#))
         ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("env materialization APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("environment snapshot materialization API")
+            && (diagnostic.message.contains("Deno.env.toObject")
+                || diagnostic.message.contains("globalThis.Deno.env.toObject")
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -668,6 +747,62 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
                 || diagnostic
                     .message
                     .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Locale;"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("broader Intl APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("broader Intl support")
+                && (diagnostic.message.contains("Intl.DateTimeFormat")
+                    || diagnostic.message.contains("Intl.RelativeTimeFormat")
+                    || diagnostic.message.contains("Intl.PluralRules")
+                    || diagnostic.message.contains("Intl.Collator")
+                    || diagnostic.message.contains("Intl.DisplayNames")
+                    || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["RelativeTimeFormat"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["PluralRules"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["Collator"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["DisplayNames"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["Locale"]"#))
+        }),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -729,6 +864,41 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late weak-reference APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("WeakMap")
+                || diagnostic.message.contains("WeakSet")
+                || diagnostic.message.contains("WeakRef")
+                || diagnostic.message.contains("FinalizationRegistry")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -758,6 +928,40 @@ fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
                 || diagnostic.message.contains("WeakSet")
                 || diagnostic.message.contains("WeakRef")
                 || diagnostic.message.contains("FinalizationRegistry")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("threaded runtime globals should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime globals")
         }),
         "unexpected diagnostics: {error:?}"
     );
