@@ -1066,6 +1066,37 @@ fn test_parse_async_arrow_function_return_type_annotation() {
 }
 
 #[test]
+fn test_parse_arrow_function_return_type_annotation() {
+    let tokens = lex("const identity = (value): number => value;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::VariableDeclaration(decl) => {
+            let init = decl.declarations[0].init.as_ref().expect("initializer");
+            match init {
+                Expression::ArrowFunctionExpression(func) => {
+                    assert!(!func.is_async, "expected async flag to be false");
+                    assert_eq!(func.params.len(), 1);
+                    assert_eq!(func.params[0].name, "value");
+                    assert_eq!(func.returnType.as_deref(), Some("number"));
+                    assert!(matches!(&func.body, Expression::Identifier(name) if name == "value"));
+                }
+                other => panic!("Expected ArrowFunctionExpression, got {other:?}"),
+            }
+        }
+        other => panic!("Expected VariableDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_async_generator_function_declaration() {
     let tokens = lex("async function* main() { yield 1; }");
     let mut parser = Parser::new(FileId::new(0), tokens);
