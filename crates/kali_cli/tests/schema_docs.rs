@@ -1927,6 +1927,10 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
         "phase 7 README should keep the summary-fallback note explicit"
     );
     assert!(
+        readme.contains("including the invalid-label and invalid-array-item fallback branches."),
+        "phase 7 README should keep the invalid-array-item summary-fallback note explicit"
+    );
+    assert!(
         readme
             .contains("and the CLI schema-doc drift net now also pins this summary-fallback note"),
         "phase 7 README should keep the schema-doc drift-net note explicit"
