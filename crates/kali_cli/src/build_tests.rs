@@ -1653,6 +1653,52 @@ fn build_browser_bundle_result_accepts_cjs_format_through_schema_validation() {
 }
 
 #[test]
+fn build_library_result_round_trips_through_schema_validation() {
+    let value = serde_json::json!({
+        "artifactKind": "lib",
+        "outputPath": "/workspace/dist/lib",
+        "sizeBytes": 42,
+        "buildMode": "release",
+        "sourceHash": "sha256-deadbeef",
+        "profileDataHash": "sha256-feedface",
+        "metadataPath": "/workspace/dist/lib/lib.meta.json",
+        "witPath": "/workspace/dist/lib/lib.wit",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "lib.wasm" },
+            { "kind": "meta-json", "path": "lib.meta.json" }
+        ],
+        "exports": [
+            { "name": "main", "signature": "(input) => number" }
+        ]
+    });
+
+    validate_build_result_value(&value).expect("library result should validate");
+}
+
+#[test]
+fn build_capi_result_round_trips_through_schema_validation() {
+    let value = serde_json::json!({
+        "artifactKind": "capi",
+        "outputPath": "/workspace/dist/capi",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "profileDataHash": "sha256-feedface",
+        "metadataPath": "/workspace/dist/capi/capi.meta.json",
+        "witPath": "/workspace/dist/capi/capi.wit",
+        "headerPath": "/workspace/dist/capi/capi.h",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "capi.wasm" },
+            { "kind": "meta-json", "path": "capi.meta.json" },
+            { "kind": "header", "path": "capi.h" }
+        ],
+        "exports": []
+    });
+
+    validate_build_result_value(&value).expect("capi result should validate");
+}
+
+#[test]
 fn build_component_result_accepts_artifact_roles_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "component",
