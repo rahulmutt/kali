@@ -31367,6 +31367,56 @@ fn json_check_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_in
 }
 
 #[test]
+fn check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.trunc(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(&stderr);
+}
+
+#[test]
+fn json_check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.trunc(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("non-integer numeric literals")),
+        "missing non-integer numeric literal diagnostic in {errors:?}"
+    );
+}
+
+#[test]
 fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -31562,7 +31612,10 @@ fn assert_unsupported_math_member_calls_rejection_json(errors: &[Value]) {
 
 fn assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Math.ceil"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Math.ceil") || stderr.contains("Math.trunc"),
+        "stderr: {stderr}"
+    );
     assert!(
         stderr.contains("non-integer numeric literals"),
         "stderr: {stderr}"
