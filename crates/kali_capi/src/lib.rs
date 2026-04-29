@@ -48,7 +48,7 @@ pub fn generate_metadata(
     wit_path: impl AsRef<str>,
     exports_header_path: impl AsRef<str>,
 ) -> Value {
-    json!({
+    validate_generated_cabi_metadata(json!({
         "schemaVersion": 1,
         "kind": "cabi-metadata",
         "hostAbiVersion": HOST_ABI_VERSION,
@@ -58,7 +58,7 @@ pub fn generate_metadata(
             "wit": wit_path.as_ref(),
             "exportsHeader": exports_header_path.as_ref(),
         },
-    })
+    }))
 }
 
 /// Generate the canonical C ABI metadata payload with build provenance.
@@ -107,7 +107,7 @@ pub fn generate_metadata_with_provenance(
         }),
     );
 
-    Value::Object(metadata)
+    validate_generated_cabi_metadata(Value::Object(metadata))
 }
 
 /// Generate a deterministic packaging manifest for higher-level language bindings.
@@ -164,7 +164,7 @@ pub fn generate_binding_package_manifest_with_provenance(
         }),
     );
 
-    Value::Object(manifest)
+    validate_generated_binding_package_manifest(Value::Object(manifest))
 }
 
 /// Generate a deterministic packaging manifest for higher-level language bindings.
@@ -191,6 +191,16 @@ pub fn generate_binding_package_manifest(
 }
 
 /// Parse and validate generated C ABI metadata.
+fn validate_generated_cabi_metadata(metadata: Value) -> Value {
+    parse_metadata(&metadata.to_string())
+        .expect("generated cabi metadata must satisfy the schema-v1 contract")
+}
+
+fn validate_generated_binding_package_manifest(manifest: Value) -> Value {
+    parse_binding_package_manifest(&manifest.to_string())
+        .expect("generated binding package manifest must satisfy the schema-v1 contract")
+}
+
 pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
     let metadata: Value = serde_json::from_str(metadata_text)
         .map_err(|error| format!("cabi metadata is not valid JSON: {}", error))?;
