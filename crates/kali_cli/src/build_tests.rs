@@ -532,7 +532,7 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; Intl.RelativeTimeFormat; globalThis["Intl"]["PluralRules"]; Intl.Collator; globalThis["Intl"]["DisplayNames"]; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -564,10 +564,19 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
                         .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)
                     || diagnostic
                         .message
+                        .contains(r#"globalThis["Intl"]["RelativeTimeFormat"]"#)
+                    || diagnostic
+                        .message
                         .contains(r#"globalThis["Intl"]["PluralRules"]"#)
                     || diagnostic
                         .message
-                        .contains(r#"globalThis["Intl"]["DisplayNames"]"#))
+                        .contains(r#"globalThis["Intl"]["Collator"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["DisplayNames"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["Locale"]"#))
         }),
         "unexpected diagnostics: {error:?}"
     );

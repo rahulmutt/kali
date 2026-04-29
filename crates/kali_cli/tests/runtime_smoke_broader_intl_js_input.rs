@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn broader_intl_js_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"Segmenter\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"Intl\"][\"NumberFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"
 }
 
 fn assert_broader_intl_rejection(stderr: &str) {
@@ -28,7 +28,13 @@ fn assert_broader_intl_rejection(stderr: &str) {
         "globalThis.Intl.Segmenter",
         "globalThis.Intl.Locale",
         "Intl.NumberFormat",
+        r#"globalThis["Intl"]["DateTimeFormat"]"#,
+        r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
+        r#"globalThis["Intl"]["Collator"]"#,
+        r#"globalThis["Intl"]["DisplayNames"]"#,
         r#"globalThis["Intl"]["Segmenter"]"#,
+        r#"globalThis["Intl"]["Locale"]"#,
+        r#"globalThis["Intl"]["NumberFormat"]"#,
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
@@ -64,7 +70,13 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         "globalThis.Intl.Segmenter",
         "globalThis.Intl.Locale",
         "Intl.NumberFormat",
+        r#"globalThis["Intl"]["DateTimeFormat"]"#,
+        r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
+        r#"globalThis["Intl"]["Collator"]"#,
+        r#"globalThis["Intl"]["DisplayNames"]"#,
         r#"globalThis["Intl"]["Segmenter"]"#,
+        r#"globalThis["Intl"]["Locale"]"#,
+        r#"globalThis["Intl"]["NumberFormat"]"#,
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
