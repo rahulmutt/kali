@@ -2730,6 +2730,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.",
         "package corpus matrix should document browser semver runtime JSON-output coverage",
     );
+    assert_note_once(
+        "The Node `node:timers` evidence slice also checks `clearInterval` in addition to `setTimeout`, `clearTimeout`, and `setInterval`, the inherited Node built-in corpus now also carries JSON-output coverage on the `run` / `test` path, and the prose notes in the roadmap now call that out explicitly.",
+        "package corpus matrix should document the Node timers evidence note",
+    );
 }
 
 #[test]
