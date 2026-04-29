@@ -682,6 +682,71 @@ fn validate_envelope_value_rejects_non_string_context_fields() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_non_object_diagnostic_context() {
+    let invalid_context = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic context",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_context)
+        .expect_err("array diagnostic context should fail validation");
+    assert!(
+        err.contains("diagnostic context"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_envelope_value_rejects_diagnostic_context_missing_origin() {
+    let missing_origin = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic context",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {"configPath": "compilerOptions.apiSurface"}
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&missing_origin)
+        .expect_err("missing diagnostic context origin should fail validation");
+    assert!(err.contains("origin"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_allows_canonical_diagnostic_context_origins() {
     for origin in ["cli", "config", "default", "source"] {
         let value = json!({
