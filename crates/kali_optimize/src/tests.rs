@@ -5535,6 +5535,118 @@ fn release_specializes_bigint_literal_arguments() {
 }
 
 #[test]
+fn release_advanced_specializes_bigint_literal_arguments() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+
+    let function = builder.alloc_text(LirNodeKind::Instruction, "consume_bigint");
+    let param_value = builder.alloc_text(LirNodeKind::Value, "value");
+    let block = builder.alloc(LirNodeKind::Block);
+    let ret = builder.alloc_text(LirNodeKind::Instruction, "return");
+    let mut previous = param_value;
+    for value in 1..=32 {
+        let add = builder.alloc_text(LirNodeKind::Value, "+");
+        let literal = literal(&mut builder, &format!("{value}n"));
+        builder.node_mut(add).unwrap().children = vec![previous, literal];
+        previous = add;
+    }
+    builder.node_mut(ret).unwrap().children = vec![previous];
+    builder.node_mut(block).unwrap().children = vec![ret];
+    builder.node_mut(function).unwrap().children = vec![param_value, block];
+
+    let call_one_a = builder.alloc(LirNodeKind::Call);
+    let call_one_a_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+    let arg_one_a = literal(&mut builder, "1n");
+    builder.node_mut(call_one_a).unwrap().children = vec![call_one_a_callee, arg_one_a];
+
+    let call_two = builder.alloc(LirNodeKind::Call);
+    let call_two_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+    let arg_two = literal(&mut builder, "2n");
+    builder.node_mut(call_two).unwrap().children = vec![call_two_callee, arg_two];
+
+    let call_one_b = builder.alloc(LirNodeKind::Call);
+    let call_one_b_callee = builder.alloc_text(LirNodeKind::Value, "consume_bigint");
+    let arg_one_b = literal(&mut builder, "1n");
+    builder.node_mut(call_one_b).unwrap().children = vec![call_one_b_callee, arg_one_b];
+
+    builder.node_mut(root).unwrap().children = vec![function, call_one_a, call_two, call_one_b];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    let mir = MirAnalysisProgram {
+        root: kali_mir::MirNodeId::new(0),
+        nodes: Vec::new(),
+        functions: vec![
+            kali_mir::MirFunction {
+                name: None,
+                kind: kali_mir::MirFunctionKind::Module,
+                bindings: Vec::new(),
+            },
+            kali_mir::MirFunction {
+                name: Some("consume_bigint".to_string()),
+                kind: kali_mir::MirFunctionKind::Function,
+                bindings: vec![kali_mir::MirBinding {
+                    name: "value".to_string(),
+                    kind: MirBindingKind::Parameter,
+                    ownership: kali_mir::OwnershipClass::Borrowed,
+                    layout: LayoutDescriptor::TaggedVal,
+                    escapes: false,
+                    captured_by: Vec::new(),
+                }],
+            },
+        ],
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced)
+        .optimize_program_with_mir(&mut program, &mir);
+
+    let specialized_name_one_a = program.nodes[call_one_a.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for one_a");
+    let specialized_name_two = program.nodes[call_two.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for two");
+    let specialized_name_one_b = program.nodes[call_one_b.0 as usize]
+        .children
+        .first()
+        .and_then(|callee_id| program.nodes.get(callee_id.0 as usize))
+        .and_then(|callee| callee.text.as_deref())
+        .expect("specialized call target should exist for one_b");
+
+    assert_eq!(specialized_name_one_a, specialized_name_one_b);
+    assert_ne!(specialized_name_one_a, specialized_name_two);
+    assert!(specialized_name_one_a.starts_with("consume_bigint$spec$"));
+    assert!(specialized_name_two.starts_with("consume_bigint$spec$"));
+
+    let specialized_count_one = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node.text.as_deref() == Some(specialized_name_one_a)
+        })
+        .count();
+    let specialized_count_two = program
+        .nodes
+        .iter()
+        .filter(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node.text.as_deref() == Some(specialized_name_two)
+        })
+        .count();
+    assert_eq!(specialized_count_one, 1);
+    assert_eq!(specialized_count_two, 1);
+}
+
+#[test]
 fn release_specializes_shared_closure_layout_bindings() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
