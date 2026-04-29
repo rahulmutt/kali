@@ -9317,6 +9317,24 @@ Kali.test('semver corpus', () => {
         String::from_utf8_lossy(&check.stdout),
         String::from_utf8_lossy(&check.stderr)
     );
+    let check_json = run_kali(
+        dir.path(),
+        ["--output", "json", "check", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check_json.status.success(),
+        "semver corpus package should be checkable on the default standalone surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check_json.stdout),
+        String::from_utf8_lossy(&check_json.stderr)
+    );
+    let check_envelope = parse_json_stdout(&check_json);
+    assert_eq!(check_envelope["schemaVersion"], 1);
+    assert_eq!(check_envelope["command"], "check");
+    assert_eq!(check_envelope["success"], true);
+    assert_eq!(check_envelope["exitCode"], 0);
+    assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+    assert_eq!(check_envelope["payload"]["errorCount"], 0);
+    assert_eq!(check_envelope["payload"]["warningCount"], 0);
 
     let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
     assert!(
@@ -9324,6 +9342,34 @@ Kali.test('semver corpus', () => {
         "semver corpus package should be buildable on the default standalone surface in JS input\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&build.stdout),
         String::from_utf8_lossy(&build.stderr)
+    );
+    let build_json = run_kali(
+        dir.path(),
+        ["--output", "json", "build", source_path.to_str().unwrap()],
+    );
+    assert!(
+        build_json.status.success(),
+        "semver corpus package should be buildable on the default standalone surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build_json.stdout),
+        String::from_utf8_lossy(&build_json.stderr)
+    );
+    let build_envelope = parse_json_stdout(&build_json);
+    assert_eq!(build_envelope["schemaVersion"], 1);
+    assert_eq!(build_envelope["command"], "build");
+    assert_eq!(build_envelope["success"], true);
+    assert_eq!(build_envelope["exitCode"], 0);
+    let build_payload = build_envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(build_payload["artifactKind"], "executable");
+    assert_eq!(build_payload["buildMode"], "fast");
+    assert_eq!(
+        PathBuf::from(
+            build_payload["outputPath"]
+                .as_str()
+                .expect("build output path")
+        ),
+        source_path.with_extension("wasm")
     );
 
     let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
@@ -9334,6 +9380,29 @@ Kali.test('semver corpus', () => {
         String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&run.stdout), "1.2.3\n1\n1.2.3\n");
+    let run_json = run_kali(
+        dir.path(),
+        ["--output", "json", "run", source_path.to_str().unwrap()],
+    );
+    assert!(
+        run_json.status.success(),
+        "semver corpus package should stay executable on the default standalone surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run_json.stdout),
+        String::from_utf8_lossy(&run_json.stderr)
+    );
+    let run_envelope = parse_json_stdout(&run_json);
+    assert_eq!(run_envelope["command"], "run");
+    assert_eq!(run_envelope["success"], true);
+    assert_eq!(run_envelope["exitCode"], 0);
+    assert_eq!(run_envelope["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(run_envelope["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        run_envelope["stdout"]
+            .as_str()
+            .expect("run stdout")
+            .contains("1.2.3\n1\n1.2.3\n"),
+        "json run: {run_envelope}"
+    );
 
     let test = run_kali(dir.path(), ["test", test_path.to_str().unwrap()]);
     assert!(
@@ -9345,6 +9414,33 @@ Kali.test('semver corpus', () => {
     let test_stdout = String::from_utf8_lossy(&test.stdout);
     assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
     assert!(test_stdout.contains("1.2.3"), "stdout: {test_stdout}");
+    let test_json = run_kali(
+        dir.path(),
+        ["--output", "json", "test", test_path.to_str().unwrap()],
+    );
+    assert!(
+        test_json.status.success(),
+        "semver corpus package should be testable on the default standalone surface in JS input with JSON output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_json.stdout),
+        String::from_utf8_lossy(&test_json.stderr)
+    );
+    let test_envelope = parse_json_stdout(&test_json);
+    assert_eq!(test_envelope["command"], "test");
+    assert_eq!(test_envelope["success"], true);
+    assert_eq!(test_envelope["exitCode"], 0);
+    assert_eq!(test_envelope["payload"]["passed"], 1);
+    assert_eq!(test_envelope["payload"]["total"], 1);
+    assert_eq!(test_envelope["payload"]["failed"], 0);
+    assert_eq!(test_envelope["payload"]["skipped"], 0);
+    assert_eq!(test_envelope["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(test_envelope["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        test_envelope["stdout"]
+            .as_str()
+            .expect("test stdout")
+            .contains("1.2.3"),
+        "json test: {test_envelope}"
+    );
 }
 
 #[test]

@@ -22,7 +22,7 @@ Remaining goals:
 - `Math.sign()`, `Math.imul()`, and `Math.clz32()` now round out the existing `Math.max()` / `Math.min()` / `Math.abs()` built-in math coverage on the runtime-smoke path; keep the six-function built-in regression set in sync with the corresponding codegen import tests, including mirrored `.js` input coverage.
 - Current progress: the documented `--compat eval` path now also has `check` and `build` acceptance coverage for the `Function()` constructor on `.js` input, keeping the Phase-4 compatibility gate explicit on the analysis/build side as well.
 
-- Current progress: the package-corpus matrix drift test now also pins the default standalone exports-map, module-entry, and web-baseline primitive `.js` rows exactly once, keeping the default standalone package-corpus snapshot aligned with the active matrix alongside the browser and Node/Deno slices.
+- Current progress: the package-corpus matrix drift test now also pins the default standalone exports-map, module-entry, and web-baseline primitive `.js` rows exactly once, keeping the default standalone package-corpus snapshot aligned with the active matrix alongside the browser and Node/Deno slices. The default standalone pure-JS `semver` probe now also carries JSON-output coverage on `.js` input across `check` / `build` / `run` / `test`, keeping that pure-JS package rung machine-readable on the default standalone surface too.
 
 ## Runtime, host, and platform expansion
 
