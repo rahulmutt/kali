@@ -2158,6 +2158,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser runtime inherited-browser string-export corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| browser runtime corpus | browser string/web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime string/web-baseline corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| browser runtime corpus | browser string/web-baseline packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser runtime inherited-browser string/web-baseline corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| browser runtime corpus | browser pattern-exports packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser runtime pattern-exports corpus row should be recorded in the package corpus matrix",
         ),
@@ -2462,6 +2470,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_string_export_inherited_row,
         "browser runtime inherited-browser string-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_web_baseline_row =
+        "| browser runtime corpus | browser string/web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_web_baseline_row,
+        "browser runtime string/web-baseline corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_web_baseline_inherited_row =
+        "| browser runtime corpus | browser string/web-baseline packages with `.js` input and inherited browser `apiSurface` | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_web_baseline_inherited_row,
+        "browser runtime inherited-browser string/web-baseline corpus row should be recorded exactly once in the package corpus matrix",
     );
 
     let browser_internal_browser_rewrite_row =
