@@ -113,6 +113,33 @@ fn test_resolution_accepts_arrow_function_return_type_annotations() {
                         name: "value".to_string(),
                     }],
                     body: Expression::Identifier("value".to_string()),
+                    is_async: false,
+                    returnType: Some("Foo".to_string()),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_accepts_async_arrow_function_return_type_annotations() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Foo".to_string(),
+            type_params: vec![],
+            type_annotation: "string".to_string(),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                ArrowFunctionExpression {
+                    params: vec![FunctionParam {
+                        name: "value".to_string(),
+                    }],
+                    body: Expression::Identifier("value".to_string()),
                     is_async: true,
                     returnType: Some("Foo".to_string()),
                 },
