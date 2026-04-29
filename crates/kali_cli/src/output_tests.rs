@@ -653,6 +653,69 @@ fn validate_envelope_value_rejects_non_string_context_fields() {
 }
 
 #[test]
+fn validate_envelope_value_allows_canonical_diagnostic_context_origins() {
+    for origin in ["cli", "config", "default", "source"] {
+        let value = json!({
+            "schemaVersion": 1,
+            "command": "doctor",
+            "success": false,
+            "errors": [
+                {
+                    "severity": "error",
+                    "code": "E5508",
+                    "message": "bad diagnostic context origin",
+                    "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                    "labels": [],
+                    "related": [],
+                    "fix": null,
+                    "notes": [],
+                    "context": {"origin": origin}
+                }
+            ],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 1,
+        });
+
+        validate_envelope_value(&value)
+            .unwrap_or_else(|err| panic!("canonical origin `{origin}` should validate: {err}"));
+    }
+}
+
+#[test]
+fn validate_envelope_value_rejects_invalid_diagnostic_context_origin() {
+    let invalid_origin = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic context origin",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {"origin": "browser"}
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_origin)
+        .expect_err("unexpected diagnostic context origin should fail validation");
+    assert!(err.contains("origin"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_non_string_transport_fields() {
     let invalid_stdout = json!({
         "schemaVersion": 1,
