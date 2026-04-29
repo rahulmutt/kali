@@ -300,6 +300,22 @@ fn validate_envelope_value_rejects_malformed_timing_objects() {
         .expect_err("timings missing phase should fail validation");
     assert!(err.contains("phase"), "unexpected error: {err}");
 
+    let invalid_phase = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": 1, "milliseconds": 1}],
+    });
+    let err = validate_envelope_value(&invalid_phase)
+        .expect_err("timings with numeric phase should fail validation");
+    assert!(err.contains("phase"), "unexpected error: {err}");
+
     let invalid_milliseconds = json!({
         "schemaVersion": 1,
         "command": "doctor",
