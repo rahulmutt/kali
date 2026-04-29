@@ -1501,6 +1501,62 @@ fn discover_dynamic_import_targets_ignores_comment_and_string_substrings_in_js_f
 }
 
 #[test]
+fn discover_dynamic_import_targets_ignores_comment_and_string_substrings_in_jsx_files() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.jsx");
+    let ghost_path = dir.path().join("ghost.jsx");
+    let lazy_path = dir.path().join("lazy.jsx");
+    fs::write(&ghost_path, "export const ghost = true;").expect("write ghost chunk");
+    fs::write(&lazy_path, "export const lazy = true;").expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        "const comment = \"import('./ghost.jsx')\";\n/* import('./ghost.jsx') */\nconst lazy = import('./lazy.jsx');\n",
+    )
+    .expect("write source");
+
+    let targets = discover_dynamic_import_targets(
+        &source_path,
+        &fs::read_to_string(&source_path).expect("read source"),
+    )
+    .expect("discover dynamic import targets");
+
+    assert_eq!(targets.len(), 1, "targets: {targets:?}");
+    assert_eq!(targets[0].specifier, "./lazy.jsx");
+    assert_eq!(
+        targets[0].target,
+        lazy_path.canonicalize().expect("canonical lazy path")
+    );
+}
+
+#[test]
+fn discover_dynamic_import_targets_ignores_comment_and_string_substrings_in_tsx_files() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.tsx");
+    let ghost_path = dir.path().join("ghost.tsx");
+    let lazy_path = dir.path().join("lazy.tsx");
+    fs::write(&ghost_path, "export const ghost = true;").expect("write ghost chunk");
+    fs::write(&lazy_path, "export const lazy = true;").expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        "const comment = \"import('./ghost.tsx')\";\n/* import('./ghost.tsx') */\nconst lazy = import('./lazy.tsx');\n",
+    )
+    .expect("write source");
+
+    let targets = discover_dynamic_import_targets(
+        &source_path,
+        &fs::read_to_string(&source_path).expect("read source"),
+    )
+    .expect("discover dynamic import targets");
+
+    assert_eq!(targets.len(), 1, "targets: {targets:?}");
+    assert_eq!(targets[0].specifier, "./lazy.tsx");
+    assert_eq!(
+        targets[0].target,
+        lazy_path.canonicalize().expect("canonical lazy path")
+    );
+}
+
+#[test]
 fn discover_dynamic_import_targets_resolves_parenthesized_dynamic_import_targets_in_ts_files() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
