@@ -1402,27 +1402,50 @@ fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() 
 #[test]
 fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface() {
     let mut ctx = TypeContext::with_api_surface("browser");
-    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
-        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
-            callee: Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::Identifier("Object".to_string()),
-                property: "hasOwn".to_string(),
-            })),
-            args: vec![
-                Expression::ObjectExpression(ObjectExpression {
-                    properties: vec![ObjectProperty {
-                        key: PropertyName::Identifier("a".to_string()),
-                        value: Expression::Literal(LiteralValue::Number(1.0)),
-                        kind: ObjectPropertyKind::Init,
-                    }],
-                }),
-                Expression::Literal(LiteralValue::String("a".to_string())),
-            ],
-        }))),
-    })];
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "hasOwn".to_string(),
+                })),
+                args: vec![
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Object".to_string(),
+                    })),
+                    property: "hasOwn".to_string(),
+                })),
+                args: vec![
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+    ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(result.diagnostics.len(), 2);
     assert!(result
         .diagnostics
         .iter()
@@ -1431,6 +1454,10 @@ fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface(
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Object.hasOwn")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("Object.hasOwn")));
 }
 
 #[test]
