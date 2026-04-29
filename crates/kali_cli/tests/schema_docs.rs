@@ -2106,7 +2106,7 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
-            "The browser bundle `--format cjs` path now also has first-class `.js` input coverage in both explicit and inherited browser API-surface modes, including JSON-output coverage and sandbox-policy acceptance in those JS-input lanes, keeping the alternate browser wrapper format aligned with the same JS-input evidence lane."
+            "The browser bundle `--format cjs` path now also has first-class `.js` input coverage in both explicit and inherited browser API-surface modes, including JSON-output coverage and sandbox-policy acceptance in those JS-input lanes, and the inherited browser `apiSurface` path now also has human-output coverage in `.js` input, keeping the alternate browser wrapper format aligned with the same JS-input evidence lane."
         ),
         "phase 7 README should keep the browser bundle cjs browser-evidence note explicit"
     );
