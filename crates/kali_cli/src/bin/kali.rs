@@ -14,7 +14,7 @@ use kali_capi::{
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy,
-    output::{self, CliOutputOptions},
+    output::{self, validate_doctor_payload_value, CliOutputOptions},
     Args, BundleFormat, Commands,
 };
 use kali_error::{
@@ -377,6 +377,8 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
         }
     });
+    validate_doctor_payload_value(&payload)
+        .expect("constructed doctor payload must satisfy schema-v1 shape");
 
     if output.is_json() {
         print_envelope(

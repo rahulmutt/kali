@@ -160,6 +160,262 @@ pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+pub fn validate_doctor_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("doctor payload must be a JSON object".to_string());
+    };
+
+    for key in ["browserHarness", "browserRuntimeContract"] {
+        if !object.contains_key(key) {
+            return Err(format!("doctor payload is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["browserHarness", "browserRuntimeContract"],
+        "doctor payload",
+    )?;
+
+    validate_browser_harness_value(object.get("browserHarness"))?;
+    validate_browser_runtime_contract_value(object.get("browserRuntimeContract"))?;
+    Ok(())
+}
+
+fn reject_unexpected_keys(
+    object: &serde_json::Map<String, Value>,
+    allowed_keys: &[&str],
+    context: &str,
+) -> Result<(), String> {
+    for key in object.keys() {
+        if !allowed_keys.contains(&key.as_str()) {
+            return Err(format!("{context} contains unexpected key `{key}`"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
+    let Some(object) = value.and_then(Value::as_object) else {
+        return Err("doctor browserHarness must be a JSON object".to_string());
+    };
+
+    for key in [
+        "envVar",
+        "source",
+        "override",
+        "command",
+        "executable",
+        "args",
+        "executableAvailable",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!(
+                "doctor browserHarness is missing required key `{key}`"
+            ));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &[
+            "envVar",
+            "source",
+            "override",
+            "command",
+            "executable",
+            "args",
+            "executableAvailable",
+        ],
+        "doctor browserHarness",
+    )?;
+
+    match object.get("envVar") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness envVar must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("source") {
+        Some(Value::String(value)) if matches!(value.as_str(), "env" | "auto") => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness source must be `env` or `auto`, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("override") {
+        Some(Value::Null) | Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness override must be string or null, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("command") {
+        Some(Value::Array(items)) if !items.is_empty() => {
+            for (index, item) in items.iter().enumerate() {
+                if !item.is_string() {
+                    return Err(format!(
+                        "doctor browserHarness command[{index}] must be a string, got {item}"
+                    ));
+                }
+            }
+        }
+        Some(Value::Array(_)) => {
+            return Err("doctor browserHarness command must contain at least one item".to_string())
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness command must be an array, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("executable") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness executable must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("args") {
+        Some(Value::Array(items)) => {
+            for (index, item) in items.iter().enumerate() {
+                if !item.is_string() {
+                    return Err(format!(
+                        "doctor browserHarness args[{index}] must be a string, got {item}"
+                    ));
+                }
+            }
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness args must be an array, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("executableAvailable") {
+        Some(Value::Bool(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness executableAvailable must be a boolean, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), String> {
+    let Some(object) = value.and_then(Value::as_object) else {
+        return Err("doctor browserRuntimeContract must be a JSON object".to_string());
+    };
+
+    for key in [
+        "hostLabel",
+        "hostDescription",
+        "hostDescriptionNote",
+        "supportedCommands",
+        "diagnosticHint",
+        "diagnosticNotes",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!(
+                "doctor browserRuntimeContract is missing required key `{key}`"
+            ));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &[
+            "hostLabel",
+            "hostDescription",
+            "hostDescriptionNote",
+            "supportedCommands",
+            "diagnosticHint",
+            "diagnosticNotes",
+        ],
+        "doctor browserRuntimeContract",
+    )?;
+
+    for key in [
+        "hostLabel",
+        "hostDescription",
+        "hostDescriptionNote",
+        "diagnosticHint",
+    ] {
+        match object.get(key) {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "doctor browserRuntimeContract {key} must be a string, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    match object.get("supportedCommands") {
+        Some(Value::Array(items)) if !items.is_empty() => {
+            for (index, item) in items.iter().enumerate() {
+                if !item.is_string() {
+                    return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be a string, got {item}"));
+                }
+            }
+        }
+        Some(Value::Array(_)) => {
+            return Err(
+                "doctor browserRuntimeContract supportedCommands must contain at least one item"
+                    .to_string(),
+            )
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract supportedCommands must be an array, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("diagnosticNotes") {
+        Some(Value::Array(items)) if !items.is_empty() => {
+            for (index, item) in items.iter().enumerate() {
+                if !item.is_string() {
+                    return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a string, got {item}"));
+                }
+            }
+        }
+        Some(Value::Array(_)) => {
+            return Err(
+                "doctor browserRuntimeContract diagnosticNotes must contain at least one item"
+                    .to_string(),
+            )
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract diagnosticNotes must be an array, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
 fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), String> {
     let Some(Value::Array(items)) = value else {
         return Err(format!("CLI envelope {field} must be an array"));

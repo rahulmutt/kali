@@ -38,6 +38,7 @@ Widen proof-backed and machine-contract confidence while keeping claim boundarie
 - Add docs/schema drift tests for CLI examples and result payloads.
 - Progress: schema-document assertions already cover the core result payloads, and the envelope timing checks now also pin a non-string `phase` field so the timing-item contract stays explicit.
 - Progress: generated C ABI metadata and binding-package manifests now round-trip through their schema parsers before the helpers return, so the artifact-manifest contract is validated at generation time instead of only when a file is later reloaded from disk.
+- Progress: the `doctor` JSON payload now also validates its browser-harness and browser-runtime-contract blocks before emission, keeping the schema-v1 contract explicit at the command surface instead of only in the schema file.
 
 ## Exit gate
 
