@@ -1299,6 +1299,86 @@ fn inherited_node_api_surface_rejects_node_timers_promises_helpers_in_js_input_o
 }
 
 #[test]
+fn node_api_surface_rejects_node_net_module_in_js_input_on_check_build_run_and_test_commands() {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.js");
+    let test_file = dir.path().join("main.test.js");
+    fs::write(
+        &run_file,
+        "import net from 'node:net';\nconsole.log(typeof net);\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import net from 'node:net';\nKali.test('node net', () => console.log(typeof net));\n",
+    )
+    .expect("write test file");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let expected_message =
+        "node builtin 'node:net' is not available on the explicit Node API surface";
+
+    for command in ["check", "build", "run", "test"] {
+        let input_path = if command == "test" {
+            &test_file
+        } else {
+            &run_file
+        };
+
+        let mut text_command = Command::new(kali_bin());
+        text_command.current_dir(dir.path()).arg(command);
+        text_command.arg("--api").arg("node");
+        text_command.arg(input_path);
+
+        let text_output = text_command.output().expect("run kali");
+        assert!(
+            !text_output.status.success(),
+            "{command} should be rejected on the Node surface for node:net\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&text_output.stdout),
+            String::from_utf8_lossy(&text_output.stderr)
+        );
+        let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+        assert!(
+            text_stderr.contains(expected_message),
+            "{command} stderr for node:net: {text_stderr}"
+        );
+
+        let mut json_command = Command::new(kali_bin());
+        json_command
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg(command)
+            .arg("--api")
+            .arg("node")
+            .arg(input_path);
+
+        let json_output = json_command.output().expect("run kali");
+        assert!(
+            !json_output.status.success(),
+            "json {command} should surface the Node net rejection as machine-readable output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&json_output.stdout),
+            String::from_utf8_lossy(&json_output.stderr)
+        );
+        let json = parse_json_stdout(&json_output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        assert_eq!(json["errors"][0]["code"], "E5506");
+        assert_eq!(json["errors"][0]["message"], expected_message);
+    }
+}
+
+#[test]
 fn node_api_surface_rejects_process_env_assignment_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let expected_message = "environment mutation API 'process.env' (aka process[\"env\"]) is unavailable until the later mutable env path is enabled";
