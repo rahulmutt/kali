@@ -192,6 +192,7 @@ Maintenance note:
 | Literal-string `import()` | Phase 3 target | Can be lowered to the already-linked graph without runtime WASM module linking |
 | Non-literal `import(expr)` | Later compatibility | Requires a dynamic host-mediated path and conservative effect handling |
 | Nullish coalescing `??` | Rejected by default | The parser accepts the syntax for grammar completeness, but the current checker/codegen path rejects it with the canonical `E5506` gate instead of silently miscompiling `null`/`undefined` into the wrong runtime result |
+| `Promise.allSettled` | Rejected by default | The current standalone runtime path rejects the combinator with the canonical `E5506` gate instead of lowering it, so unsupported promise-combinator handling stays explicit until a later compatibility row opens |
 | `eval` | Phase 4 compatibility | Parsed and effect-tracked earlier, but full runtime support is deferred; compatibility path is the schema-v1 `--compat eval` switch when implemented, and that path must still preserve the top-level no-language-level-JIT invariant |
 | `Function()` constructor | Phase 4 compatibility | Same status as `eval`; schema v1 intentionally reuses the same `--compat eval` switch instead of introducing a second compatibility-feature name, and it inherits the same no-language-level-JIT constraint |
 | AOT-only compilation model (no language-level JIT) | Phase 1 MVP | Foundational product constraint from the bootstrap brief; optimization work must preserve ahead-of-time compilation rather than introducing a language-level JIT path |
