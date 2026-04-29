@@ -437,6 +437,15 @@ fn validate_package_audit_payload_value_accepts_null() {
 }
 
 #[test]
+fn validate_package_audit_payload_value_rejects_non_null_payloads() {
+    let value = json!({"unexpected": true});
+
+    let err = validate_package_audit_payload_value(&value)
+        .expect_err("non-null package-audit payloads should fail");
+    assert!(err.contains("must be null"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_empty_diagnostic_notes() {
     let value = json!({
         "browserHarness": {
