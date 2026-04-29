@@ -226,6 +226,32 @@ fn test_type_annotation_resolution_reports_unknown_names_in_js_input() {
 }
 
 #[test]
+fn test_type_annotation_resolution_reports_unknown_names_in_jsx_and_tsx_input() {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, "const value = 1;").unwrap();
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let statements = vec![Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Box".to_string(),
+            type_params: vec![],
+            type_annotation: "Missing | string".to_string(),
+        })];
+
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)),
+            "{extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_type_annotation_resolution_accepts_known_names_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
