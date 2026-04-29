@@ -1,0 +1,7 @@
+{
+  "benchmark": "array-literal-arguments",
+  "version": 1,
+  "sourceFile": "array-literal-arguments-benchmark-v1.ts",
+  "sourceSha256": "sha256-9d22bc3eb20f5f7ccdd47599f48ebe549fa89391d3a30e7a8392d283add26712",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
