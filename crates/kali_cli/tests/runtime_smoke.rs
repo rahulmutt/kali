@@ -36636,6 +36636,66 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         &browser_first,
     );
 
+    let browser_cjs_source = dir.path().join("app-cjs.ts");
+    fs::write(&browser_cjs_source, "function greet(name) { return name; }")
+        .expect("write browser cjs source");
+    let browser_cjs_root = dir.path().join("app-cjs");
+    let browser_cjs_wasm = browser_cjs_root.join("app-cjs.wasm");
+    let browser_cjs_js = browser_cjs_root.join("app-cjs.cjs");
+    let browser_cjs_meta = browser_cjs_root.join("app-cjs.meta.json");
+    let browser_cjs_map = browser_cjs_root.join("app-cjs.cjs.map");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg(&browser_cjs_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let browser_cjs_first = read_artifact_bytes(&[
+        browser_cjs_wasm.clone(),
+        browser_cjs_js.clone(),
+        browser_cjs_meta.clone(),
+        browser_cjs_map.clone(),
+    ]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg(&browser_cjs_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[
+            browser_cjs_wasm.clone(),
+            browser_cjs_js.clone(),
+            browser_cjs_meta.clone(),
+            browser_cjs_map.clone(),
+        ],
+        &browser_cjs_first,
+    );
+
     let capi_source = dir.path().join("lib.ts");
     fs::write(&capi_source, "export function add(a, b) { return a + b; }")
         .expect("write capi source");
