@@ -5977,7 +5977,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 41 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 42 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -37060,6 +37060,7 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
         "nullish-specialization"
             | "object-enumeration-delete-reinsert"
             | "reflect-own-keys-folding"
+            | "reflect-own-keys-const-bound-literal"
             | "array-literal-arguments"
     ) {
         assert!(
@@ -37133,6 +37134,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "object-enumeration-folding",
         ),
         ("reflect-own-keys-benchmark-v1", "reflect-own-keys-folding"),
+        (
+            "reflect-own-keys-const-bound-literal-benchmark-v1",
+            "reflect-own-keys-const-bound-literal",
+        ),
         (
             "integer-like-object-enumeration-benchmark-v1",
             "integer-like-object-enumeration-folding",

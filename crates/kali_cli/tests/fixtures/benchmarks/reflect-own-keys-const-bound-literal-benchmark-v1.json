@@ -1,0 +1,7 @@
+{
+  "benchmark": "reflect-own-keys-const-bound-literal",
+  "version": 1,
+  "sourceFile": "reflect-own-keys-const-bound-literal-benchmark-v1.ts",
+  "sourceSha256": "sha256-5baac5598366d5c59d8b1c7d45c5bc70979a50e34dd0b1a04b3d7fbe2eeee6a4",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
