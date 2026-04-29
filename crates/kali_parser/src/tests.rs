@@ -209,7 +209,7 @@ fn test_parse_nullish_coalescing_expression() {
 
 #[test]
 fn test_parse_object_literal_expression() {
-    let tokens = lex("const obj = { a: 1, \"b\": 2, 3: 4, c };\n");
+    let tokens = lex("const obj = { [\"a\"]: 1, [3]: 4, c };\n");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
@@ -230,16 +230,12 @@ fn test_parse_object_literal_expression() {
     let Expression::ObjectExpression(ObjectExpression { properties }) = init else {
         panic!("Expected ObjectExpression, got {init:?}");
     };
-    assert_eq!(properties.len(), 4);
+    assert_eq!(properties.len(), 3);
 
     let expected = [
         (
-            PropertyName::Identifier("a".to_string()),
+            PropertyName::String("a".to_string()),
             Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
-        ),
-        (
-            PropertyName::String("b".to_string()),
-            Expression::Literal(kali_ast::LiteralValue::Number(2.0)),
         ),
         (
             PropertyName::Number(3.0),
@@ -256,6 +252,22 @@ fn test_parse_object_literal_expression() {
         assert_eq!(&property.key, expected_key);
         assert_eq!(&property.value, expected_value);
     }
+}
+
+#[test]
+fn test_parse_object_literal_expression_rejects_dynamic_computed_property_names() {
+    let tokens = lex("const obj = { [value]: 1 };\n");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diag| diag.message.contains("computed object property names")),
+        "expected computed object property names to be gated: {:?}",
+        output.diagnostics
+    );
 }
 
 #[test]

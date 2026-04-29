@@ -1481,6 +1481,21 @@ impl Parser {
                     let _ = self.stream.accept(TokenType::Colon);
                     (PropertyName::Number(name), self.parse_expression())
                 }
+                Some(TokenType::LeftBracket) => {
+                    let _ = self.stream.advance();
+                    let key_expr = self.parse_expression();
+                    let _ = self.stream.accept(TokenType::RightBracket);
+                    let _ = self.stream.accept(TokenType::Colon);
+                    if let Some(key) = self.computed_object_property_name(key_expr) {
+                        (key, self.parse_expression())
+                    } else {
+                        self.push_feature_unavailable(
+                            "computed object property names are unavailable in the current phase; use a string or numeric literal key",
+                        );
+                        let _ = self.parse_expression();
+                        continue;
+                    }
+                }
                 _ => {
                     let _ = self.stream.advance();
                     continue;
@@ -1502,6 +1517,19 @@ impl Parser {
 
         let _ = self.stream.accept(TokenType::RightBrace);
         Expression::ObjectExpression(ObjectExpression { properties })
+    }
+
+    fn computed_object_property_name(&self, expression: Expression) -> Option<PropertyName> {
+        match expression {
+            Expression::ParenthesizedExpression(parenthesized) => {
+                self.computed_object_property_name(*parenthesized.expression)
+            }
+            Expression::Literal(LiteralValue::String(value)) => {
+                Some(PropertyName::String(unquote_string_literal(&value)))
+            }
+            Expression::Literal(LiteralValue::Number(value)) => Some(PropertyName::Number(value)),
+            _ => None,
+        }
     }
 
     fn parse_primary_expression(&mut self) -> Expression {

@@ -51,7 +51,7 @@ struct Token {
 ### Requirements
 - Full grammar coverage for the latest published ECMA-262 edition, including:
   - All statement and expression types
-  - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties
+  - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties and literal computed keys that canonicalize to static property names
   - Destructuring (nested, with defaults)
   - Generators and async generators
   - `for-in`, `for-of`, `for-await-of`
