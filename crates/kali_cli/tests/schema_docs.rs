@@ -2719,6 +2719,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document browser package fixture JSON-output coverage",
     );
     assert_note_once(
+        "The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.",
+        "package corpus matrix should document browser string-entry and string-export JSON-output coverage",
+    );
+    assert_note_once(
         "The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.",
         "package corpus matrix should document browser exports-map JSON-output coverage",
     );
