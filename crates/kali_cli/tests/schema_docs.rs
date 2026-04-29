@@ -2151,6 +2151,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
         readme.contains("The schema-doc drift net now also pins that `cjs` note"),
         "phase 7 README should keep the browser bundle cjs drift-net note explicit"
     );
+    assert!(
+        readme.contains(
+            "standalone `build --component` threaded-profile note plus the browser build JSON smoke note, keeping the remaining artifact-mode lanes explicit too."
+        ),
+        "phase 7 README should keep the threaded artifact-mode drift-net note explicit"
+    );
 }
 
 #[test]
