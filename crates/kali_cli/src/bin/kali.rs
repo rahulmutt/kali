@@ -15,10 +15,11 @@ use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
     load_sandbox_policy,
     output::{
-        self, validate_doctor_payload_value, validate_effects_payload_value,
-        validate_fmt_payload_value, validate_init_payload_value, validate_install_payload_value,
-        validate_lint_payload_value, validate_package_audit_payload_value,
-        validate_package_effects_payload_value, CliOutputOptions,
+        self, validate_check_payload_value, validate_doctor_payload_value,
+        validate_effects_payload_value, validate_fmt_payload_value, validate_init_payload_value,
+        validate_install_payload_value, validate_lint_payload_value,
+        validate_package_audit_payload_value, validate_package_effects_payload_value,
+        validate_run_payload_value, validate_test_payload_value, CliOutputOptions,
     },
     Args, BundleFormat, Commands,
 };
@@ -560,6 +561,8 @@ fn check_command(
             "errorCount": errors.len(),
             "warningCount": warnings.len(),
         });
+        validate_check_payload_value(&payload)
+            .expect("constructed check payload must satisfy schema-v1 shape");
         print_envelope(
             "check",
             success,
@@ -2956,6 +2959,8 @@ fn run_command(
                     "hostContract": runtime.host_contract().canonical_label(),
                     "runtimeBackend": runtime.runtime_backend().canonical_label(),
                 });
+                validate_run_payload_value(&payload)
+                    .expect("constructed run payload must satisfy schema-v1 shape");
                 print_envelope(
                     "run",
                     outcome.exit_code == 0,
@@ -3307,6 +3312,8 @@ fn test_command(
         };
         let success = diagnostics.is_empty();
         let (errors, warnings) = split_and_convert_diagnostics(&diagnostics, None, None);
+        validate_test_payload_value(&payload)
+            .expect("constructed test payload must satisfy schema-v1 shape");
         print_envelope(
             "test",
             success,

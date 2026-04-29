@@ -1,10 +1,11 @@
 use serde_json::json;
 
 use crate::output::{
-    emit_envelope_value, validate_doctor_payload_value, validate_effects_payload_value,
-    validate_envelope_value, validate_fmt_payload_value, validate_init_payload_value,
-    validate_install_payload_value, validate_lint_payload_value,
+    emit_envelope_value, validate_check_payload_value, validate_doctor_payload_value,
+    validate_effects_payload_value, validate_envelope_value, validate_fmt_payload_value,
+    validate_init_payload_value, validate_install_payload_value, validate_lint_payload_value,
     validate_package_audit_payload_value, validate_package_effects_payload_value,
+    validate_run_payload_value, validate_test_payload_value,
 };
 
 #[test]
@@ -109,6 +110,86 @@ fn validate_install_payload_value_accepts_the_current_contract_shape() {
     });
 
     validate_install_payload_value(&value).expect("install payload should validate");
+}
+
+#[test]
+fn validate_check_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "filesChecked": 3,
+        "errorCount": 1,
+        "warningCount": 2,
+    });
+
+    validate_check_payload_value(&value).expect("check payload should validate");
+}
+
+#[test]
+fn validate_run_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "exitCode": 0,
+        "runtimeMs": 12,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+    });
+
+    validate_run_payload_value(&value).expect("run payload should validate");
+}
+
+#[test]
+fn validate_test_payload_value_accepts_the_current_contract_shape() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "coverage": {
+            "mode": "function",
+            "files": [
+                {
+                    "file": "src/main.ts",
+                    "functionsTotal": 4,
+                    "functionsCovered": 3,
+                    "functionsMissed": 1,
+                }
+            ],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    validate_test_payload_value(&value).expect("test payload should validate");
+}
+
+#[test]
+fn validate_test_payload_value_rejects_malformed_coverage() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "branch",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("unsupported coverage mode should fail validation");
+    assert!(err.contains("coverage mode"), "unexpected error: {err}");
 }
 
 #[test]

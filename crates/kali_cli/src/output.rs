@@ -401,6 +401,235 @@ pub fn validate_package_audit_payload_value(value: &Value) -> Result<(), String>
     }
 }
 
+pub fn validate_check_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("check payload must be a JSON object".to_string());
+    };
+
+    for key in ["filesChecked", "errorCount", "warningCount"] {
+        if !object.contains_key(key) {
+            return Err(format!("check payload is missing required key `{key}`"));
+        }
+    }
+
+    for key in ["filesChecked", "errorCount", "warningCount"] {
+        match object.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!(
+                    "check payload {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
+}
+
+pub fn validate_run_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("run payload must be a JSON object".to_string());
+    };
+
+    for key in ["exitCode", "runtimeMs"] {
+        if !object.contains_key(key) {
+            return Err(format!("run payload is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("exitCode") {
+        Some(Value::Number(number)) if number.as_i64().is_some() || number.as_u64().is_some() => {}
+        Some(other) => {
+            return Err(format!(
+                "run payload exitCode must be an integer, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("runtimeMs") {
+        Some(Value::Number(number))
+            if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {}
+        Some(other) => {
+            return Err(format!(
+                "run payload runtimeMs must be a non-negative integer, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    for key in ["hostContract", "runtimeBackend"] {
+        if let Some(value) = object.get(key) {
+            if !value.is_string() {
+                return Err(format!("run payload {key} must be a string, got {value}"));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub fn validate_test_payload_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err("test payload must be a JSON object".to_string());
+    };
+
+    for key in ["total", "passed", "failed", "skipped", "runtimeMs"] {
+        if !object.contains_key(key) {
+            return Err(format!("test payload is missing required key `{key}`"));
+        }
+    }
+
+    for key in ["total", "passed", "failed", "skipped", "runtimeMs"] {
+        match object.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!(
+                    "test payload {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    for key in ["hostContract", "runtimeBackend"] {
+        if let Some(value) = object.get(key) {
+            if !value.is_string() {
+                return Err(format!("test payload {key} must be a string, got {value}"));
+            }
+        }
+    }
+
+    validate_test_payload_coverage_value(object.get("coverage"))?;
+    Ok(())
+}
+
+fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let Some(object) = value.as_object() else {
+        return Err(format!(
+            "test payload coverage must be a JSON object, got {value}"
+        ));
+    };
+
+    for key in ["mode", "files", "summary"] {
+        if !object.contains_key(key) {
+            return Err(format!(
+                "test payload coverage is missing required key `{key}`"
+            ));
+        }
+    }
+
+    match object.get("mode") {
+        Some(Value::String(mode)) if mode == "function" => {}
+        Some(Value::String(mode)) => {
+            return Err(format!(
+                "test payload coverage mode must be 'function', got '{mode}'"
+            ));
+        }
+        Some(other) => {
+            return Err(format!(
+                "test payload coverage mode must be a string, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    let Some(Value::Array(items)) = object.get("files") else {
+        return Err(format!(
+            "test payload coverage files must be an array, got {}",
+            object.get("files").unwrap()
+        ));
+    };
+    for (index, item) in items.iter().enumerate() {
+        let Some(file) = item.as_object() else {
+            return Err(format!(
+                "test payload coverage files[{index}] must be an object, got {item}"
+            ));
+        };
+        for key in [
+            "file",
+            "functionsTotal",
+            "functionsCovered",
+            "functionsMissed",
+        ] {
+            if !file.contains_key(key) {
+                return Err(format!(
+                    "test payload coverage files[{index}] is missing required key `{key}`"
+                ));
+            }
+        }
+        match file.get("file") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "test payload coverage files[{index}].file must be a string, got {other}"
+                ));
+            }
+            None => unreachable!("validated above"),
+        }
+        for key in ["functionsTotal", "functionsCovered", "functionsMissed"] {
+            match file.get(key) {
+                Some(Value::Number(number))
+                    if number.as_u64().is_some()
+                        || number.as_i64().is_some_and(|value| value >= 0) => {}
+                Some(other) => {
+                    return Err(format!("test payload coverage files[{index}].{key} must be a non-negative integer, got {other}"));
+                }
+                None => unreachable!("validated above"),
+            }
+        }
+    }
+
+    let Some(summary) = object.get("summary") else {
+        unreachable!("validated above")
+    };
+    let Some(summary) = summary.as_object() else {
+        return Err(format!(
+            "test payload coverage summary must be a JSON object, got {summary}"
+        ));
+    };
+    for key in [
+        "functionsTotal",
+        "functionsCovered",
+        "functionsMissed",
+        "coveragePercent",
+    ] {
+        if !summary.contains_key(key) {
+            return Err(format!(
+                "test payload coverage summary is missing required key `{key}`"
+            ));
+        }
+    }
+    for key in ["functionsTotal", "functionsCovered", "functionsMissed"] {
+        match summary.get(key) {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => {
+                return Err(format!("test payload coverage summary {key} must be a non-negative integer, got {other}"));
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+    match summary.get("coveragePercent") {
+        Some(Value::Number(number)) if number.as_f64().is_some_and(|value| value >= 0.0) => {}
+        Some(other) => {
+            return Err(format!("test payload coverage summary coveragePercent must be a non-negative number, got {other}"));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
 fn reject_unexpected_keys(
     object: &serde_json::Map<String, Value>,
     allowed_keys: &[&str],
