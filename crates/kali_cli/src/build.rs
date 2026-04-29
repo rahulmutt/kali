@@ -18,7 +18,7 @@ use kali_runtime::{normalize_runtime_profiles, RuntimeBackend, RuntimeHostContra
 use kali_sandbox::SandboxPolicy;
 use kali_types::TypeContext;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use wasm_encoder::{CustomSection, Section};
 
 use crate::{is_declaration_only_source_file, ApiSurface, BundleFormat};
@@ -1484,7 +1484,7 @@ pub fn build_artifact_metadata(
         &format!("artifact metadata for '{}'", source_path.display()),
     )?;
 
-    Ok(ArtifactMetadata {
+    let metadata = ArtifactMetadata {
         schema_version: 1,
         artifact_kind: artifact_kind.to_string(),
         entrypoint: source_path.to_string_lossy().to_string(),
@@ -1502,10 +1502,200 @@ pub fn build_artifact_metadata(
         source_hash,
         profile_data_hash: profile_data_hash(profile_data),
         exports,
-    })
+    };
+    validate_generated_artifact_metadata(&metadata).map_err(|error| {
+        vec![Diagnostic::error(
+            e8::INTERNAL_ERROR as u32,
+            format!(
+                "generated artifact metadata for '{}' failed validation: {}",
+                source_path.display(),
+                error
+            ),
+        )]
+    })?;
+
+    Ok(metadata)
+}
+
+pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), String> {
+    const REQUIRED_KEYS: [&str; 7] = [
+        "schemaVersion",
+        "artifactKind",
+        "entrypoint",
+        "buildMode",
+        "apiSurface",
+        "kaliVersion",
+        "sourceHash",
+    ];
+    const VALID_ARTIFACT_KINDS: [&str; 5] = ["executable", "lib", "bundle", "capi", "component"];
+    const VALID_BUILD_MODES: [&str; 3] = ["fast", "release", "release-advanced"];
+
+    let Some(object) = value.as_object() else {
+        return Err("artifact metadata must be a JSON object".to_string());
+    };
+
+    for key in REQUIRED_KEYS {
+        if !object.contains_key(key) {
+            return Err(format!("artifact metadata is missing required key `{key}`"));
+        }
+    }
+
+    match object.get("schemaVersion") {
+        Some(Value::Number(number)) if number.as_u64() == Some(1) => {}
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata schemaVersion must be the numeric value 1, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("artifactKind") {
+        Some(Value::String(kind)) if VALID_ARTIFACT_KINDS.contains(&kind.as_str()) => {}
+        Some(Value::String(kind)) => {
+            return Err(format!("unsupported artifact metadata kind '{kind}'"));
+        }
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata artifactKind must be a string, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("entrypoint") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata entrypoint must be a string, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("buildMode") {
+        Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
+        Some(Value::String(mode)) => {
+            return Err(format!("unsupported artifact metadata buildMode '{mode}'"));
+        }
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata buildMode must be a string, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("apiSurface") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata apiSurface must be a string, got {other}"
+            ));
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("runtimeProfiles") {
+        Some(Value::Array(items)) => {
+            for (index, item) in items.iter().enumerate() {
+                if !item.is_string() {
+                    return Err(format!(
+                        "artifact metadata runtimeProfiles[{index}] must be a string, got {item}"
+                    ));
+                }
+            }
+        }
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata runtimeProfiles must be an array, got {other}"
+            ));
+        }
+        None => {}
+    }
+
+    match object.get("maxSpecializations") {
+        Some(Value::Number(number)) if number.as_u64().is_some() => {}
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata maxSpecializations must be an integer, got {other}"
+            ));
+        }
+        None => {}
+    }
+
+    for key in [
+        "hostContract",
+        "runtimeBackend",
+        "kaliVersion",
+        "sourceHash",
+        "profileDataHash",
+    ] {
+        if let Some(value) = object.get(key) {
+            if !value.is_string() {
+                return Err(format!(
+                    "artifact metadata {key} must be a string, got {value}"
+                ));
+            }
+        }
+    }
+
+    match object.get("exports") {
+        Some(Value::Array(items)) => {
+            for (index, item) in items.iter().enumerate() {
+                let Some(export) = item.as_object() else {
+                    return Err(format!(
+                        "artifact metadata exports[{index}] must be an object, got {item}"
+                    ));
+                };
+                if export.len() != 2
+                    || !export.contains_key("name")
+                    || !export.contains_key("signature")
+                {
+                    return Err(format!(
+                        "artifact metadata exports[{index}] must contain only 'name' and 'signature'"
+                    ));
+                }
+                match export.get("name") {
+                    Some(Value::String(_)) => {}
+                    Some(other) => {
+                        return Err(format!(
+                            "artifact metadata exports[{index}].name must be a string, got {other}"
+                        ));
+                    }
+                    None => unreachable!("validated above"),
+                }
+                match export.get("signature") {
+                    Some(Value::String(_)) => {}
+                    Some(other) => {
+                        return Err(format!(
+                            "artifact metadata exports[{index}].signature must be a string, got {other}"
+                        ));
+                    }
+                    None => unreachable!("validated above"),
+                }
+            }
+        }
+        Some(other) => {
+            return Err(format!(
+                "artifact metadata exports must be an array, got {other}"
+            ));
+        }
+        None => {}
+    }
+
+    Ok(())
+}
+
+fn validate_generated_artifact_metadata(metadata: &ArtifactMetadata) -> Result<(), String> {
+    let value = serde_json::to_value(metadata)
+        .map_err(|error| format!("artifact metadata could not be serialized: {error}"))?;
+    validate_artifact_metadata_value(&value)
 }
 
 pub fn serialize_artifact_metadata(metadata: &ArtifactMetadata) -> Vec<u8> {
+    validate_generated_artifact_metadata(metadata)
+        .expect("serialized artifact metadata must satisfy schema-v1 shape");
     serde_json::to_vec(metadata).expect("serialize artifact metadata")
 }
 

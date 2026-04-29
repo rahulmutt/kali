@@ -1503,6 +1503,55 @@ fn build_artifact_metadata_serializes_runtime_provenance_fields() {
 }
 
 #[test]
+fn build_artifact_metadata_round_trips_through_schema_validation() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let metadata = build_artifact_metadata(
+        &source_path,
+        "component",
+        BuildMode::ReleaseAdvanced,
+        "browser",
+        &["wasm-threads".to_string()],
+        24,
+        None,
+        Some(vec![LibraryExport {
+            name: "main".to_string(),
+            signature: "(input) => number".to_string(),
+        }]),
+    )
+    .expect("build metadata");
+
+    let value = serde_json::to_value(&metadata).expect("serialize metadata");
+    validate_artifact_metadata_value(&value).expect("metadata should satisfy schema validation");
+}
+
+#[test]
+fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
+    let invalid_metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "artifactKind": "component",
+        "entrypoint": "src/main.ts",
+        "buildMode": "release",
+        "apiSurface": "browser",
+        "runtimeProfiles": ["wasm-threads"],
+        "maxSpecializations": 24,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "kaliVersion": "1.2.3",
+        "sourceHash": "sha256-deadbeef",
+        "exports": [
+            {"name": "main", "signature": "(input) => number", "extra": true}
+        ]
+    });
+
+    let err = validate_artifact_metadata_value(&invalid_metadata)
+        .expect_err("extra export keys should fail validation");
+    assert!(err.contains("exports[0]"), "unexpected error: {err}");
+}
+
+#[test]
 fn build_artifact_metadata_records_profile_data_hash() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
