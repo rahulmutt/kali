@@ -37274,6 +37274,77 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         &browser_cjs_first,
     );
 
+    let browser_cjs_inherited_dir = dir.path().join("browser-cjs-inherited");
+    fs::create_dir_all(&browser_cjs_inherited_dir).expect("create browser cjs inherited dir");
+    let browser_cjs_inherited_source = browser_cjs_inherited_dir.join("app-cjs.ts");
+    fs::write(
+        &browser_cjs_inherited_source,
+        "function greet(name) { return name; }",
+    )
+    .expect("write inherited browser cjs source");
+    fs::write(
+        browser_cjs_inherited_dir.join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write inherited browser cjs manifest");
+    let browser_cjs_inherited_root = browser_cjs_inherited_dir.join("app-cjs");
+    let browser_cjs_inherited_wasm = browser_cjs_inherited_root.join("app-cjs.wasm");
+    let browser_cjs_inherited_js = browser_cjs_inherited_root.join("app-cjs.cjs");
+    let browser_cjs_inherited_meta = browser_cjs_inherited_root.join("app-cjs.meta.json");
+    let browser_cjs_inherited_map = browser_cjs_inherited_root.join("app-cjs.cjs.map");
+
+    let output = Command::new(kali_bin())
+        .current_dir(&browser_cjs_inherited_dir)
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg(&browser_cjs_inherited_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let browser_cjs_inherited_first = read_artifact_bytes(&[
+        browser_cjs_inherited_wasm.clone(),
+        browser_cjs_inherited_js.clone(),
+        browser_cjs_inherited_meta.clone(),
+        browser_cjs_inherited_map.clone(),
+    ]);
+
+    let output = Command::new(kali_bin())
+        .current_dir(&browser_cjs_inherited_dir)
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg(&browser_cjs_inherited_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_artifact_bytes_stable(
+        &[
+            browser_cjs_inherited_wasm.clone(),
+            browser_cjs_inherited_js.clone(),
+            browser_cjs_inherited_meta.clone(),
+            browser_cjs_inherited_map.clone(),
+        ],
+        &browser_cjs_inherited_first,
+    );
+
     let capi_source = dir.path().join("lib.ts");
     fs::write(&capi_source, "export function add(a, b) { return a + b; }")
         .expect("write capi source");
