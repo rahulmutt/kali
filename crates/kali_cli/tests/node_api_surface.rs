@@ -1610,3 +1610,250 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_
         }
     }
 }
+
+#[test]
+fn node_api_surface_rejects_late_object_model_members_in_js_input_on_check_build_run_and_test_commands(
+) {
+    let cases = [
+        (r#"Proxy;"#, "Proxy"),
+        (r#"globalThis.Proxy;"#, "globalThis.Proxy"),
+        (r#"globalThis["Proxy"];"#, "globalThis.Proxy"),
+        (r#"Proxy.revocable({}, {});"#, "Proxy.revocable"),
+        (
+            r#"globalThis.Proxy.revocable({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
+        (
+            r#"globalThis["Proxy"]["revocable"]({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
+        (r#"WeakMap;"#, "WeakMap"),
+        (r#"globalThis["WeakMap"];"#, "globalThis.WeakMap"),
+        (r#"WeakSet;"#, "WeakSet"),
+        (r#"globalThis["WeakRef"];"#, "globalThis.WeakRef"),
+        (r#"FinalizationRegistry(() => {});"#, "FinalizationRegistry"),
+        (r#"Object.hasOwn({}, "a");"#, "Object.hasOwn"),
+        (
+            r#"Object.prototype.hasOwnProperty.call({}, "a");"#,
+            "Object.prototype.hasOwnProperty.call",
+        ),
+    ];
+
+    let assert_rejection = |source: &str, expected_fragment: &str| {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("main.js");
+            let test_path = dir.path().join("main.test.js");
+            fs::write(&source_path, format!("{source}\n")).expect("write source");
+            fs::write(
+                &test_path,
+                format!("Kali.test('late object model', () => {{ {source} }});\n"),
+            )
+            .expect("write test source");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_path
+                } else {
+                    &source_path
+                };
+
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    !text_output.status.success(),
+                    "{command} should be rejected on the Node surface for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&text_output.stdout),
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+                assert!(
+                    text_stderr.contains("late object-model API"),
+                    "{command} stderr missing late object-model gate for {source} (inherited={inherited}): {text_stderr}"
+                );
+                assert!(
+                    text_stderr.contains(expected_fragment),
+                    "{command} stderr missing {expected_fragment} for {source} (inherited={inherited}): {text_stderr}"
+                );
+
+                let mut json_command = Command::new(kali_bin());
+                json_command
+                    .current_dir(dir.path())
+                    .arg("--output")
+                    .arg("json")
+                    .arg(command);
+                if !inherited {
+                    json_command.arg("--api").arg("node");
+                }
+                json_command.arg(input_path);
+
+                let json_output = json_command.output().expect("run kali");
+                assert!(
+                    !json_output.status.success(),
+                    "json {command} should surface the Node rejection as machine-readable output for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&json_output.stdout),
+                    String::from_utf8_lossy(&json_output.stderr)
+                );
+                let json = parse_json_stdout(&json_output);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                assert_eq!(json["exitCode"], 1);
+                assert_eq!(json["errors"][0]["code"], "E5506");
+                let message = json["errors"][0]["message"]
+                    .as_str()
+                    .expect("json error message string");
+                assert!(
+                    message.contains("late object-model API"),
+                    "json {command} message missing late object-model gate for {source} (inherited={inherited}): {message}"
+                );
+                assert!(
+                    message.contains(expected_fragment),
+                    "json {command} message missing {expected_fragment} for {source} (inherited={inherited}): {message}"
+                );
+            }
+        }
+    };
+
+    for (source, expected_fragment) in cases {
+        assert_rejection(source, expected_fragment);
+    }
+}
+
+#[test]
+fn node_api_surface_rejects_broader_intl_members_in_js_input_on_check_build_run_and_test_commands()
+{
+    let cases = [
+        (r#"Intl;"#, "Intl"),
+        (r#"Intl.NumberFormat;"#, "Intl.NumberFormat"),
+        (
+            r#"globalThis.Intl.DateTimeFormat;"#,
+            "globalThis.Intl.DateTimeFormat",
+        ),
+        (
+            r#"globalThis["Intl"]["RelativeTimeFormat"];"#,
+            "globalThis.Intl.RelativeTimeFormat",
+        ),
+        (
+            r#"globalThis["Intl"]["DisplayNames"];"#,
+            "globalThis.Intl.DisplayNames",
+        ),
+        (r#"Intl.Locale;"#, "Intl.Locale"),
+    ];
+
+    let assert_rejection = |source: &str, expected_fragment: &str| {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("main.js");
+            let test_path = dir.path().join("main.test.js");
+            fs::write(&source_path, format!("{source}\n")).expect("write source");
+            fs::write(
+                &test_path,
+                format!("Kali.test('broad intl', () => {{ {source} }});\n"),
+            )
+            .expect("write test source");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_path
+                } else {
+                    &source_path
+                };
+
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    !text_output.status.success(),
+                    "{command} should be rejected on the Node surface for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&text_output.stdout),
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+                assert!(
+                    text_stderr.contains("broader Intl support"),
+                    "{command} stderr missing broader Intl gate for {source} (inherited={inherited}): {text_stderr}"
+                );
+                assert!(
+                    text_stderr.contains(expected_fragment),
+                    "{command} stderr missing {expected_fragment} for {source} (inherited={inherited}): {text_stderr}"
+                );
+
+                let mut json_command = Command::new(kali_bin());
+                json_command
+                    .current_dir(dir.path())
+                    .arg("--output")
+                    .arg("json")
+                    .arg(command);
+                if !inherited {
+                    json_command.arg("--api").arg("node");
+                }
+                json_command.arg(input_path);
+
+                let json_output = json_command.output().expect("run kali");
+                assert!(
+                    !json_output.status.success(),
+                    "json {command} should surface the Node rejection as machine-readable output for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&json_output.stdout),
+                    String::from_utf8_lossy(&json_output.stderr)
+                );
+                let json = parse_json_stdout(&json_output);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                assert_eq!(json["exitCode"], 1);
+                assert_eq!(json["errors"][0]["code"], "E5506");
+                let message = json["errors"][0]["message"]
+                    .as_str()
+                    .expect("json error message string");
+                assert!(
+                    message.contains("broader Intl support"),
+                    "json {command} message missing broader Intl gate for {source} (inherited={inherited}): {message}"
+                );
+                assert!(
+                    message.contains(expected_fragment),
+                    "json {command} message missing {expected_fragment} for {source} (inherited={inherited}): {message}"
+                );
+            }
+        }
+    };
+
+    for (source, expected_fragment) in cases {
+        assert_rejection(source, expected_fragment);
+    }
+}
