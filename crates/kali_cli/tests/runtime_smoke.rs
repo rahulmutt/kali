@@ -5410,7 +5410,7 @@ fn run_rejects_late_object_model_revocable_calls() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -5430,6 +5430,10 @@ fn run_rejects_late_object_model_revocable_calls() {
         stderr.contains("globalThis.Proxy.revocable"),
         "stderr: {stderr}"
     );
+    assert!(
+        stderr.contains(r#"globalThis["Proxy"]["revocable"]"#),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -5438,7 +5442,7 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -5457,7 +5461,7 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 2);
+    assert_eq!(errors.len(), 3);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
@@ -5469,6 +5473,9 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     assert!(messages
         .iter()
         .any(|message| message.contains("globalThis.Proxy.revocable")));
+    assert!(messages
+        .iter()
+        .any(|message| message.contains(r#"globalThis["Proxy"]["revocable"]"#)));
 }
 
 #[test]
@@ -5477,7 +5484,7 @@ fn run_rejects_late_object_model_revocable_calls_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -5495,6 +5502,10 @@ fn run_rejects_late_object_model_revocable_calls_in_js_input() {
     assert!(stderr.contains("Proxy.revocable"), "stderr: {stderr}");
     assert!(
         stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Proxy"]["revocable"]"#),
         "stderr: {stderr}"
     );
 }
@@ -5569,6 +5580,7 @@ fn run_rejects_late_object_model_globals_in_json() {
         "FinalizationRegistry",
         "Proxy.revocable",
         "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
     ] {
         assert!(
             messages.iter().any(|message| message.contains(expected)),
@@ -5693,6 +5705,7 @@ fn build_rejects_late_object_model_members_in_js_input() {
         "FinalizationRegistry",
         "Proxy.revocable",
         "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
     ] {
         assert!(
             stderr.contains(expected),
@@ -5736,6 +5749,7 @@ fn json_build_rejects_late_object_model_members_in_js_input() {
         "FinalizationRegistry",
         "Proxy.revocable",
         "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
     ] {
         assert!(
             messages.iter().any(|message| message.contains(expected)),
@@ -5905,6 +5919,7 @@ fn test_rejects_late_object_model_globals_in_json() {
         "FinalizationRegistry",
         "Proxy.revocable",
         "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
     ] {
         assert!(
             messages.iter().any(|message| message.contains(expected)),
@@ -5938,6 +5953,7 @@ fn test_rejects_late_object_model_globals_in_js_input() {
         "FinalizationRegistry",
         "Proxy.revocable",
         "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
     ] {
         assert!(
             stderr.contains(expected),
