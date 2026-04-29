@@ -1539,6 +1539,25 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
             return Err(format!("artifact metadata is missing required key `{key}`"));
         }
     }
+    validate_no_unexpected_keys(
+        object,
+        "artifact metadata",
+        &[
+            "schemaVersion",
+            "artifactKind",
+            "entrypoint",
+            "buildMode",
+            "apiSurface",
+            "runtimeProfiles",
+            "maxSpecializations",
+            "hostContract",
+            "runtimeBackend",
+            "kaliVersion",
+            "sourceHash",
+            "profileDataHash",
+            "exports",
+        ],
+    )?;
 
     match object.get("schemaVersion") {
         Some(Value::Number(number)) if number.as_u64() == Some(1) => {}
@@ -1763,6 +1782,68 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         }
     }
 
+    let allowed_keys: &[&str] = match artifact_kind {
+        "executable" => &[
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "profileDataHash",
+        ],
+        "lib" => &[
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "profileDataHash",
+            "metadataPath",
+            "witPath",
+            "artifacts",
+            "exports",
+        ],
+        "bundle" => &[
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "profileDataHash",
+            "artifacts",
+            "exports",
+            "bundleFormat",
+        ],
+        "capi" => &[
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "profileDataHash",
+            "metadataPath",
+            "witPath",
+            "headerPath",
+            "artifacts",
+            "exports",
+        ],
+        "component" => &[
+            "artifactKind",
+            "outputPath",
+            "sizeBytes",
+            "buildMode",
+            "sourceHash",
+            "profileDataHash",
+            "metadataPath",
+            "witPath",
+            "bindingPackagePath",
+            "artifacts",
+            "exports",
+        ],
+        other => return Err(format!("unsupported build result artifactKind '{other}'")),
+    };
+    validate_no_unexpected_keys(object, "build result", allowed_keys)?;
+
     match artifact_kind {
         "executable" => {}
         "lib" => {
@@ -1926,6 +2007,12 @@ fn validate_build_result_artifacts_array(
             return Err(format!("{context}[{index}] must be an object, got {item}"));
         };
 
+        validate_no_unexpected_keys(
+            object,
+            &format!("{context}[{index}]"),
+            &["kind", "path", "role"],
+        )?;
+
         match object.get("kind") {
             Some(Value::String(_)) => {}
             Some(other) => {
@@ -1991,6 +2078,20 @@ fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> 
                     "{context}[{index}] is missing required key `signature`"
                 ))
             }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_no_unexpected_keys(
+    object: &serde_json::Map<String, Value>,
+    context: &str,
+    allowed_keys: &[&str],
+) -> Result<(), String> {
+    for key in object.keys() {
+        if !allowed_keys.contains(&key.as_str()) {
+            return Err(format!("{context} has unexpected key `{key}`"));
         }
     }
 

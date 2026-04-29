@@ -1616,6 +1616,29 @@ fn build_browser_bundle_result_accepts_cjs_format_through_schema_validation() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_unexpected_top_level_keys() {
+    let invalid_metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "artifactKind": "component",
+        "entrypoint": "src/main.ts",
+        "buildMode": "release",
+        "apiSurface": "browser",
+        "runtimeProfiles": ["wasm-threads"],
+        "maxSpecializations": 24,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "kaliVersion": "1.2.3",
+        "sourceHash": "sha256-deadbeef",
+        "exports": [],
+        "unexpected": true
+    });
+
+    let err = validate_artifact_metadata_value(&invalid_metadata)
+        .expect_err("unexpected artifact metadata keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
@@ -1637,6 +1660,49 @@ fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let err = validate_artifact_metadata_value(&invalid_metadata)
         .expect_err("extra export keys should fail validation");
     assert!(err.contains("exports[0]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_unexpected_top_level_keys() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm",
+        "unexpected": true
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("unexpected build result keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_unexpected_artifact_keys() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm", "extra": true },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": "umd"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("unexpected artifact keys should fail validation");
+    assert!(err.contains("artifacts[0]"), "unexpected error: {err}");
 }
 
 #[test]
