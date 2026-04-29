@@ -1655,6 +1655,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "`FinalizationRegistry`",
         "Stage-3+/draft TC39 proposals beyond the latest published ECMA-262 edition",
         "Dynamic `require()`",
+        "Nullish coalescing `??`",
+        "`Promise.allSettled`",
     ] {
         assert!(dashboard.contains(expected), "dashboard missing expected row or heading: {expected}");
     }
