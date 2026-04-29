@@ -36885,7 +36885,6 @@ fn build_rejects_explicit_node_bundle_api_surface() {
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
 }
-
 #[test]
 fn json_build_rejects_explicit_node_bundle_api_surface() {
     let dir = tempdir().expect("tempdir");
@@ -36940,6 +36939,62 @@ fn build_rejects_explicit_browser_library_api_surface() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_rejects_explicit_node_bundle_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(stderr.contains("browser API surface"), "stderr: {stderr}");
+}
+
+#[test]
+fn json_build_rejects_explicit_node_bundle_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(&source_path, "function greet(name) { return name; }").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("node")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["errors"][0]["code"], "E5508");
+    assert!(
+        json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("browser API surface"),
+        "json: {json}"
+    );
 }
 
 #[test]
