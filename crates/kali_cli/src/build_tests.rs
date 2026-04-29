@@ -672,6 +672,42 @@ fn build_source_file_rejects_permission_escalation_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_process_env_mutation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"process.env = {}; globalThis.process.env = {}; process["env"] = {}; globalThis.process["env"] = {}; globalThis["process"].env = {}; globalThis["process"]["env"] = {};"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("process env mutation should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("environment mutation API 'process.env'")
+                && (diagnostic.message.contains("process.env")
+                    || diagnostic.message.contains(r#"process["env"]"#))
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
