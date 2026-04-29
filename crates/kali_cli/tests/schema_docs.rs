@@ -79,7 +79,42 @@ fn core_schema_documents_match_current_cli_contracts() {
     )
     .expect("parse envelope schema");
     assert_eq!(envelope["additionalProperties"], true);
+    assert_eq!(
+        required_fields(&envelope),
+        [
+            "schemaVersion",
+            "command",
+            "success",
+            "errors",
+            "warnings",
+            "payload"
+        ]
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+    );
     assert_eq!(envelope["properties"]["schemaVersion"]["const"], 1);
+    assert_eq!(envelope["properties"]["command"]["type"], "string");
+    assert_eq!(envelope["properties"]["success"]["type"], "boolean");
+    assert_eq!(envelope["properties"]["errors"]["type"], "array");
+    assert_eq!(envelope["properties"]["warnings"]["type"], "array");
+    assert_eq!(
+        envelope["properties"]["errors"]["items"]["$ref"],
+        "https://kali-lang.org/schemas/diagnostic/v1"
+    );
+    assert_eq!(
+        envelope["properties"]["warnings"]["items"]["$ref"],
+        "https://kali-lang.org/schemas/diagnostic/v1"
+    );
+    assert_eq!(
+        envelope["properties"]["payload"]["anyOf"]
+            .as_array()
+            .expect("payload variants")
+            .iter()
+            .map(|variant| variant["type"].as_str().expect("payload variant type"))
+            .collect::<Vec<_>>(),
+        ["object", "array", "string", "number", "boolean", "null"]
+    );
     assert_eq!(envelope["properties"]["timings"]["type"], "array");
     assert_eq!(envelope["properties"]["timings"]["items"]["type"], "object");
     assert_eq!(
