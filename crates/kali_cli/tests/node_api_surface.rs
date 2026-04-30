@@ -2736,10 +2736,18 @@ fn node_api_surface_rejects_broader_intl_members_in_js_input_on_check_build_run_
             r#"globalThis.Intl.RelativeTimeFormat;"#,
             "globalThis.Intl.RelativeTimeFormat",
         ),
+        (
+            r#"globalThis.Intl.PluralRules;"#,
+            "globalThis.Intl.PluralRules",
+        ),
         (r#"globalThis.Intl.Collator;"#, "globalThis.Intl.Collator"),
         (
             r#"globalThis["Intl"]["RelativeTimeFormat"];"#,
             "globalThis.Intl.RelativeTimeFormat",
+        ),
+        (
+            r#"globalThis["Intl"]["PluralRules"];"#,
+            "globalThis.Intl.PluralRules",
         ),
         (
             r#"globalThis["Intl"]["Collator"];"#,
