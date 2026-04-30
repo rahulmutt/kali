@@ -2221,6 +2221,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
         ),
         "phase 7 README should keep the threaded artifact-mode drift-net note explicit"
     );
+    assert!(
+        readme.contains(
+            "--sandbox` does not rescue the browser `--component` contradiction there either."
+        ),
+        "phase 7 README should keep the sandbox orthogonality note explicit"
+    );
 }
 
 #[test]
