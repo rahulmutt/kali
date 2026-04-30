@@ -652,6 +652,61 @@ fn build_source_file_rejects_promise_all_settled_in_js_input() {
     }
 }
 
+fn unsupported_math_member_call_source_variants(method: &str) -> [String; 6] {
+    [
+        format!("console.log(Math.{method}(1.6));\n"),
+        format!("console.log(Math[\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis.Math.{method}(1.6));\n"),
+        format!("console.log(globalThis.Math[\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis[\"Math\"][\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis[\"Math\"].{method}(1.6));\n"),
+    ]
+}
+
+fn assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(
+    api_surface: ApiSurface,
+) {
+    for method in ["round", "floor"] {
+        for source in unsupported_math_member_call_source_variants(method) {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("main.js");
+            fs::write(&source_path, source).expect("write source");
+
+            let error = build_source_file(
+                &source_path,
+                BuildMode::Fast,
+                api_surface,
+                false,
+                &[],
+                16,
+                None,
+                None,
+            )
+            .expect_err("unsupported Math member call should fail");
+
+            assert!(error.iter().any(|diagnostic| diagnostic.code
+                == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+            assert!(
+                error
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains("Math.round")
+                        || diagnostic.message.contains("Math.floor")),
+                "unexpected diagnostics: {error:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_js_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(ApiSurface::Deno);
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(ApiSurface::Browser);
+}
+
 fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
