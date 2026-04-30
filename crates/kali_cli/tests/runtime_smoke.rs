@@ -9275,6 +9275,36 @@ fn run_supports_math_imul_semantics_when_browser_harness_is_configured_in_js_inp
 }
 
 #[test]
+fn run_accepts_zero_budget_pair_when_browser_harness_is_configured_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.ts");
+    fs::write(&source_path, "console.log(0);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\n"), "stdout: {stdout}");
+}
+
+#[test]
 fn json_run_supports_math_suite_semantics_when_browser_harness_is_configured_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -15503,6 +15533,40 @@ fn test_supports_math_imul_semantics_when_browser_harness_is_configured_in_js_in
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("-2\n"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_accepts_zero_budget_pair_when_browser_harness_is_configured_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "Kali.test('zero budget pair', () => { console.log(0); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
