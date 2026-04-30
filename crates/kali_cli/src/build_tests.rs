@@ -2143,6 +2143,74 @@ fn build_source_file_rejects_threaded_runtime_globals_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("threaded runtime globals should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime globals")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("threaded runtime globals should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime globals")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn compile_source_file_uses_incremental_cache_on_repeat_builds() {
     let dir = tempdir().expect("tempdir");
     fs::write(dir.path().join("kali.json"), r#"{"schemaVersion":1}"#).expect("write manifest");
