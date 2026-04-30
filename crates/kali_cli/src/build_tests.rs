@@ -789,17 +789,19 @@ fn promise_all_settled_source_variants() -> [&'static str; 10] {
     ]
 }
 
-#[test]
-fn build_source_file_rejects_promise_all_settled_in_js_input() {
+fn assert_build_source_file_rejects_promise_all_settled_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     for source in promise_all_settled_source_variants() {
         let dir = tempdir().expect("tempdir");
-        let source_path = dir.path().join("main.js");
+        let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).expect("write source");
 
         let error = build_source_file(
             &source_path,
             BuildMode::Fast,
-            ApiSurface::Deno,
+            api_surface,
             false,
             &[],
             16,
@@ -816,6 +818,15 @@ fn build_source_file_rejects_promise_all_settled_in_js_input() {
                 .any(|diagnostic| diagnostic.message.contains("Promise.allSettled")),
             "unexpected diagnostics: {error:?}"
         );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_promise_all_settled_across_input_classes() {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
+            assert_build_source_file_rejects_promise_all_settled_in_input(api_surface, extension);
+        }
     }
 }
 
