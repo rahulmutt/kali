@@ -1728,6 +1728,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` `Reflect.ownKeys()` enumeration semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` object-enumeration semantics when the browser API surface is inherited in `.ts` and `.js` input, including overwrite-delete-reinsert ordering plus string-primitive enumeration and array-literal-arguments in `.js` input and JSON-output coverage",
         "Browser-requested `run` / `test` basic object property deletion / `in`-operator semantics in `.ts` and `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` basic object property deletion / `in`-operator semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` integer-like key ordering semantics when the browser API surface is inherited in `.ts` and `.js` input",
         "Browser-requested `run` / `test` `Math.clz32()` semantics in `.ts` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.ts` input, including JSON-output coverage",
