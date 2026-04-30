@@ -1997,6 +1997,65 @@ fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields() {
+    for (field, invalid_metadata) in [
+        (
+            "profileDataHash",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef",
+                "profileDataHash": 1
+            }),
+        ),
+        (
+            "runtimeProfiles[1]",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads", 1],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "maxSpecializations",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 1.5,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+    ] {
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("invalid artifact metadata field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_unexpected_top_level_keys() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",
