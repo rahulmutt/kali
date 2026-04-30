@@ -32821,6 +32821,90 @@ fn json_build_rejects_unsupported_math_member_calls_in_inherited_browser_api_sur
 }
 
 #[test]
+fn check_rejects_promise_all_settled_in_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+
+    for command in ["check", "build"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            output.arg("--api").arg("browser").arg(&source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_promise_all_settled_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_promise_all_settled_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
+fn check_rejects_promise_all_settled_in_inherited_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    for command in ["check", "build"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            output.arg(&source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_promise_all_settled_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_promise_all_settled_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
 fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -33238,6 +33322,108 @@ fn test_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input_
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_browser_requested_nullish_coalescing_rejection_json(errors);
+}
+
+#[test]
+fn run_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+
+    for command in ["run", "test"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command).arg("--api").arg("browser");
+            if command == "test" {
+                let test_source = dir.path().join("smoke.test.js");
+                fs::write(
+                    &test_source,
+                    "Kali.test('browser promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+                )
+                .expect("write test source");
+                output.arg(&test_source);
+            } else {
+                output.arg(&source_path);
+            }
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_promise_all_settled_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_promise_all_settled_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
+fn run_rejects_promise_all_settled_in_inherited_browser_api_surface_with_harness_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    for command in ["run", "test"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command).arg("--api").arg("browser");
+            if command == "test" {
+                let test_source = dir.path().join("smoke.test.js");
+                fs::write(
+                    &test_source,
+                    "Kali.test('browser promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+                )
+                .expect("write test source");
+                output.arg(&test_source);
+            } else {
+                output.arg(&source_path);
+            }
+            let output = output.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_promise_all_settled_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_promise_all_settled_rejection_text(&stderr);
+            }
+        }
+    }
 }
 
 fn assert_browser_requested_for_of_array_iteration_rejection_text(stderr: &str) {
