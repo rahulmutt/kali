@@ -648,6 +648,22 @@ fn test_parse_bracketed_member_expression_chain() {
 }
 
 #[test]
+fn test_parse_mixed_bracket_dot_late_object_model_member_expression_chain() {
+    let tokens = lex(
+        r#"globalThis["Proxy"].revocable({}, {}); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a");"#,
+    );
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 3);
+}
+
+#[test]
 fn test_parse_dot_delete_member_expression_after_keyword_property() {
     let tokens = lex("Deno.env.delete('KALI_ENV_DELETE_SMOKE');");
     let mut parser = Parser::new(FileId::new(0), tokens);
