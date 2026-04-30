@@ -9849,6 +9849,34 @@ Kali.test('date-fns corpus', () => {
     assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
     assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
 
+    let test_json = run_kali(
+        dir.path(),
+        ["--output", "json", "test", test_path.to_str().unwrap()],
+    );
+    assert!(
+        test_json.status.success(),
+        "date-fns corpus package should be testable on the default standalone surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_json.stdout),
+        String::from_utf8_lossy(&test_json.stderr)
+    );
+    let json = parse_json_stdout(&test_json);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("0\n0\n0\n"),
+        "json: {json}"
+    );
+
     let ts_test = run_kali(dir.path(), ["test", ts_test_path.to_str().unwrap()]);
     assert!(
         ts_test.status.success(),
@@ -9859,6 +9887,34 @@ Kali.test('date-fns corpus', () => {
     let ts_test_stdout = String::from_utf8_lossy(&ts_test.stdout);
     assert!(ts_test_stdout.contains("ok 1"), "stdout: {ts_test_stdout}");
     assert!(ts_test_stdout.contains("0"), "stdout: {ts_test_stdout}");
+
+    let ts_test_json = run_kali(
+        dir.path(),
+        ["--output", "json", "test", ts_test_path.to_str().unwrap()],
+    );
+    assert!(
+        ts_test_json.status.success(),
+        "date-fns corpus package should be testable on the default standalone surface in TS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&ts_test_json.stdout),
+        String::from_utf8_lossy(&ts_test_json.stderr)
+    );
+    let ts_json = parse_json_stdout(&ts_test_json);
+    assert_eq!(ts_json["command"], "test");
+    assert_eq!(ts_json["success"], true);
+    assert_eq!(ts_json["exitCode"], 0);
+    assert_eq!(ts_json["payload"]["passed"], 1);
+    assert_eq!(ts_json["payload"]["total"], 1);
+    assert_eq!(ts_json["payload"]["failed"], 0);
+    assert_eq!(ts_json["payload"]["skipped"], 0);
+    assert_eq!(ts_json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(ts_json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        ts_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("0\n0\n0\n"),
+        "json: {ts_json}"
+    );
 }
 
 #[test]
@@ -9935,6 +9991,34 @@ Kali.test('date-fns corpus', () => {
     let test_stdout = String::from_utf8_lossy(&test.stdout);
     assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
     assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
+
+    let test_json = run_kali(
+        dir.path(),
+        ["--output", "json", "test", test_path.to_str().unwrap()],
+    );
+    assert!(
+        test_json.status.success(),
+        "date-fns corpus package should be testable on the default standalone surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test_json.stdout),
+        String::from_utf8_lossy(&test_json.stderr)
+    );
+    let json = parse_json_stdout(&test_json);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("0\n0\n0\n"),
+        "json: {json}"
+    );
 }
 
 #[test]

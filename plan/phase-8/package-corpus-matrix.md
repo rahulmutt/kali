@@ -166,6 +166,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser-targeted `@mariozechner/pi-coding-agent` package-content rows also carry JSON-output coverage on the direct and inherited browser-harness `check` / `build --bundle` variants.
 - The default standalone package-content rows also carry JSON-output coverage on the direct standalone `run` / `test` variants.
+- The default standalone date-fns test rows also carry JSON-output coverage on the direct standalone `.js` and `.ts` `test` variants.
 - The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.
 - The browser runtime browser-blocked package row also carries JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants, keeping the rejected-by-default browser package slice machine-readable too.
 - The browser-targeted browser-blocked package row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser exclusion contract aligned with the runtime harness.
