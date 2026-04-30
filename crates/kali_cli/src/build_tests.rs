@@ -819,6 +819,98 @@ fn build_source_file_rejects_mixed_object_has_own_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_mixed_object_has_own_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late object-model APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["hasOwn"]"#)
+            || diagnostic.message.contains("globalThis.Object.hasOwn")
+            || diagnostic.message.contains("Object.hasOwn")),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["prototype"].hasOwnProperty.call"#)
+            || diagnostic
+                .message
+                .contains("globalThis.Object.prototype.hasOwnProperty.call")
+            || diagnostic
+                .message
+                .contains("Object.prototype.hasOwnProperty.call")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_mixed_object_has_own_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late object-model APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["hasOwn"]"#)
+            || diagnostic.message.contains("globalThis.Object.hasOwn")
+            || diagnostic.message.contains("Object.hasOwn")),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["prototype"].hasOwnProperty.call"#)
+            || diagnostic
+                .message
+                .contains("globalThis.Object.prototype.hasOwnProperty.call")
+            || diagnostic
+                .message
+                .contains("Object.prototype.hasOwnProperty.call")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_mixed_object_has_own_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
