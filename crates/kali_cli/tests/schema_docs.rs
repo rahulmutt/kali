@@ -2624,8 +2624,16 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node explicit timers/promises rejection row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | Node built-in packages (`node:stream/promises`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node explicit stream/promises rejection row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | Node built-in packages (`node:timers/promises`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
             "node inherited timers/promises rejection row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | Node built-in packages (`node:stream/promises`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node inherited stream/promises rejection row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | Node built-in packages (`node:net`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
@@ -3198,8 +3206,8 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document the Node timers evidence note",
     );
     assert_note_once(
-        "The Node `node:net` and `node:dns` rejection slices are tracked as negative contrast rows on both the explicit and inherited Node API surfaces so the late network-module boundary stays visible alongside the other late Node-module rows.",
-        "package corpus matrix should document the Node net and dns rejection note",
+        "The Node `node:timers/promises`, `node:stream/promises`, `node:net`, and `node:dns` rejection slices are tracked as negative contrast rows on both the explicit and inherited Node API surfaces so the late Node-module boundary stays visible alongside the other late Node-module rows.",
+        "package corpus matrix should document the Node late-module rejection note",
     );
 }
 
