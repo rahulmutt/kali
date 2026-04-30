@@ -3323,6 +3323,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "template-literal-concatenation",
         "layout-specialization",
         "call-inlining-chain",
+        "nested-call-inlining-chain",
         "nullish-specialization",
     ]
     .into_iter()
@@ -3342,6 +3343,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "dead-inlined-function-pruning-benchmark-v1.ts",
         "call-inlining-benchmark-v1.ts",
         "closure-inlining-benchmark-v1.ts",
+        "closure-inlining-chain-benchmark-v1.ts",
         "object-enumeration-benchmark-v1.ts",
         "reflect-own-keys-benchmark-v1.ts",
         "reflect-own-keys-const-bound-literal-benchmark-v1.ts",
@@ -3512,6 +3514,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "dead-inlined-function-pruning-benchmark-v1",
         "call-inlining-benchmark-v1",
         "closure-inlining-benchmark-v1",
+        "nested-call-inlining-chain",
         "object-enumeration-benchmark-v1",
         "reflect-own-keys-benchmark-v1",
         "reflect-own-keys-const-bound-literal-benchmark-v1",
