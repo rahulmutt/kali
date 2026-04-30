@@ -1559,7 +1559,7 @@ fn build_library_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source)?;
+    let exports = build::collect_library_exports(&source, api_surface)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,
@@ -1667,7 +1667,7 @@ fn build_capi_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source)?;
+    let exports = build::collect_library_exports(&source, api_surface)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,
@@ -1856,7 +1856,7 @@ fn build_component_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source)?;
+    let exports = build::collect_library_exports(&source, api_surface)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,

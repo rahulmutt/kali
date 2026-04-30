@@ -2228,9 +2228,18 @@ pub fn library_wit_for(module_name: &str, exports: &[LibraryExport]) -> String {
 
 pub fn collect_library_exports(
     source_path: impl AsRef<Path>,
+    api_surface: ApiSurface,
 ) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
     let parsed = parse_source_file(source_path)?;
+
+    let mut resolver =
+        TypeContext::with_base_path_and_api_surface(source_path, api_surface.to_string());
+    let resolved = resolver.resolve_statements_in_file(source_path, &parsed);
+    if has_errors(&resolved.diagnostics) {
+        return Err(resolved.diagnostics);
+    }
+
     collect_library_exports_from_statements(&parsed, source_path)
 }
 
