@@ -1135,6 +1135,26 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
                     return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a string, got {item}"));
                 }
             }
+            let expected_diagnostic_notes = [
+                Value::String(
+                    "supported browser runtime commands: run, test".to_string(),
+                ),
+                Value::String(
+                    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work".to_string(),
+                ),
+                Value::String(
+                    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness".to_string(),
+                ),
+                Value::String(
+                    "browser runtime host description: real browser host".to_string(),
+                ),
+            ];
+            if items.as_slice() != expected_diagnostic_notes {
+                return Err(
+                    "doctor browserRuntimeContract diagnosticNotes must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime host description: real browser host`] in that order"
+                        .to_string(),
+                );
+            }
         }
         Some(other) => {
             return Err(format!(
