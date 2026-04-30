@@ -14,7 +14,7 @@
     },
     "sourceFile": {
       "type": "string",
-      "pattern": "^[a-z0-9-]+-benchmark-v1\\.ts$"
+      "pattern": "^[a-z0-9-]+-benchmark-v1\\.(?:ts|js)$"
     },
     "sourceSha256": {
       "type": "string",
