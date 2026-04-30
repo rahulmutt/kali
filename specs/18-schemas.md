@@ -125,8 +125,8 @@ Required fields:
 - `source: "env" | "auto"` — whether the selected command came from the environment override or from Kali's auto-detection fallback
 - `override: string | null` — raw environment override value when `source` is `env`; otherwise `null`
 - `command: string[]` — argv-style resolved command vector, including executable and pre-script harness arguments
-- `executable: string` — first entry from `command`
-- `args: string[]` — remaining entries from `command`
+- `executable: string` — first entry from `command`; producers/validators should keep it coherent with `command[0]`
+- `args: string[]` — remaining entries from `command`; producers/validators should keep it coherent with `command[1..]`
 - `executableAvailable: boolean` — best-effort local executable probe result; this is diagnostic metadata only and is not a browser-runtime support claim
 
 ### `BrowserRuntimeContractDoctor`

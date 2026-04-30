@@ -77,6 +77,76 @@ fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_executable_command_mismatch() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "env",
+            "override": "node --test",
+            "command": ["node", "--test"],
+            "executable": "deno",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("mismatched browser harness executable should fail");
+    assert!(
+        err.contains("executable must match command[0]"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_doctor_payload_value_rejects_args_command_mismatch() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "env",
+            "override": "node --test",
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--inspect"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("mismatched browser harness args should fail");
+    assert!(
+        err.contains("args must match command[1..]"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_init_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "root": "/workspace/example",

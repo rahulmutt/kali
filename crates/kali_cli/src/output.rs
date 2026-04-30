@@ -1011,6 +1011,33 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
+    let command_items = object
+        .get("command")
+        .and_then(Value::as_array)
+        .expect("validated above");
+    let command_items = command_items
+        .iter()
+        .map(|item| item.as_str().expect("validated above"))
+        .collect::<Vec<_>>();
+    let executable = object
+        .get("executable")
+        .and_then(Value::as_str)
+        .expect("validated above");
+    let args_items = object
+        .get("args")
+        .and_then(Value::as_array)
+        .expect("validated above");
+    let args_items = args_items
+        .iter()
+        .map(|item| item.as_str().expect("validated above"))
+        .collect::<Vec<_>>();
+    if command_items.first().copied() != Some(executable) {
+        return Err("doctor browserHarness executable must match command[0]".to_string());
+    }
+    if args_items.as_slice() != &command_items[1..] {
+        return Err("doctor browserHarness args must match command[1..]".to_string());
+    }
+
     match object.get("executableAvailable") {
         Some(Value::Bool(_)) => {}
         Some(other) => {
