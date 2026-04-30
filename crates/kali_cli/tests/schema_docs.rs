@@ -2148,6 +2148,8 @@ fn cli_spec_examples_track_the_current_repository_surface() {
         "kali package-audit lodash",
         "kali package-audit --output json lodash",
         "kali run --api browser main.ts",
+        "kali test --api browser",
+        "kali build --bundle --api browser main.ts",
         "kali build --api node main.ts",
         "kali build --sandbox kali.policy.json main.ts",
         "kali build --bundle --api node main.ts",
@@ -3415,7 +3417,7 @@ fn phase_10_readme_tracks_schema_and_machine_contract_hardening() {
     for expected in [
         "### 10.4 Schema and machine-contract hardening",
         "Add schema validation for all JSON outputs and artifact manifests.",
-        "The phase-10 README wording is now also pinned by the schema-doc drift net in `crates/kali_cli/tests/schema_docs.rs`, and that drift net now also records the browser-component browser-API-surface contradiction examples, keeping the hardening summary deterministic.",
+        "The phase-10 README wording is now also pinned by the schema-doc drift net in `crates/kali_cli/tests/schema_docs.rs`, and that drift net now also records the browser-component browser-API-surface contradiction examples, the explicit `kali build --bundle --api browser main.ts` spec example, and the `kali test --api browser` browser-contract example, keeping the hardening summary deterministic.",
     ] {
         assert!(
             readme.contains(expected),
