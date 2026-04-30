@@ -3163,6 +3163,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "array-literal-arguments",
         "template-literal-concatenation",
         "layout-specialization",
+        "call-inlining-chain",
         "nullish-specialization",
     ]
     .into_iter()
@@ -3209,6 +3210,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "array-literal-arguments-benchmark-v1.ts",
         "template-literal-concatenation-benchmark-v1.ts",
         "layout-specialization-benchmark-v1.ts",
+        "call-inlining-chain-benchmark-v1.ts",
         "nullish-benchmark-v1.ts",
     ]
     .into_iter()
@@ -3358,6 +3360,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "array-literal-arguments-benchmark-v1",
         "template-literal-concatenation-benchmark-v1",
         "layout-specialization-benchmark-v1",
+        "call-inlining-chain-benchmark-v1",
         "nullish-benchmark-v1",
         "## Reading rule",
     ] {

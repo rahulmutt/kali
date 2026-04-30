@@ -1,0 +1,7 @@
+{
+  "benchmark": "call-inlining-chain",
+  "version": 1,
+  "sourceFile": "call-inlining-chain-benchmark-v1.ts",
+  "sourceSha256": "sha256-32f3a86d64a6f72885428a2fab00c79a64d3b355ca4e3a26100c037e00d5be9c",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
