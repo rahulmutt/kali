@@ -23219,6 +23219,97 @@ fn assert_json_browser_requested_object_property_deletion_semantics(command: &st
     assert_eq!(json["stderr"], "");
 }
 
+fn assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+    command: &str,
+    filename: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+    command: &str,
+    filename: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_property_deletion_semantics_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
 #[test]
 fn run_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_ts_input(
 ) {
@@ -23265,6 +23356,78 @@ fn json_test_supports_browser_requested_object_property_deletion_semantics_when_
 fn json_test_supports_browser_requested_object_property_deletion_semantics_when_browser_harness_is_configured_in_js_input(
 ) {
     assert_json_browser_requested_object_property_deletion_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn run_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "run",
+        "main.ts",
+    );
+}
+
+#[test]
+fn run_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "run",
+        "main.js",
+    );
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "run",
+        "main.ts",
+    );
+}
+
+#[test]
+fn json_run_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "run",
+        "main.js",
+    );
+}
+
+#[test]
+fn test_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.ts",
+    );
+}
+
+#[test]
+fn test_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.js",
+    );
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_ts_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.ts",
+    );
+}
+
+#[test]
+fn json_test_supports_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_json_browser_requested_object_property_deletion_semantics_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.js",
+    );
 }
 
 fn browser_bundle_object_property_deletion_semantics_source() -> &'static str {
@@ -40788,6 +40951,110 @@ fn json_build_rejects_explicit_browser_library_api_surface() {
             .contains("browser API surface"),
         "json: {json}"
     );
+}
+
+#[test]
+fn build_rejects_browser_library_oriented_api_surfaces_with_sandbox_in_js_input() {
+    for args in [["--lib"], ["--capi"]] {
+        for inherited_browser_api_surface in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("lib.js");
+            fs::write(&source_path, "export function greet(name) { return name; }")
+                .expect("write source");
+            if inherited_browser_api_surface {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+            let policy_path = dir.path().join("kali.policy.json");
+            write_valid_policy(&policy_path);
+
+            let mut command = Command::new(kali_bin());
+            command.current_dir(dir.path()).arg("build").args(args);
+            if !inherited_browser_api_surface {
+                command.arg("--api").arg("browser");
+            }
+            let output = command
+                .arg("--sandbox")
+                .arg(&policy_path)
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(5));
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("E5508"), "stderr: {stderr}");
+            assert!(
+                stderr.contains("browser API surface"),
+                "args: {args:?}\ninherited_browser_api_surface={inherited_browser_api_surface}\nstderr: {stderr}"
+            );
+        }
+    }
+}
+
+#[test]
+fn json_build_rejects_browser_library_oriented_api_surfaces_with_sandbox_in_js_input() {
+    for args in [["--lib"], ["--capi"]] {
+        for inherited_browser_api_surface in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("lib.js");
+            fs::write(&source_path, "export function greet(name) { return name; }")
+                .expect("write source");
+            if inherited_browser_api_surface {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+            let policy_path = dir.path().join("kali.policy.json");
+            write_valid_policy(&policy_path);
+
+            let mut command = Command::new(kali_bin());
+            command
+                .current_dir(dir.path())
+                .arg("--output")
+                .arg("json")
+                .arg("build")
+                .args(args);
+            if !inherited_browser_api_surface {
+                command.arg("--api").arg("browser");
+            }
+            let output = command
+                .arg("--sandbox")
+                .arg(&policy_path)
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(5));
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert!(!json["success"].as_bool().expect("success boolean"));
+            assert_eq!(json["errors"][0]["code"], "E5508");
+            assert!(
+                json["errors"][0]["message"]
+                    .as_str()
+                    .expect("error message")
+                    .contains("browser API surface"),
+                "args: {args:?}\ninherited_browser_api_surface={inherited_browser_api_surface}\njson: {json}"
+            );
+        }
+    }
 }
 
 #[test]
