@@ -20,7 +20,7 @@ fn late_env_mutation_source() -> &'static str {
 }
 
 fn late_permission_escalation_source() -> &'static str {
-    "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].permissions.request(); globalThis[\"Deno\"].permissions.revoke(); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"]();"
+    r#"Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"]();"#
 }
 
 fn late_subprocess_source() -> &'static str {
@@ -589,6 +589,8 @@ fn browser_late_permission_escalation_source_includes_bracketed_forms() {
         r#"globalThis["Deno"].permissions["revoke"]()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+        r#"globalThis["Deno"].permissions["request"]()"#,
+        r#"globalThis["Deno"].permissions["revoke"]()"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -621,6 +623,8 @@ fn browser_late_globalthis_deno_env_and_permission_source_includes_bracketed_for
         r#"globalThis["Deno"].permissions.revoke()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+        r#"globalThis["Deno"].permissions["request"]()"#,
+        r#"globalThis["Deno"].permissions["revoke"]()"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
     ] {
