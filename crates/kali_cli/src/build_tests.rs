@@ -1554,7 +1554,7 @@ fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -1581,6 +1581,10 @@ fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
                     || diagnostic.message.contains("Intl.Collator")
                     || diagnostic.message.contains("Intl.DisplayNames")
                     || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic.message.contains("Intl.NumberFormat")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)
@@ -1613,7 +1617,7 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -1640,6 +1644,10 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
                     || diagnostic.message.contains("Intl.Collator")
                     || diagnostic.message.contains("Intl.DisplayNames")
                     || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic.message.contains("Intl.NumberFormat")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis["Intl"]["DateTimeFormat"]"#)
@@ -1672,7 +1680,7 @@ fn build_source_file_rejects_broader_intl_apis_in_jsx_input() {
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -1699,6 +1707,10 @@ fn build_source_file_rejects_broader_intl_apis_in_jsx_input() {
                     || diagnostic.message.contains("Intl.Collator")
                     || diagnostic.message.contains("Intl.DisplayNames")
                     || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic.message.contains("Intl.NumberFormat")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis[\"Intl\"][\"DateTimeFormat\"]"#)
@@ -1731,7 +1743,7 @@ fn build_source_file_rejects_broader_intl_apis_in_tsx_input() {
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -1758,6 +1770,10 @@ fn build_source_file_rejects_broader_intl_apis_in_tsx_input() {
                     || diagnostic.message.contains("Intl.Collator")
                     || diagnostic.message.contains("Intl.DisplayNames")
                     || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic.message.contains("Intl.NumberFormat")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Intl"]["NumberFormat"]"#)
                     || diagnostic
                         .message
                         .contains(r#"globalThis[\"Intl\"][\"DateTimeFormat\"]"#)
