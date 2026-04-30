@@ -1,6 +1,6 @@
 use kali_error::Diagnostic;
 use serde_json::{json, Map, Value};
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use crate::{ColorChoice, OutputFormat};
 
@@ -675,6 +675,35 @@ fn validate_string_array_value(
     Ok(())
 }
 
+fn validate_unique_string_array_value(
+    value: Option<&Value>,
+    context: &str,
+    allow_empty: bool,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    if !allow_empty && items.is_empty() {
+        return Err(format!("{context} must contain at least one item"));
+    }
+
+    let mut seen = HashSet::new();
+    for (index, item) in items.iter().enumerate() {
+        let Some(item) = item.as_str() else {
+            return Err(format!("{context}[{index}] must be a string, got {item}"));
+        };
+
+        if !seen.insert(item) {
+            return Err(format!(
+                "{context} must not contain duplicate item `{item}`"
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 pub(crate) fn validate_sorted_string_array_value(
     value: Option<&Value>,
     context: &str,
@@ -1055,8 +1084,14 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         None => unreachable!("validated above"),
     }
 
+    validate_unique_string_array_value(
+        object.get("supportedCommands"),
+        "doctor browserRuntimeContract supportedCommands",
+        false,
+    )?;
+
     match object.get("supportedCommands") {
-        Some(Value::Array(items)) if !items.is_empty() => {
+        Some(Value::Array(items)) => {
             for (index, item) in items.iter().enumerate() {
                 match item.as_str() {
                     Some("run") | Some("test") => {}
@@ -1069,12 +1104,6 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
                 }
             }
         }
-        Some(Value::Array(_)) => {
-            return Err(
-                "doctor browserRuntimeContract supportedCommands must contain at least one item"
-                    .to_string(),
-            )
-        }
         Some(other) => {
             return Err(format!(
                 "doctor browserRuntimeContract supportedCommands must be an array, got {other}"
@@ -1083,19 +1112,19 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         None => unreachable!("validated above"),
     }
 
+    validate_unique_string_array_value(
+        object.get("diagnosticNotes"),
+        "doctor browserRuntimeContract diagnosticNotes",
+        false,
+    )?;
+
     match object.get("diagnosticNotes") {
-        Some(Value::Array(items)) if !items.is_empty() => {
+        Some(Value::Array(items)) => {
             for (index, item) in items.iter().enumerate() {
                 if !item.is_string() {
                     return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a string, got {item}"));
                 }
             }
-        }
-        Some(Value::Array(_)) => {
-            return Err(
-                "doctor browserRuntimeContract diagnosticNotes must contain at least one item"
-                    .to_string(),
-            )
         }
         Some(other) => {
             return Err(format!(

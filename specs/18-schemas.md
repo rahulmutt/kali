@@ -135,9 +135,9 @@ Required fields:
 - `hostLabel: string` — canonical label for the browser-requested host contract used in diagnostics
 - `hostDescription: string` — short human-readable description of the intended browser host
 - `hostDescriptionNote: non-empty string` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output
-- `supportedCommands: string[]` — non-empty command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands
+- `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands
 - `diagnosticHint: string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane
-- `diagnosticNotes: string[]` — non-empty stable ordered notes that summarize the browser runtime contract; diagnostic metadata only and not a browser-runtime support claim
+- `diagnosticNotes: string[]` — non-empty, duplicate-free stable ordered notes that summarize the browser runtime contract; diagnostic metadata only and not a browser-runtime support claim
 
 Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.
 
