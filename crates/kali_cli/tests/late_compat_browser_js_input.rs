@@ -224,6 +224,8 @@ fn assert_browser_late_permission_escalation_rejection(stderr: &str) {
         "Deno.permissions.revoke",
         "globalThis.Deno.permissions.request",
         "globalThis.Deno.permissions.revoke",
+        r#"globalThis["Deno"]["permissions"]["request"]"#,
+        r#"globalThis["Deno"]["permissions"]["revoke"]"#,
         "permission escalation API",
     ] {
         assert!(
@@ -266,6 +268,8 @@ fn assert_browser_late_permission_escalation_rejection_json(errors: &[Value]) {
         "Deno.permissions.revoke",
         "globalThis.Deno.permissions.request",
         "globalThis.Deno.permissions.revoke",
+        r#"globalThis["Deno"]["permissions"]["request"]"#,
+        r#"globalThis["Deno"]["permissions"]["revoke"]"#,
         "permission escalation API",
     ] {
         assert!(

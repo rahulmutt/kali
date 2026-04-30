@@ -1019,11 +1019,14 @@ impl TypeContext {
             return false;
         }
 
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "permission escalation API '{}' is unavailable in the Phase-1 Deno permission facade",
-                Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone())
+                "permission escalation API '{}' (aka {}) is unavailable in the Phase-1 Deno permission facade",
+                dotted, bracketed
             ),
         ));
         true
