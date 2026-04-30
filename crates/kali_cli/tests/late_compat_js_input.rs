@@ -322,10 +322,10 @@ fn late_js_compatibility_source_includes_bracketed_permission_escalation_forms()
         r#"Deno.permissions["revoke"]()"#,
         r#"globalThis.Deno.permissions["request"]()"#,
         r#"globalThis.Deno.permissions["revoke"]()"#,
-        r#"globalThis["Deno"].permissions["request"]()"#,
-        r#"globalThis["Deno"].permissions["revoke"]()"#,
         r#"globalThis["Deno"].permissions.request()"#,
         r#"globalThis["Deno"].permissions.revoke()"#,
+        r#"globalThis["Deno"].permissions["request"]()"#,
+        r#"globalThis["Deno"].permissions["revoke"]()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
     ] {
@@ -342,6 +342,8 @@ fn late_js_compatibility_source_includes_bracketed_globalthis_deno_env_and_permi
     for expected in [
         r#"globalThis.Deno.permissions["request"]()"#,
         r#"globalThis.Deno.permissions["revoke"]()"#,
+        r#"globalThis["Deno"].permissions.request()"#,
+        r#"globalThis["Deno"].permissions.revoke()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
         r#"globalThis["Deno"].env["toObject"]"#,
