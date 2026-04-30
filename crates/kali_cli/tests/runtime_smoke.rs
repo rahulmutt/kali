@@ -31853,6 +31853,15 @@ fn assert_promise_all_settled_rejection_json(errors: &[Value]) {
     );
 }
 
+fn promise_all_settled_source_variants() -> [&'static str; 4] {
+    [
+        "console.log(Promise.allSettled([1, 2]));\n",
+        "console.log(Promise[\"allSettled\"]([1, 2]));\n",
+        "console.log(globalThis.Promise.allSettled([1, 2]));\n",
+        "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
+    ]
+}
+
 #[test]
 fn check_rejects_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -32097,6 +32106,27 @@ fn json_test_rejects_promise_all_settled_in_js_input() {
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_promise_all_settled_rejection_json(errors);
+}
+
+#[test]
+fn check_rejects_promise_all_settled_source_variants_in_js_input() {
+    for source in promise_all_settled_source_variants() {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("check")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_promise_all_settled_rejection_text(&stderr);
+    }
 }
 
 #[test]

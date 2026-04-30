@@ -653,6 +653,10 @@ fn source_uses_promise_all_settled(source: &str) -> bool {
         "Promise[\"allSettled\"](",
         "Promise['allSettled'](",
         "globalThis.Promise.allSettled(",
+        "globalThis.Promise[\"allSettled\"](",
+        "globalThis.Promise['allSettled'](",
+        "globalThis[\"Promise\"][\"allSettled\"](",
+        "globalThis['Promise']['allSettled'](",
     ];
 
     patterns.iter().any(|pattern| source.contains(pattern))

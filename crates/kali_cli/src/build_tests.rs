@@ -609,32 +609,47 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_js_input(
     );
 }
 
+fn promise_all_settled_source_variants() -> [&'static str; 8] {
+    [
+        "console.log(Promise.allSettled([1, 2]));\n",
+        "console.log(Promise[\"allSettled\"]([1, 2]));\n",
+        "console.log(Promise['allSettled']([1, 2]));\n",
+        "console.log(globalThis.Promise.allSettled([1, 2]));\n",
+        "console.log(globalThis.Promise[\"allSettled\"]([1, 2]));\n",
+        "console.log(globalThis.Promise['allSettled']([1, 2]));\n",
+        "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
+        "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
+    ]
+}
+
 #[test]
 fn build_source_file_rejects_promise_all_settled_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    for source in promise_all_settled_source_variants() {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).expect("write source");
 
-    let error = build_source_file(
-        &source_path,
-        BuildMode::Fast,
-        ApiSurface::Deno,
-        false,
-        &[],
-        16,
-        None,
-        None,
-    )
-    .expect_err("Promise.allSettled should fail");
+        let error = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            ApiSurface::Deno,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect_err("Promise.allSettled should fail");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("Promise.allSettled")),
-        "unexpected diagnostics: {error:?}"
-    );
+        assert!(error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains("Promise.allSettled")),
+            "unexpected diagnostics: {error:?}"
+        );
+    }
 }
 
 fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str) {
