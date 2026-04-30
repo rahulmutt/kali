@@ -2179,8 +2179,30 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Proxy".to_string(),
+                    })),
+                    property: "revocable".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "WeakMap".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "WeakMap".to_string(),
+                    })),
+                    property: "value".to_string(),
                 },
             ))),
         }),
@@ -2195,8 +2217,30 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "WeakSet".to_string(),
+                    })),
+                    property: "value".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
                     object: Expression::Identifier("globalThis".to_string()),
                     property: "WeakRef".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "WeakRef".to_string(),
+                    })),
+                    property: "value".to_string(),
                 },
             ))),
         }),
@@ -2208,38 +2252,47 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "FinalizationRegistry".to_string(),
+                    })),
+                    property: "value".to_string(),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 10);
+    assert_eq!(result.diagnostics.len(), 15);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Proxy")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("WeakRef")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("WeakMap")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("WeakSet")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("FinalizationRegistry")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("globalThis.Proxy")));
+    for expected in [
+        "Proxy",
+        "WeakRef",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+        "globalThis.Proxy",
+        r#"globalThis["Proxy"]"#,
+        r#"globalThis["WeakMap"]"#,
+        r#"globalThis["WeakSet"]"#,
+        r#"globalThis["WeakRef"]"#,
+        r#"globalThis["FinalizationRegistry"]"#,
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
