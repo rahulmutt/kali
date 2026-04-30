@@ -2286,6 +2286,27 @@ fn validate_build_result_value_rejects_non_string_artifact_roles() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_fractional_size_bytes() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42.5,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("fractional build result sizeBytes should fail validation");
+    assert!(err.contains("sizeBytes"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_unexpected_top_level_keys() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
