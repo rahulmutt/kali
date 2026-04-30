@@ -1272,6 +1272,11 @@ fn validate_source_span(value: &Value) -> Result<(), String> {
             return Err(format!("span is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(
+        object,
+        &["file", "line", "column", "endLine", "endColumn"],
+        "span",
+    )?;
 
     match object.get("file") {
         Some(Value::String(_)) => {}

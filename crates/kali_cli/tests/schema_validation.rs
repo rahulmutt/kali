@@ -60,6 +60,18 @@ fn diagnostic_spans_reject_backwards_ranges() {
 }
 
 #[test]
+fn diagnostic_spans_reject_unexpected_keys() {
+    let mut envelope = diagnostic_envelope_with_span(1, 2);
+    envelope["errors"][0]["span"]["unexpected"] = json!(true);
+    let error = output::validate_envelope_value(&envelope)
+        .expect_err("unexpected span keys should be rejected");
+    assert!(
+        error.contains("unexpected key"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn build_result_artifact_roles_reject_duplicate_primary_roles() {
     let build_result = json!({
         "artifactKind": "lib",
