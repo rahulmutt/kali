@@ -2135,6 +2135,7 @@ fn feature_maturity_current_repository_snapshot_tracks_the_live_surface() {
         "| Embedding surface | `kali build --lib` now emits the stable WIT-sidecar form",
         "| Coverage reporting | `kali test --coverage` ships the stable deterministic function-coverage contract",
         "| Browser runtime nuance | browser-runtime harness/helper work exists",
+        "| Browser package deployability | the browser package corpus now also mirrors the shared exports-map package set onto `.js` input for `check` and `build --bundle`",
         "| Node compatibility breadth | `run` / `test` remain live on the documented Node execution subset",
         "| Threaded runtime profile | `run` / `test` now accept the explicit `--wasm-threads` opt-in",
         "| `kali build --component --api browser lib.ts` | Rejected by default |",
