@@ -2085,10 +2085,32 @@ fn test_resolution_reports_late_intl_member_access_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Intl".to_string(),
+                    })),
+                    property: "DisplayNames".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Intl".to_string(),
+                    })),
+                    property: "Locale".to_string(),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 6);
+    assert_eq!(result.diagnostics.len(), 8);
     assert!(result
         .diagnostics
         .iter()
@@ -2154,10 +2176,42 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "WeakMap".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "WeakSet".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "WeakRef".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "FinalizationRegistry".to_string(),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 6);
+    assert_eq!(result.diagnostics.len(), 10);
     assert!(result
         .diagnostics
         .iter()
