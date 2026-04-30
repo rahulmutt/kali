@@ -2224,6 +2224,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser blocked-package corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser-blocked packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited blocked-package corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | typed export branch packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser typed export branch corpus row should be recorded in the package corpus matrix",
         ),
@@ -3034,6 +3038,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.",
         "package corpus matrix should document browser package fixture JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser-targeted browser-blocked package row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser exclusion contract aligned with the runtime harness.",
+        "package corpus matrix should document browser blocked-package inherited browser apiSurface coverage",
     );
     assert_note_once(
         "The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.",

@@ -1194,6 +1194,92 @@ fn browser_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_th
 }
 
 #[test]
+fn browser_corpus_packages_that_block_the_selected_path_are_rejected_in_browser_context_with_inherited_browser_api_surface_on_js_input(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_blocked_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+        );
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser JS source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            !check.status.success(),
+            "browser-blocked package {package} should be rejected in browser context on JS input when the browser apiSurface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let stderr = String::from_utf8_lossy(&check.stderr);
+        assert!(
+            stderr.contains("error[E3000]"),
+            "browser-blocked package {package} should surface the import-resolution failure on JS input when the browser apiSurface is inherited\nstderr: {}",
+            stderr
+        );
+        assert!(
+            stderr.contains("could not be resolved"),
+            "browser-blocked package {package} should not fall back to the non-browser entry on JS input when the browser apiSurface is inherited\nstderr: {}",
+            stderr
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            !build.status.success(),
+            "browser-blocked package {package} should also be rejected during bundle emission on JS input when the browser apiSurface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let build_stderr = String::from_utf8_lossy(&build.stderr);
+        assert!(
+            build_stderr.contains("error[E3000]"),
+            "browser-blocked package {package} should surface the bundle-time import-resolution failure on JS input when the browser apiSurface is inherited\nstderr: {}",
+            build_stderr
+        );
+        assert!(
+            build_stderr.contains("could not be resolved"),
+            "browser-blocked package {package} should not fall back to the non-browser entry during bundle emission on JS input when the browser apiSurface is inherited\nstderr: {}",
+            build_stderr
+        );
+
+        let json_check = run_kali(
+            dir.path(),
+            ["--output", "json", "check", source_path.to_str().unwrap()],
+        );
+        assert_browser_blocked_package_json_rejection(&json_check, "check");
+
+        let json_build = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert_browser_blocked_package_json_rejection(&json_build, "build");
+    }
+}
+
+#[test]
 fn browser_runtime_corpus_semver_style_package_remains_executable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");

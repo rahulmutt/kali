@@ -31,6 +31,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 | npm-style package corpus | browser dual-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | browser pattern-exports packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |
 | npm-style package corpus | browser-blocked packages with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
+| npm-style package corpus | browser-blocked packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
 | binary-entrypoint probe | `semver` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
 | binary-entrypoint probe | `semver` bin entrypoints with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
 | binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints with `.js` input | browser-targeted | `check`, `build --bundle` | rejected by default | `crates/kali_cli/tests/package_corpus.rs` |
@@ -167,6 +168,7 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The default standalone package-content rows also carry JSON-output coverage on the direct standalone `run` / `test` variants.
 - The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.
 - The browser runtime browser-blocked package row also carries JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants, keeping the rejected-by-default browser package slice machine-readable too.
+- The browser-targeted browser-blocked package row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser exclusion contract aligned with the runtime harness.
 - The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime semver rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
 - The browser binary-entrypoint probe now also rejects the `semver` package bin entrypoint on the browser-targeted `check` / `build --bundle` path in `.js` input, keeping published npm CLI entrypoints distinct from ordinary browser deployability rows.
