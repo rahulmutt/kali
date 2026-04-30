@@ -1096,6 +1096,64 @@ fn build_source_file_rejects_generator_functions_in_tsx_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("tsx");
 }
 
+fn assert_build_source_file_rejects_for_await_array_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "for await (const value of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("for await array iteration should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("for-of array iteration lowering")
+                || diagnostic.message.contains("for-of array iteration")
+                || diagnostic.message.contains("later compatibility")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_for_await_array_iteration_in_js_input() {
+    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_for_await_array_iteration_in_ts_input() {
+    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "ts");
+}
+
 #[test]
 fn build_source_file_rejects_permission_escalation_in_ts_input() {
     let dir = tempdir().expect("tempdir");
