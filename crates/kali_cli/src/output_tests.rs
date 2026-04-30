@@ -8,6 +8,17 @@ use crate::output::{
     validate_run_payload_value, validate_test_payload_value,
 };
 
+fn assert_payload_accepts_schema_permitted_extension_key(
+    mut payload: serde_json::Value,
+    validator: fn(&serde_json::Value) -> Result<(), String>,
+) {
+    payload
+        .as_object_mut()
+        .expect("payload object")
+        .insert("extensionKey".to_string(), json!("allowed"));
+    validator(&payload).expect("schema-permitted extension key should validate");
+}
+
 #[test]
 fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
     let value = emit_envelope_value(
@@ -231,6 +242,84 @@ fn validate_test_payload_value_accepts_the_current_contract_shape() {
     });
 
     validate_test_payload_value(&value).expect("test payload should validate");
+}
+
+#[test]
+fn ordinary_cli_result_payloads_accept_schema_permitted_extension_keys() {
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "filesChecked": 3,
+            "errorCount": 1,
+            "warningCount": 2,
+        }),
+        validate_check_payload_value,
+    );
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "exitCode": 0,
+            "runtimeMs": 12,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+        }),
+        validate_run_payload_value,
+    );
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "total": 4,
+            "passed": 3,
+            "failed": 1,
+            "skipped": 0,
+            "runtimeMs": 27,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "coverage": {
+                "mode": "function",
+                "files": [
+                    {
+                        "file": "src/main.ts",
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                    }
+                ],
+                "summary": {
+                    "functionsTotal": 4,
+                    "functionsCovered": 3,
+                    "functionsMissed": 1,
+                    "coveragePercent": 75.0,
+                },
+            },
+        }),
+        validate_test_payload_value,
+    );
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "filesFormatted": 12,
+            "filesChecked": 4,
+            "durationMs": 8,
+        }),
+        validate_fmt_payload_value,
+    );
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "filesLinted": 4,
+            "errorCount": 0,
+            "warningCount": 1,
+            "fixedCount": 2,
+            "durationMs": 9,
+        }),
+        validate_lint_payload_value,
+    );
+    assert_payload_accepts_schema_permitted_extension_key(
+        json!({
+            "manifestPath": "/workspace/example/kali.json",
+            "lockPath": null,
+            "installed": ["semver"],
+            "updated": [],
+            "removed": [],
+        }),
+        validate_install_payload_value,
+    );
 }
 
 #[test]
