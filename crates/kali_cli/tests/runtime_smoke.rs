@@ -12886,6 +12886,42 @@ fn run_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_co
 }
 
 #[test]
+fn run_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_configured_without_json_output(
+) {
+    let dir = tempdir().expect("tempdir");
+    for (filename, source) in [
+        ("main.js", "console.log('browser zero budgets');\n"),
+        ("main.ts", "console.log('browser zero budgets');\n"),
+    ] {
+        let source_path = dir.path().join(filename);
+        fs::write(&source_path, source).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg("--max-threads")
+            .arg("0")
+            .arg("--max-spawned-processes")
+            .arg("0")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("browser zero budgets"), "stdout: {stdout}");
+    }
+}
+
+#[test]
 fn run_uses_browser_exports_condition_package_resolution_when_a_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserexports");
@@ -44242,6 +44278,49 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
             .contains("browser zero budgets"),
         "json: {json}"
     );
+}
+
+#[test]
+fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_configured_without_json_output(
+) {
+    let dir = tempdir().expect("tempdir");
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            "Kali.test('browser zero budgets', () => { console.log('browser zero budgets'); });\n",
+        ),
+        (
+            "smoke.test.ts",
+            "Kali.test('browser zero budgets', () => { console.log('browser zero budgets'); });\n",
+        ),
+    ] {
+        let source_path = dir.path().join(filename);
+        fs::write(&source_path, source).expect("write source");
+
+        let output = Command::new(kali_bin())
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path())
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg("--max-threads")
+            .arg("0")
+            .arg("--max-spawned-processes")
+            .arg("0")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("browser zero budgets"), "stdout: {stdout}");
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
 }
 
 #[test]
