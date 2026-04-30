@@ -413,6 +413,57 @@ globalThis.Deno.permissions["query"]({ name: net_descriptor });
         .expect("artifact should validate");
 }
 
+#[test]
+fn build_source_file_supports_permission_query_const_bindings_in_jsx_and_tsx_input() {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            r#"const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+Deno.permissions.query({ name: read_descriptor });
+Deno.permissions["query"]({ name: read_descriptor });
+Deno["permissions"]["query"]({ name: read_descriptor });
+globalThis.Deno.permissions.query({ name: read_descriptor });
+globalThis.Deno.permissions["query"]({ name: read_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
+globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+globalThis.Deno.permissions.query({ name: write_descriptor });
+globalThis.Deno.permissions["query"]({ name: write_descriptor });
+Deno.permissions.query({ name: env_descriptor });
+Deno.permissions["query"]({ name: env_descriptor });
+Deno["permissions"]["query"]({ name: env_descriptor });
+globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+globalThis.Deno.permissions.query({ name: net_descriptor });
+globalThis.Deno.permissions["query"]({ name: net_descriptor });
+"#,
+        )
+        .expect("write source");
+
+        let output = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            ApiSurface::Deno,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect("build should succeed");
+
+        assert!(output.output_path.exists(), "extension: {extension}");
+        Validator::new()
+            .validate_all(&output.wasm_bytes)
+            .expect("artifact should validate");
+    }
+}
+
 fn assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input(
     extension: &str,
 ) {
