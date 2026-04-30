@@ -78,7 +78,8 @@
           "type": "string"
         },
         "hostDescriptionNote": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "supportedCommands": {
           "type": "array",
