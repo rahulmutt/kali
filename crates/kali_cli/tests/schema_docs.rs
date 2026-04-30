@@ -2080,6 +2080,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali build --component --api browser lib.ts",
         "kali build --component --api browser --sandbox kali.policy.json lib.ts",
         "kali effects <file>",
+        "kali effects --output json main.ts",
         "kali package-effects <package>",
         "kali package-effects --output json lodash",
         "kali package-audit <package>",

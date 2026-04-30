@@ -57,6 +57,7 @@ kali build --lib --sandbox kali.policy.json lib.ts
 kali build --capi --sandbox kali.policy.json lib.ts
 kali build --component --sandbox kali.policy.json lib.ts
 kali effects <file>
+kali effects --output json main.ts
 kali package-effects <package>
 kali package-effects --output json lodash
 kali package-audit <package>
