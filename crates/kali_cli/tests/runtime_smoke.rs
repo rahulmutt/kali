@@ -32567,7 +32567,7 @@ fn build_emits_browser_bundle_console_level_routing_in_ts_input() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  return 0n;\n}\n",
+        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  console.log(-1);\n  return 0n;\n}\n",
     )
     .expect("write source");
 
@@ -32636,6 +32636,110 @@ console.log(String(result));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stdout.contains("info"), "stdout: {stdout}");
     assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stdout.contains("-1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+    assert!(stderr.contains("err"), "stderr: {stderr}");
+    assert!(stderr.contains("warn"), "stderr: {stderr}");
+}
+
+#[test]
+fn build_emits_browser_bundle_console_level_routing_in_ts_input_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: consoleSmoke\nasync function consoleSmoke() {\n  console.info('info');\n  console.debug('debug');\n  console.error('err');\n  console.warn('warn');\n  console.log(-1);\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let envelope = parse_json_stdout(&output);
+    assert_eq!(envelope["schemaVersion"], 1);
+    assert_eq!(envelope["command"], "build");
+    assert_eq!(envelope["success"], true);
+    assert_eq!(envelope["exitCode"], 0);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    assert_eq!(payload["artifactKind"], "bundle");
+    assert_eq!(payload["bundleFormat"], "esm");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"wasm-module"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"js-glue"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"source-map"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"meta-json"), "artifacts: {artifacts:?}");
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    let bundle_dir_name = bundle_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .expect("bundle directory name");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-console-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        bundle_dir_name,
+        false,
+        r#"const mod = await import(bundleJs.href);
+const result = await mod.consoleSmoke(1n, 2n);
+if (result !== 0n) {
+  throw new Error(`unexpected result ${result}`);
+}
+console.log(String(result));
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = browser_bundle_harness_command_parts();
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("info"), "stdout: {stdout}");
+    assert!(stdout.contains("debug"), "stdout: {stdout}");
+    assert!(stdout.contains("-1"), "stdout: {stdout}");
     assert!(stdout.contains("0"), "stdout: {stdout}");
     assert!(stderr.contains("err"), "stderr: {stderr}");
     assert!(stderr.contains("warn"), "stderr: {stderr}");

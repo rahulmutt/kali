@@ -1757,8 +1757,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` boolean conjunction / disjunction semantics when the browser API surface is inherited in `.js` input",
         "Browser bundle `Object.keys()` / `Object.entries()` / `Object.values()` enumeration semantics in `.ts` and `.js` input, including string-primitive enumeration, overwrite-delete-reinsert ordering, and array-literal-arguments, plus JSON-output coverage for string-primitive enumeration and overwrite-delete-reinsert ordering",
         "Browser bundle `Reflect.ownKeys()` enumeration semantics in `.js` input, including JSON-output coverage",
-        "Browser-requested `run` / `test` console error / warn / info / debug routing plus `console.assert()` false-branch reporting in `.js` input",
-        "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
+        "Browser-requested `run` / `test` console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting in `.js` input",
+        "Browser bundle console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting",
         "Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `globalThis.Deno.pid` / bracketed `globalThis[\"Deno\"][\"pid\"]` stays the default standalone exception)",
         "Browser-requested `run` / `test` process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`) in `.js` input",
         "Basic optional chaining member and element access",
@@ -1893,7 +1893,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
-        "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
+        "Browser bundle console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting",
     ];
 
     let mut last = 0;
