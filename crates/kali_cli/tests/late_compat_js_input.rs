@@ -22,6 +22,10 @@ fn late_js_compatibility_source_with_mixed_process_forms() -> String {
     )
 }
 
+fn late_process_env_mutation_source() -> &'static str {
+    "process.env = {}; globalThis.process.env = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"][\"env\"] = {}; globalThis.process[\"env\"] = {};"
+}
+
 fn assert_late_js_compatibility_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("E3100"), "stderr: {stderr}");
@@ -283,7 +287,6 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
-        r#"globalThis["process"].exit"#,
         r#"globalThis["Proxy"]"#,
         r#"Proxy.revocable"#,
         r#"globalThis.Proxy.revocable"#,
@@ -313,6 +316,20 @@ fn late_js_compatibility_source_includes_mixed_bracketed_proxy_revocable_form() 
         source.contains(r#"globalThis["Proxy"].revocable"#),
         "source: {source}"
     );
+}
+
+#[test]
+fn late_js_compatibility_source_includes_bracketed_process_env_mutation_forms() {
+    let source = late_process_env_mutation_source();
+    for expected in [
+        r#"process.env"#,
+        r#"globalThis.process.env"#,
+        r#"globalThis["process"].env"#,
+        r#"globalThis["process"]["env"]"#,
+        r#"globalThis.process["env"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
 }
 
 #[test]

@@ -15,6 +15,10 @@ fn late_env_materialization_source() -> &'static str {
     "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env.toObject; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
+fn late_process_env_mutation_source() -> &'static str {
+    "process.env = {}; globalThis.process.env = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"][\"env\"] = {}; globalThis.process[\"env\"] = {};"
+}
+
 fn late_env_mutation_source() -> &'static str {
     r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"]["delete"]('KALI_ENV_DELETE_SMOKE');"#
 }
@@ -566,6 +570,20 @@ fn browser_late_env_materialization_source_includes_bracketed_forms() {
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_process_env_mutation_source_includes_bracketed_forms() {
+    let source = late_process_env_mutation_source();
+    for expected in [
+        r#"process.env"#,
+        r#"globalThis.process.env"#,
+        r#"globalThis["process"].env"#,
+        r#"globalThis["process"]["env"]"#,
+        r#"globalThis.process["env"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
