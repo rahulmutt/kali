@@ -9,7 +9,8 @@
 use clap::Parser;
 use kali_capi::{
     arity_from_signature, generate_binding_package_manifest_with_provenance, generate_header,
-    generate_metadata_with_provenance as generate_capi_metadata, Export as CApiExport,
+    generate_metadata_with_provenance as generate_capi_metadata, parse_binding_package_manifest,
+    parse_metadata, Export as CApiExport,
 };
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
@@ -1765,6 +1766,8 @@ fn build_capi_artifact(
         Some(RuntimeHostContract::KaliHosted.canonical_label()),
         Some(RuntimeBackend::Wasmtime.canonical_label()),
     );
+    parse_metadata(&metadata_json.to_string())
+        .expect("generated C ABI metadata must satisfy schema-v1 shape");
 
     fs::write(
         &meta_path,
@@ -1805,6 +1808,8 @@ fn build_capi_artifact(
             "bindings/python/pyproject.toml".to_string(),
         ],
     );
+    parse_binding_package_manifest(&binding_package_json.to_string())
+        .expect("generated binding package manifest must satisfy schema-v1 shape");
     fs::write(
         &binding_package_path,
         serde_json::to_string_pretty(&binding_package_json)
