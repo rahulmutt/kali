@@ -3337,6 +3337,24 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
 }
 
 #[test]
+fn phase_10_readme_tracks_schema_and_machine_contract_hardening() {
+    let root = repo_root();
+    let readme =
+        fs::read_to_string(root.join("plan/phase-10/README.md")).expect("read phase 10 README");
+
+    for expected in [
+        "### 10.4 Schema and machine-contract hardening",
+        "Add schema validation for all JSON outputs and artifact manifests.",
+        "The phase-10 README wording is now also pinned by the schema-doc drift net in `crates/kali_cli/tests/schema_docs.rs`, keeping the hardening summary deterministic.",
+    ] {
+        assert!(
+            readme.contains(expected),
+            "phase 10 README should keep the hardening summary explicit: {expected}"
+        );
+    }
+}
+
+#[test]
 fn optimization_inventory_tracks_current_mode_rows() {
     let root = repo_root();
     let inventory = fs::read_to_string(root.join("plan/phase-9/optimization-inventory.md"))
