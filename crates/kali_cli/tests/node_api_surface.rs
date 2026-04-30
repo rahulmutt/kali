@@ -2599,13 +2599,23 @@ fn node_api_surface_rejects_late_object_model_members_in_js_input_on_check_build
             "globalThis.Proxy.revocable",
         ),
         (r#"WeakMap;"#, "WeakMap"),
+        (r#"globalThis.WeakMap;"#, "globalThis.WeakMap"),
         (r#"globalThis["WeakMap"];"#, "globalThis.WeakMap"),
         (r#"WeakSet;"#, "WeakSet"),
         (r#"globalThis.WeakSet;"#, "globalThis.WeakSet"),
+        (r#"globalThis["WeakSet"];"#, "globalThis.WeakSet"),
         (r#"WeakRef;"#, "WeakRef"),
         (r#"globalThis.WeakRef;"#, "globalThis.WeakRef"),
         (r#"globalThis["WeakRef"];"#, "globalThis.WeakRef"),
         (r#"FinalizationRegistry(() => {});"#, "FinalizationRegistry"),
+        (
+            r#"globalThis.FinalizationRegistry;"#,
+            "globalThis.FinalizationRegistry",
+        ),
+        (
+            r#"globalThis["FinalizationRegistry"];"#,
+            "globalThis.FinalizationRegistry",
+        ),
         (r#"Object.hasOwn({}, "a");"#, "Object.hasOwn"),
         (
             r#"Object.prototype.hasOwnProperty.call({}, "a");"#,
