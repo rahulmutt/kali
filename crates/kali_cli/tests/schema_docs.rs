@@ -2246,6 +2246,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
+            "The runtime-smoke human branch now also pins the browser runtime contract summary text explicitly, keeping the later-compatibility wording stable in docs drift checks."
+        ),
+        "phase 7 README should keep the browser runtime contract summary drift note explicit"
+    );
+    assert!(
+        readme.contains(
             "The standalone `build --lib` / `build --capi` JSON smoke now also covers explicit and inherited JS-input threaded-profile cases, keeping the remaining artifact-mode lanes machine-readable too."
         ),
         "phase 7 README should keep the threaded artifact-mode note explicit"
