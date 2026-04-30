@@ -514,7 +514,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
@@ -536,7 +536,20 @@ fn build_source_file_rejects_mixed_object_has_own_in_js_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains(r#"globalThis.Object["hasOwn"]"#)
+            || diagnostic.message.contains("globalThis.Object.hasOwn")
             || diagnostic.message.contains("Object.hasOwn")),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["prototype"].hasOwnProperty.call"#)
+            || diagnostic
+                .message
+                .contains("globalThis.Object.prototype.hasOwnProperty.call")
+            || diagnostic
+                .message
+                .contains("Object.prototype.hasOwnProperty.call")),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -547,7 +560,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
@@ -569,7 +582,20 @@ fn build_source_file_rejects_mixed_object_has_own_in_ts_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains(r#"globalThis.Object["hasOwn"]"#)
+            || diagnostic.message.contains("globalThis.Object.hasOwn")
             || diagnostic.message.contains("Object.hasOwn")),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis.Object["prototype"].hasOwnProperty.call"#)
+            || diagnostic
+                .message
+                .contains("globalThis.Object.prototype.hasOwnProperty.call")
+            || diagnostic
+                .message
+                .contains("Object.prototype.hasOwnProperty.call")),
         "unexpected diagnostics: {error:?}"
     );
 }
