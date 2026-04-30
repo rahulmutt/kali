@@ -912,9 +912,9 @@ mod member_expressions {
     #[test]
     fn test_parse_bracketed_late_compatibility_member_expressions() {
         let output = parse(
-            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]; globalThis[\"WeakRef\"]; globalThis[\"FinalizationRegistry\"]; globalThis[\"SharedArrayBuffer\"]; globalThis[\"Atomics\"];",
+            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]; globalThis[\"WeakMap\"]; globalThis[\"WeakSet\"]; globalThis[\"WeakRef\"]; globalThis[\"FinalizationRegistry\"]; globalThis[\"SharedArrayBuffer\"]; globalThis[\"Atomics\"];",
         );
-        assert_eq!(output.statements.len(), 12);
+        assert_eq!(output.statements.len(), 14);
 
         let assert_two_level_bracket =
             |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
@@ -1024,10 +1024,12 @@ mod member_expressions {
             _ => panic!("Expected ExpressionStatement"),
         }
 
-        assert_single_bracket(&output.statements[8], "WeakRef");
-        assert_single_bracket(&output.statements[9], "FinalizationRegistry");
-        assert_single_bracket(&output.statements[10], "SharedArrayBuffer");
-        assert_single_bracket(&output.statements[11], "Atomics");
+        assert_single_bracket(&output.statements[8], "WeakMap");
+        assert_single_bracket(&output.statements[9], "WeakSet");
+        assert_single_bracket(&output.statements[10], "WeakRef");
+        assert_single_bracket(&output.statements[11], "FinalizationRegistry");
+        assert_single_bracket(&output.statements[12], "SharedArrayBuffer");
+        assert_single_bracket(&output.statements[13], "Atomics");
     }
 
     #[test]
