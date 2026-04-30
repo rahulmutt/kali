@@ -320,6 +320,57 @@ fn validate_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_unexpected_keys() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+        "unexpected": true,
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("unexpected effects keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_effects_payload_value_rejects_unexpected_nested_keys() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+            "unexpected": true,
+        },
+        "entryPoints": [],
+        "effects": [{
+            "kind": "Network.Fetch",
+            "locations": [{
+                "file": "src/main.ts",
+                "line": 12,
+                "column": 3,
+                "function": "main",
+                "unexpected": true,
+            }],
+        }],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("unexpected nested effects keys should fail validation");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "schemaVersion": 1,
