@@ -204,6 +204,62 @@ fn build_source_file_supports_deno_pid_in_js_input() {
 }
 
 #[test]
+fn build_source_file_supports_bracketed_deno_pid_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "console.log(Deno[\"pid\"]); console.log(globalThis[\"Deno\"][\"pid\"]);",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
+fn build_source_file_supports_bracketed_deno_pid_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Deno[\"pid\"]); console.log(globalThis[\"Deno\"][\"pid\"]);",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
 fn build_source_file_supports_bracketed_deno_env_get_in_ts_input_direct() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
