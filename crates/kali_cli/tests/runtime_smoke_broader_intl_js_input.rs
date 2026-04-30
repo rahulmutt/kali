@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn broader_intl_js_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"Intl\"][\"NumberFormat\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale; Intl.PluralRules;"
 }
 
 fn assert_broader_intl_rejection(stderr: &str) {
@@ -35,12 +35,14 @@ fn assert_broader_intl_rejection(stderr: &str) {
         r#"globalThis["Intl"]["Segmenter"]"#,
         r#"globalThis["Intl"]["Locale"]"#,
         r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis["Intl"]["PluralRules"]"#,
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
         "Intl.DisplayNames",
         "Intl.Segmenter",
         "Intl.Locale",
+        "Intl.PluralRules",
     ] {
         assert!(
             stderr.contains(expected),
@@ -77,12 +79,14 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         r#"globalThis["Intl"]["Segmenter"]"#,
         r#"globalThis["Intl"]["Locale"]"#,
         r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis["Intl"]["PluralRules"]"#,
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
         "Intl.DisplayNames",
         "Intl.Segmenter",
         "Intl.Locale",
+        "Intl.PluralRules",
     ] {
         assert!(
             messages.iter().any(|message| message.contains(expected)),
