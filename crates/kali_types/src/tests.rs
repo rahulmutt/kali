@@ -2229,6 +2229,45 @@ fn test_resolution_reports_unsupported_math_member_calls_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_unsupported_promise_all_settled_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Promise".to_string()),
+                    property: "allSettled".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Promise".to_string(),
+                    })),
+                    property: "allSettled".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(2.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("Promise.allSettled")));
+}
+
+#[test]
 fn test_resolution_rejects_non_integer_numeric_literals_in_math_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

@@ -810,6 +810,7 @@ impl TypeContext {
         }
         self.resolve_permission_query_call(expr);
         self.resolve_math_member_call(expr);
+        self.resolve_promise_member_call(expr);
     }
 
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
@@ -911,6 +912,39 @@ impl TypeContext {
                 "Math.{method} is unavailable in the current phase; use a supported Math builtin or the later compatibility path"
             ),
         ));
+    }
+
+    fn resolve_promise_member_call(&mut self, expr: &CallExpression) {
+        let Some(member) = (match &expr.callee {
+            Expression::MemberExpression(member) => Some(member),
+            _ => None,
+        }) else {
+            return;
+        };
+
+        let Some(dotted) = Self::member_access_name(member) else {
+            return;
+        };
+        let bracketed =
+            Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
+
+        let is_all_settled = matches!(
+            dotted.as_str(),
+            "Promise.allSettled" | "globalThis.Promise.allSettled"
+        ) || matches!(
+            bracketed.as_str(),
+            "Promise[\"allSettled\"]"
+                | "globalThis.Promise[\"allSettled\"]"
+                | "globalThis[\"Promise\"].allSettled"
+                | "globalThis[\"Promise\"][\"allSettled\"]"
+        );
+
+        if is_all_settled {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Promise.allSettled is unavailable in the current phase; use Promise.all or the later compatibility path".to_string(),
+            ));
+        }
     }
 
     fn contains_non_integer_numeric_literal(&self, expression: &Expression) -> bool {
