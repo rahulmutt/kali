@@ -24,7 +24,7 @@ fn late_env_mutation_source() -> &'static str {
 }
 
 fn late_permission_escalation_source() -> &'static str {
-    r#"Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"]();"#
+    r#"Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"]();"#
 }
 
 fn late_subprocess_source() -> &'static str {
@@ -605,8 +605,12 @@ fn browser_late_permission_escalation_source_includes_bracketed_forms() {
         r#"globalThis["Deno"].permissions.revoke()"#,
         r#"globalThis["Deno"].permissions["request"]()"#,
         r#"globalThis["Deno"].permissions["revoke"]()"#,
+        r#"globalThis["Deno"]["permissions"].request()"#,
+        r#"globalThis["Deno"]["permissions"].revoke()"#,
         r#"globalThis["Deno"]["permissions"]["request"]()"#,
         r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+        r#"globalThis["Deno"]["permissions"].request()"#,
+        r#"globalThis["Deno"]["permissions"].revoke()"#,
         r#"globalThis["Deno"].permissions["request"]()"#,
         r#"globalThis["Deno"].permissions["revoke"]()"#,
     ] {
@@ -630,7 +634,7 @@ fn browser_late_env_mutation_source_includes_bracketed_forms() {
 #[test]
 fn browser_late_globalthis_deno_env_and_permission_source_includes_bracketed_forms() {
     let source = format!(
-        "{} {} globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"].env[\"toObject\"];",
+        "{} {} globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].env[\"toObject\"];",
         late_env_materialization_source(),
         late_permission_escalation_source()
     );
