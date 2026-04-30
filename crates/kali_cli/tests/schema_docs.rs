@@ -2075,6 +2075,8 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali build --lib --sandbox kali.policy.json lib.ts",
         "kali build --capi --sandbox kali.policy.json lib.ts",
         "kali build --component --sandbox kali.policy.json lib.ts",
+        "kali build --component --api browser lib.ts",
+        "kali build --component --api browser --sandbox kali.policy.json lib.ts",
         "kali effects <file>",
         "kali package-effects <package>",
         "kali package-effects --output json lodash",
@@ -2111,6 +2113,8 @@ fn feature_maturity_current_repository_snapshot_tracks_the_live_surface() {
         "| Browser runtime nuance | browser-runtime harness/helper work exists",
         "| Node compatibility breadth | `run` / `test` remain live on the documented Node execution subset",
         "| Threaded runtime profile | `run` / `test` now accept the explicit `--wasm-threads` opt-in",
+        "| `kali build --component --api browser lib.ts` | Rejected by default |",
+        "| plain `kali build --component lib.ts` under an inherited browser API surface | Rejected by default |",
     ] {
         assert!(
             maturity.contains(expected),
@@ -3400,7 +3404,7 @@ fn phase_10_readme_tracks_schema_and_machine_contract_hardening() {
     for expected in [
         "### 10.4 Schema and machine-contract hardening",
         "Add schema validation for all JSON outputs and artifact manifests.",
-        "The phase-10 README wording is now also pinned by the schema-doc drift net in `crates/kali_cli/tests/schema_docs.rs`, keeping the hardening summary deterministic.",
+        "The phase-10 README wording is now also pinned by the schema-doc drift net in `crates/kali_cli/tests/schema_docs.rs`, and that drift net now also records the browser-component browser-API-surface contradiction examples, keeping the hardening summary deterministic.",
     ] {
         assert!(
             readme.contains(expected),
