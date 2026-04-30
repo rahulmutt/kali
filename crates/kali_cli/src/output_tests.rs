@@ -869,6 +869,39 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_command() {
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_unexpected_browser_harness_keys() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "auto",
+            "override": null,
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+            "unexpected": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("unexpected browserHarness keys should fail");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_empty_supported_commands() {
     let value = json!({
         "browserHarness": {
