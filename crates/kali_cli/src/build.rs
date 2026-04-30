@@ -619,6 +619,14 @@ fn analyze_source_file(
         return Err(diagnostics);
     }
 
+    diagnostics.extend(validate_unique_export_names_from_statements(
+        &parsed.statements,
+        source_path,
+    ));
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
     if !is_declaration_only_source_file(source_path) {
         let mut resolver =
             TypeContext::with_base_path_and_api_surface(source_path, api_surface.to_string());
@@ -1658,6 +1666,7 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
 
     match object.get("exports") {
         Some(Value::Array(items)) => {
+            let mut seen_names = std::collections::BTreeSet::new();
             for (index, item) in items.iter().enumerate() {
                 let Some(export) = item.as_object() else {
                     return Err(format!(
@@ -1673,7 +1682,13 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
                     ));
                 }
                 match export.get("name") {
-                    Some(Value::String(_)) => {}
+                    Some(Value::String(name)) => {
+                        if !seen_names.insert(name.clone()) {
+                            return Err(format!(
+                                "artifact metadata exports[{index}].name duplicates `{name}`"
+                            ));
+                        }
+                    }
                     Some(other) => {
                         return Err(format!(
                             "artifact metadata exports[{index}].name must be a string, got {other}"
@@ -2003,6 +2018,8 @@ fn validate_build_result_artifacts_array(
     let mut seen_primary_library = false;
     let mut seen_primary_component = false;
 
+    let mut seen_kind_path_pairs = std::collections::BTreeSet::new();
+
     for (index, item) in items.iter().enumerate() {
         let Some(object) = item.as_object() else {
             return Err(format!("{context}[{index}] must be an object, got {item}"));
@@ -2032,6 +2049,21 @@ fn validate_build_result_artifacts_array(
             }
             None => return Err(format!("{context}[{index}] is missing required key `path`")),
         }
+
+        let kind = object
+            .get("kind")
+            .and_then(Value::as_str)
+            .expect("validated above");
+        let path = object
+            .get("path")
+            .and_then(Value::as_str)
+            .expect("validated above");
+        if !seen_kind_path_pairs.insert((kind.to_string(), path.to_string())) {
+            return Err(format!(
+                "{context}[{index}] duplicates artifact `{kind}` at `{path}`"
+            ));
+        }
+
         if let Some(role) = object.get("role") {
             if !role.is_string() {
                 return Err(format!(
@@ -2076,6 +2108,8 @@ fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> 
         return Err(format!("{context} must be an array"));
     };
 
+    let mut seen_names = std::collections::BTreeSet::new();
+
     for (index, item) in items.iter().enumerate() {
         let Some(object) = item.as_object() else {
             return Err(format!("{context}[{index}] must be an object, got {item}"));
@@ -2086,7 +2120,11 @@ fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> 
             ));
         }
         match object.get("name") {
-            Some(Value::String(_)) => {}
+            Some(Value::String(name)) => {
+                if !seen_names.insert(name.clone()) {
+                    return Err(format!("{context}[{index}].name duplicates `{name}`"));
+                }
+            }
             Some(other) => {
                 return Err(format!(
                     "{context}[{index}].name must be a string, got {other}"
@@ -2243,6 +2281,86 @@ fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnosti
     Ok(parsed.statements)
 }
 
+fn validate_unique_export_names_from_statements(
+    statements: &[Statement],
+    source_path: &Path,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen_names = BTreeSet::<String>::new();
+
+    for statement in statements {
+        match statement {
+            Statement::FunctionDeclaration(func) => {
+                if !seen_names.insert(func.name.clone()) {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        &format!("duplicate export name `{}`", func.name),
+                    ));
+                }
+            }
+            Statement::ExportNamed(declaration) => {
+                for specifier in &declaration.specifiers {
+                    if !seen_names.insert(specifier.exported.clone()) {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{}`", specifier.exported),
+                        ));
+                    }
+                }
+            }
+            Statement::ExportDefault(default_decl) => match default_decl {
+                ExportDefaultDeclaration::FunctionDeclaration(func) => {
+                    let export_name = if func.name.is_empty() {
+                        "default".to_string()
+                    } else {
+                        func.name.clone()
+                    };
+                    if !seen_names.insert(export_name.clone()) {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{export_name}`"),
+                        ));
+                    }
+                }
+                ExportDefaultDeclaration::Expression(_)
+                | ExportDefaultDeclaration::ClassDeclaration(_) => {
+                    if !seen_names.insert("default".to_string()) {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            "duplicate export name `default`",
+                        ));
+                    }
+                }
+            },
+            Statement::ImportDeclaration(_)
+            | Statement::BreakStatement(_)
+            | Statement::ContinueStatement(_)
+            | Statement::WithStatement(_)
+            | Statement::ReturnStatement(_)
+            | Statement::LabeledStatement(_)
+            | Statement::IfStatement(_)
+            | Statement::SwitchStatement(_)
+            | Statement::ThrowStatement(_)
+            | Statement::TryStatement(_)
+            | Statement::DebuggerStatement(_)
+            | Statement::BlockStatement(_)
+            | Statement::ForStatement(_)
+            | Statement::ForInStatement(_)
+            | Statement::ForOfStatement(_)
+            | Statement::WhileStatement(_)
+            | Statement::DoWhileStatement(_)
+            | Statement::ClassDeclaration(_)
+            | Statement::VariableDeclaration(_)
+            | Statement::EnumDeclaration(_)
+            | Statement::TypeAliasDeclaration(_)
+            | Statement::InterfaceDeclaration(_)
+            | Statement::ExpressionStatement(_) => {}
+        }
+    }
+
+    diagnostics
+}
+
 fn collect_library_exports_from_statements(
     statements: &[Statement],
     source_path: &Path,
@@ -2252,9 +2370,13 @@ fn collect_library_exports_from_statements(
     for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
-                exports
-                    .entry(func.name.clone())
-                    .or_insert_with(|| function_signature(&func.params));
+                let signature = function_signature(&func.params);
+                if exports.insert(func.name.clone(), signature).is_some() {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        &format!("duplicate export name `{}`", func.name),
+                    ));
+                }
             }
             Statement::ExportNamed(declaration) => {
                 if declaration.source.is_some() {
@@ -2266,20 +2388,34 @@ fn collect_library_exports_from_statements(
                 }
 
                 for specifier in &declaration.specifiers {
-                    exports
-                        .entry(specifier.exported.clone())
-                        .or_insert_with(|| signature_from_export_specifier(&specifier.local));
+                    let signature = signature_from_export_specifier(&specifier.local);
+                    if exports
+                        .insert(specifier.exported.clone(), signature)
+                        .is_some()
+                    {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{}`", specifier.exported),
+                        ));
+                    }
                 }
             }
             Statement::ExportDefault(default_decl) => match default_decl {
                 ExportDefaultDeclaration::FunctionDeclaration(func) => {
-                    exports
-                        .entry(if func.name.is_empty() {
-                            "default".to_string()
-                        } else {
-                            func.name.clone()
-                        })
-                        .or_insert_with(|| function_signature(&func.params));
+                    let export_name = if func.name.is_empty() {
+                        "default".to_string()
+                    } else {
+                        func.name.clone()
+                    };
+                    if exports
+                        .insert(export_name.clone(), function_signature(&func.params))
+                        .is_some()
+                    {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{export_name}`"),
+                        ));
+                    }
                 }
                 ExportDefaultDeclaration::Expression(_)
                 | ExportDefaultDeclaration::ClassDeclaration(_) => {

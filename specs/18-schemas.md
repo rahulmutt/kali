@@ -941,12 +941,15 @@ Interpretation rule:
 - when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
 - artifact metadata sidecars may also carry provenance fields such as `runtimeProfiles`, `maxSpecializations`, `profileDataHash`, `hostContract`, and `runtimeBackend`; these describe the build/execution contract that produced the artifact, not a separate public embedding surface
 - when present, `runtimeProfiles` is a semantic set encoded as an array: producers must deduplicate it and emit it in stable lexical order so artifact metadata stays deterministic
+- library-oriented export-name lists emitted in artifact metadata or build-result payloads must also be duplicate-free so the reported export surface stays deterministic
 - build result JSON envelopes may mirror the same provenance fields when the corresponding artifact mode emits them, so result payloads and sidecar metadata stay aligned instead of inventing two different provenance vocabularies
 - IR validation via `kali build --validate-ir` does not change the schema-v1 artifact payload shape; it only makes the build fail earlier if the lowered HIR/MIR/LIR trees are structurally inconsistent
 
 Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
 - they should also prefer the canonical `role` values above instead of per-command ad hoc labels
+- within one emitted artifact list, the `(kind, path)` pair should be unique; producers should not emit duplicate artifact entries and consumers should not silently deduplicate them away
+- export arrays attached to build-result payloads and artifact-metadata sidecars should be unique by export `name`
 - adding a new stable artifact `kind` or `role` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
 ## C ABI Metadata Schema (schema v1)

@@ -2319,6 +2319,31 @@ fn validate_build_result_value_rejects_duplicate_primary_artifact_roles() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_duplicate_artifact_kind_path_pairs() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("duplicate artifact kind/path pairs should fail validation");
+    assert!(
+        err.contains("duplicates artifact `wasm-module` at `browser.wasm`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_build_result_value_rejects_non_string_artifact_roles() {
     let invalid_component = serde_json::json!({
         "artifactKind": "component",
@@ -2407,6 +2432,31 @@ fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
     let err = validate_artifact_metadata_value(&invalid_metadata)
         .expect_err("extra export keys should fail validation");
     assert!(err.contains("exports[0]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_artifact_metadata_value_rejects_duplicate_export_names() {
+    let invalid_metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "artifactKind": "component",
+        "entrypoint": "src/main.ts",
+        "buildMode": "release",
+        "apiSurface": "browser",
+        "runtimeProfiles": ["wasm-threads"],
+        "maxSpecializations": 24,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "kaliVersion": "1.2.3",
+        "sourceHash": "sha256-deadbeef",
+        "exports": [
+            {"name": "main", "signature": "(input) => number"},
+            {"name": "main", "signature": "(input) => number"}
+        ]
+    });
+
+    let err = validate_artifact_metadata_value(&invalid_metadata)
+        .expect_err("duplicate export names should fail validation");
+    assert!(err.contains("duplicates `main`"), "unexpected error: {err}");
 }
 
 #[test]
@@ -2530,6 +2580,30 @@ fn validate_build_result_value_rejects_unexpected_artifact_keys() {
     let err = validate_build_result_value(&invalid_bundle)
         .expect_err("unexpected artifact keys should fail validation");
     assert!(err.contains("artifacts[0]"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_duplicate_export_names() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [
+            { "name": "main", "signature": "(input) => number" },
+            { "name": "main", "signature": "(input) => number" }
+        ],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("duplicate export names should fail validation");
+    assert!(err.contains("duplicates `main`"), "unexpected error: {err}");
 }
 
 #[test]
