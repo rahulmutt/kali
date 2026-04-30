@@ -6558,6 +6558,62 @@ fn assert_browser_requested_unary_prefix_semantics(
     }
 }
 
+fn assert_browser_requested_unary_prefix_semantics_with_inherited_browser_api_surface(
+    command: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    write_browser_api_surface_manifest(dir.path());
+
+    for ext in ["ts", "js"] {
+        let source_path = dir
+            .path()
+            .join(format!("browser-unary-prefix-inherited-{command}.{ext}"));
+        fs::write(
+            &source_path,
+            unary_prefix_semantics_source(command == "test"),
+        )
+        .expect("write source");
+
+        let mut cmd = Command::new(kali_bin());
+        cmd.current_dir(dir.path())
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+        if json_output {
+            cmd.arg("--output").arg("json");
+        }
+        let output = cmd
+            .arg(command)
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        if json_output {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], true);
+            assert_eq!(json["payload"]["hostContract"], "browser-requested");
+            assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+            if command == "run" {
+                assert_eq!(json["exitCode"], 0);
+                assert_eq!(json["payload"]["exitCode"], 0);
+            } else {
+                assert_eq!(json["payload"]["total"], 1);
+                assert_eq!(json["payload"]["passed"], 1);
+                assert_eq!(json["payload"]["failed"], 0);
+            }
+        }
+    }
+}
+
 #[test]
 fn run_supports_unary_prefix_semantics_when_browser_harness_is_configured() {
     assert_browser_requested_unary_prefix_semantics("run", "main.ts", false);
@@ -6596,6 +6652,36 @@ fn json_test_supports_unary_prefix_semantics_when_browser_harness_is_configured(
 #[test]
 fn json_test_supports_unary_prefix_semantics_when_browser_harness_is_configured_in_js_input() {
     assert_browser_requested_unary_prefix_semantics("test", "smoke.test.js", true);
+}
+
+#[test]
+fn run_supports_unary_prefix_semantics_when_browser_api_surface_is_inherited_in_ts_and_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_unary_prefix_semantics_with_inherited_browser_api_surface(
+        "run", false,
+    );
+}
+
+#[test]
+fn json_run_supports_unary_prefix_semantics_when_browser_api_surface_is_inherited_in_ts_and_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_unary_prefix_semantics_with_inherited_browser_api_surface("run", true);
+}
+
+#[test]
+fn test_supports_unary_prefix_semantics_when_browser_api_surface_is_inherited_in_ts_and_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_unary_prefix_semantics_with_inherited_browser_api_surface(
+        "test", false,
+    );
+}
+
+#[test]
+fn json_test_supports_unary_prefix_semantics_when_browser_api_surface_is_inherited_in_ts_and_js_input_when_a_browser_harness_command_is_configured(
+) {
+    assert_browser_requested_unary_prefix_semantics_with_inherited_browser_api_surface(
+        "test", true,
+    );
 }
 
 #[test]

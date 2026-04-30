@@ -1683,6 +1683,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Promise.all sequencing over already-resolved promises in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Promise.all sequencing over already-resolved promises in `.ts` and `.js` input, including inherited-browser-api-surface coverage and JSON-output coverage",
         "Browser bundle Promise.all sequencing over already-resolved promises in `.ts` and `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` basic unary prefix semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Shared web-baseline primitives (`structuredClone`, `AbortController`, `AbortSignal`, `Event`, `EventTarget`, `CustomEvent`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`) in `.ts` and `.js` input",
         "Browser ambient typing for baseline host globals (`fetch`, `Headers`, `Request`, `Response`, `Blob`, `File`, `performance`, `crypto`) in `.ts` and `.js` input",
         "Read-only `Deno.permissions.query(...)` const-bound descriptor aliases in `.ts` and `.js` input",
@@ -1856,6 +1857,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
     let supported_rows = [
         "Browser-requested `run` / `test` literal-string dynamic-import directory-index targets in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle runtime dynamic-import loader and specifier normalization in `.js` input, including directory-index targets",
+        "Browser-requested `run` / `test` basic unary prefix semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
