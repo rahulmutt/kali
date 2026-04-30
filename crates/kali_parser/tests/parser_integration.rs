@@ -912,9 +912,9 @@ mod member_expressions {
     #[test]
     fn test_parse_bracketed_late_compatibility_member_expressions() {
         let output = parse(
-            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]; globalThis[\"WeakRef\"]; globalThis[\"FinalizationRegistry\"]; globalThis[\"SharedArrayBuffer\"]; globalThis[\"Atomics\"];",
+            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]; globalThis[\"WeakRef\"]; globalThis[\"FinalizationRegistry\"]; globalThis[\"SharedArrayBuffer\"]; globalThis[\"Atomics\"];",
         );
-        assert_eq!(output.statements.len(), 10);
+        assert_eq!(output.statements.len(), 12);
 
         let assert_two_level_bracket =
             |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
@@ -959,9 +959,11 @@ mod member_expressions {
             };
 
         assert_two_level_bracket(&output.statements[0], "Intl", "DateTimeFormat");
-        assert_two_level_bracket(&output.statements[1], "process", "cwd");
+        assert_two_level_bracket(&output.statements[1], "Intl", "DisplayNames");
+        assert_two_level_bracket(&output.statements[2], "Intl", "Locale");
+        assert_two_level_bracket(&output.statements[3], "process", "cwd");
 
-        match &output.statements[2] {
+        match &output.statements[4] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(me) => {
                     assert_eq!(me.property, "exit");
@@ -977,10 +979,10 @@ mod member_expressions {
             _ => panic!("Expected ExpressionStatement"),
         }
 
-        assert_two_level_bracket(&output.statements[3], "Proxy", "revocable");
-        assert_two_level_bracket(&output.statements[4], "Object", "hasOwn");
+        assert_two_level_bracket(&output.statements[5], "Proxy", "revocable");
+        assert_two_level_bracket(&output.statements[6], "Object", "hasOwn");
 
-        match &output.statements[5] {
+        match &output.statements[7] {
             kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
                 kali_ast::Expression::MemberExpression(call) => {
                     assert_eq!(call.property, "call");
@@ -1022,10 +1024,10 @@ mod member_expressions {
             _ => panic!("Expected ExpressionStatement"),
         }
 
-        assert_single_bracket(&output.statements[6], "WeakRef");
-        assert_single_bracket(&output.statements[7], "FinalizationRegistry");
-        assert_single_bracket(&output.statements[8], "SharedArrayBuffer");
-        assert_single_bracket(&output.statements[9], "Atomics");
+        assert_single_bracket(&output.statements[8], "WeakRef");
+        assert_single_bracket(&output.statements[9], "FinalizationRegistry");
+        assert_single_bracket(&output.statements[10], "SharedArrayBuffer");
+        assert_single_bracket(&output.statements[11], "Atomics");
     }
 
     #[test]
