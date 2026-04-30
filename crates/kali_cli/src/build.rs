@@ -658,6 +658,8 @@ fn source_uses_promise_all_settled(source: &str) -> bool {
         "globalThis.Promise.allSettled(",
         "globalThis.Promise[\"allSettled\"](",
         "globalThis.Promise['allSettled'](",
+        "globalThis[\"Promise\"].allSettled(",
+        "globalThis['Promise'].allSettled(",
         "globalThis[\"Promise\"][\"allSettled\"](",
         "globalThis['Promise']['allSettled'](",
     ];

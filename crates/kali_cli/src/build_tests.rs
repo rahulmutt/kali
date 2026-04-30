@@ -682,7 +682,7 @@ fn build_source_file_rejects_bracketed_object_has_own_in_tsx_input() {
     );
 }
 
-fn promise_all_settled_source_variants() -> [&'static str; 8] {
+fn promise_all_settled_source_variants() -> [&'static str; 10] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
         "console.log(Promise[\"allSettled\"]([1, 2]));\n",
@@ -690,6 +690,8 @@ fn promise_all_settled_source_variants() -> [&'static str; 8] {
         "console.log(globalThis.Promise.allSettled([1, 2]));\n",
         "console.log(globalThis.Promise[\"allSettled\"]([1, 2]));\n",
         "console.log(globalThis.Promise['allSettled']([1, 2]));\n",
+        "console.log(globalThis[\"Promise\"].allSettled([1, 2]));\n",
+        "console.log(globalThis['Promise'].allSettled([1, 2]));\n",
         "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
         "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
     ]

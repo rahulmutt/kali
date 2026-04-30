@@ -417,9 +417,8 @@ fn unsupported_math_round_member_reports_feature_unavailable() {
         .expect("generated wasm should validate");
 }
 
-#[test]
-fn unsupported_promise_all_settled_member_reports_feature_unavailable() {
-    let program = parse_and_lower_lir("console.log(Promise.allSettled([1, 2]));");
+fn assert_promise_all_settled_lowering_reports_feature_unavailable(source: &str) {
+    let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -442,6 +441,16 @@ fn unsupported_promise_all_settled_member_reports_feature_unavailable() {
     Validator::new()
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
+}
+
+#[test]
+fn unsupported_promise_all_settled_member_reports_feature_unavailable() {
+    assert_promise_all_settled_lowering_reports_feature_unavailable(
+        "console.log(Promise.allSettled([1, 2]));",
+    );
+    assert_promise_all_settled_lowering_reports_feature_unavailable(
+        "console.log(globalThis[\"Promise\"].allSettled([1, 2]));",
+    );
 }
 
 #[test]
