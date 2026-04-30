@@ -4937,6 +4937,59 @@ fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_d
 }
 
 #[test]
+fn browser_corpus_packages_with_internal_browser_rewrites_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for package in ["solid-js", "lit"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_replacement_map_package(
+            dir.path(),
+            package,
+            "import helper from './internal.js';\nexport default function root() { return 'node:' + helper(); }\n",
+            "import helper from './internal.js';\nexport default function root() { return 'browser:' + helper(); }\n",
+            "internal",
+            &format!(
+                "export default function helper() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function helper() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser internal-browser-rewrite package {package} should resolve its browser rewrite chain on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser internal-browser-rewrite package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_scoped_packages_with_exports_maps_remain_checkable_and_deployable_through_host() {
     for (package, subpath) in [
         ("@emotion/react", "jsx-runtime"),

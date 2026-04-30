@@ -2469,6 +2469,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser internal browser-rewrite corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser internal browser-rewrite packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited internal browser-rewrite corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser-condition / browser-string / web-baseline packages | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser condition / string / web-baseline corpus row should be recorded in the package corpus matrix",
         ),
@@ -2758,6 +2762,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_internal_browser_rewrite_row,
         "browser internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_internal_browser_rewrite_inherited_row =
+        "| npm-style package corpus | browser internal browser-rewrite packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_internal_browser_rewrite_inherited_row,
+        "browser inherited internal-browser-rewrite corpus row should be recorded exactly once in the package corpus matrix",
     );
     let browser_internal_browser_rewrite_runtime_row =
         "| browser runtime corpus | browser internal browser-rewrite packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
