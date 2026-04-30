@@ -1845,6 +1845,44 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
 }
 
 #[test]
+fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels_and_is_missing_tests_failed(
+) {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[\"browser invalid labels\"],\"hostContract\":\"not-a-contract\",\"runtimeBackend\":\"not-a-backend\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser invalid labels\"],\"testsFailed\":9,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["zeta".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 9);
+    assert_eq!(outcome.reported_args, vec!["summary".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser invalid labels".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":9"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_array_items(
 ) {
     let tempdir = tempfile::tempdir().expect("tempdir");
