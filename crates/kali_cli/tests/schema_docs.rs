@@ -2206,8 +2206,14 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
         "phase 7 README should keep the summary-fallback note explicit"
     );
     assert!(
-        readme.contains("including the invalid-label and invalid-array-item fallback branches."),
+        readme.contains("including the invalid-label and invalid-array-item fallback branches"),
         "phase 7 README should keep the invalid-array-item summary-fallback note explicit"
+    );
+    assert!(
+        readme.contains(
+            "and the browser-requested `run` JSON smoke now also mirrors the unparseable-summary fallback path in `.js` input."
+        ),
+        "phase 7 README should keep the browser-requested run JSON fallback note explicit"
     );
     assert!(
         readme
