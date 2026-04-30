@@ -689,13 +689,14 @@ fn unsupported_math_member_call_source_variants(method: &str) -> [String; 6] {
     ]
 }
 
-fn assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(
+fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
     api_surface: ApiSurface,
+    extension: &str,
 ) {
     for method in ["round", "floor"] {
         for source in unsupported_math_member_call_source_variants(method) {
             let dir = tempdir().expect("tempdir");
-            let source_path = dir.path().join("main.js");
+            let source_path = dir.path().join(format!("main.{extension}"));
             fs::write(&source_path, source).expect("write source");
 
             let error = build_source_file(
@@ -725,12 +726,28 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(
 
 #[test]
 fn build_source_file_rejects_unsupported_math_member_calls_in_js_input() {
-    assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(ApiSurface::Deno);
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_ts_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(ApiSurface::Deno, "ts");
 }
 
 #[test]
 fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
-    assert_build_source_file_rejects_unsupported_math_member_calls_in_js_input(ApiSurface::Browser);
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
 }
 
 fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str) {
