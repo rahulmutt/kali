@@ -2222,6 +2222,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
+            "The schema-doc drift net now also pins that browser-entrypoint alias smoke note, including `privacy-browser`, and the browser-harness launch-failure note, keeping the browser harness command coverage visible in docs drift checks."
+        ),
+        "phase 7 README should keep the browser alias and launch-failure drift-net note explicit"
+    );
+    assert!(
+        readme.contains(
             "The browser bundle `--format cjs` path now also has first-class `.js` input coverage in both explicit and inherited browser API-surface modes, including JSON-output coverage and sandbox-policy acceptance in those JS-input lanes, and the explicit and inherited browser `apiSurface` human-output lanes now also land in `runtime_smoke`, keeping the alternate browser wrapper format aligned with the same JS-input evidence lane."
         ),
         "phase 7 README should keep the browser bundle cjs browser-evidence note explicit"
