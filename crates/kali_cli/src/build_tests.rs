@@ -973,6 +973,92 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("env materialization APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("environment snapshot materialization API")
+            && (diagnostic.message.contains("Deno.env.toObject")
+                || diagnostic.message.contains("globalThis.Deno.env.toObject")
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis.Deno.env["toObject"]"#)
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("env materialization APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("environment snapshot materialization API")
+            && (diagnostic.message.contains("Deno.env.toObject")
+                || diagnostic.message.contains("globalThis.Deno.env.toObject")
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis.Deno.env["toObject"]"#)
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
+                || diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

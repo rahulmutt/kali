@@ -3020,6 +3020,12 @@ fn browser_runtime_object_enumeration_source() -> &'static str {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -3079,6 +3085,12 @@ fn browser_runtime_object_enumeration_test_source() -> &'static str {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -3131,6 +3143,12 @@ fn browser_runtime_integer_like_object_enumeration_test_source() -> &'static str
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -3167,6 +3185,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -3221,6 +3245,12 @@ async function enumSmoke(left, right) {
   const keys = Object.keys(obj);
   const entries = Object.entries(obj);
   const values = Object.values(obj);
+  const consumeArray = (items, value) => items[0] + items[1] + value;
+  const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+  const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+  if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+    throw new Error('unexpected array literal arguments');
+  }
   if (
     keys.length !== 2 ||
     keys[0] !== 'a' ||
@@ -7802,6 +7832,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -7916,6 +7952,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -8030,6 +8072,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -8145,6 +8193,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -14318,6 +14372,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -14421,6 +14481,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -14525,6 +14591,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -14643,6 +14715,12 @@ obj["a"] = 3;
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -14872,6 +14950,12 @@ fn json_run_supports_object_enumeration_integer_like_key_ordering_when_browser_h
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -14948,6 +15032,12 @@ fn json_run_supports_object_enumeration_integer_like_key_ordering_when_browser_h
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -15024,6 +15114,12 @@ fn json_test_supports_object_enumeration_integer_like_key_ordering_when_browser_
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -15102,6 +15198,12 @@ fn json_test_supports_object_enumeration_integer_like_key_ordering_when_browser_
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -22045,6 +22147,12 @@ fn run_supports_object_values_semantics() {
         &source_path,
         r#"const obj = { "a": 1, "b": 2 };
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
   throw 'unexpected values';
 }
@@ -22150,6 +22258,12 @@ fn run_supports_object_values_semantics_in_js_input() {
         &source_path,
         r#"const obj = { "a": 1, "b": 2 };
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
   throw 'unexpected values';
 }
@@ -22226,6 +22340,12 @@ fn object_enumeration_semantics_source() -> &'static str {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== 'a' ||
@@ -24067,6 +24187,12 @@ fn test_supports_object_values_semantics_in_js_input() {
         &source_path,
         r#"const obj = { "a": 1, "b": 2 };
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
   throw 'unexpected values';
 }
@@ -24218,6 +24344,12 @@ fn run_supports_object_enumeration_integer_like_key_ordering() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -24275,6 +24407,12 @@ fn test_supports_object_enumeration_integer_like_key_ordering() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -24324,6 +24462,12 @@ fn test_supports_object_enumeration_integer_like_key_ordering_in_js_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -41630,6 +41774,12 @@ fn json_run_supports_integer_like_key_ordering_semantics_in_js_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -41688,6 +41838,12 @@ fn json_run_supports_integer_like_key_ordering_semantics_in_ts_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -41746,6 +41902,12 @@ fn json_test_supports_integer_like_key_ordering_semantics_in_js_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
@@ -41806,6 +41968,12 @@ fn json_test_supports_integer_like_key_ordering_semantics_in_ts_input() {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   keys.length !== 2 ||
   keys[0] !== '1' ||
