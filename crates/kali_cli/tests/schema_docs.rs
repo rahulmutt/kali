@@ -2109,6 +2109,7 @@ fn cli_spec_examples_track_the_current_repository_surface() {
         "kali run --api browser main.ts",
         "kali build --api node main.ts",
         "kali build --sandbox kali.policy.json main.ts",
+        "kali build --bundle --api node main.ts",
         "kali build --bundle --api browser --sandbox kali.policy.json main.ts",
         "kali build --profile pgo-profile.json main.ts # Load deterministic PGO profile data and record its normalized hash in build metadata sidecars and JSON output",
         "kali build --lib --sandbox kali.policy.json lib.ts",
