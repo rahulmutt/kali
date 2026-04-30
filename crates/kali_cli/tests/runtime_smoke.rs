@@ -34686,6 +34686,34 @@ fn assert_generator_function_lowering_rejection(command: &str, extension: &str) 
     );
 }
 
+fn assert_generator_function_lowering_rejection_in_browser_context(
+    command: &str,
+    bundle: bool,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path());
+    cli.arg(command);
+    if bundle {
+        cli.arg("--bundle");
+    }
+    cli.arg("--api").arg("browser").arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
 #[test]
 fn check_rejects_generator_function_lowering_in_jsx_input() {
     assert_generator_function_lowering_rejection("check", "jsx");
@@ -34744,6 +34772,16 @@ fn check_rejects_generator_function_lowering_in_browser_analysis_context_in_js_i
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn check_rejects_generator_function_lowering_in_browser_analysis_context_in_jsx_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("check", false, "jsx");
+}
+
+#[test]
+fn check_rejects_generator_function_lowering_in_browser_analysis_context_in_tsx_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("check", false, "tsx");
 }
 
 #[test]
@@ -36792,6 +36830,16 @@ fn build_rejects_generator_function_lowering_in_browser_bundle() {
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn build_rejects_generator_function_lowering_in_browser_bundle_in_jsx_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("build", true, "jsx");
+}
+
+#[test]
+fn build_rejects_generator_function_lowering_in_browser_bundle_in_tsx_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("build", true, "tsx");
 }
 
 #[test]
