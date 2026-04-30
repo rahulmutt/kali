@@ -2160,6 +2160,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
+            "The default browser bundle `--bundle` path now also has first-class `.js` input human-output coverage in both explicit and inherited browser API-surface modes, keeping the ESM wrapper aligned with the same JS-input evidence lane."
+        ),
+        "phase 7 README should keep the browser bundle js-input human-output note explicit"
+    );
+    assert!(
+        readme.contains(
             "The standalone `build --lib` / `build --capi` JSON smoke now also covers explicit and inherited JS-input threaded-profile cases, keeping the remaining artifact-mode lanes machine-readable too."
         ),
         "phase 7 README should keep the threaded artifact-mode note explicit"
