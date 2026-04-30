@@ -20252,6 +20252,103 @@ console.log('ok');
     );
 }
 
+fn browser_requested_web_crypto_get_random_values_source() -> &'static str {
+    r#"const bytes = new globalThis["Uint8Array"](8);
+const result = crypto.getRandomValues(bytes);
+if (result !== bytes) {
+  throw new Error('crypto.getRandomValues should return the provided buffer');
+}
+if (bytes.length !== 8 || bytes.byteLength !== 8) {
+  throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
+}
+console.log('ok');
+"#
+}
+
+fn assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
+    command: &str,
+    filename: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_requested_web_crypto_get_random_values_source(),
+    )
+    .expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+    }
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
+        "run", "main.ts",
+    );
+}
+
+#[test]
+fn run_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
+        "run", "main.js",
+    );
+}
+
+#[test]
+fn test_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.ts",
+    );
+}
+
+#[test]
+fn test_supports_browser_web_crypto_get_random_values_when_browser_api_surface_is_inherited_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(
+        "test",
+        "smoke.test.js",
+    );
+}
+
 #[test]
 fn test_supports_arithmetic_precedence_in_js_input() {
     let dir = tempdir().expect("tempdir");

@@ -1695,6 +1695,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Proxy.revocable",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` Web Crypto `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.js` input",
         "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.ts` input",
@@ -1864,6 +1865,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
         "Browser-requested `run` / `test` basic async/await sequencing in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` basic try/catch exception handling and try/finally sequencing in `.ts` and `.js` input, including JSON-output coverage, plus inherited browser-api-surface coverage in `.ts` and `.js` input",
         "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` in `.ts` and `.js` input",
+        "Browser-requested `run` / `test` Web Crypto randomness subset via `crypto.getRandomValues()` when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` semantics when the browser API surface is inherited in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle console error / warn / info / debug routing plus `console.assert()` false-branch reporting",
     ];
