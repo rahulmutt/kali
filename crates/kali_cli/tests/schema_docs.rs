@@ -1782,6 +1782,8 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Dynamic `require()`",
         "Nullish coalescing `??`",
         "`Promise.allSettled`",
+        "Browser-targeted `check` / `build --bundle` `Promise.allSettled` in `.js` input, including JSON-output coverage",
+        "Browser-requested `run` / `test` `Promise.allSettled` in `.js` input, including inherited-browser-api-surface coverage and JSON-output coverage",
     ] {
         assert!(dashboard.contains(expected), "dashboard missing expected row or heading: {expected}");
     }

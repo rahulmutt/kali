@@ -183,6 +183,8 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Unsupported `Math` member calls such as `Math.round()` / `Math.floor()` | Rejected by default | Canonical `E5506` availability gate; `crates/kali_codegen/src/tests.rs`, `crates/kali_cli/src/build_tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs` (including browser-targeted `check` / `build --bundle` rejection coverage in `.ts` and `.js` input plus browser-harness inherited-browser-api-surface `run` / `test` rejection coverage in `.ts` and `.js` input) |
 | Nullish coalescing `??` | Rejected by default | Parser acceptance plus canonical `E5506` availability gate in `crates/kali_parser/src/tests.rs`, `crates/kali_types/src/tests.rs`, `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_js_input.rs`, and `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 | `Promise.allSettled` | Rejected by default | `crates/kali_cli/tests/runtime_smoke.rs` (standalone check / run / test JS input, including JSON-output coverage) |
+| Browser-targeted `check` / `build --bundle` `Promise.allSettled` in `.js` input, including JSON-output coverage | Rejected by default | `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
+| Browser-requested `run` / `test` `Promise.allSettled` in `.js` input, including inherited-browser-api-surface coverage and JSON-output coverage | Rejected by default | `crates/kali_cli/tests/runtime_smoke.rs`, `crates/kali_cli/tests/late_compat_browser_js_input.rs` |
 
 ## Reading note
 
