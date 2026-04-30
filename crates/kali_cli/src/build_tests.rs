@@ -2111,6 +2111,31 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_duplicate_primary_artifact_roles() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm", "role": "primary-executable" },
+            { "kind": "wasm-module", "path": "browser-shadow.wasm", "role": "primary-executable" },
+            { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("duplicate primary artifact roles should fail validation");
+    assert!(
+        err.contains("primary-executable"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_build_result_value_rejects_non_string_artifact_roles() {
     let invalid_component = serde_json::json!({
         "artifactKind": "component",

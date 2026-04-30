@@ -1997,6 +1997,10 @@ fn validate_build_result_artifacts_array(
         return Err(format!("{context} must be an array"));
     };
 
+    let mut seen_primary_executable = false;
+    let mut seen_primary_library = false;
+    let mut seen_primary_component = false;
+
     for (index, item) in items.iter().enumerate() {
         let Some(object) = item.as_object() else {
             return Err(format!("{context}[{index}] must be an object, got {item}"));
@@ -2031,6 +2035,33 @@ fn validate_build_result_artifacts_array(
                 return Err(format!(
                     "{context}[{index}].role must be a string, got {role}"
                 ));
+            }
+            match role.as_str().unwrap() {
+                "primary-executable" => {
+                    if seen_primary_executable {
+                        return Err(format!(
+                            "{context}[{index}].role duplicates primary-executable"
+                        ));
+                    }
+                    seen_primary_executable = true;
+                }
+                "primary-library" => {
+                    if seen_primary_library {
+                        return Err(format!(
+                            "{context}[{index}].role duplicates primary-library"
+                        ));
+                    }
+                    seen_primary_library = true;
+                }
+                "primary-component" => {
+                    if seen_primary_component {
+                        return Err(format!(
+                            "{context}[{index}].role duplicates primary-component"
+                        ));
+                    }
+                    seen_primary_component = true;
+                }
+                _ => {}
             }
         }
     }
