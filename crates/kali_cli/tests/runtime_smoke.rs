@@ -1766,14 +1766,15 @@ fn check_build_run_and_test_accept_deno_filesystem_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     let test_path = dir.path().join("main.test.js");
     fs::write(dir.path().join("input.txt"), "alpha").expect("write input");
+    fs::write(dir.path().join("open.txt"), "beta").expect("write open input");
     fs::write(
         &source_path,
-        "Deno.mkdir('./nested', false);\nDeno.rename('./input.txt', './nested/renamed.txt');\nDeno.lstat('./nested/renamed.txt');\nDeno.remove('./nested/renamed.txt');\nDeno.remove('./nested', true);\nconsole.log('done');\n",
+        "Deno.mkdir('./nested', false);\nDeno.rename('./input.txt', './nested/renamed.txt');\nDeno.lstat('./nested/renamed.txt');\nDeno.remove('./nested/renamed.txt');\nDeno.remove('./nested', true);\nDeno.open('./open.txt');\nDeno.create('./created.txt');\nconsole.log('done');\n",
     )
     .expect("write source");
     fs::write(
         &test_path,
-        "Kali.test('filesystem', () => { Deno.mkdir('./nested', false); Deno.rename('./input.txt', './nested/renamed.txt'); Deno.lstat('./nested/renamed.txt'); Deno.remove('./nested/renamed.txt'); Deno.remove('./nested', true); console.log('done'); });\n",
+        "Kali.test('filesystem', () => { Deno.mkdir('./nested', false); Deno.rename('./input.txt', './nested/renamed.txt'); Deno.lstat('./nested/renamed.txt'); Deno.remove('./nested/renamed.txt'); Deno.remove('./nested', true); Deno.open('./open.txt'); Deno.create('./created.txt'); console.log('done'); });\n",
     )
     .expect("write test source");
 
