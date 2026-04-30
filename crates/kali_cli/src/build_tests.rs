@@ -2397,6 +2397,27 @@ fn validate_build_result_value_rejects_invalid_bundle_format() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_non_string_bundle_format() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm" },
+            { "kind": "js-glue", "path": "browser.js" }
+        ],
+        "exports": [],
+        "bundleFormat": 1
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("non-string bundleFormat should fail validation");
+    assert!(err.contains("bundleFormat"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_build_result_value_rejects_unsupported_artifact_kind() {
     let invalid_result = serde_json::json!({
         "artifactKind": "meta-json",
