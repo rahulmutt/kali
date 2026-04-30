@@ -912,9 +912,9 @@ mod member_expressions {
     #[test]
     fn test_parse_bracketed_late_compatibility_member_expressions() {
         let output = parse(
-            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"];",
+            "globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"process\"][\"cwd\"]; process[\"exit\"]; globalThis[\"Proxy\"][\"revocable\"]; globalThis[\"Object\"][\"hasOwn\"]; globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]; globalThis[\"WeakRef\"]; globalThis[\"FinalizationRegistry\"]; globalThis[\"SharedArrayBuffer\"]; globalThis[\"Atomics\"];",
         );
-        assert_eq!(output.statements.len(), 6);
+        assert_eq!(output.statements.len(), 10);
 
         let assert_two_level_bracket =
             |statement: &kali_ast::Statement, root: &str, property: &str| match statement {
@@ -934,6 +934,23 @@ mod member_expressions {
                                 }
                             }
                             other => panic!("Expected nested MemberExpression, got {other:?}"),
+                        }
+                    }
+                    _ => panic!("Expected MemberExpression"),
+                },
+                _ => panic!("Expected ExpressionStatement"),
+            };
+
+        let assert_single_bracket =
+            |statement: &kali_ast::Statement, property: &str| match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property, property);
+                        match &me.object {
+                            kali_ast::Expression::Identifier(name) => {
+                                assert_eq!(name, "globalThis");
+                            }
+                            other => panic!("Expected globalThis identifier, got {other:?}"),
                         }
                     }
                     _ => panic!("Expected MemberExpression"),
@@ -1004,6 +1021,11 @@ mod member_expressions {
             },
             _ => panic!("Expected ExpressionStatement"),
         }
+
+        assert_single_bracket(&output.statements[6], "WeakRef");
+        assert_single_bracket(&output.statements[7], "FinalizationRegistry");
+        assert_single_bracket(&output.statements[8], "SharedArrayBuffer");
+        assert_single_bracket(&output.statements[9], "Atomics");
     }
 
     #[test]
