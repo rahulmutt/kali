@@ -1001,6 +1001,45 @@ fn build_source_file_rejects_mixed_bracket_dot_process_control_in_js_input() {
 }
 
 #[test]
+fn build_source_file_rejects_mixed_bracket_dot_process_control_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        r#"globalThis["process"].pid; globalThis["process"].cwd; globalThis["process"].chdir; globalThis["process"].exit;"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("mixed bracket/dot process control should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "globalThis.process.chdir",
+        "globalThis.process.exit",
+    ] {
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing {expected} in {error:?}"
+        );
+    }
+}
+
+#[test]
 fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
