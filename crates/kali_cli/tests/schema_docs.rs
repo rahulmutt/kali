@@ -2673,6 +2673,12 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         browser_string_export_inherited_row,
         "browser runtime inherited-browser string-export corpus row should be recorded exactly once in the package corpus matrix",
     );
+    let browser_string_web_baseline_inherited_check_row =
+        "| npm-style package corpus | browser string/web-baseline packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_web_baseline_inherited_check_row,
+        "browser inherited browser string/web-baseline check/build row should be recorded exactly once in the package corpus matrix",
+    );
     let browser_string_web_baseline_row =
         "| browser runtime corpus | browser string/web-baseline packages with `.js` input | browser-targeted execution harness | `run`, `test` | executable / testable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
     assert_row_once(
@@ -3098,6 +3104,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser runtime string/web-baseline rows also carry JSON-output coverage on the direct and inherited browser harness variants.",
         "package corpus matrix should document browser string/web-baseline JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser-targeted browser string/web-baseline row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser string/web-baseline deployability evidence aligned with the runtime harness.",
+        "package corpus matrix should document browser string/web-baseline inherited check/build coverage",
     );
     assert_note_once(
         "The browser runtime exports-map rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.",
