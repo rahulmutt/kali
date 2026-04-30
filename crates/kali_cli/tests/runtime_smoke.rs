@@ -8183,6 +8183,69 @@ console.log(values.length);
 }
 
 #[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+console.log(stringKeys.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn json_run_supports_object_enumeration_semantics_when_browser_harness_is_configured_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -14665,6 +14728,72 @@ if (bytes.length !== 8 || bytes.byteLength !== 8) {
   throw new Error(`unexpected buffer length ${bytes.length}/${bytes.byteLength}`);
 }
 console.log(values.length);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"const stringKeys = Object.keys('abc');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 3 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringKeys[2] !== '2' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+console.log(stringKeys.length);
+Kali.test('string primitive enumeration', () => {});
 "#,
     )
     .expect("write source");
@@ -24302,53 +24431,6 @@ if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
   throw 'unexpected values';
 }
 console.log(values.length);
-"#,
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("test")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
-}
-
-#[test]
-fn test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(
-        &source_path,
-        r#"const stringKeys = Object.keys('ab');
-const stringEntries = Object.entries('ab');
-const stringValues = Object.values('ab');
-if (
-  stringKeys.length !== 2 ||
-  stringKeys[0] !== '0' ||
-  stringKeys[1] !== '1' ||
-  stringEntries.length !== 2 ||
-  stringEntries[0][0] !== '0' ||
-  stringEntries[0][1] !== 'a' ||
-  stringEntries[1][0] !== '1' ||
-  stringEntries[1][1] !== 'b' ||
-  stringValues.length !== 2 ||
-  stringValues[0] !== 'a' ||
-  stringValues[1] !== 'b'
-) {
-  throw 'unexpected string primitive enumeration';
-}
-console.log(stringKeys.length);
-Kali.test('string primitive enumeration', () => {});
 "#,
     )
     .expect("write source");
