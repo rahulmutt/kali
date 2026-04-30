@@ -675,6 +675,39 @@ fn validate_string_array_value(
     Ok(())
 }
 
+pub(crate) fn validate_sorted_string_array_value(
+    value: Option<&Value>,
+    context: &str,
+    allow_empty: bool,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    if !allow_empty && items.is_empty() {
+        return Err(format!("{context} must contain at least one item"));
+    }
+
+    let mut previous: Option<&str> = None;
+    for (index, item) in items.iter().enumerate() {
+        let Some(item) = item.as_str() else {
+            return Err(format!("{context}[{index}] must be a string, got {item}"));
+        };
+
+        if let Some(previous) = previous {
+            if previous >= item {
+                return Err(format!(
+                    "{context} must be deduplicated and sorted in lexical order, got `{previous}` before `{item}`"
+                ));
+            }
+        }
+
+        previous = Some(item);
+    }
+
+    Ok(())
+}
+
 fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Result<(), String> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err(format!("{context} must be a JSON object"));
@@ -701,12 +734,12 @@ fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Resu
         None => unreachable!("validated above"),
     }
 
-    validate_string_array_value(
+    validate_sorted_string_array_value(
         object.get("runtimeProfiles"),
         &format!("{context} runtimeProfiles"),
         true,
     )?;
-    validate_string_array_value(
+    validate_sorted_string_array_value(
         object.get("compatFeatures"),
         &format!("{context} compatFeatures"),
         true,

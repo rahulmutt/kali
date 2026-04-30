@@ -2240,6 +2240,27 @@ fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields()
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_duplicate_runtime_profiles() {
+    let invalid_metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "artifactKind": "component",
+        "entrypoint": "src/main.ts",
+        "buildMode": "release",
+        "apiSurface": "browser",
+        "runtimeProfiles": ["wasm-threads", "wasm-threads"],
+        "maxSpecializations": 24,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "kaliVersion": "1.2.3",
+        "sourceHash": "sha256-deadbeef"
+    });
+
+    let err = validate_artifact_metadata_value(&invalid_metadata)
+        .expect_err("duplicate runtime profiles should fail validation");
+    assert!(err.contains("runtimeProfiles"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_build_result_value_rejects_unexpected_top_level_keys() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

@@ -371,6 +371,29 @@ fn validate_effects_payload_value_rejects_unexpected_nested_keys() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_duplicate_analysis_context_sets() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads", "wasm-threads"],
+            "compatFeatures": ["eval", "eval"],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("duplicate analysisContext set items should fail validation");
+    assert!(
+        err.contains("runtimeProfiles") || err.contains("compatFeatures"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "schemaVersion": 1,
@@ -450,6 +473,37 @@ fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
     let err = validate_package_effects_payload_value(&invalid_report)
         .expect_err("unexpected report keys should fail validation");
     assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_package_effects_payload_value_rejects_duplicate_analysis_context_sets() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": ["wasm-threads", "wasm-threads"],
+                "compatFeatures": ["eval", "eval"],
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("duplicate analysisContext set items should fail validation");
+    assert!(
+        err.contains("runtimeProfiles") || err.contains("compatFeatures"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

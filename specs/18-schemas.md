@@ -937,6 +937,7 @@ Interpretation rule:
 - `source-map` is a valid artifact kind when debug/source-map output is emitted, and browser bundles may emit that companion artifact even when the bundle wrapper itself is the main product; ordinary Phase 1 builds do not need to produce source maps by default
 - when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
 - artifact metadata sidecars may also carry provenance fields such as `runtimeProfiles`, `maxSpecializations`, `profileDataHash`, `hostContract`, and `runtimeBackend`; these describe the build/execution contract that produced the artifact, not a separate public embedding surface
+- when present, `runtimeProfiles` is a semantic set encoded as an array: producers must deduplicate it and emit it in stable lexical order so artifact metadata stays deterministic
 - build result JSON envelopes may mirror the same provenance fields when the corresponding artifact mode emits them, so result payloads and sidecar metadata stay aligned instead of inventing two different provenance vocabularies
 - IR validation via `kali build --validate-ir` does not change the schema-v1 artifact payload shape; it only makes the build fail earlier if the lowered HIR/MIR/LIR trees are structurally inconsistent
 

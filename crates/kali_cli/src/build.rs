@@ -21,7 +21,10 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use wasm_encoder::{CustomSection, Section};
 
-use crate::{is_declaration_only_source_file, ApiSurface, BundleFormat};
+use crate::{
+    is_declaration_only_source_file, output::validate_sorted_string_array_value, ApiSurface,
+    BundleFormat,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
@@ -1619,23 +1622,11 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => unreachable!("validated above"),
     }
 
-    match object.get("runtimeProfiles") {
-        Some(Value::Array(items)) => {
-            for (index, item) in items.iter().enumerate() {
-                if !item.is_string() {
-                    return Err(format!(
-                        "artifact metadata runtimeProfiles[{index}] must be a string, got {item}"
-                    ));
-                }
-            }
-        }
-        Some(other) => {
-            return Err(format!(
-                "artifact metadata runtimeProfiles must be an array, got {other}"
-            ));
-        }
-        None => {}
-    }
+    validate_sorted_string_array_value(
+        object.get("runtimeProfiles"),
+        "artifact metadata runtimeProfiles",
+        true,
+    )?;
 
     match object.get("maxSpecializations") {
         Some(Value::Number(number)) if number.as_u64().is_some() => {}
