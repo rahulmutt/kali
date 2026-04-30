@@ -38152,6 +38152,86 @@ fn build_emits_browser_bundle_cjs_artifacts_in_js_input_human_output() {
 }
 
 #[test]
+fn build_emits_inherited_browser_bundle_cjs_artifacts_in_js_input_human_output() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: greet\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (cjs) at "),
+        "stdout: {stdout}"
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let wasm_path = bundle_dir.join("app.wasm");
+    let js_path = bundle_dir.join("app.cjs");
+    let source_map_path = bundle_dir.join("app.cjs.map");
+    let meta_path = bundle_dir.join("app.meta.json");
+    assert!(wasm_path.exists(), "missing {}", wasm_path.display());
+    assert!(js_path.exists(), "missing {}", js_path.display());
+    assert!(
+        source_map_path.exists(),
+        "missing {}",
+        source_map_path.display()
+    );
+    assert!(meta_path.exists(), "missing {}", meta_path.display());
+
+    let js = fs::read_to_string(&js_path).expect("read bundle js");
+    assert!(js.contains("pathToFileURL"), "bundle js: {js}");
+    assert!(js.contains("console_info"), "bundle js: {js}");
+    assert!(js.contains("console_debug"), "bundle js: {js}");
+    assert!(js.contains("module.exports = exported"), "bundle js: {js}");
+    assert!(
+        js.contains("sourceMappingURL=app.cjs.map"),
+        "bundle js: {js}"
+    );
+
+    let source_map: Value =
+        serde_json::from_str(&fs::read_to_string(&source_map_path).expect("read source map"))
+            .expect("parse source map json");
+    assert_eq!(source_map["version"], 3);
+    assert_eq!(source_map["file"], "app.cjs");
+    assert_eq!(source_map["sources"][0], "app.js");
+
+    let metadata: Value = serde_json::from_str(&fs::read_to_string(&meta_path).expect("read meta"))
+        .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+}
+
+#[test]
 fn build_emits_inherited_browser_bundle_cjs_artifacts_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
