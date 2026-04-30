@@ -51,6 +51,8 @@ kali build --component <file>   # Component Model packaging flow
 kali build --lib --api browser lib.ts # invalid usage (E5508): browser library artifact modes are not part of the browser-targeted command set
 kali build --capi --api browser lib.ts # invalid usage (E5508): browser embedding artifact modes are not part of the browser-targeted command set
 kali build --component --api browser lib.ts # invalid usage (E5508): browser component artifact modes are not part of the browser-targeted command set
+kali build --lib --api browser --sandbox kali.policy.json lib.ts # invalid usage (E5508): sandboxing does not create a browser library artifact mode
+kali build --capi --api browser --sandbox kali.policy.json lib.ts # invalid usage (E5508): sandboxing does not create a browser embedding artifact mode
 kali build --component --api browser --sandbox kali.policy.json lib.ts # invalid usage (E5508): sandboxing does not create a browser component artifact mode
 kali build --profile pgo-profile.json main.ts # load deterministic PGO profile data
 kali check --sandbox kali.policy.json main.ts

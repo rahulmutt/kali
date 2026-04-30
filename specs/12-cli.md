@@ -340,10 +340,12 @@ kali build --lib lib.ts                    # Phase-1 base library artifact for e
 kali build --lib --sandbox kali.policy.json lib.ts # Same Phase-1 base library artifact plus static policy validation; `--sandbox` does not change library compile intent
 kali build --lib --api node lib.ts         # Supported Node build subset for the documented library-oriented surface
 kali build --lib --api browser lib.ts      # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser library artifact modes
+kali build --lib --api browser --sandbox kali.policy.json lib.ts # Invalid usage (E5508) in early phases; sandboxing does not create a browser library artifact mode
 kali build --capi lib.ts                   # Phase 2 target: lib.wasm + lib.wit + lib.exports.h + lib.cabi.json (artifacts: wasm-module + wit + c-header + cabi-metadata; roles: primary-library + interface-wit + embedding-header + embedding-metadata; `lib.exports.h` is the program-specific exports header, and `lib.cabi.json` is the generated `cabi-metadata` file, not the host ABI header `kali.h`; see specs/13-embedding.md)
 kali build --capi --sandbox kali.policy.json lib.ts # Phase 2 target: same C-embedding artifact flow plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --capi --api node lib.ts        # Supported Node build subset for the documented C-embedding surface
 kali build --capi --api browser lib.ts     # Invalid usage (E5508) in early phases; the shared **Phase-1 browser-targeted command set** does not include browser embedding artifact modes
+kali build --capi --api browser --sandbox kali.policy.json lib.ts # Invalid usage (E5508) in early phases; sandboxing does not create a browser embedding artifact mode
 kali build --component lib.ts              # Phase 2 target: lib.wasm + lib.wit + lib.component.wasm (artifacts: lib.wasm kind=wasm-module role=primary-library; lib.wit kind=wit role=interface-wit; lib.component.wasm kind=wasm-component role=primary-component)
 kali build --component --sandbox kali.policy.json lib.ts # Phase 2 target: same component-oriented packaging path plus static policy validation; `--sandbox` stays orthogonal to artifact mode
 kali build --component --api node lib.ts   # Supported Node build subset for the documented component-packaging surface
