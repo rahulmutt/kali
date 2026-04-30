@@ -648,6 +648,22 @@ fn test_parse_bracketed_member_expression_chain() {
 }
 
 #[test]
+fn test_parse_fully_bracketed_permission_escalation_member_expression_chain() {
+    let tokens = lex(
+        r#"Deno["permissions"]["request"](); Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"]();"#,
+    );
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 4);
+}
+
+#[test]
 fn test_parse_mixed_bracket_dot_late_object_model_member_expression_chain() {
     let tokens = lex(
         r#"globalThis["Proxy"].revocable({}, {}); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a");"#,
