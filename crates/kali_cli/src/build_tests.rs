@@ -327,10 +327,11 @@ globalThis.Deno.permissions["query"]({ name: net_descriptor });
         .expect("artifact should validate");
 }
 
-#[test]
-fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_input() {
+fn assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input(
+    extension: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         r#"Deno.permissions.query({ name: "ffi" });
@@ -386,61 +387,23 @@ globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
 }
 
 #[test]
+fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_input() {
+    assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("js");
+}
+
+#[test]
 fn build_source_file_rejects_unsupported_permission_query_descriptors_in_ts_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        r#"Deno.permissions.query({ name: "ffi" });
-Deno.permissions.query({ name: "sys" });
-Deno.permissions["query"]({ name: "ffi" });
-Deno.permissions["query"]({ name: "sys" });
-Deno["permissions"].query({ name: "ffi" });
-Deno["permissions"].query({ name: "sys" });
-Deno["permissions"]["query"]({ name: "ffi" });
-Deno["permissions"]["query"]({ name: "sys" });
-globalThis.Deno.permissions.query({ name: "ffi" });
-globalThis.Deno.permissions.query({ name: "sys" });
-globalThis.Deno.permissions["query"]({ name: "ffi" });
-globalThis.Deno.permissions["query"]({ name: "sys" });
-globalThis.Deno["permissions"].query({ name: "ffi" });
-globalThis.Deno["permissions"].query({ name: "sys" });
-globalThis.Deno["permissions"]["query"]({ name: "ffi" });
-globalThis.Deno["permissions"]["query"]({ name: "sys" });
-globalThis["Deno"]["permissions"].query({ name: "ffi" });
-globalThis["Deno"]["permissions"].query({ name: "sys" });
-globalThis["Deno"]["permissions"]["query"]({ name: "ffi" });
-globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
-"#,
-    )
-    .expect("write source");
+    assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("ts");
+}
 
-    let error = build_source_file(
-        &source_path,
-        BuildMode::Fast,
-        ApiSurface::Deno,
-        false,
-        &[],
-        16,
-        None,
-        None,
-    )
-    .expect_err("unsupported permission query descriptors should fail");
+#[test]
+fn build_source_file_rejects_unsupported_permission_query_descriptors_in_jsx_input() {
+    assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("jsx");
+}
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("permission query descriptor 'ffi'")),
-        "unexpected diagnostics: {error:?}"
-    );
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("permission query descriptor 'sys'")),
-        "unexpected diagnostics: {error:?}"
-    );
+#[test]
+fn build_source_file_rejects_unsupported_permission_query_descriptors_in_tsx_input() {
+    assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("tsx");
 }
 
 #[test]
