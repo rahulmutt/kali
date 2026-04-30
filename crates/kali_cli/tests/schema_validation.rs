@@ -97,3 +97,30 @@ fn build_result_artifact_roles_reject_duplicate_primary_roles() {
         "unexpected error: {error}"
     );
 }
+
+#[test]
+fn build_result_artifacts_reject_duplicate_kind_path_pairs() {
+    let build_result = json!({
+        "artifactKind": "lib",
+        "outputPath": "out/lib.wasm",
+        "sizeBytes": 42,
+        "buildMode": "release",
+        "sourceHash": "sha256-test",
+        "metadataPath": "out/lib.json",
+        "witPath": "out/lib.wit",
+        "artifacts": [
+            {"kind": "first", "path": "out/a.wasm"},
+            {"kind": "first", "path": "out/a.wasm", "role": "auxiliary"}
+        ],
+        "exports": [
+            {"name": "foo", "signature": "func()"}
+        ]
+    });
+
+    let error = build::validate_build_result_value(&build_result)
+        .expect_err("duplicate artifact kind/path pairs should be rejected");
+    assert!(
+        error.contains("duplicates artifact `first` at `out/a.wasm`"),
+        "unexpected error: {error}"
+    );
+}
