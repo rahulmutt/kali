@@ -1493,6 +1493,62 @@ export async function loadWithImports(importObject) {
 }
 
 #[test]
+fn browser_bundle_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_null_value() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser merge\"],\"testsFailed\":null,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["alpha".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 1);
+    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":1"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_requested_runtime_summary_merges_missing_tests_failed_from_stdout() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let wasm = compile_wat(
@@ -1574,6 +1630,40 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 
     let outcome = browser_runtime_execute_checked(
         Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser merge\"],\"testsFailed\":1.5,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":7,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["alpha".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 7);
+    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":7"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_null_value() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser merge\"],\"testsFailed\":null,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":7,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
         &wasm,
         &["alpha".to_string()],
         tempdir.path(),
