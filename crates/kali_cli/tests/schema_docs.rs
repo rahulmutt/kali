@@ -517,6 +517,17 @@ fn core_schema_documents_match_current_cli_contracts() {
         "string"
     );
 
+    let schemas_18 =
+        fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas chapter");
+    assert!(
+        schemas_18.contains("meta-json")
+            && schemas_18.contains("chunk-wasm")
+            && schemas_18.contains("chunk-js")
+            && schemas_18.contains("chunk-source-map")
+            && schemas_18.contains("chunk-meta-json"),
+        "specs/18-schemas.md should record the current implementation-specific build-result artifact kinds"
+    );
+
     let binding_package: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/binding-package/v1.json"))
             .expect("read binding package schema"),

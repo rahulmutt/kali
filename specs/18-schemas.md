@@ -394,6 +394,9 @@ Canonical schema-v1 `role` values:
 - `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows
 - `debug-source-map` — source-map/debug companion artifact
 
+Current repository snapshot note:
+- the checked-in build-result payloads also use implementation-specific artifact-kind labels for recursive browser-bundle chunks and JSON sidecar records (`meta-json`, `chunk-wasm`, `chunk-js`, `chunk-source-map`, and `chunk-meta-json`); these are snapshot-level labels, not additional promoted canonical public kinds
+
 Interpretation rules:
 - `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `binding-package`, `source-map`)
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
