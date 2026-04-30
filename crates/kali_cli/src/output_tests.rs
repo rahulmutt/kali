@@ -1265,6 +1265,37 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_malformed_warning_diagnostics() {
+    let invalid_warning = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [
+            {
+                "severity": "warning",
+                "code": "W5501",
+                "message": 42,
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+    });
+
+    let err = validate_envelope_value(&invalid_warning)
+        .expect_err("malformed warning should fail validation");
+    assert!(err.contains("warnings[0]"), "unexpected error: {err}");
+    assert!(err.contains("message"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_allows_null_diagnostic_help() {
     let valid_help = json!({
         "schemaVersion": 1,
