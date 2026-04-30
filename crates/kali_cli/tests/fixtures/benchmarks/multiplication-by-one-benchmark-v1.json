@@ -1,0 +1,7 @@
+{
+  "benchmark": "multiplication-by-one-elimination",
+  "version": 1,
+  "sourceFile": "multiplication-by-one-benchmark-v1.ts",
+  "sourceSha256": "sha256-2faa9efaf75fdc2d1ab947b63f5c2fff0d491c722fc52f36488bbd952061409c",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
