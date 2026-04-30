@@ -552,6 +552,50 @@ fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_non_string_package_coordinate_fields() {
+    for (field, value) in [
+        ("name", json!(1)),
+        ("version", json!(false)),
+        ("registry", json!(["npm"])),
+    ] {
+        let payload = json!({
+            "schemaVersion": 1,
+            "package": {
+                "name": "semver",
+                "version": "7.6.3",
+                "registry": "npm",
+            },
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "default",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": [],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
+        let mut payload = payload
+            .as_object()
+            .expect("package-effects payload object")
+            .clone();
+        payload
+            .get_mut("package")
+            .expect("package coordinate")
+            .as_object_mut()
+            .expect("package coordinate object")
+            .insert(field.to_string(), value);
+
+        let err = validate_package_effects_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("invalid package coordinate field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_duplicate_analysis_context_sets() {
     let value = json!({
         "schemaVersion": 1,
