@@ -2720,12 +2720,26 @@ fn node_api_surface_rejects_broader_intl_members_in_js_input_on_check_build_run_
             "globalThis.Intl.DateTimeFormat",
         ),
         (
+            r#"globalThis.Intl.RelativeTimeFormat;"#,
+            "globalThis.Intl.RelativeTimeFormat",
+        ),
+        (r#"globalThis.Intl.Collator;"#, "globalThis.Intl.Collator"),
+        (
             r#"globalThis["Intl"]["RelativeTimeFormat"];"#,
             "globalThis.Intl.RelativeTimeFormat",
         ),
         (
+            r#"globalThis["Intl"]["Collator"];"#,
+            "globalThis.Intl.Collator",
+        ),
+        (
             r#"globalThis["Intl"]["DisplayNames"];"#,
             "globalThis.Intl.DisplayNames",
+        ),
+        (r#"globalThis.Intl.Segmenter;"#, "globalThis.Intl.Segmenter"),
+        (
+            r#"globalThis["Intl"]["Segmenter"];"#,
+            "globalThis.Intl.Segmenter",
         ),
         (r#"Intl.Locale;"#, "Intl.Locale"),
     ];
