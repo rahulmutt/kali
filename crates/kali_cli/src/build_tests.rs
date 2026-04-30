@@ -2046,6 +2046,21 @@ fn validate_build_result_value_rejects_invalid_bundle_format() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_unsupported_artifact_kind() {
+    let invalid_result = serde_json::json!({
+        "artifactKind": "meta-json",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+    });
+
+    let err = validate_build_result_value(&invalid_result)
+        .expect_err("unsupported build result artifactKind should fail validation");
+    assert!(err.contains("artifactKind"), "unexpected error: {err}");
+}
+
+#[test]
 fn build_artifact_metadata_records_profile_data_hash() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
