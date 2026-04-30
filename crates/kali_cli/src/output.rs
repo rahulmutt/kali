@@ -1103,6 +1103,16 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
                     }
                 }
             }
+            if items.as_slice()
+                != [
+                    Value::String("run".to_string()),
+                    Value::String("test".to_string()),
+                ]
+            {
+                return Err(
+                    "doctor browserRuntimeContract supportedCommands must be exactly [`run`, `test`] in that order".to_string(),
+                );
+            }
         }
         Some(other) => {
             return Err(format!(
