@@ -1058,8 +1058,14 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
     match object.get("supportedCommands") {
         Some(Value::Array(items)) if !items.is_empty() => {
             for (index, item) in items.iter().enumerate() {
-                if !item.is_string() {
-                    return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be a string, got {item}"));
+                match item.as_str() {
+                    Some("run") | Some("test") => {}
+                    Some(_) => {
+                        return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be `run` or `test`, got {item}"));
+                    }
+                    None => {
+                        return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be a string, got {item}"));
+                    }
                 }
             }
         }
