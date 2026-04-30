@@ -1737,6 +1737,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser-requested `run` / `test` `Math.clz32()` semantics when the browser API surface is inherited in `.js` input",
         "Browser-requested `run` / `test` zero-capable budget pair (`--max-threads 0` / `--max-spawned-processes 0`) in `.ts` input",
         "Browser bundle `Math.max()` / `Math.min()` / `Math.abs()` / `Math.sign()` / `Math.imul()` / `Math.clz32()` semantics in `.ts` and `.js` input",
+        "Browser bundle `Math.clz32()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle `Math.ceil()` semantics in `.ts` and `.js` input, including JSON-output coverage in both source classes",
         "Browser bundle `Math.trunc()` semantics in `.ts` and `.js` input",
         "Browser bundle `async/await` sequencing in `.ts` and `.js` input, including JSON-output coverage",
