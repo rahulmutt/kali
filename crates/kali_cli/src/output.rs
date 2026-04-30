@@ -994,12 +994,7 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "doctor browserRuntimeContract",
     )?;
 
-    for key in [
-        "hostLabel",
-        "hostDescription",
-        "hostDescriptionNote",
-        "diagnosticHint",
-    ] {
+    for key in ["hostLabel", "hostDescription", "diagnosticHint"] {
         match object.get(key) {
             Some(Value::String(_)) => {}
             Some(other) => {
@@ -1009,6 +1004,22 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
             }
             None => unreachable!("validated above"),
         }
+    }
+
+    match object.get("hostDescriptionNote") {
+        Some(Value::String(value)) if !value.is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(
+                "doctor browserRuntimeContract hostDescriptionNote must be a non-empty string"
+                    .to_string(),
+            )
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract hostDescriptionNote must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
     }
 
     match object.get("supportedCommands") {
