@@ -88,6 +88,18 @@ fn validate_fmt_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_fmt_payload_value_rejects_fractional_counts() {
+    let value = json!({
+        "filesFormatted": 2.5,
+        "filesChecked": 3,
+    });
+
+    let err = validate_fmt_payload_value(&value)
+        .expect_err("fractional fmt counts should fail validation");
+    assert!(err.contains("filesFormatted"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_lint_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "filesLinted": 4,
@@ -97,6 +109,20 @@ fn validate_lint_payload_value_accepts_the_current_contract_shape() {
     });
 
     validate_lint_payload_value(&value).expect("lint payload should validate");
+}
+
+#[test]
+fn validate_lint_payload_value_rejects_fractional_counts() {
+    let value = json!({
+        "filesLinted": 4.25,
+        "errorCount": 1,
+        "warningCount": 2,
+        "fixedCount": 3,
+    });
+
+    let err = validate_lint_payload_value(&value)
+        .expect_err("fractional lint counts should fail validation");
+    assert!(err.contains("filesLinted"), "unexpected error: {err}");
 }
 
 #[test]
@@ -124,6 +150,19 @@ fn validate_check_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_check_payload_value_rejects_fractional_counts() {
+    let value = json!({
+        "filesChecked": 3.5,
+        "errorCount": 1,
+        "warningCount": 2,
+    });
+
+    let err = validate_check_payload_value(&value)
+        .expect_err("fractional check counts should fail validation");
+    assert!(err.contains("filesChecked"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_run_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "exitCode": 0,
@@ -148,6 +187,18 @@ fn validate_run_payload_value_rejects_non_string_provenance_fields() {
             .expect_err("invalid run payload provenance field should fail");
         assert!(err.contains(field), "unexpected error: {err}");
     }
+}
+
+#[test]
+fn validate_run_payload_value_rejects_fractional_runtime_ms() {
+    let value = json!({
+        "exitCode": 0,
+        "runtimeMs": 12.25,
+    });
+
+    let err = validate_run_payload_value(&value)
+        .expect_err("fractional run runtimeMs should fail validation");
+    assert!(err.contains("runtimeMs"), "unexpected error: {err}");
 }
 
 #[test]
@@ -211,6 +262,31 @@ fn validate_test_payload_value_rejects_non_string_provenance_fields() {
             .expect_err("invalid test payload provenance field should fail");
         assert!(err.contains(field), "unexpected error: {err}");
     }
+}
+
+#[test]
+fn validate_test_payload_value_rejects_fractional_runtime_ms() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27.5,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("fractional test runtimeMs should fail validation");
+    assert!(err.contains("runtimeMs"), "unexpected error: {err}");
 }
 
 #[test]
