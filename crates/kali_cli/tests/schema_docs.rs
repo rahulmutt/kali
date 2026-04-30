@@ -383,6 +383,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     .expect("parse test schema");
     assert_eq!(test_result["additionalProperties"], true);
     assert!(test_result["properties"]["coverage"].is_object());
+    assert_eq!(test_result["properties"]["coverage"]["type"], "object");
+    assert_eq!(
+        test_result["properties"]["coverage"]["additionalProperties"],
+        true
+    );
     assert_eq!(
         test_result["properties"]["coverage"]["required"]
             .as_array()
@@ -395,6 +400,10 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["mode"]["const"],
         "function"
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["files"]["items"]["type"],
+        "object"
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["files"]["items"]
@@ -414,6 +423,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             "functionsCovered",
             "functionsMissed"
         ]
+    );
+    assert_eq!(
+        test_result["properties"]["coverage"]["properties"]["summary"]["type"],
+        "object"
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["summary"]["additionalProperties"],
