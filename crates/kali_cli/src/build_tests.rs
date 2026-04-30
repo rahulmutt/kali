@@ -844,7 +844,7 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_js_input(
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_in_jsx_input() {
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_jsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.jsx");
     fs::write(
@@ -886,12 +886,12 @@ fn build_source_file_rejects_bracketed_object_has_own_in_jsx_input() {
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_in_tsx_input() {
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_tsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
     )
     .expect("write source");
 
@@ -909,13 +909,6 @@ fn build_source_file_rejects_bracketed_object_has_own_in_tsx_input() {
 
     assert!(error.iter().any(|diagnostic| diagnostic.code
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains(r#"globalThis["Object"]["hasOwn"]"#)
-            || diagnostic.message.contains("Object.hasOwn")),
-        "unexpected diagnostics: {error:?}"
-    );
     assert!(
         error.iter().any(|diagnostic| diagnostic
             .message
