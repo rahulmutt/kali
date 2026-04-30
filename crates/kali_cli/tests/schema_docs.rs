@@ -3052,7 +3052,11 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document browser module-entry-chain JSON-output coverage",
     );
     assert_note_once(
-        "The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.",
+        "The browser-targeted module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser-targeted module-only JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser runtime module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.",
         "package corpus matrix should document browser module-only JSON-output coverage",
     );
     assert_note_once(
@@ -3070,6 +3074,14 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser runtime package fixture rows also carry JSON-output coverage on the direct and inherited browser-harness `run` / `test` variants.",
         "package corpus matrix should document browser package fixture JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser-targeted module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser-targeted module-only JSON-output coverage",
+    );
+    assert_note_once(
+        "The browser runtime module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.",
+        "package corpus matrix should document browser module-only JSON-output coverage",
     );
     assert_note_once(
         "The browser-targeted browser-blocked package row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser exclusion contract aligned with the runtime harness.",

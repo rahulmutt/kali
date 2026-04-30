@@ -161,7 +161,8 @@ This matrix is a deterministic planning snapshot for the package-corpus evidence
 - The Node `node:timers/promises` explicit- and inherited-surface rejection slices are tracked as negative contrast rows so the explicit Node API boundary stays visible alongside the positive built-in rows.
 - The Node `node:net` rejection slice is tracked as a negative contrast row on both the explicit and inherited Node API surfaces so the late network-module boundary stays visible alongside the other late Node-module rows.
 - The browser runtime module-entry-chain rows also carry JSON-output coverage on the configured browser harness path, including the direct and inherited browser `apiSurface` variants.
-- The browser runtime module-only row also carries JSON-output coverage on the direct browser-harness variant.
+- The browser-targeted module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
+- The browser runtime module-only rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime mixed-format interop rows now also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser runtime package-content rows also carry JSON-output coverage on the direct and inherited browser-harness variants.
 - The browser-targeted `@mariozechner/pi-coding-agent` package-content rows also carry JSON-output coverage on the direct and inherited browser-harness `check` / `build --bundle` variants.
