@@ -2165,8 +2165,8 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
         "phase 7 README should keep the threaded artifact-mode note explicit"
     );
     assert!(
-        readme.contains("The schema-doc drift net now also pins that `cjs` note"),
-        "phase 7 README should keep the browser bundle cjs drift-net note explicit"
+        readme.contains("The schema-doc drift net now also pins that `cjs` note, and its current snapshot test also asserts the validator-side round-trip line directly;"),
+        "phase 7 README should keep the browser bundle cjs drift-net validator note explicit"
     );
     assert!(
         readme.contains(
