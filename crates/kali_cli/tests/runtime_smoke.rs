@@ -39787,7 +39787,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "closure-inlining-and-folding",
         ),
         (
-            "closure-inlining-chain-benchmark-v1",
+            "nested-call-inlining-chain-benchmark-v1",
             "nested-call-inlining-chain",
         ),
         (

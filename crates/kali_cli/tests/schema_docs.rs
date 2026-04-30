@@ -3345,7 +3345,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "dead-inlined-function-pruning-benchmark-v1.ts",
         "call-inlining-benchmark-v1.ts",
         "closure-inlining-benchmark-v1.ts",
-        "closure-inlining-chain-benchmark-v1.ts",
+        "nested-call-inlining-chain-benchmark-v1.ts",
         "object-enumeration-benchmark-v1.ts",
         "reflect-own-keys-benchmark-v1.ts",
         "reflect-own-keys-const-bound-literal-benchmark-v1.ts",

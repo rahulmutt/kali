@@ -1,7 +1,7 @@
 {
   "benchmark": "nested-call-inlining-chain",
   "version": 1,
-  "sourceFile": "closure-inlining-chain-benchmark-v1.ts",
+  "sourceFile": "nested-call-inlining-chain-benchmark-v1.ts",
   "sourceSha256": "sha256-064847725997c1c9e6276f333801ac0718563d494be411e4399f814ad9b7989b",
   "buildModes": ["--fast", "--release", "--release-advanced"]
 }
