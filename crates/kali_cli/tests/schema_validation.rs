@@ -1,6 +1,35 @@
 use kali_cli::{build, output};
 use serde_json::json;
 
+fn diagnostic_envelope_with_span(end_line: u64, end_column: u64) -> serde_json::Value {
+    json!({
+        "schemaVersion": 1,
+        "command": "check",
+        "success": false,
+        "errors": [{
+            "severity": "error",
+            "code": "E5101",
+            "message": "span check",
+            "span": {
+                "file": "src/main.ts",
+                "line": 1,
+                "column": 2,
+                "endLine": end_line,
+                "endColumn": end_column,
+            },
+            "labels": [],
+            "related": [],
+            "fix": null,
+            "notes": [],
+        }],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    })
+}
+
 #[test]
 fn package_audit_payload_is_null_only() {
     assert!(output::validate_package_audit_payload_value(&serde_json::Value::Null).is_ok());
@@ -9,6 +38,23 @@ fn package_audit_payload_is_null_only() {
         .expect_err("non-null package-audit payload should be rejected");
     assert!(
         error.contains("package-audit payload must be null"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn diagnostic_spans_allow_zero_length_ranges() {
+    let envelope = diagnostic_envelope_with_span(1, 2);
+    output::validate_envelope_value(&envelope).expect("zero-length span should be accepted");
+}
+
+#[test]
+fn diagnostic_spans_reject_backwards_ranges() {
+    let envelope = diagnostic_envelope_with_span(1, 1);
+    let error =
+        output::validate_envelope_value(&envelope).expect_err("backwards span should be rejected");
+    assert!(
+        error.contains("must not precede"),
         "unexpected error: {error}"
     );
 }

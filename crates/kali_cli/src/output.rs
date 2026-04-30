@@ -59,7 +59,7 @@ pub fn emit_envelope_value(
     value
 }
 
-pub(crate) fn validate_envelope_value(value: &Value) -> Result<(), String> {
+pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
     const REQUIRED_KEYS: [&str; 9] = [
         "schemaVersion",
         "command",
@@ -1251,6 +1251,17 @@ fn is_positive_integer(value: &Value) -> bool {
     )
 }
 
+fn positive_integer_value(value: &Value) -> Option<u64> {
+    match value {
+        Value::Number(number) => number.as_u64().or_else(|| {
+            number
+                .as_i64()
+                .and_then(|value| (value >= 0).then_some(value as u64))
+        }),
+        _ => None,
+    }
+}
+
 fn validate_source_span(value: &Value) -> Result<(), String> {
     let Some(object) = value.as_object() else {
         return Err("span must be a JSON object".to_string());
@@ -1278,6 +1289,19 @@ fn validate_source_span(value: &Value) -> Result<(), String> {
             }
             None => unreachable!("validated above"),
         }
+    }
+
+    let line = positive_integer_value(object.get("line").expect("validated above"))
+        .expect("validated above");
+    let column = positive_integer_value(object.get("column").expect("validated above"))
+        .expect("validated above");
+    let end_line = positive_integer_value(object.get("endLine").expect("validated above"))
+        .expect("validated above");
+    let end_column = positive_integer_value(object.get("endColumn").expect("validated above"))
+        .expect("validated above");
+
+    if end_line < line || (end_line == line && end_column < column) {
+        return Err("span end position must not precede its start position".to_string());
     }
 
     Ok(())

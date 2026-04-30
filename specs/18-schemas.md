@@ -202,6 +202,9 @@ Required fields:
 - `endLine: number` *(1-based, inclusive line of end position)*
 - `endColumn: number` *(1-based, exclusive column of end position)*
 
+Ordering rule:
+- `endLine` / `endColumn` must not precede `line` / `column`; zero-length spans are allowed when the start and end positions are identical
+
 ## Diagnostic Schema
 
 ```json
