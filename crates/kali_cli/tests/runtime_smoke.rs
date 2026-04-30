@@ -6400,7 +6400,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 47 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 48 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -39934,6 +39934,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "template-literal-concatenation-benchmark-v1",
             "template-literal-concatenation",
+        ),
+        (
+            "template-literal-concatenation-benchmark-v1-js",
+            "template-literal-concatenation-js",
         ),
         (
             "layout-specialization-benchmark-v1",
