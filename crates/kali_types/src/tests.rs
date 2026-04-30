@@ -2036,22 +2036,80 @@ fn test_resolution_reports_global_this_intl_root_as_unavailable() {
 #[test]
 fn test_resolution_reports_late_intl_member_access_as_unavailable() {
     let mut ctx = TypeContext::new();
-    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
-        expression: Box::new(Expression::MemberExpression(Box::new(
-            kali_ast::MemberExpression {
-                object: Expression::Identifier("Intl".to_string()),
-                property: "NumberFormat".to_string(),
-            },
-        ))),
-    })];
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "NumberFormat".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "RelativeTimeFormat".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "Collator".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "DisplayNames".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "Segmenter".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Intl".to_string()),
+                    property: "Locale".to_string(),
+                },
+            ))),
+        }),
+    ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
-    assert_eq!(
-        result.diagnostics[0].code,
-        Some(e5::FEATURE_UNAVAILABLE as u32)
-    );
-    assert!(result.diagnostics[0].message.contains("Intl"));
+    assert_eq!(result.diagnostics.len(), 6);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "Intl.NumberFormat",
+        "Intl.RelativeTimeFormat",
+        "Intl.Collator",
+        "Intl.DisplayNames",
+        "Intl.Segmenter",
+        "Intl.Locale",
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing diagnostic for {expected}: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
