@@ -73,6 +73,7 @@ This dashboard is a deterministic implementation snapshot for the language featu
 | Basic `Object.entries()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.js` input) |
 | Basic `Object.values()` enumeration semantics, including overwrite/delete-reinsert ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test) |
 | Basic `Object.values()` enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage in `.js` input) |
+| Basic `Reflect.ownKeys()` enumeration semantics in `.js` input, including integer-like key ordering | Phase 1 MVP | `crates/kali_cli/tests/reflect_own_keys_js_input.rs` |
 | Basic `Object.keys()` / `Object.entries()` / `Object.values()` string-primitive enumeration semantics in `.js` input | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test, including JSON-output coverage) |
 | Basic unary prefix semantics (`!`, unary `-`, unary `+`, and `void`) in `.ts` and `.js` input, including JSON-output coverage on the standalone `run` / `test` lanes | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` |
 | Basic `Object.keys()` / `Object.entries()` / `Object.values()` enumeration semantics in `.js` input, including overwrite/delete-reinsert ordering | Phase 1 MVP | `crates/kali_cli/tests/runtime_smoke.rs` (run/test plus standalone JSON-output coverage in TS and `.js` input) |
