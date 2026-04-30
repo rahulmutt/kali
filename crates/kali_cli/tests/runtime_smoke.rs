@@ -39493,27 +39493,32 @@ fn release_hot_paths_stay_unboxed_without_tag_checks() {
 
 fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &str) {
     let dir = tempdir().expect("tempdir");
-    let source_fixture = fixture_path(format!("benchmarks/{fixture_stem}.ts"));
     let metadata: Value = serde_json::from_str(
         &fs::read_to_string(fixture_path(format!("benchmarks/{fixture_stem}.json")))
             .expect("read benchmark metadata"),
     )
     .expect("parse benchmark metadata");
+    let source_file_name = metadata["sourceFile"]
+        .as_str()
+        .expect("benchmark source file name");
+    let source_fixture = fixture_path(format!("benchmarks/{source_file_name}"));
     let source = fs::read_to_string(&source_fixture).expect("read benchmark source");
     let source_hash = format!("sha256-{:x}", Sha256::digest(source.as_bytes()));
 
     assert_eq!(metadata["benchmark"], benchmark_name);
     assert_eq!(metadata["version"], 1);
-    assert_eq!(metadata["sourceFile"], json!(format!("{fixture_stem}.ts")));
+    assert!(
+        metadata["sourceFile"] == json!(format!("{fixture_stem}.ts"))
+            || metadata["sourceFile"] == json!(format!("{fixture_stem}.js")),
+        "unexpected benchmark sourceFile for {fixture_stem}: {}",
+        metadata["sourceFile"]
+    );
     assert_eq!(metadata["sourceSha256"], source_hash);
     assert_eq!(
         metadata["buildModes"],
         json!(["--fast", "--release", "--release-advanced"])
     );
 
-    let source_file_name = metadata["sourceFile"]
-        .as_str()
-        .expect("benchmark source file name");
     let source_path = dir.path().join(source_file_name);
     fs::write(&source_path, source).expect("write benchmark source");
 

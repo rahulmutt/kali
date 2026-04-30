@@ -3371,7 +3371,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "const-object-property-access-benchmark-v1.ts",
         "math-variant-benchmark-v1.ts",
         "string-concatenation-benchmark-v1.ts",
-        "array-literal-arguments-benchmark-v1.ts",
+        "array-literal-arguments-benchmark-v1.js",
         "template-literal-concatenation-benchmark-v1.ts",
         "layout-specialization-benchmark-v1.ts",
         "call-inlining-chain-benchmark-v1.ts",
@@ -3424,12 +3424,12 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
             path.display()
         );
         assert_eq!(metadata["version"], 1, "{}", path.display());
-        assert_eq!(
-            metadata["sourceFile"],
-            serde_json::json!(format!(
-                "{}.ts",
-                path.file_stem().expect("benchmark stem").to_string_lossy()
-            )),
+        let benchmark_stem = path.file_stem().expect("benchmark stem").to_string_lossy();
+        let expected_source_file_js = format!("{}.js", benchmark_stem);
+        let expected_source_file_ts = format!("{}.ts", benchmark_stem);
+        assert!(
+            metadata["sourceFile"] == serde_json::json!(expected_source_file_ts)
+                || metadata["sourceFile"] == serde_json::json!(expected_source_file_js),
             "{}",
             path.display()
         );
