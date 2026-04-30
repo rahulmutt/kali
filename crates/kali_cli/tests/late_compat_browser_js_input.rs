@@ -2217,6 +2217,31 @@ fn assert_browser_late_promise_all_settled_rejection_json(errors: &[Value]) {
 }
 
 #[test]
+fn check_rejects_fully_bracketed_promise_all_settled_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+}
+
+#[test]
 fn check_rejects_promise_all_settled_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

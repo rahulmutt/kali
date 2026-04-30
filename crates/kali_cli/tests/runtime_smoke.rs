@@ -33228,14 +33228,18 @@ fn assert_promise_all_settled_rejection_json(errors: &[Value]) {
     );
 }
 
-fn promise_all_settled_source_variants() -> [&'static str; 6] {
+fn promise_all_settled_source_variants() -> [&'static str; 10] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
         "console.log(Promise[\"allSettled\"]([1, 2]));\n",
+        "console.log(Promise['allSettled']([1, 2]));\n",
         "console.log(globalThis.Promise.allSettled([1, 2]));\n",
+        "console.log(globalThis.Promise[\"allSettled\"]([1, 2]));\n",
+        "console.log(globalThis.Promise['allSettled']([1, 2]));\n",
         "console.log(globalThis[\"Promise\"].allSettled([1, 2]));\n",
         "console.log(globalThis['Promise'].allSettled([1, 2]));\n",
         "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
+        "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
     ]
 }
 
