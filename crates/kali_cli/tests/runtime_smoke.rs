@@ -22295,6 +22295,33 @@ fn run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
+        object_string_primitive_enumeration_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('2'), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
         r#"const stringKeys = Object.keys('ab');
 const stringEntries = Object.entries('ab');
 const stringValues = Object.values('ab');
@@ -22314,13 +22341,14 @@ if (
   throw 'unexpected string primitive enumeration';
 }
 console.log(stringKeys.length);
+Kali.test('string primitive enumeration', () => {});
 "#,
     )
     .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .arg("run")
+        .arg("test")
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -22332,7 +22360,30 @@ console.log(stringKeys.length);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains('2'), "stdout: {stdout}");
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+fn object_string_primitive_enumeration_semantics_source() -> &'static str {
+    r#"const stringKeys = Object.keys('ab');
+const stringEntries = Object.entries('ab');
+const stringValues = Object.values('ab');
+if (
+  stringKeys.length !== 2 ||
+  stringKeys[0] !== '0' ||
+  stringKeys[1] !== '1' ||
+  stringEntries.length !== 2 ||
+  stringEntries[0][0] !== '0' ||
+  stringEntries[0][1] !== 'a' ||
+  stringEntries[1][0] !== '1' ||
+  stringEntries[1][1] !== 'b' ||
+  stringValues.length !== 2 ||
+  stringValues[0] !== 'a' ||
+  stringValues[1] !== 'b'
+) {
+  throw 'unexpected string primitive enumeration';
+}
+console.log(stringKeys.length);
+"#
 }
 
 fn object_enumeration_semantics_source() -> &'static str {
@@ -22415,6 +22466,60 @@ fn json_run_supports_object_enumeration_semantics_in_js_input() {
 #[test]
 fn json_test_supports_object_enumeration_semantics_in_js_input() {
     assert_json_object_enumeration_semantics("test", "smoke.test.js");
+}
+
+fn assert_json_object_string_primitive_enumeration_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        object_string_primitive_enumeration_semantics_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "2\n");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    assert_json_object_string_primitive_enumeration_semantics("run", "main.js");
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    assert_json_object_string_primitive_enumeration_semantics("test", "smoke.test.js");
 }
 
 fn object_property_deletion_semantics_source() -> &'static str {
