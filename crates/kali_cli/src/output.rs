@@ -1056,7 +1056,7 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "doctor browserRuntimeContract",
     )?;
 
-    for key in ["hostLabel", "hostDescription", "diagnosticHint"] {
+    for key in ["hostLabel", "hostDescription"] {
         match object.get(key) {
             Some(Value::String(_)) => {}
             Some(other) => {
@@ -1066,6 +1066,22 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
             }
             None => unreachable!("validated above"),
         }
+    }
+
+    match object.get("diagnosticHint") {
+        Some(Value::String(value)) if !value.is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(
+                "doctor browserRuntimeContract diagnosticHint must be a non-empty string"
+                    .to_string(),
+            )
+        }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract diagnosticHint must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
     }
 
     match object.get("hostDescriptionNote") {

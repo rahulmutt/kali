@@ -1416,6 +1416,37 @@ fn validate_doctor_payload_value_rejects_empty_host_description_note() {
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_empty_diagnostic_hint() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "env",
+            "override": "node --test",
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value).expect_err("empty diagnosticHint should fail");
+    assert!(err.contains("non-empty string"), "unexpected error: {err}");
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_stdout_and_stderr_strings() {
     let value = emit_envelope_value(
         "doctor",
