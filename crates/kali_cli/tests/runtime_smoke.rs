@@ -3321,6 +3321,51 @@ async function enumSmoke(left, right) {
 "##
 }
 
+fn browser_bundle_integer_like_object_enumeration_source() -> &'static str {
+    r##"// kali-tree-shake: enumSmoke
+async function enumSmoke(left, right) {
+  const obj = Object.create(null);
+  obj["b"] = 1;
+  obj["2"] = 2;
+  obj["a"] = 3;
+  obj["1"] = 4;
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  const consumeArray = (items, value) => items[0] + items[1] + value;
+  const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+  const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+  if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+    throw new Error('unexpected array literal arguments');
+  }
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3 ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3
+  ) {
+    throw new Error('unexpected numeric-key ordering');
+  }
+  return left - left + right - right;
+}
+"##
+}
+
 fn browser_bundle_string_primitive_enumeration_source() -> &'static str {
     r##"// kali-tree-shake: stringPrimitiveSmoke
 async function stringPrimitiveSmoke(left, right) {
@@ -31787,7 +31832,7 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        browser_bundle_object_enumeration_overwrite_ordering_source(),
+        browser_bundle_integer_like_object_enumeration_source(),
     )
     .expect("write source");
 
@@ -31824,7 +31869,7 @@ fn build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_input() 
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        browser_bundle_object_enumeration_overwrite_ordering_source(),
+        browser_bundle_integer_like_object_enumeration_source(),
     )
     .expect("write source");
 
@@ -31862,7 +31907,7 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics_in_js_inp
     let source_path = dir.path().join("app.js");
     fs::write(
         &source_path,
-        browser_bundle_object_enumeration_overwrite_ordering_source(),
+        browser_bundle_integer_like_object_enumeration_source(),
     )
     .expect("write source");
 
@@ -31913,7 +31958,7 @@ fn json_build_emits_browser_bundle_integer_like_key_ordering_semantics() {
     let source_path = dir.path().join("app.ts");
     fs::write(
         &source_path,
-        browser_bundle_object_enumeration_overwrite_ordering_source(),
+        browser_bundle_integer_like_object_enumeration_source(),
     )
     .expect("write source");
 
