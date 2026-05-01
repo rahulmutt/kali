@@ -1321,6 +1321,50 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            let exponent_identity = self
+                .render_static_value(*exponent)
+                .and_then(|rendered| parse_number_literal(&rendered))
+                .filter(|value| *value == 0 || *value == 1);
+
+            if let Some(exponent_identity) = exponent_identity {
+                if !self.emit_integer_math_arg(function, *base, "pow") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                if !self.emit_integer_math_arg(function, *exponent, "pow") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                for arg in args {
+                    if !self.emit_integer_math_arg(function, *arg, "pow") {
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                    function.instruction(&Instruction::Drop);
+                }
+                match exponent_identity {
+                    0 => {
+                        function.instruction(&Instruction::Drop);
+                        function.instruction(&Instruction::Drop);
+                        function.instruction(&Instruction::I64Const(1));
+                    }
+                    1 => {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    _ => unreachable!(),
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *base, "pow") {
                 return EmittedValue {
                     produced: false,

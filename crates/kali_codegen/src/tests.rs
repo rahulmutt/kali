@@ -502,6 +502,46 @@ fn math_pow_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_pow_member_constant_folds_zero_exponent_identity() {
+    let program = parse_and_lower_lir("console.log(Math.pow(2, 0));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(!printed.contains("call 16"), "{printed}");
+}
+
+#[test]
+fn math_pow_member_constant_folds_one_exponent_identity() {
+    let program = parse_and_lower_lir("console.log(Math.pow(7, 1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 7"), "{printed}");
+    assert!(!printed.contains("call 16"), "{printed}");
+}
+
+#[test]
 fn math_round_member_calls_lower_to_math_host_imports() {
     let program = parse_and_lower_lir("console.log(Math.round(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
