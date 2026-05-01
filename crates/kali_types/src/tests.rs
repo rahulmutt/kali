@@ -983,6 +983,27 @@ fn test_resolution_reports_math_floor_as_available_for_integer_inputs() {
 }
 
 #[test]
+fn test_resolution_reports_math_sqrt_as_available_for_perfect_square_integer_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "sqrt".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(4.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_nullish_coalescing_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

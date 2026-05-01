@@ -921,6 +921,22 @@ impl TypeContext {
             return;
         };
 
+        if method == "sqrt" {
+            let sqrt_literal_root = expr
+                .args
+                .first()
+                .and_then(|arg| self.resolve_math_sqrt_static_literal_root(arg));
+            if sqrt_literal_root.is_some() {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+            ));
+            return;
+        }
+
         if matches!(
             method,
             "max"
@@ -1009,6 +1025,40 @@ impl TypeContext {
                 self.contains_non_integer_numeric_literal(&expr.expression)
             }
             _ => false,
+        }
+    }
+
+    fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => {
+                if value.fract() != 0.0 || *value < 0.0 || *value > i64::MAX as f64 {
+                    return None;
+                }
+
+                let value = *value as i64;
+                let root = (value as f64).sqrt() as i64;
+                if root.checked_mul(root) == Some(value) {
+                    Some(root)
+                } else {
+                    None
+                }
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_math_sqrt_static_literal_root(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_math_sqrt_static_literal_root(&expr.argument)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_math_sqrt_static_literal_root(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_math_sqrt_static_literal_root(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_math_sqrt_static_literal_root(&expr.expression)
+            }
+            _ => None,
         }
     }
 

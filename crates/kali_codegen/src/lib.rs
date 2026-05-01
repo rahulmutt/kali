@@ -1185,6 +1185,43 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(method) = self.math_member_method(&callee_node) {
+            if method == "sqrt" {
+                let mut args = node.children.iter().skip(1);
+                let Some(value) = args.next() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                if let Some(root) = self.math_sqrt_constant_root(*value) {
+                    function.instruction(&Instruction::I64Const(root));
+                    for arg in args {
+                        let _ = self.emit_node(function, *arg, true);
+                        function.instruction(&Instruction::Drop);
+                    }
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
             if !matches!(
                 method,
                 "max" | "min" | "abs" | "sign" | "imul" | "round" | "clz32" | "trunc" | "floor"
@@ -1549,6 +1586,21 @@ impl<'a> FunctionEmitter<'a> {
 
         let _ = self.emit_node(function, arg, true);
         true
+    }
+
+    fn math_sqrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        if value < 0 {
+            return None;
+        }
+
+        let root = (value as f64).sqrt() as i64;
+        if root.checked_mul(root) == Some(value) {
+            Some(root)
+        } else {
+            None
+        }
     }
 
     fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {

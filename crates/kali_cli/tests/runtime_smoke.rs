@@ -34611,6 +34611,28 @@ fn json_check_rejects_unsupported_math_member_calls_in_inherited_browser_api_sur
 }
 
 #[test]
+fn run_supports_math_sqrt_on_perfect_square_integer_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.sqrt(4));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_rejects_unsupported_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
