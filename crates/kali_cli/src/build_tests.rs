@@ -922,7 +922,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
@@ -968,7 +968,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_jsx_input() {
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
-        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
@@ -1014,7 +1014,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_tsx_input() {
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
@@ -1060,7 +1060,7 @@ fn build_source_file_rejects_mixed_object_has_own_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
+        r#"globalThis.Object.hasOwn({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a");"#,
     )
     .expect("write source");
 
