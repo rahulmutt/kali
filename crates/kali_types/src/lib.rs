@@ -1229,6 +1229,36 @@ impl TypeContext {
             return;
         }
 
+        if method == "exp" || method == "log" {
+            let Some(value) = expr
+                .args
+                .first()
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg))
+            else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
+                        if method == "exp" { "zero" } else { "one" }
+                    ),
+                ));
+                return;
+            };
+
+            if (method == "exp" && value == 0.0) || (method == "log" && value == 1.0) {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
+                    if method == "exp" { "zero" } else { "one" }
+                ),
+            ));
+            return;
+        }
+
         if method == "max" || method == "min" {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(

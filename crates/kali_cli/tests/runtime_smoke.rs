@@ -34830,7 +34830,7 @@ fn check_rejects_unsupported_math_member_calls_in_js_input() {
 fn check_rejects_additional_unsupported_math_member_calls_in_js_input() {
     for (source, expected_method) in [
         ("console.log(Math.exp(1));\n", "Math.exp"),
-        ("console.log(Math.log(1));\n", "Math.log"),
+        ("console.log(Math.log(2));\n", "Math.log"),
     ] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join("main.js");
@@ -34926,7 +34926,7 @@ fn json_check_rejects_unsupported_math_member_calls_in_js_input() {
 fn json_check_rejects_additional_unsupported_math_member_calls_in_js_input() {
     for (source, expected_method) in [
         ("console.log(Math.exp(1));\n", "Math.exp"),
-        ("console.log(Math.log(1));\n", "Math.log"),
+        ("console.log(Math.log(2));\n", "Math.log"),
     ] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join("main.js");
@@ -35407,6 +35407,33 @@ fn run_supports_math_log10_on_positive_power_of_ten_integer_literals_in_js_input
 }
 
 #[test]
+fn run_supports_math_exp_and_log_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.exp(zero)); console.log(Math.log(one));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1"), "stdout: {stdout}");
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_math_log2_and_log10_on_const_numeric_alias_chain_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -35579,8 +35606,8 @@ fn run_and_test_rejects_additional_unsupported_math_member_calls_in_js_input() {
         ),
         (
             "Math.log",
-            "console.log(Math.log(1));\n",
-            "Kali.test('unsupported math', () => { console.log(Math.log(1)); });\n",
+            "console.log(Math.log(2));\n",
+            "Kali.test('unsupported math', () => { console.log(Math.log(2)); });\n",
         ),
     ] {
         for (command, source_name, source) in [
@@ -35638,8 +35665,8 @@ fn run_and_test_rejects_additional_unsupported_math_member_calls_in_browser_api_
         ),
         (
             "Math.log",
-            "console.log(Math.log(1));\n",
-            "Kali.test('unsupported math', () => { console.log(Math.log(1)); });\n",
+            "console.log(Math.log(2));\n",
+            "Kali.test('unsupported math', () => { console.log(Math.log(2)); });\n",
         ),
     ] {
         for (command, source_name, source) in [
