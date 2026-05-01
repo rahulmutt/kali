@@ -1340,6 +1340,69 @@ fn build_source_file_supports_math_floor_const_numeric_alias_chain_in_browser_ap
     );
 }
 
+fn assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias)); console.log(Math.trunc(alias));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.ceil/trunc const alias chain should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_js_input() {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_ts_input() {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
