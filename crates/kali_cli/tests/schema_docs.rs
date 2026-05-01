@@ -1883,6 +1883,7 @@ fn phase_six_conformance_dashboard_tracks_additional_supported_browser_runtime_r
         "Browser-requested `run` / `test` queueMicrotask ordering in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle BigInt addition semantics in `.ts` and `.js` input",
         "Browser bundle basic object property deletion / `in`-operator semantics in `.ts` and `.js` input",
+        "Browser bundle `crypto.getRandomValues()` plus `crypto.subtle.digest()` / `crypto.randomUUID()` semantics in `.ts` and `.js` input, including JSON-output coverage",
         "Browser bundle `try/catch` exception semantics in `.ts` and `.js` input",
         "Browser bundle `try/finally` sequencing in `.ts` and `.js` input",
         "Browser bundle basic strict equality / inequality semantics in `.ts` and `.js` input",
