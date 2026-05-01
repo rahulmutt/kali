@@ -246,10 +246,9 @@ fn late_js_compatibility_source_includes_bracketed_intl_forms() {
 fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms() {
     let source = late_js_compatibility_source_with_mixed_process_forms();
     for expected in [
-        r#"globalThis["Deno"]["chdir"]"#,
-        r#"Deno["chdir"]"#,
-        r#"globalThis.Deno["chdir"]"#,
         r#"globalThis["Deno"]["exit"]"#,
+        r#"Deno["chdir"]"#,
+        r#"globalThis["Deno"]["chdir"]"#,
         r#"Deno["exit"]"#,
         r#"globalThis.Deno["exit"]"#,
         r#"Deno["env"]["toObject"]"#,

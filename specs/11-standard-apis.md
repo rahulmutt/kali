@@ -175,7 +175,7 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 Cross-spec consistency note:
 - subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
 - process identity, termination, and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
-- therefore `Deno.exit` and `Deno.chdir` remain **Later compatibility** features until a future schema/policy revision makes their sandbox contract explicit; `Deno.pid` / `globalThis.Deno.pid` and the read-only `Deno.cwd` / `globalThis.Deno.cwd` working-directory query stay noted as current-repository read-only queries in the snapshot above
+- therefore `Deno.exit` and `Deno.chdir` remain **Later compatibility** until a future schema/policy revision makes their sandbox contract explicit; `Deno.pid` / `globalThis.Deno.pid` and the read-only `Deno.cwd` / `globalThis.Deno.cwd` working-directory query stay noted as current-repository read-only queries in the snapshot above
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 
