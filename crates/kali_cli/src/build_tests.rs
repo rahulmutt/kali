@@ -2118,6 +2118,16 @@ fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in
 }
 
 #[test]
+fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Browser, "tsx");
+}
+
+#[test]
 fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
