@@ -1136,6 +1136,51 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_js_input(
 }
 
 #[test]
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_ts_input() {
+    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+fn assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late object-model APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains(r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#)
+            || diagnostic
+                .message
+                .contains("Object.prototype.hasOwnProperty.call")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_bracketed_object_has_own_property_call_in_jsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.jsx");
@@ -1209,6 +1254,42 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_tsx_input
                 .message
                 .contains("Object.prototype.hasOwnProperty.call")),
         "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
