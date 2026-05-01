@@ -22,6 +22,34 @@ fn supported_permission_query_runtime_source() -> String {
     )
 }
 
+fn supported_permission_query_test_source() -> String {
+    r#"async function main() {
+const read_descriptor = "read";
+const write_descriptor = "write";
+const env_descriptor = "env";
+const net_descriptor = "net";
+await Deno.permissions.query({ name: read_descriptor });
+await Deno.permissions.query({ name: write_descriptor });
+await Deno.permissions.query({ name: env_descriptor });
+await Deno.permissions.query({ name: net_descriptor });
+await Deno.permissions["query"]({ name: read_descriptor });
+await Deno.permissions["query"]({ name: write_descriptor });
+await Deno.permissions["query"]({ name: env_descriptor });
+await Deno.permissions["query"]({ name: net_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: read_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: env_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: env_descriptor });
+await globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+await globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
+}
+Kali.test('permission query const bindings', () => main());
+"#
+    .to_string()
+}
+
 fn assert_unsupported_permission_query_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
@@ -175,6 +203,65 @@ fn json_run_accepts_supported_permission_query_descriptor_const_bindings_in_js_i
             .contains("permission query const bindings ok"),
         "json: {json}"
     );
+}
+
+#[test]
+fn test_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(&source_path, supported_permission_query_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_test_accepts_supported_permission_query_descriptor_const_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.js");
+    fs::write(&source_path, supported_permission_query_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
 }
 
 #[test]
