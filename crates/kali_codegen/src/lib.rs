@@ -1129,6 +1129,18 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let Some(folded) = self.math_imul_static_literal_value(*left, *right) {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *left, "imul") {
                 return EmittedValue {
                     produced: false,
@@ -1214,6 +1226,18 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 };
             };
+
+            if let Some(folded) = self.math_clz32_static_literal_value(*value) {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
 
             if !self.emit_integer_math_arg(function, *value, "clz32") {
                 return EmittedValue {
@@ -1997,6 +2021,20 @@ impl<'a> FunctionEmitter<'a> {
     fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         parse_number_literal(&rendered)?.checked_abs()
+    }
+
+    fn math_imul_static_literal_value(&self, left: LirNodeId, right: LirNodeId) -> Option<i64> {
+        let rendered_left = self.render_static_value(left)?;
+        let rendered_right = self.render_static_value(right)?;
+        let left = parse_number_literal(&rendered_left)? as i32;
+        let right = parse_number_literal(&rendered_right)? as i32;
+        Some(i64::from(left.wrapping_mul(right)))
+    }
+
+    fn math_clz32_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        Some(i64::from((value as u32).leading_zeros()))
     }
 
     fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
