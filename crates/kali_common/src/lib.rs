@@ -9,6 +9,7 @@
 pub mod interner;
 pub mod source_map;
 pub mod span;
+pub mod template;
 
 use ahash::AHashMap;
 use once_cell::sync::Lazy;

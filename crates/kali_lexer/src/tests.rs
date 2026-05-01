@@ -82,3 +82,11 @@ fn test_lexer_multiline_template() {
         result.diagnostics
     );
 }
+
+#[test]
+fn test_lexer_template_preserves_interpolation_delimiters() {
+    let mut lexer = Lexer::new(FileId::new(0), "`hello ${world}`".to_string());
+    let token = lexer.next_token().unwrap();
+    assert_eq!(token.kind, TokenType::Template);
+    assert_eq!(token.value, "`hello ${world}`");
+}

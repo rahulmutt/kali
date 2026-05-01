@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use kali_ast::{ExportDefaultDeclaration, Expression, Statement};
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
-use kali_common::FileId;
+use kali_common::{template::resolve_interpolated_template_literal, FileId};
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 use kali_hir::HirLowerer;
 use kali_lexer::{Lexer, Token, TokenType};
@@ -1138,10 +1138,12 @@ fn parse_constant_primary(
 ) -> Option<(EvalConst, usize)> {
     let token = tokens.get(index)?;
     match token.kind {
-        TokenType::StringLiteral | TokenType::Template => Some((
+        TokenType::StringLiteral => Some((
             EvalConst::String(unquote_string_literal(&token.value)),
             index + 1,
         )),
+        TokenType::Template => parse_template_constant_value(&token.value, env)
+            .map(|value| (EvalConst::String(value), index + 1)),
         TokenType::NumericLiteral => token
             .value
             .parse::<i64>()
@@ -1181,6 +1183,30 @@ fn eval_plus(left: EvalConst, right: EvalConst) -> EvalConst {
             right.to_string_value()
         )),
     }
+}
+
+fn parse_template_constant_value(value: &str, env: &BTreeMap<String, EvalConst>) -> Option<String> {
+    let has_interpolation = value.contains("${");
+    resolve_interpolated_template_literal(value, |segment| {
+        let lexer = Lexer::new(FileId::new(1), segment.to_string());
+        let mut tokens = lexer.lex_all().tokens;
+        while matches!(tokens.last(), Some(token) if token.kind == TokenType::Eof) {
+            tokens.pop();
+        }
+        let (parsed, consumed) = parse_constant_expression(&tokens, 0, env)?;
+        if consumed == tokens.len() {
+            Some(parsed.to_string_value())
+        } else {
+            None
+        }
+    })
+    .or_else(|| {
+        if has_interpolation {
+            None
+        } else {
+            Some(unquote_string_literal(value))
+        }
+    })
 }
 
 fn unquote_string_literal(value: &str) -> String {

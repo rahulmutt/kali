@@ -3590,6 +3590,44 @@ fn test_resolution_reports_unknown_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_accepts_constant_template_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let chunk_path = dir.path().join("lazy.ts");
+    fs::write(&chunk_path, "export const lazy = true;").unwrap();
+    fs::write(
+        &source_path,
+        "const name = \"lazy.ts\"; import(`./${name}`);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "name".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "\"lazy.ts\"".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::Literal(LiteralValue::String("`./${name}`".to_string())),
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_non_literal_dynamic_import_targets() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");

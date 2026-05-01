@@ -18,9 +18,12 @@ use kali_ast::{
     TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
     VariableDeclaration, WhileStatement, WithStatement,
 };
+use kali_common::template::resolve_interpolated_template_literal;
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
 };
+use kali_lexer::Lexer;
+use kali_parser::Parser;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -825,7 +828,13 @@ impl TypeContext {
     fn resolve_static_string_expression(&self, expression: &Expression) -> Option<String> {
         match expression {
             Expression::Literal(LiteralValue::String(value)) => {
-                Some(Self::normalize_import_segment(value))
+                if let Some(rendered) = resolve_interpolated_template_literal(value, |segment| {
+                    self.resolve_static_string_from_source(segment)
+                }) {
+                    Some(rendered)
+                } else {
+                    Some(Self::normalize_import_segment(value))
+                }
             }
             Expression::Literal(LiteralValue::Number(value)) => Some(value.to_string()),
             Expression::Literal(LiteralValue::Boolean(value)) => Some(value.to_string()),
@@ -873,6 +882,19 @@ impl TypeContext {
         }
 
         self.global_scope.static_values.get(name).cloned()
+    }
+
+    fn resolve_static_string_from_source(&self, source: &str) -> Option<String> {
+        let wrapped = format!("const __kali_template__ = ({source});");
+        let lexer = Lexer::new(kali_common::FileId::new(0), wrapped);
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+        let Statement::VariableDeclaration(declaration) = statements.first()? else {
+            return None;
+        };
+        let initializer = declaration.declarations.first()?.init.as_ref()?;
+        self.resolve_static_string_expression(initializer)
     }
 
     fn resolve_static_numeric_binding(&self, name: &str) -> Option<f64> {

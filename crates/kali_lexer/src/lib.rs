@@ -352,6 +352,7 @@ impl Lexer {
                     value.push('$');
                     self.position += 1;
                     if let Some(&'{') = self.source.get(self.position) {
+                        value.push('{');
                         self.position += 1;
                     }
                 }

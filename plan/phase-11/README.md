@@ -35,6 +35,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Preserve literal-string `import()` as linked-graph lowering.
 - Keep non-literal `import(expr)` gated until a host-mediated loading/effect model exists.
 - Expand CJS/ESM interop tests only where the linked-artifact model remains deterministic.
+- Progress note: the literal-string dynamic import path now also resolves raw backtick template-literal specifiers with statically evaluable interpolations, keeping `check` / `build` resolution and browser-bundle chunk discovery aligned for that narrower constant-expression slice.
 
 ### 11.4 Bounded inference hardening
 

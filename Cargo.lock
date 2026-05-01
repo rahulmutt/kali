@@ -1423,7 +1423,9 @@ dependencies = [
  "kali_ast",
  "kali_common",
  "kali_error",
+ "kali_lexer",
  "kali_npm",
+ "kali_parser",
  "serde_json",
  "tempfile",
 ]
