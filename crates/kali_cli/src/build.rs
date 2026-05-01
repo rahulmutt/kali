@@ -83,9 +83,15 @@ pub struct ArtifactMetadata {
 pub fn check_source_file(
     source_path: impl AsRef<Path>,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
 ) -> Result<(), Vec<Diagnostic>> {
-    let _analysis = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
+    let _analysis = analyze_source_file(
+        source_path.as_ref(),
+        api_surface,
+        runtime_profiles,
+        compat_eval,
+    )?;
     Ok(())
 }
 
@@ -278,6 +284,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
             max_specializations,
             api_surface,
             profile_data.as_ref(),
+            &runtime_profiles,
             compat_eval,
             validate_ir,
             coverage,
@@ -300,6 +307,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
             max_specializations,
             api_surface,
             profile_data.as_ref(),
+            &runtime_profiles,
             compat_eval,
             validate_ir,
             coverage,
@@ -434,11 +442,17 @@ fn compile_source_file_uncached(
     max_specializations: usize,
     api_surface: ApiSurface,
     profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
     compat_eval: bool,
     validate_ir: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let analyzed = analyze_source_file(source_path.as_ref(), api_surface, compat_eval)?;
+    let analyzed = analyze_source_file(
+        source_path.as_ref(),
+        api_surface,
+        runtime_profiles,
+        compat_eval,
+    )?;
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
     let mut diagnostics = analyzed.diagnostics;
@@ -576,6 +590,7 @@ fn project_root_for_source(source_path: &Path) -> Option<PathBuf> {
 fn analyze_source_file(
     source_path: &Path,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
     compat_eval: bool,
 ) -> Result<AnalyzedSource, Vec<Diagnostic>> {
     let source = read_compiler_source_file(source_path)?;
@@ -628,8 +643,11 @@ fn analyze_source_file(
     }
 
     if !is_declaration_only_source_file(source_path) {
-        let mut resolver =
-            TypeContext::with_base_path_and_api_surface(source_path, api_surface.to_string());
+        let mut resolver = TypeContext::with_base_path_and_api_surface_and_runtime_profiles(
+            source_path,
+            api_surface.to_string(),
+            runtime_profiles.to_vec(),
+        );
         let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
         diagnostics.extend(resolved.diagnostics);
         if has_errors(&diagnostics) {
@@ -2229,12 +2247,16 @@ pub fn library_wit_for(module_name: &str, exports: &[LibraryExport]) -> String {
 pub fn collect_library_exports(
     source_path: impl AsRef<Path>,
     api_surface: ApiSurface,
+    runtime_profiles: &[String],
 ) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
     let parsed = parse_source_file(source_path)?;
 
-    let mut resolver =
-        TypeContext::with_base_path_and_api_surface(source_path, api_surface.to_string());
+    let mut resolver = TypeContext::with_base_path_and_api_surface_and_runtime_profiles(
+        source_path,
+        api_surface.to_string(),
+        runtime_profiles.to_vec(),
+    );
     let resolved = resolver.resolve_statements_in_file(source_path, &parsed);
     if has_errors(&resolved.diagnostics) {
         return Err(resolved.diagnostics);

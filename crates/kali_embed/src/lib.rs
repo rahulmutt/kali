@@ -155,8 +155,9 @@ impl KaliCompiler {
     /// Compile a source file into a library artifact plus a deterministic WIT sidecar.
     pub fn compile_lib(&self, path: &Path) -> Result<LibArtifact, CompileError> {
         let runtime_profiles = self.normalized_runtime_profiles()?;
-        let exports = build::collect_library_exports(path, self.config.api_surface)
-            .map_err(CompileError::from)?;
+        let exports =
+            build::collect_library_exports(path, self.config.api_surface, &runtime_profiles)
+                .map_err(CompileError::from)?;
         let mut wasm_bytes = build::compile_source_file(
             path,
             self.config.build_mode,
@@ -211,8 +212,12 @@ impl KaliCompiler {
                 )])
             })?;
 
-            let exports = build::collect_library_exports(&temp_path, self.config.api_surface)
-                .map_err(CompileError::from)?;
+            let exports = build::collect_library_exports(
+                &temp_path,
+                self.config.api_surface,
+                &runtime_profiles,
+            )
+            .map_err(CompileError::from)?;
             let mut wasm_bytes = build::compile_source_file(
                 &temp_path,
                 self.config.build_mode,

@@ -513,7 +513,12 @@ fn check_command(
 
     for file in selected_files {
         checked += 1;
-        match build::check_source_file(&file, effective_api, compat_eval) {
+        match build::check_source_file(
+            &file,
+            effective_api,
+            &effective_runtime_profiles,
+            compat_eval,
+        ) {
             Ok(()) => {
                 successful_files.push(PathBuf::from(&file));
             }
@@ -1560,7 +1565,7 @@ fn build_library_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source, api_surface)?;
+    let exports = build::collect_library_exports(&source, api_surface, runtime_profiles)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,
@@ -1668,7 +1673,7 @@ fn build_capi_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source, api_surface)?;
+    let exports = build::collect_library_exports(&source, api_surface, runtime_profiles)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,
@@ -1861,7 +1866,7 @@ fn build_component_artifact(
             validate_ir,
             false,
         )?;
-    let exports = build::collect_library_exports(&source, api_surface)?;
+    let exports = build::collect_library_exports(&source, api_surface, runtime_profiles)?;
     let wit = build::library_wit_for(&source.display().to_string(), &exports);
     let metadata = build::build_artifact_metadata(
         &source,

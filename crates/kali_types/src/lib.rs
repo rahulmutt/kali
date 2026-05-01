@@ -89,6 +89,7 @@ pub struct TypeContext {
     next_binding_id: u32,
     base_path: Option<PathBuf>,
     api_surface: String,
+    runtime_profiles: Vec<String>,
     in_generator_function: bool,
 }
 
@@ -110,6 +111,7 @@ impl TypeContext {
             next_binding_id,
             base_path: None,
             api_surface: "deno".to_string(),
+            runtime_profiles: Vec::new(),
             in_generator_function: false,
         }
     }
@@ -129,9 +131,28 @@ impl TypeContext {
         ctx
     }
 
+    pub fn with_base_path_and_api_surface_and_runtime_profiles(
+        base_path: impl AsRef<Path>,
+        api_surface: impl Into<String>,
+        runtime_profiles: Vec<String>,
+    ) -> Self {
+        let mut ctx = Self::with_base_path_and_api_surface(base_path, api_surface);
+        ctx.set_runtime_profiles(runtime_profiles);
+        ctx
+    }
+
     pub fn with_api_surface(api_surface: impl Into<String>) -> Self {
         let mut ctx = Self::new();
         ctx.set_api_surface(api_surface);
+        ctx
+    }
+
+    pub fn with_api_surface_and_runtime_profiles(
+        api_surface: impl Into<String>,
+        runtime_profiles: Vec<String>,
+    ) -> Self {
+        let mut ctx = Self::with_api_surface(api_surface);
+        ctx.set_runtime_profiles(runtime_profiles);
         ctx
     }
 
@@ -146,6 +167,16 @@ impl TypeContext {
                 bind_builtin(&mut self.global_scope, &mut self.next_binding_id, builtin);
             }
         }
+    }
+
+    pub fn set_runtime_profiles(&mut self, runtime_profiles: Vec<String>) {
+        self.runtime_profiles = runtime_profiles;
+    }
+
+    fn has_threaded_runtime_profile(&self) -> bool {
+        self.runtime_profiles
+            .iter()
+            .any(|profile| profile.trim() == "wasm-threads")
     }
 
     pub fn push_scope(&mut self, scope_type: ScopeType) -> NodeId {
@@ -760,6 +791,9 @@ impl TypeContext {
         }
 
         if matches!(name, "SharedArrayBuffer" | "Atomics") {
+            if self.has_threaded_runtime_profile() {
+                return;
+            }
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
@@ -1004,6 +1038,10 @@ impl TypeContext {
         }
 
         if !matches!(expr.property.as_str(), "SharedArrayBuffer" | "Atomics") {
+            return;
+        }
+
+        if self.has_threaded_runtime_profile() {
             return;
         }
 

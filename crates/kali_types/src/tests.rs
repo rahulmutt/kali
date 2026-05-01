@@ -1186,6 +1186,45 @@ fn test_resolution_reports_threaded_runtime_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_accepts_threaded_runtime_globals_when_profile_is_enabled() {
+    let mut ctx = TypeContext::with_api_surface_and_runtime_profiles(
+        "deno",
+        vec!["wasm-threads".to_string()],
+    );
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("SharedArrayBuffer".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::Identifier("Atomics".to_string())),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "SharedArrayBuffer".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "Atomics".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_generator_lowering_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
