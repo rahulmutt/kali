@@ -946,6 +946,20 @@ impl Optimizer {
         };
 
         if let Some(folded) =
+            self.fold_object_has_own_call(program, &snapshot, &callee_node, bindings)
+        {
+            let key = format!(
+                "object-has-own:{}:{}",
+                callee_name,
+                self.call_signature(program, &snapshot)
+            );
+            if tracker.allow(owner, key) {
+                program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
+                return true;
+            }
+        }
+
+        if let Some(folded) =
             self.fold_object_enumeration_call(program, &snapshot, &callee_node, bindings)
         {
             let key = format!(
@@ -1734,6 +1748,39 @@ impl Optimizer {
         new_id
     }
 
+    fn fold_object_has_own_call(
+        &self,
+        program: &mut LirProgram,
+        snapshot: &LirNode,
+        callee_node: &LirNode,
+        bindings: &BindingEnv,
+    ) -> Option<LirNodeId> {
+        let callee_name = self.member_access_name(program, callee_node)?;
+        if !matches!(
+            callee_name.as_str(),
+            "Object.hasOwn"
+                | "globalThis.Object.hasOwn"
+                | "Object.prototype.hasOwnProperty.call"
+                | "globalThis.Object.prototype.hasOwnProperty.call"
+        ) {
+            return None;
+        }
+
+        let object_id =
+            self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
+        if !self.is_object_literal(program, object_id) {
+            return None;
+        }
+
+        let key_id =
+            self.resolve_constant_binding(program, *snapshot.children.get(2)?, bindings)?;
+        let key = self.constant_property_key(program, key_id)?;
+        let has_own = self
+            .object_literal_field(program, object_id, &key)
+            .is_some();
+        Some(self.clone_boolean_literal(program, has_own))
+    }
+
     fn fold_object_enumeration_call(
         &self,
         program: &mut LirProgram,
@@ -1926,6 +1973,32 @@ impl Optimizer {
         for child in snapshot.children {
             self.collect_constant_bindings_into(program, child, env);
         }
+    }
+
+    fn clone_boolean_literal(&self, program: &mut LirProgram, value: bool) -> LirNodeId {
+        let node = LirNode {
+            kind: LirNodeKind::Literal,
+            text: Some(value.to_string()),
+            children: Vec::new(),
+        };
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(node);
+        new_id
+    }
+
+    fn member_access_name(&self, program: &LirProgram, node: &LirNode) -> Option<String> {
+        let object = node.children.first().copied()?;
+        let object = program.nodes.get(object.0 as usize)?;
+        let object_name = match object.text.as_deref() {
+            Some(text) => text.to_string(),
+            None => self.member_access_name(program, object)?,
+        };
+
+        Some(format!("{}.{}", object_name, node.text.as_deref()?))
+    }
+
+    fn constant_property_key(&self, program: &LirProgram, id: LirNodeId) -> Option<String> {
+        Some(literal_text(literal_value(program, id)?))
     }
 
     fn clone_string_literal(&self, program: &mut LirProgram, text: String) -> LirNodeId {

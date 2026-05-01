@@ -113,6 +113,78 @@ fn build_reflect_own_keys_call(builder: &mut LirBuilder) -> LirNodeId {
     call
 }
 
+fn build_object_has_own_call(builder: &mut LirBuilder, callee_name: &str) -> LirNodeId {
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+
+    let object = builder.alloc(LirNodeKind::Value);
+    let prop_b = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_b_key = literal(builder, "b");
+    let prop_b_value = literal(builder, "1");
+    builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
+
+    let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_value = literal(builder, "2");
+    builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
+
+    let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_value = literal(builder, "4");
+    builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
+
+    builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
+    let key = literal(builder, "\"1\"");
+    builder.node_mut(call).unwrap().children = vec![callee, object, key];
+    call
+}
+
+fn build_const_bound_object_has_own_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> (LirNodeId, LirNodeId, LirNodeId) {
+    let const_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+    let declarator = builder.alloc_text(LirNodeKind::Instruction, "point");
+    let binding_name = builder.alloc_text(LirNodeKind::Value, "point");
+    let object = builder.alloc(LirNodeKind::Value);
+    let prop_b = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_b_key = literal(builder, "b");
+    let prop_b_value = literal(builder, "1");
+    builder.node_mut(prop_b).unwrap().children = vec![prop_b_key, prop_b_value];
+
+    let prop_two = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_two_key = literal(builder, "\"2\"");
+    let prop_two_value = literal(builder, "2");
+    builder.node_mut(prop_two).unwrap().children = vec![prop_two_key, prop_two_value];
+
+    let prop_one = builder.alloc_text(LirNodeKind::Value, "init");
+    let prop_one_key = literal(builder, "\"1\"");
+    let prop_one_value = literal(builder, "4");
+    builder.node_mut(prop_one).unwrap().children = vec![prop_one_key, prop_one_value];
+
+    builder.node_mut(object).unwrap().children = vec![prop_b, prop_two, prop_one];
+    builder.node_mut(declarator).unwrap().children = vec![binding_name, object];
+    builder.node_mut(const_decl).unwrap().children = vec![declarator];
+
+    let alias_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
+    let alias_declarator = builder.alloc_text(LirNodeKind::Instruction, "alias");
+    let alias_name = builder.alloc_text(LirNodeKind::Value, "alias");
+    let alias_binding = builder.alloc_text(LirNodeKind::Value, "point");
+    builder.node_mut(alias_declarator).unwrap().children = vec![alias_name, alias_binding];
+    builder.node_mut(alias_decl).unwrap().children = vec![alias_declarator];
+
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+    let alias_ref = builder.alloc_text(LirNodeKind::Value, "alias");
+    let key = literal(builder, "\"1\"");
+    builder.node_mut(call).unwrap().children = vec![callee, alias_ref, key];
+    (const_decl, alias_decl, call)
+}
+
 fn build_const_bound_reflect_own_keys_call(builder: &mut LirBuilder) -> (LirNodeId, LirNodeId) {
     let const_decl = builder.alloc_text(LirNodeKind::Instruction, "const");
     let declarator = builder.alloc_text(LirNodeKind::Instruction, "point");
@@ -1311,11 +1383,11 @@ fn release_advanced_folds_reflect_own_keys_calls_over_literal_object_shapes() {
 }
 
 #[test]
-fn release_folds_reflect_own_keys_calls_over_const_bound_literal_object_shapes() {
+fn release_folds_object_has_own_calls_over_literal_object_shapes() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
-    let (const_decl, call) = build_const_bound_reflect_own_keys_call(&mut builder);
-    builder.node_mut(root).unwrap().children = vec![const_decl, call];
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    builder.node_mut(root).unwrap().children = vec![call];
 
     let mut program = LirProgram {
         root,
@@ -1325,15 +1397,47 @@ fn release_folds_reflect_own_keys_calls_over_const_bound_literal_object_shapes()
     Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
 
     let call_node = &program.nodes[call.0 as usize];
-    assert_eq!(call_node.kind, LirNodeKind::Value);
-    assert!(call_node.text.is_none());
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
 
-    let values: Vec<_> = call_node
-        .children
-        .iter()
-        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
-        .collect();
-    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+#[test]
+fn release_advanced_folds_object_has_own_calls_over_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
+fn release_folds_object_has_own_calls_over_const_bound_literal_object_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let (const_decl, alias_decl, call) =
+        build_const_bound_object_has_own_call(&mut builder, "hasOwn");
+    builder.node_mut(root).unwrap().children = vec![const_decl, alias_decl, call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
 }
 
 #[test]

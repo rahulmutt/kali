@@ -159,7 +159,7 @@ fn late_object_model_source() -> &'static str {
 }
 
 fn late_object_model_own_property_source() -> &'static str {
-    "Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis.Object[\"hasOwn\"]({}, \"a\"); globalThis[\"Object\"].hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"]({}, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\");"
+    "Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis.Object[\"hasOwn\"](globalThis, \"a\"); globalThis[\"Object\"].hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\");"
 }
 
 fn broader_intl_source() -> &'static str {

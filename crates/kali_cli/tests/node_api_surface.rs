@@ -2750,9 +2750,9 @@ fn node_api_surface_rejects_late_object_model_members_in_js_input_on_check_build
             r#"globalThis["FinalizationRegistry"];"#,
             "globalThis.FinalizationRegistry",
         ),
-        (r#"Object.hasOwn({}, "a");"#, "Object.hasOwn"),
+        (r#"Object.hasOwn(globalThis, "a");"#, "Object.hasOwn"),
         (
-            r#"Object.prototype.hasOwnProperty.call({}, "a");"#,
+            r#"Object.prototype.hasOwnProperty.call(globalThis, "a");"#,
             "Object.prototype.hasOwnProperty.call",
         ),
     ];

@@ -1680,6 +1680,19 @@ fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() 
 fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface() {
     let mut ctx = TypeContext::with_api_surface("browser");
     let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            }],
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
@@ -1687,13 +1700,7 @@ fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface(
                     property: "hasOwn".to_string(),
                 })),
                 args: vec![
-                    Expression::ObjectExpression(ObjectExpression {
-                        properties: vec![ObjectProperty {
-                            key: PropertyName::Identifier("a".to_string()),
-                            value: Expression::Literal(LiteralValue::Number(1.0)),
-                            kind: ObjectPropertyKind::Init,
-                        }],
-                    }),
+                    Expression::Identifier("object".to_string()),
                     Expression::Literal(LiteralValue::String("a".to_string())),
                 ],
             }))),
@@ -1702,19 +1709,19 @@ fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface(
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
-                        object: Expression::Identifier("globalThis".to_string()),
-                        property: "Object".to_string(),
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::MemberExpression(Box::new(MemberExpression {
+                                object: Expression::Identifier("globalThis".to_string()),
+                                property: "Object".to_string(),
+                            })),
+                            property: "prototype".to_string(),
+                        })),
+                        property: "hasOwnProperty".to_string(),
                     })),
-                    property: "hasOwn".to_string(),
+                    property: "call".to_string(),
                 })),
                 args: vec![
-                    Expression::ObjectExpression(ObjectExpression {
-                        properties: vec![ObjectProperty {
-                            key: PropertyName::Identifier("a".to_string()),
-                            value: Expression::Literal(LiteralValue::Number(1.0)),
-                            kind: ObjectPropertyKind::Init,
-                        }],
-                    }),
+                    Expression::Identifier("object".to_string()),
                     Expression::Literal(LiteralValue::String("a".to_string())),
                 ],
             }))),
@@ -1731,10 +1738,93 @@ fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface(
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Object.hasOwn")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.message.contains("Object.hasOwn")));
+    assert!(result.diagnostics.iter().any(|diag| diag
+        .message
+        .contains("Object.prototype.hasOwnProperty.call")));
+}
+
+#[test]
+fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_and_alias_chains_in_js_input(
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const object = { a: 1, "b": 2 };
+const alias = object;
+Object.hasOwn(alias, "a");
+Object.prototype.hasOwnProperty.call(alias, "a");
+"#,
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![
+                        ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                            kind: ObjectPropertyKind::Init,
+                        },
+                        ObjectProperty {
+                            key: PropertyName::String("b".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        },
+                    ],
+                })),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("object".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "hasOwn".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("Object".to_string()),
+                            property: "prototype".to_string(),
+                        })),
+                        property: "hasOwnProperty".to_string(),
+                    })),
+                    property: "call".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]
@@ -3009,6 +3099,19 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
 fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
     let mut ctx = TypeContext::new();
     let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            }],
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
@@ -3016,13 +3119,7 @@ fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
                     property: "hasOwn".to_string(),
                 })),
                 args: vec![
-                    Expression::ObjectExpression(ObjectExpression {
-                        properties: vec![ObjectProperty {
-                            key: PropertyName::Identifier("a".to_string()),
-                            value: Expression::Literal(LiteralValue::Number(1.0)),
-                            kind: ObjectPropertyKind::Init,
-                        }],
-                    }),
+                    Expression::Identifier("object".to_string()),
                     Expression::Literal(LiteralValue::String("a".to_string())),
                 ],
             }))),
@@ -3042,13 +3139,7 @@ fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
                     property: "call".to_string(),
                 })),
                 args: vec![
-                    Expression::ObjectExpression(ObjectExpression {
-                        properties: vec![ObjectProperty {
-                            key: PropertyName::Identifier("a".to_string()),
-                            value: Expression::Literal(LiteralValue::Number(1.0)),
-                            kind: ObjectPropertyKind::Init,
-                        }],
-                    }),
+                    Expression::Identifier("object".to_string()),
                     Expression::Literal(LiteralValue::String("a".to_string())),
                 ],
             }))),
@@ -3068,14 +3159,6 @@ fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
     assert!(result.diagnostics.iter().any(|diag| diag
         .message
         .contains("Object.prototype.hasOwnProperty.call")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| { diag.message.contains(r#"Object["hasOwn"]"#) }));
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message
-            .contains(r#"Object["prototype"]["hasOwnProperty"]["call"]"#)
-    }));
 }
 
 #[test]

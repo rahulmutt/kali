@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_js_compatibility_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].permissions.request(); globalThis[\"Deno\"].permissions.revoke(); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env.toObject; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"]({}, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+    "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].permissions.request(); globalThis[\"Deno\"].permissions.revoke(); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env.toObject; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
 }
 
 fn late_js_compatibility_source_with_mixed_process_forms() -> String {
@@ -20,6 +20,10 @@ fn late_js_compatibility_source_with_mixed_process_forms() -> String {
         "{} globalThis[\"process\"].pid; globalThis[\"process\"].cwd; globalThis[\"process\"].chdir; globalThis[\"process\"].exit;",
         late_js_compatibility_source()
     )
+}
+fn late_js_compatibility_source_without_object_has_own() -> String {
+    late_js_compatibility_source()
+        .replace("Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); ", "")
 }
 
 fn late_process_env_mutation_source() -> &'static str {
@@ -83,12 +87,6 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
         "Proxy",
         "globalThis.Proxy",
         r#"globalThis["Proxy"]["revocable"]"#,
-        "Object.hasOwn",
-        "globalThis.Object.hasOwn",
-        r#"globalThis["Object"]["hasOwn"]"#,
-        "Object.prototype.hasOwnProperty.call",
-        "globalThis.Object.prototype.hasOwnProperty.call",
-        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
         "WeakMap",
         "globalThis.WeakMap",
         r#"globalThis["WeakMap"]"#,
@@ -185,12 +183,6 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
         "Proxy",
         "globalThis.Proxy",
         r#"globalThis["Proxy"]["revocable"]"#,
-        "Object.hasOwn",
-        "globalThis.Object.hasOwn",
-        r#"globalThis["Object"]["hasOwn"]"#,
-        "Object.prototype.hasOwnProperty.call",
-        "globalThis.Object.prototype.hasOwnProperty.call",
-        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
         "WeakMap",
         "globalThis.WeakMap",
         r#"globalThis["WeakMap"]"#,
@@ -395,7 +387,7 @@ fn check_rejects_late_compatibility_members_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -418,7 +410,7 @@ fn check_rejects_late_compatibility_members_in_js_input_in_json() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -447,7 +439,7 @@ fn run_rejects_late_compatibility_members_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -470,7 +462,7 @@ fn build_rejects_late_compatibility_members_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -493,7 +485,7 @@ fn build_rejects_late_compatibility_members_in_js_input_in_json() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -522,7 +514,7 @@ fn run_rejects_late_compatibility_members_in_js_input_in_json() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -551,7 +543,7 @@ fn test_rejects_late_compatibility_members_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 
@@ -574,7 +566,7 @@ fn test_rejects_late_compatibility_members_in_js_input_in_json() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        late_js_compatibility_source_with_mixed_process_forms(),
+        late_js_compatibility_source_without_object_has_own(),
     )
     .expect("write source");
 

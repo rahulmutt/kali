@@ -48,6 +48,7 @@ pub struct Scope {
     pub static_values: IndexMap<String, String>,
     pub static_numeric_values: IndexMap<String, String>,
     pub static_arrays: IndexMap<String, bool>,
+    pub static_objects: IndexMap<String, bool>,
 }
 
 impl Scope {
@@ -59,6 +60,7 @@ impl Scope {
             static_values: IndexMap::new(),
             static_numeric_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
+            static_objects: IndexMap::new(),
         }
     }
 
@@ -643,6 +645,11 @@ impl TypeContext {
                             scope.static_arrays.insert(declarator.id.clone(), true);
                         }
                     }
+                    if self.resolve_static_object_model_target(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope.static_objects.insert(declarator.id.clone(), true);
+                        }
+                    }
                 }
             }
         }
@@ -870,6 +877,49 @@ impl TypeContext {
         self.global_scope.static_arrays.contains_key(name)
     }
 
+    fn resolve_static_object_binding_name(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.static_objects.contains_key(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_objects.contains_key(name)
+    }
+
+    fn resolve_static_object_model_target(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_object_model_target(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_object_model_target(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_object_model_target(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_object_model_target(&expr.expression)
+            }
+            Expression::ObjectExpression(ObjectExpression { properties }) => {
+                properties.iter().all(|property| {
+                    matches!(property.kind, ObjectPropertyKind::Init)
+                        && matches!(
+                            property.key,
+                            PropertyName::Identifier(_)
+                                | PropertyName::Number(_)
+                                | PropertyName::String(_)
+                        )
+                })
+            }
+            Expression::Identifier(name) => self.resolve_static_object_binding_name(name),
+            _ => false,
+        }
+    }
+
     fn normalize_import_segment(value: &str) -> String {
         let trimmed = value.trim();
         if trimmed.len() >= 2 {
@@ -936,6 +986,10 @@ impl TypeContext {
     }
 
     fn resolve_call_expression(&mut self, expr: &CallExpression) {
+        if self.resolve_static_object_model_call(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.callee);
         for arg in &expr.args {
             self.resolve_expression(arg);
@@ -1002,6 +1056,53 @@ impl TypeContext {
                 descriptor_name
             ),
         ));
+    }
+
+    fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) = Self::member_access_name(match &expr.callee {
+            Expression::MemberExpression(member) => member,
+            _ => return false,
+        }) else {
+            return false;
+        };
+
+        if self.api_surface == "browser" {
+            return false;
+        }
+
+        let is_object_has_own = matches!(
+            callee_name.as_str(),
+            "Object.hasOwn" | "globalThis.Object.hasOwn"
+        );
+        let is_has_own_property_call = matches!(
+            callee_name.as_str(),
+            "Object.prototype.hasOwnProperty.call"
+                | "globalThis.Object.prototype.hasOwnProperty.call"
+        );
+        if !is_object_has_own && !is_has_own_property_call {
+            return false;
+        }
+
+        let Some(object_arg) = expr.args.first() else {
+            return false;
+        };
+        let Some(key_arg) = expr.args.get(1) else {
+            return false;
+        };
+
+        if !self.resolve_static_object_model_target(object_arg) {
+            return false;
+        }
+        if self.resolve_static_string_expression(key_arg).is_none() {
+            return false;
+        }
+
+        self.resolve_expression(object_arg);
+        self.resolve_expression(key_arg);
+        for arg in expr.args.iter().skip(2) {
+            self.resolve_expression(arg);
+        }
+        true
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {
