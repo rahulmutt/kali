@@ -3375,6 +3375,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "layout-specialization",
         "call-inlining-chain",
         "nested-call-inlining-chain",
+        "object-enumeration-alias-chain-js",
         "nullish-specialization",
     ]
     .into_iter()
@@ -3402,6 +3403,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "reflect-own-keys-alias-chain-benchmark-v1.ts",
         "integer-like-object-enumeration-benchmark-v1.ts",
         "object-enumeration-alias-chain-benchmark-v1.ts",
+        "object-enumeration-alias-chain-benchmark-v1-js.js",
         "object-enumeration-const-bound-literal-benchmark-v1.ts",
         "object-enumeration-delete-reinsert-benchmark-v1.ts",
         "object-literal-property-order-canonicalization-benchmark-v1.ts",
@@ -3574,6 +3576,7 @@ fn optimization_inventory_tracks_current_mode_rows() {
         "reflect-own-keys-alias-chain-benchmark-v1",
         "integer-like-object-enumeration-benchmark-v1",
         "object-enumeration-alias-chain-benchmark-v1",
+        "object-enumeration-alias-chain-benchmark-v1-js",
         "object-enumeration-delete-reinsert-benchmark-v1",
         "object-literal-property-order-canonicalization-benchmark-v1",
         "identity-chain-benchmark-v1",
