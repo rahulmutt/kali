@@ -1845,6 +1845,35 @@ fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const zero = 0; const zeroAlias = zero; const one = 1; const oneAlias = one; console.log(Math.atan2(zeroAlias, oneAlias));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.atan2 const alias chain build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_math_inverse_trig_identity_literals_in_js_input() {
     assert_build_source_file_supports_math_inverse_trig_identity_literals_in_input(
@@ -1885,6 +1914,69 @@ fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denomin
     assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
         ApiSurface::Deno,
         "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_js_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
+        ApiSurface::Browser,
+        "ts",
     );
 }
 
