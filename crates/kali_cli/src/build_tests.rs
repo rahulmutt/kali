@@ -1788,6 +1788,11 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_tsx_inpu
 }
 
 #[test]
+fn build_source_file_rejects_process_env_mutation_in_ts_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
 fn build_source_file_rejects_process_env_mutation_in_js_input() {
     assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "js");
 }
@@ -1800,6 +1805,11 @@ fn build_source_file_rejects_process_env_mutation_in_jsx_input() {
 #[test]
 fn build_source_file_rejects_process_env_mutation_in_tsx_input() {
     assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Browser, "ts");
 }
 
 #[test]
