@@ -147,7 +147,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> &'static str {
-    r#"Deno.chdir; globalThis.Deno.chdir; globalThis["Deno"]["chdir"]; Deno["chdir"]; globalThis.Deno["chdir"]; globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
+    r#"globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
 }
 
 fn late_process_env_mutation_source() -> &'static str {
@@ -4984,7 +4984,7 @@ fn check_rejects_late_process_control_members() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
+        "globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -5005,8 +5005,6 @@ fn check_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -5028,7 +5026,7 @@ fn check_rejects_late_process_control_members_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
+        "globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -5054,8 +5052,6 @@ fn check_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -5625,8 +5621,6 @@ fn run_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -5670,8 +5664,6 @@ fn run_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -6067,8 +6059,6 @@ fn build_rejects_late_process_control_members_in_js_input() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -6112,8 +6102,6 @@ fn json_build_rejects_late_process_control_members_in_js_input() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -6234,8 +6222,6 @@ fn test_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -6279,8 +6265,6 @@ fn test_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.pid",
         "globalThis.process.pid",
@@ -35618,6 +35602,131 @@ fn run_supports_math_exp_and_log_exact_identity_literals_in_js_input() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("1"), "stdout: {stdout}");
     assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_math_inverse_hyperbolic_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.asinh(zero)); console.log(Math.acosh(one)); console.log(Math.atanh(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.matches("0").count() >= 3, "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_inverse_hyperbolic_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.asinh(zero)); console.log(Math.acosh(one)); console.log(Math.atanh(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.matches("0").count() >= 3, "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_math_inverse_hyperbolic_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.asinh(zero)); console.log(Math.acosh(one)); console.log(Math.atanh(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 3
+    );
+}
+
+#[test]
+fn json_test_supports_math_inverse_hyperbolic_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.asinh(zero)); console.log(Math.acosh(one)); console.log(Math.atanh(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 3
+    );
 }
 
 #[test]

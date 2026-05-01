@@ -1567,6 +1567,35 @@ fn test_resolution_allows_deno_cwd_query_in_default_standalone_surface() {
 }
 
 #[test]
+fn test_resolution_allows_deno_chdir_mutation_in_default_standalone_surface() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "deno");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "chdir".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "chdir".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -3059,6 +3088,117 @@ fn test_resolution_supports_math_asin_acos_atan_exact_identity_literals() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_supports_math_asinh_acosh_atanh_exact_identity_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "zero".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "one".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "asinh".to_string(),
+                })),
+                args: vec![Expression::Identifier("zero".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "acosh".to_string(),
+                })),
+                args: vec![Expression::Identifier("one".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "atanh".to_string(),
+                })),
+                args: vec![Expression::Identifier("zero".to_string())],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "asinh".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "acosh".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(0.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "atanh".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 3);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.asinh")
+            && diag.message.contains("zero numeric literal")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.acosh")
+            && diag.message.contains("one numeric literal")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.atanh")
+            && diag.message.contains("zero numeric literal")));
 }
 
 #[test]

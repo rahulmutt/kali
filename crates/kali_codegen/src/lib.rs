@@ -146,6 +146,7 @@ struct FunctionEmitter<'a> {
     env_set_import_index: Option<u32>,
     env_delete_import_index: Option<u32>,
     env_get_import_index: Option<u32>,
+    cwd_set_import_index: Option<u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
     source_path: Option<PathBuf>,
@@ -162,6 +163,7 @@ impl<'a> FunctionEmitter<'a> {
         env_set_import_index: Option<u32>,
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
+        cwd_set_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -179,6 +181,7 @@ impl<'a> FunctionEmitter<'a> {
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
+            cwd_set_import_index,
             diagnostics,
             strings,
             source_path,
@@ -1504,6 +1507,49 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            if method == "asinh" || method == "acosh" || method == "atanh" {
+                let mut args = node.children.iter().skip(1);
+                let Some(value) = args.next() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                let folded = self.math_inverse_hyperbolic_constant_value(method, *value);
+                let Some(folded) = folded else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
+                            if method == "acosh" { "one" } else { "zero" }
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if method == "sin" || method == "cos" || method == "tan" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
@@ -1569,6 +1615,48 @@ impl<'a> FunctionEmitter<'a> {
                         format!(
                             "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
                             if method == "acos" { "one" } else { "zero" }
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
+            if method == "sin" || method == "cos" || method == "tan" {
+                let mut args = node.children.iter().skip(1);
+                let Some(value) = args.next() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                let folded = self.math_sin_cos_zero_constant_value(method, *value);
+                let Some(folded) = folded else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
                         ),
                     ));
                     function.instruction(&Instruction::Unreachable);
@@ -1701,6 +1789,9 @@ impl<'a> FunctionEmitter<'a> {
                     | "asin"
                     | "acos"
                     | "atan"
+                    | "asinh"
+                    | "acosh"
+                    | "atanh"
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -1881,6 +1972,30 @@ impl<'a> FunctionEmitter<'a> {
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(import_index) = self.cwd_set_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(path_expr) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let _ = self.emit_node(function, *path_expr, true);
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::Drop);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
             };
         }
 
@@ -2126,6 +2241,17 @@ impl<'a> FunctionEmitter<'a> {
         match method {
             "asin" | "atan" if value == 0.0 => Some(0),
             "acos" if value == 1.0 => Some(0),
+            _ => None,
+        }
+    }
+
+    fn math_inverse_hyperbolic_constant_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_numeric_literal_value(&rendered)?;
+
+        match method {
+            "acosh" if value == 1.0 => Some(0),
+            "asinh" | "atanh" if value == 0.0 => Some(0),
             _ => None,
         }
     }
@@ -2404,6 +2530,20 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         Some(CWD_IMPORT_INDEX)
+    }
+
+    fn cwd_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "chdir" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        if !self.is_deno_pid(object) {
+            return None;
+        }
+
+        self.cwd_set_import_index
     }
 
     fn render_console_call(&self, node: &LirNode) -> Option<String> {
@@ -2894,13 +3034,16 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_env_get = program_uses_env_get(lir);
     let uses_env_set = program_uses_env_set(lir);
     let uses_env_delete = program_uses_env_delete(lir);
+    let uses_cwd_set = program_uses_cwd_set(lir);
     let uses_env_access = uses_env_get || uses_env_set || uses_env_delete;
     let function_index_offset = FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
         + if uses_env_set { 1 } else { 0 }
         + if uses_env_delete { 1 } else { 0 }
-        + if uses_env_get { 1 } else { 0 };
+        + if uses_env_get { 1 } else { 0 }
+        + if uses_cwd_set { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(5) } else { None };
+    let cwd_set_type_index = if uses_cwd_set { Some(6) } else { None };
     let env_set_import_index = if uses_env_set {
         Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
     } else {
@@ -2921,6 +3064,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if ctx.target.coverage { 1 } else { 0 }
                 + if uses_env_set { 1 } else { 0 }
                 + if uses_env_delete { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let cwd_set_import_index = if uses_cwd_set {
+        Some(
+            COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 },
         )
     } else {
         None
@@ -2952,6 +3106,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I64], vec![ValType::I64]);
+    type_section
+        .ty()
+        .function(vec![ValType::I64], vec![ValType::I32]);
     type_section.ty().function(
         vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
         vec![ValType::I32],
@@ -2996,6 +3153,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             "kali:rt",
             "env_get",
             EntityType::Function(env_get_type_index.unwrap()),
+        );
+    }
+    if cwd_set_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "cwd_set",
+            EntityType::Function(cwd_set_type_index.unwrap()),
         );
     }
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
@@ -3057,6 +3221,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
+            cwd_set_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -3236,6 +3401,39 @@ fn program_uses_env_delete(lir: &LirProgram) -> bool {
         root_node.text.as_deref() == Some("Deno")
             || (root_node.text.as_deref() == Some("globalThis")
                 && root_node.children.first().is_some_and(|child| {
+                    lir.nodes
+                        .get(child.0 as usize)
+                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+                }))
+    })
+}
+
+fn program_uses_cwd_set(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("chdir") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+
+        object_node.text.as_deref() == Some("Deno")
+            || (object_node.text.as_deref() == Some("globalThis")
+                && object_node.children.first().is_some_and(|child| {
                     lir.nodes
                         .get(child.0 as usize)
                         .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))

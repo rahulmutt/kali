@@ -1625,6 +1625,139 @@ fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_browser
     );
 }
 
+fn assert_build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.asinh(zero)); console.log(Math.acosh(one)); console.log(Math.atanh(zero));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.asinh/acosh/atanh identity build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_js_input() {
+    assert_build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_ts_input() {
+    assert_build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_inverse_hyperbolic_identity_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+fn assert_build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    for (method, source) in [
+        ("asinh", "console.log(Math.asinh(1.6));\n"),
+        ("acosh", "console.log(Math.acosh(0));\n"),
+        ("atanh", "console.log(Math.atanh(1));\n"),
+    ] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).expect("write source");
+
+        let error = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            api_surface,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect_err("unsupported Math inverse hyperbolic member call should fail");
+
+        assert!(error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(&format!("Math.{method}"))),
+            "unexpected diagnostics: {error:?}"
+        );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_js_input() {
+    assert_build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_ts_input() {
+    assert_build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_rejects_unsupported_math_inverse_hyperbolic_member_calls_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_math_inverse_trig_identity_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,

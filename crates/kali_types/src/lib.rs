@@ -1317,6 +1317,35 @@ impl TypeContext {
             return;
         }
 
+        if method == "asinh" || method == "acosh" || method == "atanh" {
+            let Some(argument) = expr.args.first() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
+                        if method == "acosh" { "one" } else { "zero" }
+                    ),
+                ));
+                return;
+            };
+
+            if self
+                .resolve_math_inverse_hyperbolic_constant_value(method, argument)
+                .is_some()
+            {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
+                    if method == "acosh" { "one" } else { "zero" }
+                ),
+            ));
+            return;
+        }
+
         if method == "sin" || method == "cos" || method == "tan" {
             let Some(value) = expr
                 .args
@@ -1502,7 +1531,10 @@ impl TypeContext {
             return;
         }
 
-        if matches!(method, "max" | "min" | "abs" | "sign" | "tan") {
+        if matches!(
+            method,
+            "max" | "min" | "abs" | "sign" | "tan" | "asinh" | "acosh" | "atanh"
+        ) {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -1661,6 +1693,20 @@ impl TypeContext {
         }
 
         Some(folded)
+    }
+
+    fn resolve_math_inverse_hyperbolic_constant_value(
+        &self,
+        method: &str,
+        expression: &Expression,
+    ) -> Option<i64> {
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+
+        match method {
+            "acosh" if value == 1.0 => Some(0),
+            "asinh" | "atanh" if value == 0.0 => Some(0),
+            _ => None,
+        }
     }
 
     fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
@@ -1842,6 +1888,10 @@ impl TypeContext {
         }
 
         if expr.property == "cwd" && object_name == "Deno" && self.api_surface == "deno" {
+            return;
+        }
+
+        if expr.property == "chdir" && object_name == "Deno" && self.api_surface == "deno" {
             return;
         }
 

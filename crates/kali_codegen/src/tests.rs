@@ -1051,6 +1051,132 @@ fn supported_math_atan_member_lowering_is_available_for_exact_zero_literals() {
 }
 
 #[test]
+fn supported_math_asinh_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.asinh(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
+fn supported_math_acosh_member_lowering_is_available_for_exact_one_literals() {
+    let program = parse_and_lower_lir("const one = 1; console.log(Math.acosh(one));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
+fn supported_math_atanh_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.atanh(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
+fn unsupported_math_inverse_hyperbolic_member_reports_feature_unavailable() {
+    for (source, expected_method, expected_literal) in [
+        (
+            "console.log(Math.asinh(1));",
+            "Math.asinh",
+            "zero numeric literal",
+        ),
+        (
+            "console.log(Math.acosh(0));",
+            "Math.acosh",
+            "one numeric literal",
+        ),
+        (
+            "console.log(Math.atanh(1));",
+            "Math.atanh",
+            "zero numeric literal",
+        ),
+    ] {
+        let program = parse_and_lower_lir(source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.is_error()
+                    && diagnostic.code
+                        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                    && diagnostic.message.contains(expected_method)
+                    && diagnostic.message.contains(expected_literal)
+            }),
+            "expected an unavailable {expected_method} diagnostic: {:?}",
+            result.diagnostics
+        );
+
+        Validator::new()
+            .validate_all(&result.wasm_bytes)
+            .expect("generated wasm should validate");
+    }
+}
+
+#[test]
 fn unsupported_math_inverse_trig_member_reports_feature_unavailable() {
     for (source, expected_method, expected_literal) in [
         (

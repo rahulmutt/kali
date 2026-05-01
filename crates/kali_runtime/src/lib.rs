@@ -1188,6 +1188,38 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("cwd", error))?;
 
     linker
+        .func_wrap(
+            "kali:rt",
+            "cwd_set",
+            |mut caller: Caller<'_, KaliHostState>, path_value: i64| -> wasmtime::Result<i32> {
+                let path = read_guest_string_handle(&mut caller, path_value)?;
+                let host_path = normalize_path(resolve_host_path(caller.data(), Path::new(&path)));
+                let metadata = fs::metadata(&host_path).map_err(|error| {
+                    wasmtime::Error::msg(format!(
+                        "failed to change directory to '{}': {}",
+                        host_path.display(),
+                        error
+                    ))
+                })?;
+                if !metadata.is_dir() {
+                    return Err(wasmtime::Error::msg(format!(
+                        "failed to change directory to '{}': not a directory",
+                        host_path.display()
+                    )));
+                }
+                enforce_operation(
+                    caller.data_mut(),
+                    HostOperation::ProcessChdir {
+                        path: host_path.clone(),
+                    },
+                )?;
+                caller.data_mut().cwd = host_path;
+                Ok(1)
+            },
+        )
+        .map_err(|error| host_import_error("cwd_set", error))?;
+
+    linker
         .func_wrap("kali:rt", "math_max", |left: i64, right: i64| -> i64 {
             left.max(right)
         })
@@ -2204,6 +2236,22 @@ fn read_guest_string(
     })
 }
 
+fn read_guest_string_handle(
+    caller: &mut Caller<'_, KaliHostState>,
+    value: i64,
+) -> wasmtime::Result<String> {
+    let raw = value as u64;
+    if raw & STRING_HANDLE_TAG == 0 {
+        return Err(wasmtime::Error::msg(
+            "guest string handle is missing the string tag",
+        ));
+    }
+
+    let offset = ((raw >> 32) & 0x7fff_ffff) as i32;
+    let len = (raw & 0xffff_ffff) as i32;
+    read_guest_string(caller, offset, len)
+}
+
 fn read_guest_bytes(
     caller: &mut Caller<'_, KaliHostState>,
     ptr: i32,
@@ -2269,6 +2317,32 @@ fn resolve_host_path(state: &KaliHostState, path: &Path) -> PathBuf {
         path.to_path_buf()
     } else {
         state.cwd.join(path)
+    }
+}
+
+fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push("..");
+                }
+            }
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {
+                normalized.push(component.as_os_str());
+            }
+            std::path::Component::Normal(part) => normalized.push(part),
+        }
+    }
+
+    if normalized.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        normalized
     }
 }
 
