@@ -384,6 +384,42 @@ fn test_type_annotation_resolution_accepts_deeper_nested_known_names_in_jsx_and_
 }
 
 #[test]
+fn test_type_annotation_resolution_accepts_mixed_union_nested_known_names_in_js_jsx_and_tsx_input()
+{
+    for extension in ["js", "jsx", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, "const value = 1;").unwrap();
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let statements = vec![
+            Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+                name: "Foo".to_string(),
+                type_params: vec![],
+                type_annotation: "string".to_string(),
+            }),
+            Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+                name: "Bar".to_string(),
+                type_params: vec![],
+                type_annotation: "number".to_string(),
+            }),
+            Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+                name: "Box".to_string(),
+                type_params: vec![],
+                type_annotation: "Promise<Array<Foo | Bar>>".to_string(),
+            }),
+        ];
+
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "{extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_type_checker_collects_annotation_diagnostics() {
     let mut checker = TypeChecker::new();
     checker.check_type_annotation(NodeId::new(1), "Missing | string");
