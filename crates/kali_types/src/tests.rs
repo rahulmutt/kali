@@ -2677,6 +2677,46 @@ fn test_resolution_reports_unsupported_math_pow_negative_exponents_as_unavailabl
 }
 
 #[test]
+fn test_resolution_supports_math_hypot_member_calls_with_const_numeric_alias_chain() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(3.0))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("value".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "hypot".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::Literal(LiteralValue::Number(4.0)),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -2699,6 +2739,35 @@ fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Math.cbrt")));
+}
+
+#[test]
+fn test_resolution_reports_unsupported_math_hypot_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "hypot".to_string(),
+            })),
+            args: vec![
+                Expression::Literal(LiteralValue::Number(1.6)),
+                Expression::Literal(LiteralValue::Number(2.0)),
+            ],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.hypot")
+            && diag.message.contains("perfect-square integer literal")));
 }
 
 #[test]

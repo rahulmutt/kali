@@ -1165,6 +1165,21 @@ impl TypeContext {
             return;
         };
 
+        if method == "hypot" {
+            if self
+                .resolve_math_hypot_static_literal_root(&expr.args)
+                .is_some()
+            {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Math.hypot is unavailable unless every argument is a statically-known integer literal whose squared sum is a perfect-square integer literal in the current phase; use explicit constants or the later compatibility path",
+            ));
+            return;
+        }
+
         if method == "sqrt" || method == "cbrt" || method == "log2" || method == "log10" {
             let literal_root = expr.args.first().and_then(|arg| {
                 if method == "sqrt" {
@@ -1583,6 +1598,52 @@ impl TypeContext {
         } else {
             None
         }
+    }
+
+    fn resolve_math_hypot_static_literal_root(&self, expressions: &[Expression]) -> Option<i64> {
+        if expressions.is_empty() {
+            return Some(0);
+        }
+
+        let mut sum = 0_i128;
+        for expression in expressions {
+            let value = self.resolve_static_numeric_literal_value(expression)?;
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || value < i64::MIN as f64
+                || value > i64::MAX as f64
+            {
+                return None;
+            }
+
+            let value = value as i128;
+            sum = sum.checked_add(value.checked_mul(value)?)?;
+        }
+
+        self.resolve_perfect_square_i128(sum)
+    }
+
+    fn resolve_perfect_square_i128(&self, value: i128) -> Option<i64> {
+        if value < 0 {
+            return None;
+        }
+
+        let mut low = 0_i128;
+        let mut high = i128::from(i64::MAX).min(value);
+        while low <= high {
+            let mid = low + (high - low) / 2;
+            let square = mid.checked_mul(mid)?;
+            if square == value {
+                return Some(mid as i64);
+            }
+            if square < value {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        None
     }
 
     fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {

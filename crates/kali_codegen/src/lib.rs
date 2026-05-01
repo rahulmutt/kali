@@ -1357,6 +1357,27 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(method) = self.math_member_method(&callee_node) {
+            if method == "hypot" {
+                let args: Vec<_> = node.children.iter().skip(1).copied().collect();
+                let Some(root) = self.math_hypot_constant_root(&args) else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.hypot is unavailable unless every argument is a statically-known integer literal whose squared sum is a perfect-square integer literal in the current phase; use explicit constants or the later compatibility path",
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(root));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if method == "log2" || method == "log10" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
@@ -1873,6 +1894,53 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn math_hypot_constant_root(&self, args: &[LirNodeId]) -> Option<i64> {
+        if args.is_empty() {
+            return Some(0);
+        }
+
+        let mut sum = 0_i128;
+        for arg in args {
+            let rendered = self.render_static_value(*arg)?;
+            let value = parse_numeric_literal_value(&rendered)?;
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || value < i64::MIN as f64
+                || value > i64::MAX as f64
+            {
+                return None;
+            }
+
+            let value = value as i128;
+            sum = sum.checked_add(value.checked_mul(value)?)?;
+        }
+
+        self.perfect_square_root_i128(sum)
+    }
+
+    fn perfect_square_root_i128(&self, value: i128) -> Option<i64> {
+        if value < 0 {
+            return None;
+        }
+
+        let mut low = 0_i128;
+        let mut high = i128::from(i64::MAX).min(value);
+        while low <= high {
+            let mid = low + (high - low) / 2;
+            let square = mid.checked_mul(mid)?;
+            if square == value {
+                return Some(mid as i64);
+            }
+            if square < value {
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        None
     }
 
     fn math_round_like_static_literal_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {

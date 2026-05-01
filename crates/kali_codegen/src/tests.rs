@@ -589,6 +589,33 @@ fn supported_math_floor_member_constant_folding_is_available_for_non_integer_lit
 }
 
 #[test]
+fn supported_math_hypot_member_lowering_is_available_for_perfect_square_integer_literals() {
+    let program = parse_and_lower_lir("console.log(Math.hypot(3, 4));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 5"), "{printed}");
+}
+
+#[test]
 fn supported_math_sqrt_member_lowering_is_available_for_perfect_square_integer_literals() {
     let program = parse_and_lower_lir("console.log(Math.sqrt(4));");
     let mut ctx = CodegenCtx::new(TargetConfig {
