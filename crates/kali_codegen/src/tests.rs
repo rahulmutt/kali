@@ -1249,6 +1249,30 @@ fn unsupported_math_atan2_member_reports_feature_unavailable() {
 }
 
 #[test]
+fn supported_math_atan2_member_is_available_for_zero_numerator_and_non_negative_denominator_literals(
+) {
+    let program =
+        parse_and_lower_lir("const zero = 0; const one = 1; console.log(Math.atan2(zero, one));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn unsupported_math_exp_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.exp(2));");
     let mut ctx = CodegenCtx::new(TargetConfig {

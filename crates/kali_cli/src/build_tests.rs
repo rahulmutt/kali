@@ -1816,6 +1816,35 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_i
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; console.log(Math.atan2(zero, one));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.atan2 literal build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_math_inverse_trig_identity_literals_in_js_input() {
     assert_build_source_file_supports_math_inverse_trig_identity_literals_in_input(
@@ -1847,6 +1876,15 @@ fn build_source_file_supports_math_inverse_trig_identity_literals_in_browser_api
     assert_build_source_file_supports_math_inverse_trig_identity_literals_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_js_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Deno,
+        "js",
     );
 }
 

@@ -1317,6 +1317,43 @@ impl TypeContext {
             return;
         }
 
+        if method == "atan2" {
+            let atan2_message = "Math.atan2 is unavailable unless the first argument is a statically-known zero numeric literal and the second argument is a statically-known non-negative numeric literal in the current phase; use explicit constants or the later compatibility path".to_string();
+            let Some(y) = expr
+                .args
+                .first()
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg))
+            else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    atan2_message,
+                ));
+                return;
+            };
+
+            let Some(x) = expr
+                .args
+                .get(1)
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg))
+            else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    atan2_message,
+                ));
+                return;
+            };
+
+            if y == 0.0 && x.is_finite() && x >= 0.0 {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                atan2_message,
+            ));
+            return;
+        }
+
         if method == "asinh" || method == "acosh" || method == "atanh" {
             let Some(argument) = expr.args.first() else {
                 self.diagnostics.push(Diagnostic::error(

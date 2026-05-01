@@ -1414,6 +1414,54 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            if method == "atan2" {
+                let args: Vec<_> = node.children.iter().skip(1).copied().collect();
+                let Some(left) = args.first().copied() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.atan2 is unavailable unless the first argument is a statically-known zero numeric literal and the second argument is a statically-known non-negative numeric literal in the current phase; use explicit constants or the later compatibility path".to_string(),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+                let Some(right) = args.get(1).copied() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.atan2 is unavailable unless the first argument is a statically-known zero numeric literal and the second argument is a statically-known non-negative numeric literal in the current phase; use explicit constants or the later compatibility path".to_string(),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                let Some(folded) = self.math_atan2_zero_slice_value(left, right) else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.atan2 is unavailable unless the first argument is a statically-known zero numeric literal and the second argument is a statically-known non-negative numeric literal in the current phase; use explicit constants or the later compatibility path".to_string(),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args.iter().skip(2) {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if method == "exp" || method == "log" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
@@ -2242,6 +2290,18 @@ impl<'a> FunctionEmitter<'a> {
             "asin" | "atan" if value == 0.0 => Some(0),
             "acos" if value == 1.0 => Some(0),
             _ => None,
+        }
+    }
+
+    fn math_atan2_zero_slice_value(&self, y: LirNodeId, x: LirNodeId) -> Option<i64> {
+        let y = self.render_static_value(y)?;
+        let x = self.render_static_value(x)?;
+        let y = parse_numeric_literal_value(&y)?;
+        let x = parse_numeric_literal_value(&x)?;
+        if y == 0.0 && x.is_finite() && x >= 0.0 {
+            Some(0)
+        } else {
+            None
         }
     }
 
@@ -3231,6 +3291,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
+            body.instruction(&Instruction::I32Const(0));
         } else {
             emitter.emit_function_body(&mut body, function.body, function.result, coverage_id);
         }
