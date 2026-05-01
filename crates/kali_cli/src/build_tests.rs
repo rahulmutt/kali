@@ -1746,6 +1746,83 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_js_input
 }
 
 #[test]
+fn build_source_file_rejects_bracketed_permission_object_escalation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke();"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("bracketed permission object escalation APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("permission escalation API")
+                && (diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["permissions"]["request"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"]["permissions"]["revoke"]"#))
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_permission_object_escalation_in_browser_api_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke();"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Browser,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("browser permission object escalation APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("permission escalation API")
+                && (diagnostic
+                    .message
+                    .contains(r#"globalThis["Deno"]["permissions"]["request"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"]["permissions"]["revoke"]"#))
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_tsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.tsx");
