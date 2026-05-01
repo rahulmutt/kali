@@ -925,10 +925,14 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(first_arg) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.max requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -956,10 +960,14 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_min_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(first_arg) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.min requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -987,10 +995,14 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_abs_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(first_arg) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.abs requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -1019,10 +1031,14 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_sign_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(first_arg) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.sign requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -1051,24 +1067,25 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_imul_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(left) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
             let Some(right) = args.next() else {
-                if !self.emit_integer_math_arg(function, *left, "imul") {
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
-                }
-                function.instruction(&Instruction::Drop);
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -1103,10 +1120,14 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_round_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.round requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -1179,24 +1200,25 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_pow_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(base) = args.next() else {
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
             let Some(exponent) = args.next() else {
-                if !self.emit_integer_math_arg(function, *base, "pow") {
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
-                }
-                function.instruction(&Instruction::Drop);
-                function.instruction(&Instruction::I64Const(0));
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
+                    produced: false,
+                    shape: ValueShape::Unknown,
                 };
             };
 
@@ -2193,18 +2215,6 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         node: &LirNode,
     ) -> EmittedValue {
-        if node.text.as_deref() == Some("for-await-of") {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
-
         let Some(array_id) = node.children.get(1).copied() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

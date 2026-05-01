@@ -1500,7 +1500,7 @@ fn build_source_file_rejects_generator_functions_in_tsx_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("tsx");
 }
 
-fn assert_build_source_file_rejects_for_await_array_iteration_in_input(
+fn assert_build_source_file_supports_for_await_array_iteration_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -1512,7 +1512,7 @@ fn assert_build_source_file_rejects_for_await_array_iteration_in_input(
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         api_surface,
@@ -1522,60 +1522,57 @@ fn assert_build_source_file_rejects_for_await_array_iteration_in_input(
         None,
         None,
     )
-    .expect_err("for await array iteration should fail");
+    .expect("for await array iteration should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| {
-            diagnostic
-                .message
-                .contains("for-of array iteration lowering")
-                || diagnostic.message.contains("for-of array iteration")
-                || diagnostic.message.contains("later compatibility")
-        }),
-        "unexpected diagnostics: {error:?}"
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_js_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_ts_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_jsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_tsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(
+        ApiSurface::Browser,
+        "jsx",
     );
 }
 
 #[test]
-fn build_source_file_rejects_for_await_array_iteration_in_js_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "js");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_ts_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "ts");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_jsx_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "jsx");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_tsx_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Deno, "tsx");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_js_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "js");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_ts_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "ts");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_jsx_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "jsx");
-}
-
-#[test]
-fn build_source_file_rejects_for_await_array_iteration_in_browser_api_surface_in_tsx_input() {
-    assert_build_source_file_rejects_for_await_array_iteration_in_input(ApiSurface::Browser, "tsx");
+fn build_source_file_supports_for_await_array_iteration_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
 }
 
 #[test]

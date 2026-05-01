@@ -449,16 +449,8 @@ impl TypeContext {
                 left,
                 right,
                 body,
-                is_await,
+                is_await: _,
             }) => {
-                if *is_await {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
-                    ));
-                    return;
-                }
-
                 let left_is_supported = match left {
                     ForOfLefthand::VariableDeclaration(_) => true,
                     ForOfLefthand::Expression(expression) => {
@@ -1055,6 +1047,14 @@ impl TypeContext {
         }
 
         if method == "pow" {
+            if expr.args.len() < 2 {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                return;
+            }
+
             if expr
                 .args
                 .iter()
@@ -1081,6 +1081,14 @@ impl TypeContext {
         }
 
         if method == "round" {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.round requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                return;
+            }
+
             if self
                 .resolve_math_round_like_static_literal_value(method, expr.args.first())
                 .is_some()
@@ -1102,6 +1110,16 @@ impl TypeContext {
         }
 
         if matches!(method, "trunc" | "ceil" | "floor") {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                    ),
+                ));
+                return;
+            }
+
             if expr
                 .args
                 .iter()
@@ -1117,7 +1135,17 @@ impl TypeContext {
             return;
         }
 
-        if matches!(method, "max" | "min" | "abs" | "sign" | "imul" | "clz32") {
+        if matches!(method, "max" | "min" | "abs" | "sign") {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                    ),
+                ));
+                return;
+            }
+
             if expr
                 .args
                 .iter()
@@ -1128,6 +1156,42 @@ impl TypeContext {
                     format!(
                         "Math.{method} is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path"
                     ),
+                ));
+            }
+            return;
+        }
+
+        if method == "imul" {
+            if expr.args.len() < 2 {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
+                ));
+                return;
+            }
+
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.imul is unavailable for non-integer numeric literals in the current phase; use integer-valued operands or the later compatibility path",
+                ));
+            }
+            return;
+        }
+
+        if method == "clz32" {
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.clz32 is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path",
                 ));
             }
             return;

@@ -26211,7 +26211,7 @@ fn run_supports_array_iteration_semantics_for_now_in_js_input() {
 }
 
 #[test]
-fn run_rejects_for_await_array_iteration_semantics_for_now() {
+fn run_supports_for_await_array_iteration_semantics_for_now() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -26230,18 +26230,11 @@ fn run_rejects_for_await_array_iteration_semantics_for_now() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 #[test]
-fn run_rejects_for_await_array_iteration_semantics_for_now_in_js_input() {
+fn run_supports_for_await_array_iteration_semantics_for_now_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -26260,15 +26253,8 @@ fn run_rejects_for_await_array_iteration_semantics_for_now_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 #[test]
 fn run_supports_math_max_builtin_semantics() {
@@ -33959,26 +33945,6 @@ fn assert_non_literal_dynamic_import_rejection_json(errors: &[Value]) {
     );
 }
 
-fn assert_promise_all_settled_support_text(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
-}
-
-fn assert_promise_all_settled_support_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("Promise.allSettled")),
-        "missing Promise.allSettled in {errors:?}"
-    );
-}
-
 fn promise_all_settled_source_variants() -> [&'static str; 10] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
@@ -35975,33 +35941,6 @@ fn run_rejects_bracketed_promise_all_settled_in_inherited_browser_api_surface_wi
     }
 }
 
-fn assert_browser_requested_for_of_array_iteration_text(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
-}
-
-fn assert_browser_requested_for_of_array_iteration_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(errors.iter().any(|error| {
-        error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("for-of array iteration lowering")
-            || error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("later compatibility")
-    }));
-}
-
 #[test]
 fn run_supports_for_of_array_iteration_in_browser_api_surface_with_harness_ts_input() {
     let dir = tempdir().expect("tempdir");
@@ -36234,7 +36173,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
 }
 
 #[test]
-fn run_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_input() {
+fn run_supports_for_await_array_iteration_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -36253,14 +36192,12 @@ fn run_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_requested_for_of_array_iteration_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn run_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
+fn run_supports_for_await_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -36281,18 +36218,21 @@ fn run_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_requested_for_of_array_iteration_json(errors);
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
 }
 
 #[test]
-fn test_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_input() {
+fn test_supports_for_await_array_iteration_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
@@ -36311,14 +36251,12 @@ fn test_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_requested_for_of_array_iteration_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn test_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
+fn test_supports_for_await_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
@@ -36339,14 +36277,17 @@ fn test_rejects_for_await_array_iteration_in_browser_api_surface_with_harness_js
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_requested_for_of_array_iteration_json(errors);
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
 }
 
 #[test]
@@ -37156,7 +37097,7 @@ fn build_supports_for_of_array_iteration_lowering_in_js_input_in_json() {
 }
 
 #[test]
-fn check_rejects_for_await_array_iteration_lowering() {
+fn check_supports_for_await_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -37172,19 +37113,12 @@ fn check_rejects_for_await_array_iteration_lowering() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_js_input() {
+fn check_supports_for_await_array_iteration_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37200,19 +37134,12 @@ fn check_rejects_for_await_array_iteration_lowering_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_js_input_in_json() {
+fn check_supports_for_await_array_iteration_lowering_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37230,32 +37157,16 @@ fn check_rejects_for_await_array_iteration_lowering_in_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(errors.iter().any(|error| {
-        error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("for-of array iteration lowering")
-            || error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("later compatibility")
-    }));
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering() {
+fn build_supports_for_await_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -37271,19 +37182,12 @@ fn build_rejects_for_await_array_iteration_lowering() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_js_input() {
+fn build_supports_for_await_array_iteration_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37299,19 +37203,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_js_input_in_json() {
+fn build_supports_for_await_array_iteration_lowering_in_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37329,28 +37226,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(errors.iter().any(|error| {
-        error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("for-of array iteration lowering")
-            || error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("later compatibility")
-    }));
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -37651,7 +37532,7 @@ fn run_supports_for_of_array_iteration_lowering_with_const_alias_chain_in_ts_inp
 }
 
 #[test]
-fn test_rejects_for_await_array_iteration_lowering() {
+fn test_supports_for_await_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -37667,19 +37548,12 @@ fn test_rejects_for_await_array_iteration_lowering() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn test_rejects_for_await_array_iteration_lowering_in_js_input() {
+fn test_supports_for_await_array_iteration_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37695,15 +37569,8 @@ fn test_rejects_for_await_array_iteration_lowering_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("for-of array iteration lowering")
-            || stderr.contains("later compatibility"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 enum BrowserForOfArrayIterationJsonExpectation<'a> {
@@ -37890,7 +37757,7 @@ fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_j
     assert_eq!(json["success"], true);
 }
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_in_js_input() {
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37908,14 +37775,12 @@ fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_for_of_array_iteration(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_in_js_input_in_json(
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_js_input_in_json(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -37936,18 +37801,16 @@ fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_for_of_array_iteration_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in_js_input() {
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -37966,14 +37829,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_for_of_array_iteration(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in_js_input_in_json()
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_js_input_in_json()
 {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -37995,14 +37856,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_for_of_array_iteration_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -38128,7 +37987,7 @@ fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_t
     assert_eq!(json["success"], true);
 }
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_in_ts_input() {
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -38146,14 +38005,12 @@ fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_for_of_array_iteration(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_in_ts_input_in_json(
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_ts_input_in_json(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -38174,18 +38031,16 @@ fn check_rejects_for_await_array_iteration_lowering_in_browser_analysis_context_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_for_of_array_iteration_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in_ts_input() {
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -38204,14 +38059,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_for_of_array_iteration(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in_ts_input_in_json()
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_ts_input_in_json()
 {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -38233,14 +38086,12 @@ fn build_rejects_for_await_array_iteration_lowering_in_browser_bundle_context_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_for_of_array_iteration_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]

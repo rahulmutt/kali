@@ -2637,6 +2637,54 @@ fn test_resolution_reports_unsupported_math_log10_member_calls_as_unavailable() 
 }
 
 #[test]
+fn test_resolution_reports_math_max_without_arguments_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "max".to_string(),
+            })),
+            args: vec![],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("requires at least one argument"));
+}
+
+#[test]
+fn test_resolution_reports_math_pow_with_single_argument_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "pow".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(2.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("requires at least two arguments"));
+}
+
+#[test]
 fn test_resolution_supports_math_sqrt_member_calls_with_const_numeric_alias_chain() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -3925,7 +3973,7 @@ fn test_resolution_supports_for_of_array_iteration_with_const_alias_chain_in_ts_
 }
 
 #[test]
-fn test_resolution_rejects_for_await_of_array_iteration_in_js_input() {
+fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -3969,17 +4017,10 @@ fn test_resolution_rejects_for_await_of_array_iteration_in_js_input() {
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        result.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message.contains("for-of array iteration")
-            || diag.message.contains("later compatibility")
-    }));
 }
 
 #[test]
