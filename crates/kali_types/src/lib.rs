@@ -622,7 +622,7 @@ impl TypeContext {
                             scope.static_values.insert(declarator.id.clone(), value);
                         }
                     }
-                    if Self::is_static_array_expression(init) {
+                    if self.is_static_array_iteration_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_arrays.insert(declarator.id.clone(), true);
                         }
@@ -836,26 +836,6 @@ impl TypeContext {
         }
 
         self.global_scope.static_arrays.contains_key(name)
-    }
-
-    fn is_static_array_expression(expression: &Expression) -> bool {
-        match expression {
-            Expression::ParenthesizedExpression(expr) => {
-                Self::is_static_array_expression(&expr.expression)
-            }
-            Expression::TypeAssertion(expr) => Self::is_static_array_expression(&expr.expression),
-            Expression::SatisfiesExpression(expr) => {
-                Self::is_static_array_expression(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => Self::is_static_array_expression(&expr.expression),
-            Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
-                matches!(
-                    element,
-                    Some(ExpressionOrSpread::Expression(Expression::Literal(_)))
-                )
-            }),
-            _ => false,
-        }
     }
 
     fn normalize_import_segment(value: &str) -> String {
