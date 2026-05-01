@@ -154,9 +154,9 @@ Phase-1 descriptor projection shorthand:
 For host-capability maturity, the canonical source of truth is [specs/19-feature-maturity.md](19-feature-maturity.md). In particular:
 - read-only environment access is part of the Phase 1 standalone contract
 - mutable environment access, subprocess spawning, and socket/listener networking follow the Phase 3 maturity path; this is why the Phase 1 `net` permission observation remains fetch-only rather than implying `connect`/`listen`
-- process identity query `Deno.pid` / `globalThis.Deno.pid` is already available on the default standalone surface in the current repository snapshot, while termination and working-directory APIs remain a later compatibility path until a future schema/policy revision gives them an auditable contract
+- process identity query `Deno.pid` / `globalThis.Deno.pid` is already available on the default standalone surface in the current repository snapshot, and the read-only `Deno.cwd` / `globalThis.Deno.cwd` working-directory query is now available there too, while termination and working-directory mutation APIs remain a later compatibility path until a future schema/policy revision gives them an auditable contract
 
-Process identity `Deno.pid` / `globalThis.Deno.pid` is a read-only query on the default standalone surface in the current repository snapshot, while process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.cwd`, `Deno.chdir`) remain intentionally outside the Phase 1 MVP. The dedicated later-compatibility rejection fixtures also include the bracketed `process["pid"]`, `process["cwd"]`, `process["chdir"]`, `process["exit"]`, and `globalThis.process["pid"]` / `globalThis.process["cwd"]` / `globalThis.process["chdir"]` / `globalThis.process["exit"]` spellings so the string-literal source-shape boundary stays explicit. Those latter APIs widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
+Process identity `Deno.pid` / `globalThis.Deno.pid` is a read-only query on the default standalone surface in the current repository snapshot, while process termination (`Deno.exit`) and working-directory mutation/introspection (`Deno.chdir`) remain intentionally outside the Phase 1 MVP. `Deno.cwd` / `globalThis.Deno.cwd` is also available there as a read-only working-directory query, while the dedicated later-compatibility rejection fixtures still include the bracketed `process["pid"]`, `process["cwd"]`, `process["chdir"]`, `process["exit"]`, and `globalThis.process["pid"]` / `globalThis.process["cwd"]` / `globalThis.process["chdir"]` / `globalThis.process["exit"]` spellings so the string-literal source-shape boundary stays explicit. Those latter APIs widen the embedding/sandbox contract but are not needed for the initial package-oriented baseline.
 
 Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should expose the sync and async forms together unless there is a strong implementation reason not to. This avoids needless package-compatibility drift between `readFile` and `readFileSync`-style code paths.
 
@@ -169,13 +169,13 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 
 **Later compatibility expansion**
 - `Deno.pid` / `globalThis.Deno.pid` *(current repository snapshot: read-only query on the default standalone surface)*
-- `Deno.cwd`, `Deno.chdir`
+- `Deno.chdir`
 - `Deno.exit`
 
 Cross-spec consistency note:
 - subprocess, mutable-environment, and network/listener APIs fit schema-v1's policy vocabulary
 - process identity, termination, and working-directory APIs do **not** yet have dedicated schema-v1 policy/effect keys
-- therefore `Deno.exit`, `Deno.cwd`, and `Deno.chdir` remain **Later compatibility** features until a future schema/policy revision makes their sandbox contract explicit; `Deno.pid` / `globalThis.Deno.pid` stay noted as current-repository read-only queries in the snapshot above
+- therefore `Deno.exit` and `Deno.chdir` remain **Later compatibility** features until a future schema/policy revision makes their sandbox contract explicit; `Deno.pid` / `globalThis.Deno.pid` and the read-only `Deno.cwd` / `globalThis.Deno.cwd` working-directory query stay noted as current-repository read-only queries in the snapshot above
 
 This keeps the Phase 1 host surface small and auditable while still establishing Deno as the default API model.
 

@@ -33,10 +33,11 @@ const MATH_SIGN_IMPORT_INDEX: u32 = 10;
 const MATH_IMUL_IMPORT_INDEX: u32 = 11;
 const MATH_ROUND_IMPORT_INDEX: u32 = 12;
 const PROCESS_PID_IMPORT_INDEX: u32 = 13;
-const MATH_CLZ32_IMPORT_INDEX: u32 = 14;
-const MATH_POW_IMPORT_INDEX: u32 = 15;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 16;
-const FUNCTION_INDEX_OFFSET: u32 = 16;
+const CWD_IMPORT_INDEX: u32 = 14;
+const MATH_CLZ32_IMPORT_INDEX: u32 = 15;
+const MATH_POW_IMPORT_INDEX: u32 = 16;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 17;
+const FUNCTION_INDEX_OFFSET: u32 = 17;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
@@ -1525,6 +1526,33 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        if let Some(import_index) = self.cwd_import_index(&callee_node) {
+            let env_buffer_offset = 0i32;
+            let env_buffer_capacity = ENV_GET_BUFFER_RESERVED as i32;
+            function.instruction(&Instruction::I32Const(0));
+            function.instruction(&Instruction::I32Const(0));
+            function.instruction(&Instruction::I32Const(env_buffer_offset));
+            function.instruction(&Instruction::I32Const(env_buffer_capacity));
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64ExtendI32U);
+            let temp_local = self.locals.len() as u32;
+            function.instruction(&Instruction::LocalTee(temp_local));
+            function.instruction(&Instruction::I64Eqz);
+            function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::Else);
+            function.instruction(&Instruction::LocalGet(temp_local));
+            function.instruction(&Instruction::I64Const(1));
+            function.instruction(&Instruction::I64Sub);
+            function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
+            function.instruction(&Instruction::I64Or);
+            function.instruction(&Instruction::End);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(import_index) = self.env_set_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(key_expr) = args.next() else {
@@ -2121,6 +2149,20 @@ impl<'a> FunctionEmitter<'a> {
         self.env_get_import_index
     }
 
+    fn cwd_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "cwd" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        if !self.is_deno_pid(object) {
+            return None;
+        }
+
+        Some(CWD_IMPORT_INDEX)
+    }
+
     fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)
@@ -2594,11 +2636,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_env_set { 1 } else { 0 }
         + if uses_env_delete { 1 } else { 0 }
         + if uses_env_get { 1 } else { 0 };
-    let env_get_type_index = if uses_env_access {
-        Some(5 + if ctx.target.coverage { 1 } else { 0 })
-    } else {
-        None
-    };
+    let env_get_type_index = if uses_env_access { Some(5) } else { None };
     let env_set_import_index = if uses_env_set {
         Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
     } else {
@@ -2650,12 +2688,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     type_section
         .ty()
         .function(vec![ValType::I64], vec![ValType::I64]);
-    if uses_env_access {
-        type_section.ty().function(
-            vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
-            vec![ValType::I32],
-        );
-    }
+    type_section.ty().function(
+        vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
+        vec![ValType::I32],
+    );
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -2671,6 +2707,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_imul", EntityType::Function(3));
     import_section.import("kali:rt", "math_round", EntityType::Function(4));
     import_section.import("kali:rt", "process_pid", EntityType::Function(2));
+    import_section.import("kali:rt", "cwd", EntityType::Function(5));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
     if ctx.target.coverage {
@@ -2705,7 +2742,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + if uses_env_access { 6 } else { 5 };
+            let idx = function_types.len() as u32 + 6;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]

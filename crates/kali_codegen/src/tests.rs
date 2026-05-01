@@ -1130,6 +1130,25 @@ fn bracketed_global_this_process_pid_member_calls_lower_to_runtime_pid_import() 
 }
 
 #[test]
+fn deno_cwd_member_calls_lower_to_runtime_cwd_import() {
+    let program = parse_and_lower_lir("console.log(Deno.cwd());");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    assert!(printed.contains("import \"kali:rt\" \"cwd\""));
+}
+
+#[test]
 fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
     let program = parse_and_lower_lir("console.log(Deno.env.get(\"HOME\"));");
     let mut ctx = CodegenCtx::new(TargetConfig {

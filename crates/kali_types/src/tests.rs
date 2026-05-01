@@ -1510,6 +1510,35 @@ fn test_resolution_allows_process_pid_query_in_node_api_surface() {
 }
 
 #[test]
+fn test_resolution_allows_deno_cwd_query_in_default_standalone_surface() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "deno");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "cwd".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "cwd".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![

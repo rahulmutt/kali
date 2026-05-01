@@ -1710,6 +1710,10 @@ impl TypeContext {
             return;
         }
 
+        if expr.property == "cwd" && object_name == "Deno" && self.api_surface == "deno" {
+            return;
+        }
+
         if expr.property == "pid" && object_name == "process" && self.api_surface == "node" {
             return;
         }

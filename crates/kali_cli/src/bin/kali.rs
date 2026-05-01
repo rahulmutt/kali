@@ -2440,6 +2440,9 @@ const defaultImportObject = {{
     process_pid() {{
       return 0;
     }},
+    cwd(_pathPtr, _pathLen, _outPtr, _outCap) {{
+      return 0;
+    }},
     math_max(left, right) {{
       return left > right ? left : right;
     }},
@@ -2624,6 +2627,9 @@ const defaultImportObject = {{
     test_register() {{}},
     args_len() {{ return 0; }},
     process_pid() {{
+      return 0;
+    }},
+    cwd(_pathPtr, _pathLen, _outPtr, _outCap) {{
       return 0;
     }},
     math_max(left, right) {{

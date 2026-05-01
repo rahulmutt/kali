@@ -147,7 +147,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> &'static str {
-    r#"globalThis.Deno.cwd; globalThis["Deno"]["cwd"]; Deno["cwd"]; globalThis.Deno["cwd"]; Deno.chdir; globalThis.Deno.chdir; globalThis["Deno"]["chdir"]; Deno["chdir"]; globalThis.Deno["chdir"]; globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
+    r#"Deno.chdir; globalThis.Deno.chdir; globalThis["Deno"]["chdir"]; Deno["chdir"]; globalThis.Deno["chdir"]; globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
 }
 
 fn late_process_env_mutation_source() -> &'static str {
@@ -191,9 +191,6 @@ fn late_env_materialization_source_includes_bracketed_spellings() {
 fn late_process_control_source_includes_bracketed_spellings() {
     let source = late_process_control_source();
     for expected in [
-        r#"globalThis["Deno"]["cwd"]"#,
-        r#"Deno["cwd"]"#,
-        r#"globalThis.Deno["cwd"]"#,
         r#"globalThis["Deno"]["chdir"]"#,
         r#"Deno["chdir"]"#,
         r#"globalThis.Deno["chdir"]"#,
@@ -642,6 +639,36 @@ fn json_check_accepts_bracketed_global_this_deno_pid_in_js_input() {
         "console.log(Deno.pid);\nconsole.log(globalThis[\"Deno\"][\"pid\"]);\n",
     )
     .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["filesChecked"], 1);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn json_check_accepts_deno_cwd_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Deno.cwd());\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -4957,7 +4984,7 @@ fn check_rejects_late_process_control_members() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
+        "Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -4978,7 +5005,6 @@ fn check_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -5002,7 +5028,7 @@ fn check_rejects_late_process_control_members_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
+        "Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 
@@ -5028,7 +5054,6 @@ fn check_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -5600,7 +5625,6 @@ fn run_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -5646,7 +5670,6 @@ fn run_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -6044,7 +6067,6 @@ fn build_rejects_late_process_control_members_in_js_input() {
         "stderr: {stderr}"
     );
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -6090,7 +6112,6 @@ fn json_build_rejects_late_process_control_members_in_js_input() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -6213,7 +6234,6 @@ fn test_rejects_late_process_control_members() {
         "stderr: {stderr}"
     );
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
@@ -6259,7 +6279,6 @@ fn test_rejects_late_process_control_members_in_json() {
     assert!(errors.iter().any(|error| error["code"] == "E5506"));
     assert!(errors.iter().any(|error| error["code"] == "E3100"));
     for expected in [
-        "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",

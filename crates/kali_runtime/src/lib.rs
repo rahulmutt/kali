@@ -1172,6 +1172,22 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("process_pid", error))?;
 
     linker
+        .func_wrap(
+            "kali:rt",
+            "cwd",
+            |mut caller: Caller<'_, KaliHostState>,
+             _path_ptr: i32,
+             _path_len: i32,
+             out_ptr: i32,
+             out_cap: i32|
+             -> wasmtime::Result<i32> {
+                let cwd = caller.data().cwd.clone();
+                write_guest_string(&mut caller, out_ptr, out_cap, cwd.to_string_lossy())
+            },
+        )
+        .map_err(|error| host_import_error("cwd", error))?;
+
+    linker
         .func_wrap("kali:rt", "math_max", |left: i64, right: i64| -> i64 {
             left.max(right)
         })
@@ -2750,6 +2766,9 @@ const importObject = {{
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
     }},
+    cwd(_pathPtr, _pathLen, _outPtr, _outCap) {{
+      return 0;
+    }},
     math_max(left, right) {{
       return left > right ? left : right;
     }},
@@ -3060,6 +3079,9 @@ const importObject = {{
     }},
     process_pid() {{
       return Number(globalThis.process?.pid ?? 0);
+    }},
+    cwd(_pathPtr, _pathLen, _outPtr, _outCap) {{
+      return 0;
     }},
     math_max(left, right) {{
       return left > right ? left : right;
