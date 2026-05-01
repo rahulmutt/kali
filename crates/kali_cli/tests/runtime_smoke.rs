@@ -3372,6 +3372,12 @@ async function stringPrimitiveSmoke(left, right) {
   const stringKeys = Object.keys('ab');
   const stringEntries = Object.entries('ab');
   const stringValues = Object.values('ab');
+  const consumeArray = (items, value) => items[0] + items[1] + value;
+  const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+  const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+  if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+    throw new Error('unexpected array literal arguments');
+  }
   if (
     stringKeys.length !== 2 ||
     stringKeys[0] !== '0' ||
@@ -23306,6 +23312,12 @@ fn object_string_primitive_enumeration_semantics_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
 const stringEntries = Object.entries('ab');
 const stringValues = Object.values('ab');
+const consumeArray = (items, value) => items[0] + items[1] + value;
+const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
+const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
+if (arrayLiteralFirst !== 4n || arrayLiteralSecond !== 4n) {
+  throw 'unexpected array literal arguments';
+}
 if (
   stringKeys.length !== 2 ||
   stringKeys[0] !== '0' ||
