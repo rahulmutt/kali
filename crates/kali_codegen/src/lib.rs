@@ -1866,23 +1866,9 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
-        let node = self.node(arg);
-        if node.kind == LirNodeKind::Literal {
-            if let Some(text) = node.text.as_deref() {
-                if parse_number_literal(text).is_none() {
-                    let trimmed = text.trim();
-                    if matches!(trimmed.chars().next(), Some('0'..='9' | '+' | '-')) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        if node.children.len() == 1 {
-            return self.contains_non_integer_numeric_literal(node.children[0]);
-        }
-
-        false
+        self.render_static_value(arg)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .is_some_and(|value| value.fract() != 0.0)
     }
 
     fn env_set_import_index(&self, callee_node: &LirNode) -> Option<u32> {

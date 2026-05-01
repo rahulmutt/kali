@@ -1251,25 +1251,8 @@ impl TypeContext {
     fn resolve_promise_member_call(&mut self, _expr: &CallExpression) {}
 
     fn contains_non_integer_numeric_literal(&self, expression: &Expression) -> bool {
-        match expression {
-            Expression::Literal(LiteralValue::Number(value)) => value.fract() != 0.0,
-            Expression::ParenthesizedExpression(expr) => {
-                self.contains_non_integer_numeric_literal(&expr.expression)
-            }
-            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
-                self.contains_non_integer_numeric_literal(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.contains_non_integer_numeric_literal(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.contains_non_integer_numeric_literal(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.contains_non_integer_numeric_literal(&expr.expression)
-            }
-            _ => false,
-        }
+        self.resolve_static_numeric_literal_value(expression)
+            .is_some_and(|value| value.fract() != 0.0)
     }
 
     fn resolve_static_numeric_literal_value(&self, expression: &Expression) -> Option<f64> {
