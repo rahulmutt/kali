@@ -6407,7 +6407,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 50 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 51 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -40378,6 +40378,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         (
             "object-literal-property-order-canonicalization-benchmark-v1",
             "object-literal-property-order-canonicalization",
+        ),
+        (
+            "object-literal-property-order-canonicalization-benchmark-v1-js",
+            "object-literal-property-order-canonicalization-js",
         ),
         (
             "identity-chain-benchmark-v1",
