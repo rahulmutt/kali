@@ -636,6 +636,14 @@ impl<'a> FunctionEmitter<'a> {
 
             let node = self.node(id);
             if node.kind == LirNodeKind::Value
+                && node.text.as_deref().is_some_and(|text| text.is_empty())
+                && node.children.len() == 1
+            {
+                id = node.children[0];
+                continue;
+            }
+
+            if node.kind == LirNodeKind::Value
                 && node.children.is_empty()
                 && node.text.as_deref().is_some()
             {
