@@ -40508,6 +40508,65 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
         &browser_cjs_first,
     );
 
+    let browser_cjs_json_output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&browser_cjs_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        browser_cjs_json_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&browser_cjs_json_output.stdout),
+        String::from_utf8_lossy(&browser_cjs_json_output.stderr)
+    );
+    let browser_cjs_json_first = read_artifact_bytes(&[
+        browser_cjs_wasm.clone(),
+        browser_cjs_js.clone(),
+        browser_cjs_meta.clone(),
+        browser_cjs_map.clone(),
+    ]);
+
+    let browser_cjs_json_repeat = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&browser_cjs_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        browser_cjs_json_repeat.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&browser_cjs_json_repeat.stdout),
+        String::from_utf8_lossy(&browser_cjs_json_repeat.stderr)
+    );
+    assert_eq!(
+        browser_cjs_json_output.stdout, browser_cjs_json_repeat.stdout,
+        "browser bundle cjs JSON output should be stable across repeated invocations"
+    );
+    assert_artifact_bytes_stable(
+        &[
+            browser_cjs_wasm.clone(),
+            browser_cjs_js.clone(),
+            browser_cjs_meta.clone(),
+            browser_cjs_map.clone(),
+        ],
+        &browser_cjs_json_first,
+    );
+
     let browser_cjs_inherited_dir = dir.path().join("browser-cjs-inherited");
     fs::create_dir_all(&browser_cjs_inherited_dir).expect("create browser cjs inherited dir");
     let browser_cjs_inherited_source = browser_cjs_inherited_dir.join("app-cjs.ts");
@@ -40577,6 +40636,65 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
             browser_cjs_inherited_map.clone(),
         ],
         &browser_cjs_inherited_first,
+    );
+
+    let browser_cjs_inherited_json_output = Command::new(kali_bin())
+        .current_dir(&browser_cjs_inherited_dir)
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&browser_cjs_inherited_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        browser_cjs_inherited_json_output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&browser_cjs_inherited_json_output.stdout),
+        String::from_utf8_lossy(&browser_cjs_inherited_json_output.stderr)
+    );
+    let browser_cjs_inherited_json_first = read_artifact_bytes(&[
+        browser_cjs_inherited_wasm.clone(),
+        browser_cjs_inherited_js.clone(),
+        browser_cjs_inherited_meta.clone(),
+        browser_cjs_inherited_map.clone(),
+    ]);
+
+    let browser_cjs_inherited_json_repeat = Command::new(kali_bin())
+        .current_dir(&browser_cjs_inherited_dir)
+        .arg("build")
+        .arg("--bundle")
+        .arg("--format")
+        .arg("cjs")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&browser_cjs_inherited_source)
+        .output()
+        .expect("run kali");
+    assert!(
+        browser_cjs_inherited_json_repeat.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&browser_cjs_inherited_json_repeat.stdout),
+        String::from_utf8_lossy(&browser_cjs_inherited_json_repeat.stderr)
+    );
+    assert_eq!(
+        browser_cjs_inherited_json_output.stdout, browser_cjs_inherited_json_repeat.stdout,
+        "browser bundle cjs JSON output should be stable across repeated inherited-browser invocations"
+    );
+    assert_artifact_bytes_stable(
+        &[
+            browser_cjs_inherited_wasm.clone(),
+            browser_cjs_inherited_js.clone(),
+            browser_cjs_inherited_meta.clone(),
+            browser_cjs_inherited_map.clone(),
+        ],
+        &browser_cjs_inherited_json_first,
     );
 
     let capi_source = dir.path().join("lib.ts");
