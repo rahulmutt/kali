@@ -46,6 +46,7 @@ pub struct Scope {
     pub parent: Option<NodeId>,
     pub bindings: IndexMap<String, NodeId>,
     pub static_values: IndexMap<String, String>,
+    pub static_arrays: IndexMap<String, bool>,
 }
 
 impl Scope {
@@ -55,6 +56,7 @@ impl Scope {
             parent,
             bindings: IndexMap::new(),
             static_values: IndexMap::new(),
+            static_arrays: IndexMap::new(),
         }
     }
 
@@ -456,7 +458,7 @@ impl TypeContext {
                 }
 
                 if !matches!(left, ForOfLefthand::VariableDeclaration(_))
-                    || !Self::is_static_array_iteration_target(right)
+                    || !self.is_static_array_iteration_target(right)
                 {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
@@ -568,10 +570,10 @@ impl TypeContext {
         }
     }
 
-    fn is_static_array_iteration_target(expression: &Expression) -> bool {
+    fn is_static_array_iteration_target(&self, expression: &Expression) -> bool {
         match expression {
             Expression::ParenthesizedExpression(parenthesized) => {
-                Self::is_static_array_iteration_target(&parenthesized.expression)
+                self.is_static_array_iteration_target(&parenthesized.expression)
             }
             Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
                 matches!(
@@ -579,6 +581,16 @@ impl TypeContext {
                     Some(ExpressionOrSpread::Expression(Expression::Literal(_)))
                 )
             }),
+            Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
+            Expression::TypeAssertion(expr) => {
+                self.is_static_array_iteration_target(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.is_static_array_iteration_target(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.is_static_array_iteration_target(&expr.expression)
+            }
             _ => false,
         }
     }
@@ -608,6 +620,11 @@ impl TypeContext {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_values.insert(declarator.id.clone(), value);
+                        }
+                    }
+                    if Self::is_static_array_expression(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope.static_arrays.insert(declarator.id.clone(), true);
                         }
                     }
                 }
@@ -806,6 +823,39 @@ impl TypeContext {
         }
 
         self.global_scope.static_values.get(name).cloned()
+    }
+
+    fn resolve_static_array_binding_name(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.static_arrays.contains_key(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_arrays.contains_key(name)
+    }
+
+    fn is_static_array_expression(expression: &Expression) -> bool {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                Self::is_static_array_expression(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => Self::is_static_array_expression(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                Self::is_static_array_expression(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => Self::is_static_array_expression(&expr.expression),
+            Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
+                matches!(
+                    element,
+                    Some(ExpressionOrSpread::Expression(Expression::Literal(_)))
+                )
+            }),
+            _ => false,
+        }
     }
 
     fn normalize_import_segment(value: &str) -> String {
