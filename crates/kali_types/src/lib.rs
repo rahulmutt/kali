@@ -457,12 +457,16 @@ impl TypeContext {
                     return;
                 }
 
-                if !matches!(left, ForOfLefthand::VariableDeclaration(_))
-                    || !self.is_static_array_iteration_target(right)
-                {
+                let left_is_supported = match left {
+                    ForOfLefthand::VariableDeclaration(_) => true,
+                    ForOfLefthand::Expression(expression) => {
+                        self.is_simple_for_of_binding_expression(expression)
+                    }
+                };
+                if !left_is_supported || !self.is_static_array_iteration_target(right) {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+                        "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path",
                     ));
                     return;
                 }
@@ -593,6 +597,10 @@ impl TypeContext {
             }
             _ => false,
         }
+    }
+
+    fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
+        matches!(expression, Expression::Identifier(_))
     }
 
     fn resolve_switch_cases(&mut self, cases: &[SwitchCase]) {

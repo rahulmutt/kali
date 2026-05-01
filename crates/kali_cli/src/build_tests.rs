@@ -1416,6 +1416,42 @@ fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surfac
     );
 }
 
+fn assert_build_source_file_supports_for_of_identifier_binding_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let value = 0; for (value of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("identifier-binding for-of lowering should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_for_of_identifier_binding_in_ts_input() {
+    assert_build_source_file_supports_for_of_identifier_binding_in_input("ts");
+}
+
+#[test]
+fn build_source_file_supports_for_of_identifier_binding_in_js_input() {
+    assert_build_source_file_supports_for_of_identifier_binding_in_input("js");
+}
+
 fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
