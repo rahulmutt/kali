@@ -21,7 +21,7 @@ Remaining goals:
 
 - Complete threaded-runtime semantics beyond opt-in profile acceptance and host-import plumbing, including guest-facing multi-worker/thread behavior where the spec permits it.
 - Decide whether `run --api browser` / `test --api browser` should graduate from harness-assisted later compatibility to a stable standalone browser runtime contract; if yes, specify host ownership, sandbox limits, summary JSON behavior, and failure modes first.
-- Add late host APIs only with explicit policy/effect/resource contracts: environment materialization/mutation, process cwd/chdir/exit, subprocess spawning, socket/listener APIs, and late Node built-ins.
+- Add late host APIs only with explicit policy/effect/resource contracts: environment materialization/mutation, process chdir/exit, subprocess spawning, socket/listener APIs, and late Node built-ins.
 - Triage late object/runtime APIs (`Proxy`, own-property helpers, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`) with conformance and no-GC/no-JIT compatibility evidence before promotion.
 - Keep browser-targeted build/check support, browser harness execution, and Kali-hosted sandbox enforcement distinct.
 

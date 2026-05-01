@@ -116,7 +116,7 @@ fn explicit_node_api_surface_builds_in_js_input_with_json_output() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nimport 'node:buffer';\nconsole.log(process.pid);\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nimport 'node:buffer';\nconsole.log(process.pid);\nprocess.cwd();\n",
     )
     .expect("write source");
 
@@ -161,7 +161,7 @@ fn inherited_node_api_surface_builds_in_js_input_with_json_output() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nimport 'node:buffer';\nconsole.log(process.pid);\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nimport 'node:buffer';\nconsole.log(process.pid);\nprocess.cwd();\n",
     )
     .expect("write source");
     fs::write(
@@ -500,12 +500,12 @@ fn explicit_node_api_surface_executes_on_run_and_test_commands() {
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log('node run ok');\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log(process.cwd());\nconsole.log('node run ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log(process.cwd());\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
 
@@ -527,12 +527,12 @@ fn inherited_node_api_surface_executes_on_run_and_test_commands() {
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log('node run ok');\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log(process.cwd());\nconsole.log('node run ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log('node test ok');\n});\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log(process.cwd());\n    console.log('node test ok');\n});\n",
     )
     .expect("write test file");
     fs::write(
@@ -644,7 +644,7 @@ fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands_in
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nconsole.log('Checked 1 file(s)');\nprocess.cwd();\n",
     )
     .expect("write source");
 
@@ -2420,7 +2420,7 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
 
 #[test]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_and_build_commands() {
-    let members = ["process.cwd", "process.chdir", "process.exit"];
+    let members = ["process.chdir", "process.exit"];
 
     for member in members {
         let expected_message = format!(
@@ -2497,7 +2497,7 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_an
 
 #[test]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_test_commands() {
-    let members = ["process.cwd", "process.chdir", "process.exit"];
+    let members = ["process.chdir", "process.exit"];
 
     for member in members {
         let expected_message = format!(
@@ -2588,14 +2588,6 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_
 fn node_api_surface_rejects_inherited_late_process_control_members_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let cases = [
-        (
-            r#"globalThis.process.cwd;"#,
-            ["globalThis.process.cwd", "process.cwd"],
-        ),
-        (
-            r#"globalThis["process"].cwd;"#,
-            ["globalThis.process.cwd", "process.cwd"],
-        ),
         (
             r#"globalThis.process.chdir;"#,
             ["globalThis.process.chdir", "process.chdir"],

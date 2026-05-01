@@ -2156,7 +2156,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let object = callee_node.children.first().copied()?;
-        if !self.is_deno_pid(object) {
+        if !self.is_deno_pid(object) && !self.is_process_cwd(object) {
             return None;
         }
 
@@ -2344,6 +2344,19 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_process_pid(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() == Some("process") {
+            return true;
+        }
+
+        node.text.as_deref() == Some("globalThis")
+            && node
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
+    }
+
+    fn is_process_cwd(&self, id: LirNodeId) -> bool {
         let node = self.node(id);
         if node.text.as_deref() == Some("process") {
             return true;
