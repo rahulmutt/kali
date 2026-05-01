@@ -248,6 +248,7 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
     for expected in [
         r#"globalThis["Deno"]["exit"]"#,
         r#"Deno["chdir"]"#,
+        r#"globalThis.Deno["chdir"]"#,
         r#"globalThis["Deno"]["chdir"]"#,
         r#"Deno["exit"]"#,
         r#"globalThis.Deno["exit"]"#,
