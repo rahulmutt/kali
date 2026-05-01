@@ -78,8 +78,7 @@
           "type": "string"
         },
         "hostDescriptionNote": {
-          "type": "string",
-          "minLength": 1
+          "const": "browser runtime host description: real browser host"
         },
         "supportedCommands": {
           "type": "array",

@@ -1139,13 +1139,15 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         None => unreachable!("validated above"),
     }
 
+    const BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE: &str =
+        "browser runtime host description: real browser host";
+
     match object.get("hostDescriptionNote") {
-        Some(Value::String(value)) if !value.is_empty() => {}
+        Some(Value::String(value)) if value == BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE => {}
         Some(Value::String(_)) => {
-            return Err(
-                "doctor browserRuntimeContract hostDescriptionNote must be a non-empty string"
-                    .to_string(),
-            )
+            return Err(format!(
+                "doctor browserRuntimeContract hostDescriptionNote must be `{BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE}`"
+            ))
         }
         Some(other) => {
             return Err(format!(

@@ -1374,7 +1374,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescriptionNote"],
-        serde_json::json!({"type": "string", "minLength": 1})
+        serde_json::json!({"const": "browser runtime host description: real browser host"})
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"],
