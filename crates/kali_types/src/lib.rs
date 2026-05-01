@@ -46,6 +46,7 @@ pub struct Scope {
     pub parent: Option<NodeId>,
     pub bindings: IndexMap<String, NodeId>,
     pub static_values: IndexMap<String, String>,
+    pub static_numeric_values: IndexMap<String, String>,
     pub static_arrays: IndexMap<String, bool>,
 }
 
@@ -56,6 +57,7 @@ impl Scope {
             parent,
             bindings: IndexMap::new(),
             static_values: IndexMap::new(),
+            static_numeric_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
         }
     }
@@ -630,6 +632,13 @@ impl TypeContext {
                             scope.static_values.insert(declarator.id.clone(), value);
                         }
                     }
+                    if let Some(value) = self.resolve_static_numeric_literal_value(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .static_numeric_values
+                                .insert(declarator.id.clone(), value.to_string());
+                        }
+                    }
                     if self.is_static_array_iteration_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_arrays.insert(declarator.id.clone(), true);
@@ -831,6 +840,22 @@ impl TypeContext {
         }
 
         self.global_scope.static_values.get(name).cloned()
+    }
+
+    fn resolve_static_numeric_binding(&self, name: &str) -> Option<f64> {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id)?;
+            if let Some(value) = scope.static_numeric_values.get(name) {
+                return parse_numeric_literal_value(value);
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope
+            .static_numeric_values
+            .get(name)
+            .and_then(|value| parse_numeric_literal_value(value))
     }
 
     fn resolve_static_array_binding_name(&self, name: &str) -> bool {
@@ -1161,6 +1186,7 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }
+            Expression::Identifier(name) => self.resolve_static_numeric_binding(name),
             _ => None,
         }
     }
@@ -1192,142 +1218,70 @@ impl TypeContext {
     }
 
     fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
-        match expression {
-            Expression::Literal(LiteralValue::Number(value)) => {
-                if value.fract() != 0.0 || *value < 0.0 || *value > i64::MAX as f64 {
-                    return None;
-                }
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+        if !value.is_finite() || value.fract() != 0.0 || value < 0.0 || value > i64::MAX as f64 {
+            return None;
+        }
 
-                let value = *value as i64;
-                let root = (value as f64).sqrt() as i64;
-                if root.checked_mul(root) == Some(value) {
-                    Some(root)
-                } else {
-                    None
-                }
-            }
-            Expression::ParenthesizedExpression(expr) => {
-                self.resolve_math_sqrt_static_literal_root(&expr.expression)
-            }
-            Expression::UnaryExpression(expr) if expr.operator == "+" => {
-                self.resolve_math_sqrt_static_literal_root(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.resolve_math_sqrt_static_literal_root(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.resolve_math_sqrt_static_literal_root(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.resolve_math_sqrt_static_literal_root(&expr.expression)
-            }
-            _ => None,
+        let value = value as i64;
+        let root = (value as f64).sqrt() as i64;
+        if root.checked_mul(root) == Some(value) {
+            Some(root)
+        } else {
+            None
         }
     }
 
     fn resolve_math_cbrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
-        match expression {
-            Expression::Literal(LiteralValue::Number(value)) => {
-                if value.fract() != 0.0 || *value < i64::MIN as f64 || *value > i64::MAX as f64 {
-                    return None;
-                }
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+        if !value.is_finite()
+            || value.fract() != 0.0
+            || value < i64::MIN as f64
+            || value > i64::MAX as f64
+        {
+            return None;
+        }
 
-                let value = *value as i64;
-                let root = (value as f64).cbrt().round() as i64;
-                if i128::from(root).pow(3) == i128::from(value) {
-                    Some(root)
-                } else {
-                    None
-                }
-            }
-            Expression::ParenthesizedExpression(expr) => {
-                self.resolve_math_cbrt_static_literal_root(&expr.expression)
-            }
-            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
-                self.resolve_math_cbrt_static_literal_root(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.resolve_math_cbrt_static_literal_root(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.resolve_math_cbrt_static_literal_root(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.resolve_math_cbrt_static_literal_root(&expr.expression)
-            }
-            _ => None,
+        let value = value as i64;
+        let root = (value as f64).cbrt().round() as i64;
+        if i128::from(root).pow(3) == i128::from(value) {
+            Some(root)
+        } else {
+            None
         }
     }
 
     fn resolve_math_log2_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
-        match expression {
-            Expression::Literal(LiteralValue::Number(value)) => {
-                if value.fract() != 0.0 || *value <= 0.0 || *value > u64::MAX as f64 {
-                    return None;
-                }
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+        if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > u64::MAX as f64 {
+            return None;
+        }
 
-                let value = *value as u64;
-                if value.is_power_of_two() {
-                    Some(i64::from(value.trailing_zeros()))
-                } else {
-                    None
-                }
-            }
-            Expression::ParenthesizedExpression(expr) => {
-                self.resolve_math_log2_static_literal_exponent(&expr.expression)
-            }
-            Expression::UnaryExpression(expr) if expr.operator == "+" => {
-                self.resolve_math_log2_static_literal_exponent(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.resolve_math_log2_static_literal_exponent(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.resolve_math_log2_static_literal_exponent(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.resolve_math_log2_static_literal_exponent(&expr.expression)
-            }
-            _ => None,
+        let value = value as u64;
+        if value.is_power_of_two() {
+            Some(i64::from(value.trailing_zeros()))
+        } else {
+            None
         }
     }
 
     fn resolve_math_log10_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
-        match expression {
-            Expression::Literal(LiteralValue::Number(value)) => {
-                if value.fract() != 0.0 || *value <= 0.0 || *value > i64::MAX as f64 {
-                    return None;
-                }
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+        if !value.is_finite() || value.fract() != 0.0 || value <= 0.0 || value > i64::MAX as f64 {
+            return None;
+        }
 
-                let mut value = *value as i64;
-                let mut exponent = 0;
-                while value % 10 == 0 {
-                    value /= 10;
-                    exponent += 1;
-                }
+        let mut value = value as i64;
+        let mut exponent = 0;
+        while value % 10 == 0 {
+            value /= 10;
+            exponent += 1;
+        }
 
-                if value == 1 {
-                    Some(exponent)
-                } else {
-                    None
-                }
-            }
-            Expression::ParenthesizedExpression(expr) => {
-                self.resolve_math_log10_static_literal_exponent(&expr.expression)
-            }
-            Expression::UnaryExpression(expr) if expr.operator == "+" => {
-                self.resolve_math_log10_static_literal_exponent(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.resolve_math_log10_static_literal_exponent(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.resolve_math_log10_static_literal_exponent(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.resolve_math_log10_static_literal_exponent(&expr.expression)
-            }
-            _ => None,
+        if value == 1 {
+            Some(exponent)
+        } else {
+            None
         }
     }
 
@@ -2176,6 +2130,13 @@ fn skip_quoted_annotation_segment(chars: &[char], start: usize) -> usize {
         index += 1;
     }
     chars.len()
+}
+
+fn parse_numeric_literal_value(text: &str) -> Option<f64> {
+    if let Some(stripped) = text.strip_suffix('n') {
+        return stripped.parse::<f64>().ok();
+    }
+    text.parse::<f64>().ok()
 }
 
 fn builtin_globals() -> &'static [&'static str] {
