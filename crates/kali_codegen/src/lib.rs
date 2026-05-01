@@ -1200,12 +1200,15 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(method) = self.math_member_method(&callee_node) {
-            if method == "sqrt" {
+            if method == "sqrt" || method == "cbrt" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known {} integer literal in the current phase; use an explicit constant or the later compatibility path",
+                            if method == "sqrt" { "perfect-square" } else { "perfect-cube" }
+                        ),
                     ));
                     function.instruction(&Instruction::Unreachable);
                     return EmittedValue {
@@ -1214,7 +1217,12 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 };
 
-                if let Some(root) = self.math_sqrt_constant_root(*value) {
+                let root = if method == "sqrt" {
+                    self.math_sqrt_constant_root(*value)
+                } else {
+                    self.math_cbrt_constant_root(*value)
+                };
+                if let Some(root) = root {
                     function.instruction(&Instruction::I64Const(root));
                     for arg in args {
                         let _ = self.emit_node(function, *arg, true);
@@ -1228,7 +1236,10 @@ impl<'a> FunctionEmitter<'a> {
 
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known {} integer literal in the current phase; use an explicit constant or the later compatibility path",
+                        if method == "sqrt" { "perfect-square" } else { "perfect-cube" }
+                    ),
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -1612,6 +1623,17 @@ impl<'a> FunctionEmitter<'a> {
 
         let root = (value as f64).sqrt() as i64;
         if root.checked_mul(root) == Some(value) {
+            Some(root)
+        } else {
+            None
+        }
+    }
+
+    fn math_cbrt_constant_root(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        let root = (value as f64).cbrt().round() as i64;
+        if i128::from(root).pow(3) == i128::from(value) {
             Some(root)
         } else {
             None

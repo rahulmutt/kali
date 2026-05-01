@@ -915,18 +915,28 @@ impl TypeContext {
             return;
         };
 
-        if method == "sqrt" {
-            let sqrt_literal_root = expr
-                .args
-                .first()
-                .and_then(|arg| self.resolve_math_sqrt_static_literal_root(arg));
-            if sqrt_literal_root.is_some() {
+        if method == "sqrt" || method == "cbrt" {
+            let literal_root = expr.args.first().and_then(|arg| {
+                if method == "sqrt" {
+                    self.resolve_math_sqrt_static_literal_root(arg)
+                } else {
+                    self.resolve_math_cbrt_static_literal_root(arg)
+                }
+            });
+            if literal_root.is_some() {
                 return;
             }
 
+            let shape = if method == "sqrt" {
+                "perfect-square"
+            } else {
+                "perfect-cube"
+            };
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal in the current phase; use an explicit constant or the later compatibility path".to_string(),
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known {shape} integer literal in the current phase; use an explicit constant or the later compatibility path"
+                ),
             ));
             return;
         }
@@ -1051,6 +1061,40 @@ impl TypeContext {
             }
             Expression::ChainExpression(expr) => {
                 self.resolve_math_sqrt_static_literal_root(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_math_cbrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => {
+                if value.fract() != 0.0 || *value < i64::MIN as f64 || *value > i64::MAX as f64 {
+                    return None;
+                }
+
+                let value = *value as i64;
+                let root = (value as f64).cbrt().round() as i64;
+                if i128::from(root).pow(3) == i128::from(value) {
+                    Some(root)
+                } else {
+                    None
+                }
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_math_cbrt_static_literal_root(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
+                self.resolve_math_cbrt_static_literal_root(&expr.argument)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_math_cbrt_static_literal_root(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_math_cbrt_static_literal_root(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_math_cbrt_static_literal_root(&expr.expression)
             }
             _ => None,
         }

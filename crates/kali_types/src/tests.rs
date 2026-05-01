@@ -2431,6 +2431,52 @@ fn test_resolution_reports_unsupported_math_sqrt_member_calls_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "cbrt".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(27.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "cbrt".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(28.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.cbrt")));
+}
+
+#[test]
 fn test_resolution_reports_unsupported_promise_all_settled_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
