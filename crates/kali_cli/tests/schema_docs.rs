@@ -2223,9 +2223,15 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
-            "and the browser-requested `run` JSON smoke now also mirrors the unparseable-summary fallback path in `.js` input."
+            "browser-requested `run` JSON smoke now also mirrors the unparseable-summary fallback path in `.js` input"
         ),
         "phase 7 README should keep the browser-requested run JSON fallback note explicit"
+    );
+    assert!(
+        readme.contains(
+            "and now also has matching `.ts` coverage for the invalid-label fallback on the browser-requested run/test JSON smoke"
+        ),
+        "phase 7 README should keep the TS invalid-label fallback note explicit"
     );
     assert!(
         readme
