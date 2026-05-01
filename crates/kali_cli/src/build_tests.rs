@@ -1708,8 +1708,40 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_tsx_inpu
 
 #[test]
 fn build_source_file_rejects_process_env_mutation_in_js_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_jsx_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_tsx_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_process_env_mutation_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_process_env_mutation_in_input(ApiSurface::Browser, "tsx");
+}
+
+fn assert_build_source_file_rejects_process_env_mutation_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         r#"process.env = {}; globalThis.process.env = {}; process["env"] = {}; globalThis.process["env"] = {}; globalThis["process"].env = {}; globalThis["process"]["env"] = {};"#,
@@ -1719,7 +1751,7 @@ fn build_source_file_rejects_process_env_mutation_in_js_input() {
     let error = build_source_file(
         &source_path,
         BuildMode::Fast,
-        ApiSurface::Deno,
+        api_surface,
         false,
         &[],
         16,
