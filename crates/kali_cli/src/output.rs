@@ -548,6 +548,7 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
             object.get("files").unwrap()
         ));
     };
+    let mut seen_files = HashSet::new();
     for (index, item) in items.iter().enumerate() {
         let Some(file) = item.as_object() else {
             return Err(format!(
@@ -566,14 +567,20 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
                 ));
             }
         }
-        match file.get("file") {
-            Some(Value::String(_)) => {}
-            Some(other) => {
-                return Err(format!(
-                    "test payload coverage files[{index}].file must be a string, got {other}"
-                ));
+        let Some(Value::String(file_path)) = file.get("file") else {
+            match file.get("file") {
+                Some(other) => {
+                    return Err(format!(
+                        "test payload coverage files[{index}].file must be a string, got {other}"
+                    ));
+                }
+                None => unreachable!("validated above"),
             }
-            None => unreachable!("validated above"),
+        };
+        if !seen_files.insert(file_path.clone()) {
+            return Err(format!(
+                "test payload coverage files[{index}].file must be unique, got `{file_path}` twice"
+            ));
         }
         for key in ["functionsTotal", "functionsCovered", "functionsMissed"] {
             match file.get(key) {
