@@ -1464,7 +1464,7 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_js_input
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"]();"#,
+        r#"globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.revoke();"#,
     )
     .expect("write source");
 
@@ -1488,7 +1488,13 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_js_input
                 && (diagnostic.message.contains("Deno.permissions.request")
                     || diagnostic
                         .message
-                        .contains("globalThis.Deno.permissions.request"))
+                        .contains("globalThis.Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"].permissions.request"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"].permissions.revoke"#))
         }),
         "unexpected diagnostics: {error:?}"
     );
@@ -1500,7 +1506,7 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_tsx_inpu
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"]();"#,
+        r#"globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.revoke();"#,
     )
     .expect("write source");
 
@@ -1524,7 +1530,13 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_tsx_inpu
                 && (diagnostic.message.contains("Deno.permissions.request")
                     || diagnostic
                         .message
-                        .contains("globalThis.Deno.permissions.request"))
+                        .contains("globalThis.Deno.permissions.request")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"].permissions.request"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis["Deno"].permissions.revoke"#))
         }),
         "unexpected diagnostics: {error:?}"
     );
