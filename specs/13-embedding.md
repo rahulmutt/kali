@@ -470,6 +470,7 @@ To keep embedding stable and machine-checkable, the C ABI needs one explicit com
 - `kali build --capi foo.ts` embeds the expected host ABI version in emitted metadata so loaders can reject incompatible host/program combinations before instantiation; the canonical metadata-file shape belongs to [specs/18-schemas.md](18-schemas.md)'s **C ABI Metadata Schema (schema v1)** section rather than to ad hoc per-chapter prose
 - the host library reports its own version through `uint32_t kali_host_abi_version(void);`; the function name intentionally says **host ABI** to match the metadata field names (`hostAbiVersion`, `minHostAbiVersion`) and avoid ambiguity with guest/runtime ABI concepts
 - incompatible ABI versions are a hard load-time error; they must not silently proceed on a best-effort basis
+- when a version window is present, `minHostAbiVersion` must not exceed `hostAbiVersion`; contradictory metadata should be rejected before instantiation
 
 Compatibility policy:
 - additive C-ABI changes that preserve layout/call compatibility may keep the same major host ABI version

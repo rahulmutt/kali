@@ -226,16 +226,14 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
 
     let host_abi_version = metadata
         .get("hostAbiVersion")
-        .and_then(Value::as_u64)
+        .cloned()
         .ok_or_else(|| "cabi metadata field 'hostAbiVersion' must be an integer".to_string())?;
 
-    let min_host_abi_version = metadata
-        .get("minHostAbiVersion")
-        .cloned()
-        .unwrap_or_else(|| Value::from(host_abi_version));
-    if min_host_abi_version.as_u64().is_none() {
-        return Err("cabi metadata field 'minHostAbiVersion' must be an integer".to_string());
-    }
+    let min_host_abi_version = validate_host_abi_version_window(
+        &host_abi_version,
+        metadata.get("minHostAbiVersion"),
+        "cabi metadata",
+    )?;
 
     let artifacts = metadata
         .get("artifacts")
@@ -265,7 +263,7 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
     let mut normalized = serde_json::Map::new();
     normalized.insert("schemaVersion".to_string(), Value::from(1));
     normalized.insert("kind".to_string(), Value::from("cabi-metadata"));
-    normalized.insert("hostAbiVersion".to_string(), Value::from(host_abi_version));
+    normalized.insert("hostAbiVersion".to_string(), host_abi_version);
     normalized.insert("minHostAbiVersion".to_string(), min_host_abi_version);
     if let Some(runtime_profiles) = runtime_profiles {
         normalized.insert(
@@ -338,10 +336,11 @@ pub fn cabi_metadata_summary(metadata: &Value) -> Result<Value, String> {
         .get("hostAbiVersion")
         .cloned()
         .ok_or_else(|| "cabi metadata summary field 'hostAbiVersion' is missing".to_string())?;
-    let min_host_abi_version = metadata
-        .get("minHostAbiVersion")
-        .cloned()
-        .unwrap_or_else(|| host_abi_version.clone());
+    let min_host_abi_version = validate_host_abi_version_window(
+        &host_abi_version,
+        metadata.get("minHostAbiVersion"),
+        "cabi metadata summary",
+    )?;
 
     let runtime_profiles = metadata
         .get("runtimeProfiles")
@@ -663,6 +662,11 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
             "binding package manifest",
             "minHostAbiVersion",
         )?;
+        validate_host_abi_version_window(
+            manifest.get("hostAbiVersion").expect("validated above"),
+            Some(min_host_abi_version),
+            "binding package manifest",
+        )?;
     }
 
     if let Some(max_specializations) = manifest.get("maxSpecializations") {
@@ -716,6 +720,46 @@ fn validate_integer_field(value: &Value, context: &str, field_name: &str) -> Res
             "{} field '{}' must be an integer",
             context, field_name
         ))
+    }
+}
+
+fn integer_value(value: &Value, context: &str, field_name: &str) -> Result<i128, String> {
+    if let Some(number) = value.as_i64() {
+        Ok(number as i128)
+    } else if let Some(number) = value.as_u64() {
+        Ok(number as i128)
+    } else {
+        Err(format!(
+            "{} field '{}' must be an integer",
+            context, field_name
+        ))
+    }
+}
+
+fn validate_host_abi_version_window(
+    host_abi_version: &Value,
+    min_host_abi_version: Option<&Value>,
+    context: &str,
+) -> Result<Value, String> {
+    validate_integer_field(host_abi_version, context, "hostAbiVersion")?;
+    let host_abi_version_value = host_abi_version.clone();
+    let host_abi_version = integer_value(host_abi_version, context, "hostAbiVersion")?;
+
+    match min_host_abi_version {
+        Some(min_host_abi_version) => {
+            validate_integer_field(min_host_abi_version, context, "minHostAbiVersion")?;
+            let min_host_abi_version_value = min_host_abi_version.clone();
+            let min_host_abi_version =
+                integer_value(min_host_abi_version, context, "minHostAbiVersion")?;
+            if min_host_abi_version > host_abi_version {
+                return Err(format!(
+                    "{} field 'minHostAbiVersion' must not exceed field 'hostAbiVersion'",
+                    context
+                ));
+            }
+            Ok(min_host_abi_version_value)
+        }
+        None => Ok(host_abi_version_value),
     }
 }
 
@@ -906,18 +950,11 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
         "binding package manifest summary",
         "hostAbiVersion",
     )?;
-    let min_host_abi_version = manifest
-        .get("minHostAbiVersion")
-        .map(|value| {
-            validate_integer_field(
-                value,
-                "binding package manifest summary",
-                "minHostAbiVersion",
-            )
-            .map(|_| value.clone())
-        })
-        .transpose()?
-        .unwrap_or_else(|| host_abi_version.clone());
+    let min_host_abi_version = validate_host_abi_version_window(
+        host_abi_version,
+        manifest.get("minHostAbiVersion"),
+        "binding package manifest summary",
+    )?;
     let runtime_profiles = match manifest.get("runtimeProfiles") {
         Some(runtime_profiles) => {
             normalize_string_list_value(runtime_profiles, "binding package", "runtimeProfiles")?

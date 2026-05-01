@@ -180,6 +180,42 @@ fn cabi_metadata_helpers_discover_load_and_summarize_root_sidecars() {
 }
 
 #[test]
+fn cabi_metadata_helpers_reject_incompatible_host_abi_version_windows() {
+    let metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "cabi-metadata",
+        "hostAbiVersion": 2,
+        "minHostAbiVersion": 3,
+        "artifacts": {
+            "wasmModule": "sample.capi.wasm",
+            "wit": "sample.wit",
+            "exportsHeader": "sample.h"
+        }
+    });
+
+    let error =
+        parse_metadata(&metadata.to_string()).expect_err("invalid host ABI window should fail");
+    assert!(
+        error.contains("minHostAbiVersion"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        error.contains("hostAbiVersion"),
+        "unexpected error: {error}"
+    );
+
+    let error = cabi_metadata_summary(&metadata).expect_err("invalid host ABI window should fail");
+    assert!(
+        error.contains("minHostAbiVersion"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        error.contains("hostAbiVersion"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn cabi_metadata_helpers_reject_ambiguous_auto_discovery() {
     let temp_root = std::env::temp_dir().join(format!(
         "kali_capi_metadata_root_{}_ambiguous_{}",
@@ -647,6 +683,45 @@ fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
 
         assert!(error.contains(field), "unexpected error: {error}");
     }
+}
+
+#[test]
+fn binding_package_manifest_rejects_incompatible_host_abi_version_window() {
+    let manifest = serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "binding-package",
+        "moduleName": "sample",
+        "hostAbiVersion": 2,
+        "minHostAbiVersion": 3,
+        "artifacts": {
+            "library": "sample.capi.wasm",
+            "metadata": "sample.cabi.json",
+            "exportsHeader": "sample.h",
+            "glue": []
+        }
+    });
+
+    let error = parse_binding_package_manifest(&manifest.to_string())
+        .expect_err("invalid host ABI window should fail");
+    assert!(
+        error.contains("minHostAbiVersion"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        error.contains("hostAbiVersion"),
+        "unexpected error: {error}"
+    );
+
+    let error = binding_package_manifest_summary(&manifest)
+        .expect_err("invalid host ABI window should fail");
+    assert!(
+        error.contains("minHostAbiVersion"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        error.contains("hostAbiVersion"),
+        "unexpected error: {error}"
+    );
 }
 
 #[test]

@@ -394,7 +394,7 @@ Canonical schema-v1 `role` values:
 - `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
 - `embedding-header` — generated **program-specific exports header** from `kali build --capi` (distinct from the stable **host ABI header** `kali.h`; see [SPEC.md](../SPEC.md))
 - `embedding-metadata` — generated C-ABI compatibility metadata from `kali build --capi` (the artifact `kind` remains `cabi-metadata`; this is the canonical `role` for that file)
-- `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows
+- `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows and follows the same host ABI version-window rule as the C-ABI metadata sidecar
 - `debug-source-map` — source-map/debug companion artifact
 
 Current repository snapshot note:
@@ -981,7 +981,7 @@ This metadata exists to answer one narrow question deterministically: **can this
 - `artifacts.exportsHeader: string` — path or artifact-relative filename for the generated **program-specific exports header**
 
 ### Optional fields
-- `minHostAbiVersion: number` — lowest compatible host ABI version when the compatibility policy allows a version window; if omitted, consumers should treat `hostAbiVersion` as the exact required version
+- `minHostAbiVersion: number` — lowest compatible host ABI version when the compatibility policy allows a version window; if omitted, consumers should treat `hostAbiVersion` as the exact required version; when present, it must not exceed `hostAbiVersion`
 
 Interpretation rules:
 - this metadata is the canonical load-time compatibility record for `kali build --capi`; loaders should check it before instantiating the library artifact through `kali_capi`
