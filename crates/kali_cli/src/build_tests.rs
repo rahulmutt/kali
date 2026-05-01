@@ -2389,6 +2389,91 @@ fn build_source_file_rejects_broader_intl_apis_in_tsx_input() {
     );
 }
 
+fn assert_build_source_file_rejects_broader_intl_apis_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("broader Intl APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.message.contains("broader Intl support")
+                && (diagnostic.message.contains("Intl.DateTimeFormat")
+                    || diagnostic.message.contains("Intl.RelativeTimeFormat")
+                    || diagnostic.message.contains("Intl.PluralRules")
+                    || diagnostic.message.contains("Intl.Collator")
+                    || diagnostic.message.contains("Intl.DisplayNames")
+                    || diagnostic.message.contains("Intl.Locale")
+                    || diagnostic.message.contains("Intl.NumberFormat")
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"NumberFormat\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"DateTimeFormat\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"RelativeTimeFormat\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"PluralRules\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"Collator\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"DisplayNames\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"Segmenter\"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis[\"Intl\"][\"Locale\"]"#))
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_broader_intl_apis_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_broader_intl_apis_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_broader_intl_apis_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_broader_intl_apis_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_broader_intl_apis_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_broader_intl_apis_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_broader_intl_apis_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_broader_intl_apis_in_input(ApiSurface::Browser, "tsx");
+}
+
 #[test]
 fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
     let dir = tempdir().expect("tempdir");
