@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-max-min-builtin-js",
+  "version": 1,
+  "sourceFile": "math-max-min-benchmark-v1-js.js",
+  "sourceSha256": "sha256-efb9e8db566f9633d7edce1b8e834f0b9fe244be57264c0e3ef79a13321fdb81",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

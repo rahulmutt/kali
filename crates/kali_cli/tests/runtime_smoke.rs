@@ -6400,7 +6400,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 48 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 49 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -40041,6 +40041,7 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
             | "reflect-own-keys-alias-chain"
             | "array-literal-arguments"
             | "numeric-literal-arguments"
+            | "math-max-min-builtin-js"
     ) {
         assert!(
             release_size < fast_size
@@ -40051,7 +40052,10 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
     }
     if !matches!(
         benchmark_name,
-        "array-literal-arguments" | "numeric-literal-arguments" | "nested-call-inlining-chain"
+        "array-literal-arguments"
+            | "numeric-literal-arguments"
+            | "nested-call-inlining-chain"
+            | "math-max-min-builtin-js"
     ) {
         assert!(
             advanced_size < release_size
@@ -40063,7 +40067,10 @@ fn assert_optimization_benchmark_fixture(fixture_stem: &str, benchmark_name: &st
 
     if !matches!(
         benchmark_name,
-        "array-literal-arguments" | "numeric-literal-arguments" | "nested-call-inlining-chain"
+        "array-literal-arguments"
+            | "numeric-literal-arguments"
+            | "nested-call-inlining-chain"
+            | "math-max-min-builtin-js"
     ) {
         assert!(
             release_adds <= fast_adds,
@@ -40099,6 +40106,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("math-ceil-benchmark-v1", "math-ceil-builtin"),
         ("math-abs-sign-benchmark-v1", "math-abs-sign-builtin"),
         ("math-max-min-benchmark-v1", "math-max-min-builtin"),
+        ("math-max-min-benchmark-v1-js", "math-max-min-builtin-js"),
         (
             "division-by-one-benchmark-v1",
             "division-by-one-elimination",
