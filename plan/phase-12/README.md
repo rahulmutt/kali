@@ -38,7 +38,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 
 - Triage `Proxy`, own-property helpers, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, and `Atomics` against no-GC/no-JIT and optimization constraints.
 - Promote only with conformance evidence and sandbox/resource implications documented.
-- Progress note: the non-browser literal-object `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice now folds static object literals and const alias chains in JS input; browser-targeted and dynamic-object cases remain gated.
+- Progress note: the non-browser literal-object `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice now folds static object literals and const alias chains in JS input; browser-targeted static-object-call slices are now supported on the documented browser command set, and dynamic-object cases remain gated.
 
 ## Exit gate
 

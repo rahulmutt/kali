@@ -1058,7 +1058,7 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_ts_input(
     assert!(!output.wasm_bytes.is_empty());
 }
 
-fn assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
+fn assert_build_source_file_supports_object_has_own_call_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -1066,11 +1066,11 @@ fn assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_in
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+        r#"Object.hasOwn({}, "a"); globalThis.Object.hasOwn({}, "a"); globalThis["Object"]["hasOwn"]({}, "a"); Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         api_surface,
@@ -1080,28 +1080,18 @@ fn assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_in
         None,
         None,
     )
-    .expect_err("late object-model APIs should fail");
+    .expect("browser object-model helpers should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains(r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#)
-            || diagnostic
-                .message
-                .contains("Object.prototype.hasOwnProperty.call")),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert!(!output.wasm_bytes.is_empty());
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_jsx_input() {
+fn build_source_file_supports_object_has_own_call_in_jsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
-        r#"globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+        r#"Object.hasOwn({}, "a"); globalThis.Object.hasOwn({}, "a"); globalThis["Object"]["hasOwn"]({}, "a"); Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
     )
     .expect("write source");
 
@@ -1121,12 +1111,12 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_jsx_input
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_tsx_input() {
+fn build_source_file_supports_object_has_own_call_in_tsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+        r#"Object.hasOwn({}, "a"); globalThis.Object.hasOwn({}, "a"); globalThis["Object"]["hasOwn"]({}, "a"); Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
     )
     .expect("write source");
 
@@ -1146,39 +1136,23 @@ fn build_source_file_rejects_bracketed_object_has_own_property_call_in_tsx_input
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_js_input(
-) {
-    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
-        ApiSurface::Browser,
-        "js",
-    );
+fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "js");
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_ts_input(
-) {
-    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
-        ApiSurface::Browser,
-        "ts",
-    );
+fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "ts");
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_jsx_input(
-) {
-    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
-        ApiSurface::Browser,
-        "jsx",
-    );
+fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "jsx");
 }
 
 #[test]
-fn build_source_file_rejects_bracketed_object_has_own_property_call_in_browser_api_surface_in_tsx_input(
-) {
-    assert_build_source_file_rejects_bracketed_object_has_own_property_call_in_input(
-        ApiSurface::Browser,
-        "tsx",
-    );
+fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "tsx");
 }
 
 fn promise_all_settled_source_variants() -> [&'static str; 10] {

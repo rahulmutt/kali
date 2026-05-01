@@ -1115,10 +1115,6 @@ impl TypeContext {
             return false;
         };
 
-        if self.api_surface == "browser" {
-            return false;
-        }
-
         let is_object_has_own = matches!(
             callee_name.as_str(),
             "Object.hasOwn" | "globalThis.Object.hasOwn"
