@@ -238,6 +238,89 @@ fn math_sign_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_abs_member_constant_folds_static_numeric_literal_alias_chains() {
+    let program =
+        parse_and_lower_lir("const value = -3; const alias = value; console.log(Math.abs(alias));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+    assert!(!printed.contains("call 9"), "{printed}");
+}
+
+#[test]
+fn math_abs_member_constant_folds_static_numeric_literal_operand() {
+    let program = parse_and_lower_lir("console.log(Math.abs(-3));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+    assert!(!printed.contains("call 9"), "{printed}");
+}
+
+#[test]
+fn math_sign_member_constant_folds_static_numeric_literal_operand() {
+    let program = parse_and_lower_lir("console.log(Math.sign(1.6));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(!printed.contains("call 10"), "{printed}");
+}
+
+#[test]
+fn math_sign_member_constant_folds_static_numeric_literal_alias_chains() {
+    let program = parse_and_lower_lir(
+        "const value = 1.6; const alias = value; console.log(Math.sign(alias));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(!printed.contains("call 10"), "{printed}");
+}
+
+#[test]
 fn math_imul_member_calls_lower_to_math_host_imports() {
     let program = parse_and_lower_lir("console.log(Math.imul(2147483647, 2));");
     let mut ctx = CodegenCtx::new(TargetConfig {

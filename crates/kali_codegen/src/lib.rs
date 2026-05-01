@@ -1006,6 +1006,18 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let Some(folded) = self.math_abs_static_literal_value(*first_arg) {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *first_arg, "abs") {
                 return EmittedValue {
                     produced: false,
@@ -1041,6 +1053,18 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             };
+
+            if let Some(folded) = self.math_sign_static_literal_value(*first_arg) {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
 
             if !self.emit_integer_math_arg(function, *first_arg, "sign") {
                 return EmittedValue {
@@ -1857,6 +1881,23 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         Some(folded as i64)
+    }
+
+    fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        parse_number_literal(&rendered)?.checked_abs()
+    }
+
+    fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_numeric_literal_value(&rendered)?;
+        Some(if value == 0.0 {
+            0
+        } else if value.is_sign_negative() {
+            -1
+        } else {
+            1
+        })
     }
 
     fn contains_negative_numeric_literal(&self, id: LirNodeId) -> bool {
