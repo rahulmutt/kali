@@ -35622,6 +35622,131 @@ fn run_supports_math_exp_and_log_exact_identity_literals_in_js_input() {
 }
 
 #[test]
+fn run_supports_math_expm1_and_log1p_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.matches("0").count() >= 2, "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_expm1_and_log1p_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.matches("0").count() >= 2, "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_math_expm1_and_log1p_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 2
+    );
+}
+
+#[test]
+fn json_test_supports_math_expm1_and_log1p_exact_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 2
+    );
+}
+
+#[test]
 fn run_supports_math_log2_and_log10_on_const_numeric_alias_chain_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

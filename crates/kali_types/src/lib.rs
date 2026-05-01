@@ -1259,6 +1259,34 @@ impl TypeContext {
             return;
         }
 
+        if method == "expm1" || method == "log1p" {
+            let Some(value) = expr
+                .args
+                .first()
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg))
+            else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                    ),
+                ));
+                return;
+            };
+
+            if value == 0.0 {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                ),
+            ));
+            return;
+        }
+
         if method == "asin" || method == "acos" || method == "atan" {
             let Some(value) = expr
                 .args

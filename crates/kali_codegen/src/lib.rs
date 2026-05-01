@@ -1458,6 +1458,52 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            if method == "expm1" || method == "log1p" {
+                let mut args = node.children.iter().skip(1);
+                let Some(value) = args.next() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                let folded = if method == "expm1" {
+                    self.math_expm1_constant_value(*value)
+                } else {
+                    self.math_log1p_constant_value(*value)
+                };
+                let Some(folded) = folded else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                        ),
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if method == "sin" || method == "cos" || method == "tan" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
@@ -2037,6 +2083,26 @@ impl<'a> FunctionEmitter<'a> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_number_literal(&rendered)?;
         if value == 1 {
+            Some(0)
+        } else {
+            None
+        }
+    }
+
+    fn math_expm1_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        if value == 0 {
+            Some(0)
+        } else {
+            None
+        }
+    }
+
+    fn math_log1p_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        if value == 0 {
             Some(0)
         } else {
             None

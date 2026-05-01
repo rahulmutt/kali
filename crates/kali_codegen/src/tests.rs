@@ -887,6 +887,35 @@ fn supported_math_log_member_lowering_is_available_for_exact_one_literals() {
 }
 
 #[test]
+fn supported_math_expm1_and_log1p_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir(
+        "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn supported_math_tan_member_lowering_is_available_for_exact_zero_literals() {
     let program = parse_and_lower_lir("const zero = 0; console.log(Math.tan(zero));");
     let mut ctx = CodegenCtx::new(TargetConfig {
@@ -1118,6 +1147,38 @@ fn unsupported_math_log_member_reports_feature_unavailable() {
     Validator::new()
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
+}
+
+#[test]
+fn unsupported_math_expm1_and_log1p_member_reports_feature_unavailable() {
+    for (source, expected_method) in [
+        ("console.log(Math.expm1(1));", "Math.expm1"),
+        ("console.log(Math.log1p(1));", "Math.log1p"),
+    ] {
+        let program = parse_and_lower_lir(source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+
+        assert!(
+            result.diagnostics.iter().any(|diagnostic| {
+                diagnostic.is_error()
+                    && diagnostic.code
+                        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                    && diagnostic.message.contains(expected_method)
+                    && diagnostic.message.contains("zero numeric literal")
+            }),
+            "expected an unavailable {expected_method} diagnostic: {:?}",
+            result.diagnostics
+        );
+
+        Validator::new()
+            .validate_all(&result.wasm_bytes)
+            .expect("generated wasm should validate");
+    }
 }
 
 #[test]
