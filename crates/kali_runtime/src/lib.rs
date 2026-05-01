@@ -1212,12 +1212,18 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("math_clz32", error))?;
 
     linker
-        .func_wrap("kali:rt", "math_pow", |left: i64, right: i64| -> i64 {
-            if right < 0 {
-                panic!("Math.pow negative exponents are unavailable in the current phase");
-            }
-            left.wrapping_pow(right as u32)
-        })
+        .func_wrap(
+            "kali:rt",
+            "math_pow",
+            |left: i64, right: i64| -> wasmtime::Result<i64> {
+                if right < 0 {
+                    return Err(wasmtime::Error::msg(
+                        "Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path",
+                    ));
+                }
+                Ok(left.wrapping_pow(right as u32))
+            },
+        )
         .map_err(|error| host_import_error("math_pow", error))?;
 
     linker

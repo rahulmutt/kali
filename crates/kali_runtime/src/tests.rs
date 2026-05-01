@@ -3311,6 +3311,32 @@ fn runtime_reports_mocked_fetch_failures() {
 }
 
 #[test]
+fn runtime_rejects_math_pow_negative_exponents_without_panicking() {
+    let runtime = RuntimeCtx::default();
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "math_pow" (func $math_pow (param i64 i64) (result i64)))
+                (func (export "_start")
+                    i64.const 2
+                    i64.const -1
+                    call $math_pow
+                    drop))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("negative Math.pow exponents should be rejected through the host import");
+    assert_eq!(diagnostics[0].code, Some(e4::UNCAUGHT_ERROR as u32));
+    assert!(
+        diagnostics[0].message.contains("runtime trap"),
+        "diagnostic: {:?}",
+        diagnostics[0]
+    );
+}
+
+#[test]
 fn runtime_executes_node_fs_promises_host_imports() {
     let dir = tempfile::tempdir().expect("tempdir");
     let runtime = RuntimeCtx::with_host_context_with_api_surface(
