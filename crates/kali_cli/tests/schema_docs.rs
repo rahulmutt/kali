@@ -2217,6 +2217,12 @@ fn phase_7_readme_tracks_browser_harness_summary_fallback_coverage() {
     );
     assert!(
         readme.contains(
+            "The browser-requested runtime summary path now also merges stdout metadata when the summary file combines invalid labels with an invalid `testsFailed` type, keeping that partially malformed branch explicit too."
+        ),
+        "phase 7 README should keep the invalid-label + invalid testsFailed fallback note explicit"
+    );
+    assert!(
+        readme.contains(
             "and the browser-requested `run` JSON smoke now also mirrors the unparseable-summary fallback path in `.js` input."
         ),
         "phase 7 README should keep the browser-requested run JSON fallback note explicit"
