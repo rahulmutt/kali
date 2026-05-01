@@ -181,8 +181,48 @@ fn math_max_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_max_member_calls_lower_to_math_host_imports_through_global_this_math() {
+    let program =
+        parse_and_lower_lir("function max(value) { return globalThis.Math.max(value, 2, 3); }");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"math_max\""));
+}
+
+#[test]
 fn math_max_member_constant_folds_static_numeric_literal_operand() {
     let program = parse_and_lower_lir("console.log(Math.max(1, 2, 3));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+    assert!(!printed.contains("call 7"), "{printed}");
+}
+
+#[test]
+fn math_max_member_constant_folds_static_numeric_literal_operand_through_global_this_math() {
+    let program = parse_and_lower_lir("console.log(globalThis.Math.max(1, 2, 3));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,

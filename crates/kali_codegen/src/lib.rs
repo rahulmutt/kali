@@ -1775,11 +1775,19 @@ impl<'a> FunctionEmitter<'a> {
         self.node(object).text.as_deref() == Some("console") && method == "assert"
     }
 
+    fn is_math_object(&self, callee_node: &LirNode) -> bool {
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Math") | Some("globalThis.Math")
+        )
+    }
+
     fn math_max_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "max" {
+        if self.is_math_object(callee_node) && method == "max" {
             Some(MATH_MAX_IMPORT_INDEX)
         } else {
             None
@@ -1788,9 +1796,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_min_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "min" {
+        if self.is_math_object(callee_node) && method == "min" {
             Some(MATH_MIN_IMPORT_INDEX)
         } else {
             None
@@ -1799,9 +1805,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_abs_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "abs" {
+        if self.is_math_object(callee_node) && method == "abs" {
             Some(MATH_ABS_IMPORT_INDEX)
         } else {
             None
@@ -1810,9 +1814,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_sign_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "sign" {
+        if self.is_math_object(callee_node) && method == "sign" {
             Some(MATH_SIGN_IMPORT_INDEX)
         } else {
             None
@@ -1821,9 +1823,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_imul_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "imul" {
+        if self.is_math_object(callee_node) && method == "imul" {
             Some(MATH_IMUL_IMPORT_INDEX)
         } else {
             None
@@ -1832,9 +1832,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_round_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "round" {
+        if self.is_math_object(callee_node) && method == "round" {
             Some(MATH_ROUND_IMPORT_INDEX)
         } else {
             None
@@ -1843,9 +1841,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_clz32_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "clz32" {
+        if self.is_math_object(callee_node) && method == "clz32" {
             Some(MATH_CLZ32_IMPORT_INDEX)
         } else {
             None
@@ -1854,9 +1850,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_pow_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" && method == "pow" {
+        if self.is_math_object(callee_node) && method == "pow" {
             Some(MATH_POW_IMPORT_INDEX)
         } else {
             None
@@ -1865,9 +1859,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
         let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Math" {
+        if self.is_math_object(callee_node) {
             Some(method)
         } else {
             None
