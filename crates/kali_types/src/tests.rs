@@ -2473,6 +2473,27 @@ fn test_resolution_supports_math_log2_member_calls_for_positive_power_of_two_int
 }
 
 #[test]
+fn test_resolution_supports_math_log10_member_calls_for_positive_power_of_ten_integer_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "log10".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1000.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_pow_member_calls_for_integer_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -2575,6 +2596,32 @@ fn test_resolution_reports_unsupported_math_log2_member_calls_as_unavailable() {
         .iter()
         .any(|diag| diag.message.contains("Math.log2")
             && diag.message.contains("positive power-of-two")));
+}
+
+#[test]
+fn test_resolution_reports_unsupported_math_log10_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "log10".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(12.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.log10")
+            && diag.message.contains("positive power-of-ten")));
 }
 
 #[test]

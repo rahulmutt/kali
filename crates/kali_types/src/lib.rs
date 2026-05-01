@@ -1007,14 +1007,16 @@ impl TypeContext {
             return;
         };
 
-        if method == "sqrt" || method == "cbrt" || method == "log2" {
+        if method == "sqrt" || method == "cbrt" || method == "log2" || method == "log10" {
             let literal_root = expr.args.first().and_then(|arg| {
                 if method == "sqrt" {
                     self.resolve_math_sqrt_static_literal_root(arg)
                 } else if method == "cbrt" {
                     self.resolve_math_cbrt_static_literal_root(arg)
-                } else {
+                } else if method == "log2" {
                     self.resolve_math_log2_static_literal_exponent(arg)
+                } else {
+                    self.resolve_math_log10_static_literal_exponent(arg)
                 }
             });
             if literal_root.is_some() {
@@ -1025,8 +1027,10 @@ impl TypeContext {
                 "perfect-square"
             } else if method == "cbrt" {
                 "perfect-cube"
-            } else {
+            } else if method == "log2" {
                 "positive power-of-two"
+            } else {
+                "positive power-of-ten"
             };
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1249,6 +1253,45 @@ impl TypeContext {
             }
             Expression::ChainExpression(expr) => {
                 self.resolve_math_log2_static_literal_exponent(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_math_log10_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => {
+                if value.fract() != 0.0 || *value <= 0.0 || *value > i64::MAX as f64 {
+                    return None;
+                }
+
+                let mut value = *value as i64;
+                let mut exponent = 0;
+                while value % 10 == 0 {
+                    value /= 10;
+                    exponent += 1;
+                }
+
+                if value == 1 {
+                    Some(exponent)
+                } else {
+                    None
+                }
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_math_log10_static_literal_exponent(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_math_log10_static_literal_exponent(&expr.argument)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_math_log10_static_literal_exponent(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_math_log10_static_literal_exponent(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_math_log10_static_literal_exponent(&expr.expression)
             }
             _ => None,
         }

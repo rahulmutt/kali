@@ -1270,12 +1270,15 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(method) = self.math_member_method(&callee_node) {
-            if method == "log2" {
+            if method == "log2" || method == "log10" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "Math.log2 is unavailable unless the argument is a statically-known positive power-of-two integer literal in the current phase; use an explicit constant or the later compatibility path",
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known {} integer literal in the current phase; use an explicit constant or the later compatibility path",
+                            if method == "log2" { "positive power-of-two" } else { "positive power-of-ten" }
+                        ),
                     ));
                     function.instruction(&Instruction::Unreachable);
                     return EmittedValue {
@@ -1284,10 +1287,18 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 };
 
-                let Some(exponent) = self.math_log2_constant_exponent(*value) else {
+                let literal_root = if method == "log2" {
+                    self.math_log2_constant_exponent(*value)
+                } else {
+                    self.math_log10_constant_exponent(*value)
+                };
+                let Some(exponent) = literal_root else {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "Math.log2 is unavailable unless the argument is a statically-known positive power-of-two integer literal in the current phase; use an explicit constant or the later compatibility path",
+                        format!(
+                            "Math.{method} is unavailable unless the argument is a statically-known {} integer literal in the current phase; use an explicit constant or the later compatibility path",
+                            if method == "log2" { "positive power-of-two" } else { "positive power-of-ten" }
+                        ),
                     ));
                     function.instruction(&Instruction::Unreachable);
                     return EmittedValue {
@@ -1752,6 +1763,26 @@ impl<'a> FunctionEmitter<'a> {
         let value = value as u64;
         if value.is_power_of_two() {
             Some(i64::from(value.trailing_zeros()))
+        } else {
+            None
+        }
+    }
+
+    fn math_log10_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let mut value = parse_number_literal(&rendered)?;
+        if value <= 0 {
+            return None;
+        }
+
+        let mut exponent = 0;
+        while value % 10 == 0 {
+            value /= 10;
+            exponent += 1;
+        }
+
+        if value == 1 {
+            Some(exponent)
         } else {
             None
         }
