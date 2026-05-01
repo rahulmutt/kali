@@ -2545,111 +2545,108 @@ fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
 }
 
 #[test]
-fn build_source_file_rejects_threaded_runtime_globals_in_ts_input() {
+fn build_source_file_rejects_late_weak_reference_apis_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_late_weak_reference_apis_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_late_weak_reference_apis_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_late_weak_reference_apis_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_late_weak_reference_apis_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_late_weak_reference_apis_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_late_weak_reference_apis_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_late_weak_reference_apis_in_input(ApiSurface::Browser, "tsx");
+}
+
+fn assert_build_source_file_rejects_late_weak_reference_apis_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
+        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"];"#,
     )
     .expect("write source");
 
     let error = build_source_file(
         &source_path,
         BuildMode::Fast,
-        ApiSurface::Deno,
+        api_surface,
         false,
         &[],
         16,
         None,
         None,
     )
-    .expect_err("threaded runtime globals should fail");
+    .expect_err("late weak-reference APIs should fail");
 
     assert!(error.iter().any(|diagnostic| diagnostic.code
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
     assert!(
         error.iter().any(|diagnostic| {
-            diagnostic.message.contains("SharedArrayBuffer")
-                || diagnostic.message.contains("Atomics")
-                || diagnostic.message.contains("threaded runtime globals")
+            diagnostic.message.contains("WeakMap")
+                || diagnostic.message.contains("WeakSet")
+                || diagnostic.message.contains("WeakRef")
+                || diagnostic.message.contains("FinalizationRegistry")
         }),
         "unexpected diagnostics: {error:?}"
     );
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_ts_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Deno, "ts");
 }
 
 #[test]
 fn build_source_file_rejects_threaded_runtime_globals_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
-    )
-    .expect("write source");
-
-    let error = build_source_file(
-        &source_path,
-        BuildMode::Fast,
-        ApiSurface::Deno,
-        false,
-        &[],
-        16,
-        None,
-        None,
-    )
-    .expect_err("threaded runtime globals should fail");
-
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| {
-            diagnostic.message.contains("SharedArrayBuffer")
-                || diagnostic.message.contains("Atomics")
-                || diagnostic.message.contains("threaded runtime globals")
-        }),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Deno, "js");
 }
 
 #[test]
 fn build_source_file_rejects_threaded_runtime_globals_in_jsx_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.jsx");
-    fs::write(
-        &source_path,
-        r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
-    )
-    .expect("write source");
-
-    let error = build_source_file(
-        &source_path,
-        BuildMode::Fast,
-        ApiSurface::Deno,
-        false,
-        &[],
-        16,
-        None,
-        None,
-    )
-    .expect_err("threaded runtime globals should fail");
-
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| {
-            diagnostic.message.contains("SharedArrayBuffer")
-                || diagnostic.message.contains("Atomics")
-                || diagnostic.message.contains("threaded runtime globals")
-        }),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Deno, "jsx");
 }
 
 #[test]
 fn build_source_file_rejects_threaded_runtime_globals_in_tsx_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_threaded_runtime_globals_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_threaded_runtime_globals_in_input(ApiSurface::Browser, "tsx");
+}
+
+fn assert_build_source_file_rejects_threaded_runtime_globals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.tsx");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         r#"globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
@@ -2659,7 +2656,7 @@ fn build_source_file_rejects_threaded_runtime_globals_in_tsx_input() {
     let error = build_source_file(
         &source_path,
         BuildMode::Fast,
-        ApiSurface::Deno,
+        api_surface,
         false,
         &[],
         16,
