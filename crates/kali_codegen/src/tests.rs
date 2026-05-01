@@ -812,6 +812,33 @@ fn unsupported_math_pow_member_rejects_non_integer_const_alias_exponents() {
         .expect("generated wasm should validate");
 }
 
+#[test]
+fn unsupported_math_pow_member_rejects_negative_exponents() {
+    let program = parse_and_lower_lir("console.log(Math.pow(2, -1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("Math.pow is unavailable for negative numeric literals")
+        }),
+        "expected a negative-exponent Math.pow diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_nullish_coalescing_lowers(source: &str) {
     let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
