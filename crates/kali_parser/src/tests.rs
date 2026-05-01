@@ -666,7 +666,7 @@ fn test_parse_fully_bracketed_permission_escalation_member_expression_chain() {
 #[test]
 fn test_parse_mixed_bracket_dot_late_object_model_member_expression_chain() {
     let tokens = lex(
-        r#"globalThis["Proxy"].revocable({}, {}); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a");"#,
+        r#"globalThis["Proxy"].revocable({}, {}); globalThis["Object"].hasOwn({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
     );
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
@@ -676,7 +676,7 @@ fn test_parse_mixed_bracket_dot_late_object_model_member_expression_chain() {
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 3);
+    assert_eq!(output.statements.len(), 4);
 }
 
 #[test]
