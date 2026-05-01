@@ -371,8 +371,10 @@ fn math_ceil_member_lowers_without_runtime_host_import() {
 }
 
 #[test]
-fn supported_math_member_reports_non_integer_numeric_literals_as_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.ceil(1.6));");
+fn supported_math_ceil_member_constant_folds_non_integer_numeric_literals() {
+    let program = parse_and_lower_lir(
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias));",
+    );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -380,24 +382,20 @@ fn supported_math_member_reports_non_integer_numeric_literals_as_unavailable() {
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    assert!(
-        result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic.message.contains("non-integer numeric literals")
-        }),
-        "expected a non-integer numeric literal diagnostic: {:?}",
-        result.diagnostics
-    );
-
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
     Validator::new()
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 2"), "{printed}");
 }
 
 #[test]
-fn supported_math_trunc_member_reports_non_integer_numeric_literals_as_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.trunc(1.6));");
+fn supported_math_trunc_member_constant_folds_non_integer_numeric_literals() {
+    let program = parse_and_lower_lir(
+        "const value = 1.6; const alias = value; console.log(Math.trunc(alias));",
+    );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -405,19 +403,13 @@ fn supported_math_trunc_member_reports_non_integer_numeric_literals_as_unavailab
     });
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
-    assert!(
-        result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic.message.contains("non-integer numeric literals")
-        }),
-        "expected a non-integer numeric literal diagnostic: {:?}",
-        result.diagnostics
-    );
-
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
     Validator::new()
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
 }
 
 #[test]

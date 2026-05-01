@@ -34629,10 +34629,14 @@ fn check_rejects_unsupported_math_member_calls_in_js_input() {
 }
 
 #[test]
-fn check_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn check_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.ceil(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34641,15 +34645,8 @@ fn check_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input()
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Math.ceil"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("non-integer numeric literals"),
-        "stderr: {stderr}"
-    );
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
@@ -34678,10 +34675,14 @@ fn json_check_rejects_unsupported_math_member_calls_in_js_input() {
 }
 
 #[test]
-fn json_check_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn json_check_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.ceil(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34692,27 +34693,23 @@ fn json_check_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("non-integer numeric literals")),
-        "missing non-integer numeric literal diagnostic in {errors:?}"
-    );
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
+fn check_supports_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.trunc(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.trunc(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34721,17 +34718,19 @@ fn check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_i
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn json_check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
+fn json_check_supports_non_integer_numeric_literals_in_math_trunc_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.trunc(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.trunc(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34742,20 +34741,12 @@ fn json_check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("non-integer numeric literals")),
-        "missing non-integer numeric literal diagnostic in {errors:?}"
-    );
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -35273,40 +35264,15 @@ fn assert_unsupported_math_member_calls_rejection_json(errors: &[Value]) {
     );
 }
 
-fn assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("Math.ceil") || stderr.contains("Math.trunc"),
-        "stderr: {stderr}"
-    );
-    assert!(
-        stderr.contains("non-integer numeric literals"),
-        "stderr: {stderr}"
-    );
-}
-
-fn assert_non_integer_numeric_literals_in_math_member_calls_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| {
-            error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("non-integer numeric literals")
-        }),
-        "missing non-integer numeric literal diagnostic in {errors:?}"
-    );
-}
-
 #[test]
-fn run_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn run_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.ceil(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -35315,17 +35281,19 @@ fn run_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn json_run_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn json_run_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.ceil(1.6));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const alias = value; console.log(Math.ceil(alias));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -35336,23 +35304,21 @@ fn json_run_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_inpu
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_non_integer_numeric_literals_in_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn test_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn test_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('non-integer math', () => { console.log(Math.ceil(1.6)); });\n",
+        "Kali.test('non-integer math', () => { const value = 1.6; const alias = value; console.log(Math.ceil(alias)); });\n",
     )
     .expect("write source");
 
@@ -35363,19 +35329,17 @@ fn test_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() 
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_non_integer_numeric_literals_in_math_member_calls_rejection_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn json_test_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
+fn json_test_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('non-integer math', () => { console.log(Math.ceil(1.6)); });\n",
+        "Kali.test('non-integer math', () => { const value = 1.6; const alias = value; console.log(Math.ceil(alias)); });\n",
     )
     .expect("write source");
 
@@ -35388,14 +35352,12 @@ fn json_test_rejects_non_integer_numeric_literals_in_math_member_calls_in_js_inp
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_non_integer_numeric_literals_in_math_member_calls_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]

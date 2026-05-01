@@ -1846,6 +1846,8 @@ impl<'a> FunctionEmitter<'a> {
                     (value + 0.5).floor()
                 }
             }
+            "trunc" => value.trunc(),
+            "ceil" => value.ceil(),
             "floor" => value.floor(),
             _ => return None,
         };

@@ -2848,7 +2848,7 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
 }
 
 #[test]
-fn test_resolution_rejects_non_integer_numeric_literals_in_math_member_calls() {
+fn test_resolution_supports_non_integer_numeric_literals_in_math_ceil_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
@@ -2861,18 +2861,15 @@ fn test_resolution_rejects_non_integer_numeric_literals_in_math_member_calls() {
     })];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
-    assert_eq!(
-        result.diagnostics[0].code,
-        Some(e5::FEATURE_UNAVAILABLE as u32)
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
     );
-    assert!(result.diagnostics[0]
-        .message
-        .contains("non-integer numeric literals"));
 }
 
 #[test]
-fn test_resolution_rejects_non_integer_numeric_literals_in_math_trunc_member_calls() {
+fn test_resolution_supports_non_integer_numeric_literals_in_math_trunc_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
@@ -2885,14 +2882,11 @@ fn test_resolution_rejects_non_integer_numeric_literals_in_math_trunc_member_cal
     })];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
-    assert_eq!(
-        result.diagnostics[0].code,
-        Some(e5::FEATURE_UNAVAILABLE as u32)
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
     );
-    assert!(result.diagnostics[0]
-        .message
-        .contains("non-integer numeric literals"));
 }
 
 #[test]

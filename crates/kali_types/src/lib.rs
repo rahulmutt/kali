@@ -1156,6 +1156,13 @@ impl TypeContext {
                 return;
             }
 
+            if self
+                .resolve_math_round_like_static_literal_value(method, expr.args.first())
+                .is_some()
+            {
+                return;
+            }
+
             if expr
                 .args
                 .iter()
