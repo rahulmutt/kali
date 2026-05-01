@@ -28,7 +28,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Promote nullish coalescing `??` and currently unsupported `Math` members only with runtime/checker/codegen coverage.
 - Keep unsupported built-ins rejected explicitly rather than lowering to placeholders.
 - Mirror accepted and rejected cases across TS/JS and JSON-output paths where user-visible.
-- Progress note: `Math.floor` now has integer-only smoke coverage; `Math.round` now also has integer-only smoke coverage; `Math.sqrt` now has a statically-known perfect-square integer literal path; `Math.cbrt` now has a statically-known perfect-cube integer literal path; `Math.pow` now has an integer-exponent path with checker/codegen/runtime smoke coverage on positive integer literals; nullish coalescing `??` is now implemented and covered across direct and browser-targeted smoke paths; `Promise.allSettled` now has runtime/checker/codegen coverage across standalone, browser-targeted, and Node smoke paths.
+- Progress note: `Math.floor` now has integer-only smoke coverage; `Math.round` now also has integer-only smoke coverage; `Math.sqrt` now has a statically-known perfect-square integer literal path; `Math.cbrt` now has a statically-known perfect-cube integer literal path; `Math.pow` now has an integer-exponent path with checker/codegen/runtime smoke coverage on positive integer literals, plus browser-bundle smoke coverage on both TS and `.js` input; nullish coalescing `??` is now implemented and covered across direct and browser-targeted smoke paths; `Promise.allSettled` now has runtime/checker/codegen coverage across standalone, browser-targeted, and Node smoke paths.
 
 ### 11.3 Dynamic loading and module semantics
 
