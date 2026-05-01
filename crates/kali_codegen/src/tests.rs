@@ -888,7 +888,7 @@ fn supported_math_log_member_lowering_is_available_for_exact_one_literals() {
 
 #[test]
 fn unsupported_math_exp_member_reports_feature_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.exp(1));");
+    let program = parse_and_lower_lir("console.log(Math.exp(2));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -902,7 +902,7 @@ fn unsupported_math_exp_member_reports_feature_unavailable() {
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
                 && diagnostic
                     .message
-                    .contains("Math.exp is unavailable in the current phase")
+                    .contains("Math.exp is unavailable unless the argument is a statically-known zero numeric literal")
         }),
         "expected an unavailable Math.exp diagnostic: {:?}",
         result.diagnostics
@@ -929,7 +929,7 @@ fn unsupported_math_log_member_reports_feature_unavailable() {
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
                 && diagnostic
                     .message
-                    .contains("Math.log is unavailable in the current phase")
+                    .contains("Math.log is unavailable unless the argument is a statically-known one numeric literal")
         }),
         "expected an unavailable Math.log diagnostic: {:?}",
         result.diagnostics
