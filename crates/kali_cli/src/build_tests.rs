@@ -1478,6 +1478,51 @@ fn build_source_file_supports_math_floor_const_numeric_alias_chain_in_browser_ap
     );
 }
 
+fn assert_build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const log2Value = 8; const log2Alias = log2Value; console.log(Math.log2(log2Alias));\nconst log10Value = 1000; const log10Alias = log10Value; console.log(Math.log10(log10Alias));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.log2/log10 const alias chain should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_js_input() {
+    assert_build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_ts_input() {
+    assert_build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_for_of_identifier_binding_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
