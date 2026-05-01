@@ -1800,6 +1800,25 @@ fn deno_cwd_member_calls_lower_to_runtime_cwd_import() {
 }
 
 #[test]
+fn deno_chdir_member_calls_lower_to_runtime_cwd_set_import() {
+    let program = parse_and_lower_lir("Deno.chdir(\"nested\");");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    assert!(printed.contains("import \"kali:rt\" \"cwd_set\""));
+}
+
+#[test]
 fn process_cwd_member_calls_lower_to_runtime_cwd_import() {
     let program = parse_and_lower_lir("console.log(process.cwd());");
     let mut ctx = CodegenCtx::new(TargetConfig {
