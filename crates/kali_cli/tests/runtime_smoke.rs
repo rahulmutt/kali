@@ -159,7 +159,7 @@ fn late_object_model_source() -> &'static str {
 }
 
 fn late_object_model_own_property_source() -> &'static str {
-    "Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis.Object[\"hasOwn\"]({}, \"a\"); globalThis[\"Object\"].hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\");"
+    "Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis.Object[\"hasOwn\"]({}, \"a\"); globalThis[\"Object\"].hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"]({}, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\");"
 }
 
 fn broader_intl_source() -> &'static str {
@@ -5798,7 +5798,7 @@ fn smoke_rejects_late_object_model_own_property_helpers_in_js_input() {
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["success"], false);
                 let errors = json["errors"].as_array().expect("errors array");
-                assert_eq!(errors.len(), 11, "unexpected errors: {errors:?}");
+                assert_eq!(errors.len(), 12, "unexpected errors: {errors:?}");
                 assert!(errors.iter().all(|error| error["code"] == "E5506"));
                 let messages = errors
                     .iter()
@@ -5809,6 +5809,7 @@ fn smoke_rejects_late_object_model_own_property_helpers_in_js_input() {
                     "globalThis.Object.hasOwn",
                     "Object.prototype.hasOwnProperty.call",
                     "globalThis.Object.prototype.hasOwnProperty.call",
+                    r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
                 ] {
                     assert!(
                         messages.iter().any(|message| message.contains(expected)),
@@ -5823,6 +5824,7 @@ fn smoke_rejects_late_object_model_own_property_helpers_in_js_input() {
                     "globalThis.Object.hasOwn",
                     "Object.prototype.hasOwnProperty.call",
                     "globalThis.Object.prototype.hasOwnProperty.call",
+                    r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#,
                 ] {
                     assert!(
                         stderr.contains(expected),
