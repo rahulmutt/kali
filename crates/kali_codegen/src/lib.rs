@@ -2565,14 +2565,22 @@ impl<'a> FunctionEmitter<'a> {
 
     fn for_of_binding_name(&self, node: &LirNode) -> Option<String> {
         let left = node.children.first().copied()?;
-        let left_node = self.node(left);
-        if left_node.children.is_empty() {
-            return left_node.text.clone();
+        self.for_of_binding_name_from_node(left)
+    }
+
+    fn for_of_binding_name_from_node(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(id);
+        if node.children.is_empty() {
+            return node.text.clone();
         }
 
-        if matches!(left_node.text.as_deref(), Some("const" | "let" | "var")) {
-            let declarator = left_node.children.first().copied()?;
+        if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
+            let declarator = node.children.first().copied()?;
             return self.node(declarator).text.clone();
+        }
+
+        if node.text.is_none() && node.children.len() == 1 {
+            return self.for_of_binding_name_from_node(node.children[0]);
         }
 
         None

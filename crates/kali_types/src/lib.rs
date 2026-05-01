@@ -624,7 +624,22 @@ impl TypeContext {
     }
 
     fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
-        matches!(expression, Expression::Identifier(_))
+        match expression {
+            Expression::Identifier(_) => true,
+            Expression::ParenthesizedExpression(expr) => {
+                self.is_simple_for_of_binding_expression(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.is_simple_for_of_binding_expression(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.is_simple_for_of_binding_expression(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.is_simple_for_of_binding_expression(&expr.expression)
+            }
+            _ => false,
+        }
     }
 
     fn resolve_switch_cases(&mut self, cases: &[SwitchCase]) {
