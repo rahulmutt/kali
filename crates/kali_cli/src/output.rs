@@ -952,14 +952,42 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    match object.get("override") {
-        Some(Value::Null) | Some(Value::String(_)) => {}
+    let source = match object.get("source") {
+        Some(Value::String(value)) if matches!(value.as_str(), "env" | "auto") => value,
+        Some(other) => {
+            return Err(format!(
+                "doctor browserHarness source must be `env` or `auto`, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    };
+
+    let override_value = match object.get("override") {
+        Some(Value::Null) | Some(Value::String(_)) => {
+            object.get("override").expect("validated above")
+        }
         Some(other) => {
             return Err(format!(
                 "doctor browserHarness override must be string or null, got {other}"
             ))
         }
         None => unreachable!("validated above"),
+    };
+
+    match (source.as_str(), override_value) {
+        ("env", Value::String(_)) => {}
+        ("auto", Value::Null) => {}
+        ("env", other) => {
+            return Err(format!(
+                "doctor browserHarness override must be a string when source is `env`, got {other}"
+            ))
+        }
+        ("auto", other) => {
+            return Err(format!(
+                "doctor browserHarness override must be null when source is `auto`, got {other}"
+            ))
+        }
+        _ => unreachable!("validated above"),
     }
 
     match object.get("command") {
