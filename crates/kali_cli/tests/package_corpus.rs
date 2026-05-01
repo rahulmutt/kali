@@ -4348,6 +4348,56 @@ fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_depl
 }
 
 #[test]
+fn browser_corpus_packages_with_browser_string_entries_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_browser_string_package(
+            dir.path(),
+            package,
+            &format!(
+                "import assert from 'node:assert';\nassert.ok(true);\nexport default function root() {{ return '{package}:node'; }}\n",
+                package = package
+            ),
+            &format!(
+                "export default function root() {{ return '{package}:browser'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser string-entry package {package} should resolve its browser override on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-entry package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
 fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_through_host() {
     for package in ["react", "preact", "vue"] {
         let dir = tempdir().expect("tempdir");
@@ -4450,6 +4500,52 @@ fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_t
         assert!(
             build.status.success(),
             "browser string-exports package {package} should be deployable-through-host via bundle on js input\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build.stdout),
+            String::from_utf8_lossy(&build.stderr)
+        );
+    }
+}
+
+#[test]
+fn browser_corpus_packages_with_string_exports_remain_checkable_and_deployable_through_host_on_js_input_when_the_browser_api_surface_is_inherited(
+) {
+    for package in ["react", "preact", "vue"] {
+        let dir = tempdir().expect("tempdir");
+        write_manifest(dir.path(), Some("browser"));
+        write_string_exports_package(
+            dir.path(),
+            package,
+            &format!(
+                "export default function root() {{ return '{package}:exports'; }}\n",
+                package = package
+            ),
+        );
+        write_types_stub_package(dir.path(), package);
+        let source_path = dir.path().join("main.js");
+        fs::write(
+            &source_path,
+            format!(
+                "import root from '{package}';\nconsole.log(root());\n",
+                package = package
+            ),
+        )
+        .expect("write browser source");
+
+        let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+        assert!(
+            check.status.success(),
+            "browser string-exports package {package} should resolve its exports string on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check.stdout),
+            String::from_utf8_lossy(&check.stderr)
+        );
+
+        let build = run_kali(
+            dir.path(),
+            ["build", "--bundle", source_path.to_str().unwrap()],
+        );
+        assert!(
+            build.status.success(),
+            "browser string-exports package {package} should be deployable-through-host via bundle on js input when the browser api surface is inherited\nstdout: {}\nstderr: {}",
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );

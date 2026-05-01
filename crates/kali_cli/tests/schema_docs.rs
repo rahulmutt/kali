@@ -2519,8 +2519,16 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "browser string-entry `.js` corpus row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | browser string-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited string-entry `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | browser string-export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
             "browser string-export `.js` corpus row should be recorded in the package corpus matrix",
+        ),
+        (
+            "| npm-style package corpus | browser string-export packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
+            "browser inherited string-export `.js` corpus row should be recorded in the package corpus matrix",
         ),
         (
             "| npm-style package corpus | browser-condition export packages with `.js` entrypoints | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |",
@@ -2759,6 +2767,18 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_row_once(
         browser_string_export_inherited_row,
         "browser runtime inherited-browser string-export corpus row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_entry_inherited_check_row =
+        "| npm-style package corpus | browser string-entry packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_entry_inherited_check_row,
+        "browser inherited string-entry check/build row should be recorded exactly once in the package corpus matrix",
+    );
+    let browser_string_export_inherited_check_row =
+        "| npm-style package corpus | browser string-export packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
+    assert_row_once(
+        browser_string_export_inherited_check_row,
+        "browser inherited string-export check/build row should be recorded exactly once in the package corpus matrix",
     );
     let browser_string_web_baseline_inherited_check_row =
         "| npm-style package corpus | browser string/web-baseline packages with `.js` input and inherited browser `apiSurface` | browser-targeted | `check`, `build --bundle` | checkable / buildable / deployable-through-host | `crates/kali_cli/tests/package_corpus.rs` |";
@@ -3197,6 +3217,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
     assert_note_once(
         "The browser-targeted browser-blocked package row now also has an inherited browser `apiSurface` companion slice on `.js` input for `check` / `build --bundle`, keeping the browser exclusion contract aligned with the runtime harness.",
         "package corpus matrix should document browser blocked-package inherited browser apiSurface coverage",
+    );
+    assert_note_once(
+        "The browser-targeted string-entry and string-export rows also have inherited browser `apiSurface` companion slices on `.js` input, keeping the browser deployability evidence aligned with the runtime harness.",
+        "package corpus matrix should document browser string-entry and string-export inherited check/build coverage",
     );
     assert_note_once(
         "The browser runtime string-entry and string-export rows also carry JSON-output coverage on the direct and inherited browser harness variants.",
