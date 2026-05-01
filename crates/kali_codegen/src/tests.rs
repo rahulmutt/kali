@@ -480,6 +480,33 @@ fn supported_math_cbrt_member_lowering_is_available_for_perfect_cube_integer_lit
 }
 
 #[test]
+fn supported_math_log2_member_lowering_is_available_for_positive_power_of_two_integer_literals() {
+    let program = parse_and_lower_lir("console.log(Math.log2(8));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+}
+
+#[test]
 fn unsupported_math_sqrt_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.sqrt(1.6));");
     let mut ctx = CodegenCtx::new(TargetConfig {
@@ -498,6 +525,31 @@ fn unsupported_math_sqrt_member_reports_feature_unavailable() {
                     .contains("Math.sqrt is unavailable unless the argument is a statically-known perfect-square integer literal")
         }),
         "expected an unavailable Math-member diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn unsupported_math_log2_member_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.log2(12));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("positive power-of-two")
+        }),
+        "expected an unavailable Math.log2 diagnostic: {:?}",
         result.diagnostics
     );
 

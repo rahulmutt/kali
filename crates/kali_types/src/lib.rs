@@ -1007,12 +1007,14 @@ impl TypeContext {
             return;
         };
 
-        if method == "sqrt" || method == "cbrt" {
+        if method == "sqrt" || method == "cbrt" || method == "log2" {
             let literal_root = expr.args.first().and_then(|arg| {
                 if method == "sqrt" {
                     self.resolve_math_sqrt_static_literal_root(arg)
-                } else {
+                } else if method == "cbrt" {
                     self.resolve_math_cbrt_static_literal_root(arg)
+                } else {
+                    self.resolve_math_log2_static_literal_exponent(arg)
                 }
             });
             if literal_root.is_some() {
@@ -1021,8 +1023,10 @@ impl TypeContext {
 
             let shape = if method == "sqrt" {
                 "perfect-square"
-            } else {
+            } else if method == "cbrt" {
                 "perfect-cube"
+            } else {
+                "positive power-of-two"
             };
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1212,6 +1216,39 @@ impl TypeContext {
             }
             Expression::ChainExpression(expr) => {
                 self.resolve_math_cbrt_static_literal_root(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_math_log2_static_literal_exponent(&self, expression: &Expression) -> Option<i64> {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => {
+                if value.fract() != 0.0 || *value <= 0.0 || *value > u64::MAX as f64 {
+                    return None;
+                }
+
+                let value = *value as u64;
+                if value.is_power_of_two() {
+                    Some(i64::from(value.trailing_zeros()))
+                } else {
+                    None
+                }
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_math_log2_static_literal_exponent(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_math_log2_static_literal_exponent(&expr.argument)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_math_log2_static_literal_exponent(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_math_log2_static_literal_exponent(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_math_log2_static_literal_exponent(&expr.expression)
             }
             _ => None,
         }

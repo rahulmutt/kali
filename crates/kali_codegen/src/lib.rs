@@ -1270,6 +1270,43 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(method) = self.math_member_method(&callee_node) {
+            if method == "log2" {
+                let mut args = node.children.iter().skip(1);
+                let Some(value) = args.next() else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.log2 is unavailable unless the argument is a statically-known positive power-of-two integer literal in the current phase; use an explicit constant or the later compatibility path",
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                let Some(exponent) = self.math_log2_constant_exponent(*value) else {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "Math.log2 is unavailable unless the argument is a statically-known positive power-of-two integer literal in the current phase; use an explicit constant or the later compatibility path",
+                    ));
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                };
+
+                function.instruction(&Instruction::I64Const(exponent));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if method == "sqrt" || method == "cbrt" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
@@ -1700,6 +1737,21 @@ impl<'a> FunctionEmitter<'a> {
         let root = (value as f64).cbrt().round() as i64;
         if i128::from(root).pow(3) == i128::from(value) {
             Some(root)
+        } else {
+            None
+        }
+    }
+
+    fn math_log2_constant_exponent(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        if value <= 0 {
+            return None;
+        }
+
+        let value = value as u64;
+        if value.is_power_of_two() {
+            Some(i64::from(value.trailing_zeros()))
         } else {
             None
         }

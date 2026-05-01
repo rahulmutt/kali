@@ -18,6 +18,7 @@ The current repository has already implemented the historical MVP and several la
 - Execution/reporting: `run`, `test`, `test --coverage`, stable JSON envelopes, public effect reports, registry effect/audit reports, and schema-v1 payload validation.
 - Host/API slices: Deno-oriented default surface, documented Node subsets, browser-targeted `check` / `build --bundle`, and browser-harness-assisted `run` / `test` paths where configured.
 - Package evidence: default standalone, browser, Node, Deno/JSR, registry-analysis, and published-bin-entrypoint contrast coverage.
+- Runtime built-in math evidence: `Math.max`, `Math.min`, `Math.abs`, `Math.sign`, `Math.imul`, `Math.round`, `Math.clz32`, `Math.trunc`, `Math.ceil`, `Math.floor`, `Math.sqrt`, `Math.cbrt`, `Math.pow`, and the new `Math.log2` exact power-of-two literal path are covered by checker/codegen/runtime smoke slices in the current repo, with browser bundle coverage on the documented subset.
 - Optimization evidence: real `fast`, `release`, and `release-advanced` optimization slices; deterministic PGO profile validation; version-pinned benchmark fixtures.
 - Verification evidence: Lean proof tree and proof-backed status for the published boundary only.
 
