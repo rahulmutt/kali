@@ -1110,13 +1110,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if matches!(callee_node.text.as_deref(), Some("trunc") | Some("ceil"))
-            && callee_node
-                .children
-                .first()
-                .copied()
-                .and_then(|object| self.node(object).text.as_deref())
-                == Some("Math")
+        if matches!(
+            callee_node.text.as_deref(),
+            Some("trunc") | Some("ceil") | Some("floor")
+        ) && callee_node
+            .children
+            .first()
+            .copied()
+            .and_then(|object| self.node(object).text.as_deref())
+            == Some("Math")
         {
             let method = callee_node.text.as_deref().unwrap_or("trunc").to_string();
             let mut args = node.children.iter().skip(1);
@@ -1152,7 +1154,7 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(method) = self.math_member_method(&callee_node) {
             if !matches!(
                 method,
-                "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc"
+                "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc" | "floor"
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,

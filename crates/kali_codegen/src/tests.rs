@@ -364,7 +364,7 @@ fn supported_math_trunc_member_reports_non_integer_numeric_literals_as_unavailab
 }
 
 #[test]
-fn unsupported_math_member_reports_feature_unavailable() {
+fn supported_math_floor_member_lowering_is_available() {
     let program = parse_and_lower_lir("console.log(Math.floor(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -374,14 +374,11 @@ fn unsupported_math_member_reports_feature_unavailable() {
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
-        result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic
-                    .message
-                    .contains("Math.floor is unavailable in the current phase")
-        }),
-        "expected an unavailable Math-member diagnostic: {:?}",
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 

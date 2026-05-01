@@ -962,6 +962,27 @@ fn test_resolution_reports_missing_re_export_sources_in_jsx_and_tsx_input() {
 }
 
 #[test]
+fn test_resolution_reports_math_floor_as_available_for_integer_inputs() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "floor".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_nullish_coalescing_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -2371,39 +2392,24 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
 }
 
 #[test]
-fn test_resolution_reports_unsupported_math_member_calls_as_unavailable() {
+fn test_resolution_reports_unsupported_math_round_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
-    let statements = vec![
-        Statement::ExpressionStatement(ExpressionStatement {
-            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
-                callee: Expression::MemberExpression(Box::new(MemberExpression {
-                    object: Expression::Identifier("Math".to_string()),
-                    property: "floor".to_string(),
-                })),
-                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
-            }))),
-        }),
-        Statement::ExpressionStatement(ExpressionStatement {
-            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
-                callee: Expression::MemberExpression(Box::new(MemberExpression {
-                    object: Expression::Identifier("Math".to_string()),
-                    property: "round".to_string(),
-                })),
-                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
-            }))),
-        }),
-    ];
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "round".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+        }))),
+    })];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2);
+    assert_eq!(result.diagnostics.len(), 1);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Math.floor")));
     assert!(result
         .diagnostics
         .iter()
