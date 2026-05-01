@@ -2260,10 +2260,12 @@ impl<'a> FunctionEmitter<'a> {
 
         let array = self.node(array_id).clone();
         if !self.is_array_literal(&array)
-            || !array
-                .children
-                .iter()
-                .all(|child| matches!(self.node(*child).kind, LirNodeKind::Literal))
+            || !array.children.iter().all(|child| {
+                self.resolve_literal_aggregate(*child)
+                    .is_some_and(|resolved| {
+                        matches!(self.node(resolved).kind, LirNodeKind::Literal)
+                    })
+            })
         {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

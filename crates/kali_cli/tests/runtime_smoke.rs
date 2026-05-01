@@ -26211,6 +26211,32 @@ fn run_supports_array_iteration_semantics_for_now_in_js_input() {
 }
 
 #[test]
+fn run_supports_array_iteration_semantics_with_const_alias_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const value = 1; const alias = value; for (const item of [alias]) {
+  console.log(item);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_for_await_array_iteration_semantics_for_now() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -26256,6 +26282,33 @@ fn run_supports_for_await_array_iteration_semantics_for_now_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
 }
+
+#[test]
+fn run_supports_for_await_array_iteration_semantics_with_const_alias_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const value = 1; const alias = value; for await (const item of [alias]) {
+  console.log(item);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
+}
+
 #[test]
 fn run_supports_math_max_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
@@ -36338,6 +36391,33 @@ fn run_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_in
 }
 
 #[test]
+fn run_supports_for_of_array_iteration_with_const_alias_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const value = 1; const alias = value; for (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -36484,6 +36564,33 @@ fn run_supports_for_await_array_iteration_in_browser_api_surface_with_harness_js
         errors.is_empty(),
         "errors array should be empty: {errors:?}"
     );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_with_const_alias_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const value = 1; const alias = value; for await (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
 }
 
 #[test]

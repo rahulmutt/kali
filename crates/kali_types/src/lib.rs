@@ -576,7 +576,8 @@ impl TypeContext {
             Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
                 matches!(
                     element,
-                    Some(ExpressionOrSpread::Expression(Expression::Literal(_)))
+                    Some(ExpressionOrSpread::Expression(expr))
+                        if self.is_static_array_iteration_element(expr)
                 )
             }),
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
@@ -591,6 +592,12 @@ impl TypeContext {
             }
             _ => false,
         }
+    }
+
+    fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
+        matches!(expression, Expression::Literal(_))
+            || matches!(expression, Expression::Identifier(_)
+                if self.resolve_static_numeric_literal_value(expression).is_some())
     }
 
     fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
