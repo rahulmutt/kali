@@ -2639,6 +2639,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node semver bin-entrypoint row should be recorded in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | host-heavier package-content probe (`@mariozechner/pi-coding-agent`) with `.js` input and inherited Node `apiSurface` | Node | `check`, `build`, `run`, `test` | checkable / buildable / executable / testable | `crates/kali_cli/tests/package_corpus.rs` |",
+            "node inherited package-content corpus row should be recorded in the package corpus matrix",
+        ),
+        (
             "| binary-entrypoint probe | `@mariozechner/pi-coding-agent` bin entrypoints | Node | `run` | executable on the Node surface; rejected on the default standalone surface | `crates/kali_cli/tests/package_corpus.rs` |",
             "node pi-coding-agent bin-entrypoint row should be recorded in the package corpus matrix",
         ),

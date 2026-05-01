@@ -13132,3 +13132,71 @@ fn node_corpus_executes_semver_style_package_bin_entrypoint() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn inherited_node_corpus_packages_remain_checkable_buildable_executable_and_testable_on_the_node_surface_on_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_manifest(dir.path(), Some("node"));
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write inherited node package source");
+
+    let check = run_kali(dir.path(), ["check", source_path.to_str().unwrap()]);
+    assert!(
+        check.status.success(),
+        "pi-coding-agent corpus package content should be checkable on the inherited Node surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(dir.path(), ["build", source_path.to_str().unwrap()]);
+    assert!(
+        build.status.success(),
+        "pi-coding-agent corpus package content should be buildable on the inherited Node surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+
+    let run = run_kali(dir.path(), ["run", source_path.to_str().unwrap()]);
+    assert!(
+        run.status.success(),
+        "pi-coding-agent corpus package content should be executable on the inherited Node surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n");
+
+    let test_source = dir.path().join("tests").join("pi-coding-agent.test.js");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        r#"import codingAgent from '../main.js';
+Kali.test('pi-coding-agent corpus', () => {
+  console.log(codingAgent());
+});
+"#,
+    )
+    .expect("write inherited node package test source");
+
+    let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+    assert!(
+        test.status.success(),
+        "pi-coding-agent corpus package content should be testable on the inherited Node surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(test_stdout.contains("ok 1"), "stdout: {test_stdout}");
+    assert!(test_stdout.contains("0"), "stdout: {test_stdout}");
+}
