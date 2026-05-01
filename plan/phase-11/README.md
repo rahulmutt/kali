@@ -21,7 +21,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Implement generator lowering only when `yield` / `yield*`, async-generator interactions, and runtime state machines have conformance coverage.
 - Implement `for...of` and `for await...of` only with iterator protocol semantics, error/finalization behavior, and browser/Node/Deno evidence.
 - Until implemented, keep parser acceptance paired with canonical `E5506` gates.
-- Progress note: the limited literal-array `for...of` lowering slice is now live on the supported `check` / `build` / `run` / `test` paths, including browser-targeted smoke coverage in TS and `.js` input; the current slice covers literal arrays with literal elements and simple variable bindings, including simple const-bound aliases and alias chains to those arrays in both TS and `.js` input, while `for await...of` and the broader iterator-protocol path remain gated.
+- Progress note: the limited literal-array `for...of` lowering slice is now live on the supported `check` / `build` / `run` / `test` paths, including browser-targeted smoke coverage in TS and `.js` input; the current slice covers literal arrays with literal elements and simple variable bindings, including simple const-bound aliases and alias chains to those arrays in both TS and `.js` input, and the browser-harness `run` lane now mirrors the alias and alias-chain smoke cases in both TS and `.js` input, while `for await...of` and the broader iterator-protocol path remain gated.
 
 ### 11.2 Missing expression and built-in semantics
 
