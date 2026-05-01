@@ -55275,6 +55275,48 @@ fn package_audit_ignores_inherited_node_context() {
 }
 
 #[test]
+fn package_audit_ignores_top_level_sandbox_config() {
+    let dir = tempdir().expect("tempdir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "sandbox": "./missing.policy.json"
+}"#,
+    )
+    .expect("write manifest");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert!(
+        hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("no security findings were computed"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
 fn package_audit_ignores_top_level_sandbox_config_in_json_output() {
     let dir = tempdir().expect("tempdir");
     fs::write(
