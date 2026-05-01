@@ -2297,15 +2297,6 @@ fn test_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_inp
     );
 }
 
-fn assert_browser_late_promise_all_settled_support_text(stderr: &str) {
-    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(!stderr.contains("Promise.allSettled"), "stderr: {stderr}");
-}
-
-fn assert_browser_late_promise_all_settled_support_json(errors: &[Value]) {
-    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
-}
-
 #[test]
 fn check_rejects_fully_bracketed_promise_all_settled_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -2397,7 +2388,7 @@ fn check_supports_promise_all_settled_in_browser_api_surface_js_input_in_json() 
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -2424,7 +2415,7 @@ fn build_supports_promise_all_settled_in_browser_bundle_js_input_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -2473,7 +2464,7 @@ fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -2530,7 +2521,7 @@ fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_inpu
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]

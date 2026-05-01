@@ -34445,7 +34445,7 @@ fn json_check_supports_promise_all_settled_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -34488,7 +34488,7 @@ fn json_run_supports_promise_all_settled_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -34531,7 +34531,7 @@ fn json_check_supports_promise_all_settled_in_ts_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -34574,7 +34574,7 @@ fn json_run_supports_promise_all_settled_in_ts_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -34625,7 +34625,7 @@ fn json_test_supports_promise_all_settled_in_ts_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -34730,8 +34730,7 @@ fn json_test_supports_promise_all_settled_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -37213,7 +37212,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_ts_i
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
     assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
 }
 
@@ -37298,7 +37297,7 @@ fn run_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_in
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
     assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
 }
 
@@ -37356,7 +37355,7 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
     assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
 }
 
@@ -39397,7 +39396,7 @@ fn check_supports_for_of_array_iteration_lowering_in_browser_analysis_context_in
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
-    let errors = json["errors"].as_array().expect("errors array");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
     assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
 }
 
