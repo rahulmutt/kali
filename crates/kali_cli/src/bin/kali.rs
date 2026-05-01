@@ -2528,8 +2528,16 @@ const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   return instance.instance;
 }});
 
+const NULL_VALUE_TAG = -9223372036854775808n;
+const UNDEFINED_VALUE_TAG = -9223372036854775807n;
 function formatConsoleValue(val) {{
   if (typeof val === 'bigint') {{
+    if (val === NULL_VALUE_TAG) {{
+      return 'null';
+    }}
+    if (val === UNDEFINED_VALUE_TAG) {{
+      return 'undefined';
+    }}
     if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
       const offset = Number((val >> 32n) & 0x7fffffffn);
       const length = Number(val & 0xffffffffn);
@@ -2700,8 +2708,16 @@ const instancePromise = instantiate(defaultImportObject).then((instance) => {{
   return instance.instance;
 }});
 
+const NULL_VALUE_TAG = -9223372036854775808n;
+const UNDEFINED_VALUE_TAG = -9223372036854775807n;
 function formatConsoleValue(val) {{
   if (typeof val === 'bigint') {{
+    if (val === NULL_VALUE_TAG) {{
+      return 'null';
+    }}
+    if (val === UNDEFINED_VALUE_TAG) {{
+      return 'undefined';
+    }}
     if ((val & 0x8000000000000000n) !== 0n && wasmMemory !== null) {{
       const offset = Number((val >> 32n) & 0x7fffffffn);
       const length = Number(val & 0xffffffffn);

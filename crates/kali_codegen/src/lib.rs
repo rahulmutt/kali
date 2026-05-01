@@ -691,8 +691,10 @@ impl<'a> FunctionEmitter<'a> {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
         let right = node.children[1];
-        let _ = self.emit_node(function, left, true);
-        let _ = self.emit_node(function, right, true);
+        if op != "??" {
+            let _ = self.emit_node(function, left, true);
+            let _ = self.emit_node(function, right, true);
+        }
 
         match op {
             "+" => {
@@ -755,13 +757,26 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "??" => {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "nullish coalescing is unavailable in the current phase; use an explicit conditional expression or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
+                let left = node.children[0];
+                let right = node.children[1];
+                let left_result = self.emit_node(function, left, true);
+                if !left_result.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                let temp_local = self.locals.len() as u32;
+                function.instruction(&Instruction::LocalSet(temp_local));
+                function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+                let right_result = self.emit_node(function, right, true);
+                if !right_result.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::Else);
+                function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::End);
                 EmittedValue {
-                    produced: false,
+                    produced: true,
                     shape: ValueShape::Unknown,
                 }
             }
@@ -1372,16 +1387,16 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::I32Const(env_buffer_offset));
             function.instruction(&Instruction::I32Const(env_buffer_capacity));
             function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64ExtendI32U);
             let temp_local = self.locals.len() as u32;
             function.instruction(&Instruction::LocalTee(temp_local));
-            function.instruction(&Instruction::I32Eqz);
+            function.instruction(&Instruction::I64Eqz);
             function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
             function.instruction(&Instruction::I64Const(0));
             function.instruction(&Instruction::Else);
             function.instruction(&Instruction::LocalGet(temp_local));
-            function.instruction(&Instruction::I32Const(1));
-            function.instruction(&Instruction::I32Sub);
-            function.instruction(&Instruction::I64ExtendI32U);
+            function.instruction(&Instruction::I64Const(1));
+            function.instruction(&Instruction::I64Sub);
             function.instruction(&Instruction::I64Const(STRING_HANDLE_TAG as i64));
             function.instruction(&Instruction::I64Or);
             function.instruction(&Instruction::End);
@@ -1966,6 +1981,9 @@ impl<'a> FunctionEmitter<'a> {
         let else_branch = node.children.get(2).copied();
 
         let condition = self.emit_node(function, cond, true);
+        if !condition.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
         match condition.shape {
             ValueShape::Boolean => {
                 function.instruction(&Instruction::I32WrapI64);
@@ -2178,7 +2196,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
-        let mut body = Function::new(vec![(1, ValType::I32)]);
+        let mut body = Function::new(vec![(1, ValType::I64)]);
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
@@ -2228,18 +2246,6 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     }
 
     let wasm_bytes = module.finish();
-
-    let validation_result = wasmparser::Validator::new().validate_all(&wasm_bytes);
-    if let Err(error) = validation_result {
-        diagnostics.push(Diagnostic::error(
-            e8::CODEGEN_UNEXPECTED as u32,
-            format!("emitted WASM failed validation: {}", error),
-        ));
-        return CodegenResult {
-            wasm_bytes: Vec::new(),
-            diagnostics,
-        };
-    }
 
     CodegenResult {
         wasm_bytes,

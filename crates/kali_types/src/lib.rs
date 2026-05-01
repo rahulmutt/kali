@@ -597,12 +597,6 @@ impl TypeContext {
             Expression::BinaryExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
-                if expr.operator == "??" {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        "nullish coalescing is unavailable in the current phase; use an explicit conditional expression or the later compatibility path",
-                    ));
-                }
             }
             Expression::UnaryExpression(expr) => self.resolve_expression(&expr.argument),
             Expression::CallExpression(expr) => self.resolve_call_expression(expr),

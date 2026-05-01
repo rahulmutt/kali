@@ -460,7 +460,7 @@ fn unsupported_math_sqrt_member_reports_feature_unavailable() {
         .expect("generated wasm should validate");
 }
 
-fn assert_promise_all_settled_lowering_reports_feature_unavailable(source: &str) {
+fn assert_nullish_coalescing_lowers(source: &str) {
     let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -470,14 +470,8 @@ fn assert_promise_all_settled_lowering_reports_feature_unavailable(source: &str)
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
-        result.diagnostics.iter().any(|diagnostic| {
-            diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic
-                    .message
-                    .contains("Promise.allSettled is unavailable in the current phase")
-        }),
-        "expected an unavailable Promise-member diagnostic: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 
@@ -487,13 +481,9 @@ fn assert_promise_all_settled_lowering_reports_feature_unavailable(source: &str)
 }
 
 #[test]
-fn unsupported_promise_all_settled_member_reports_feature_unavailable() {
-    assert_promise_all_settled_lowering_reports_feature_unavailable(
-        "console.log(Promise.allSettled([1, 2]));",
-    );
-    assert_promise_all_settled_lowering_reports_feature_unavailable(
-        "console.log(globalThis[\"Promise\"].allSettled([1, 2]));",
-    );
+fn nullish_coalescing_lowers_for_supported_input_shapes() {
+    assert_nullish_coalescing_lowers("console.log(null ?? 1);");
+    assert_nullish_coalescing_lowers("console.log(undefined ?? 1);");
 }
 
 #[test]

@@ -33800,21 +33800,6 @@ fn assert_non_literal_dynamic_import_rejection_json(errors: &[Value]) {
     );
 }
 
-fn assert_nullish_coalescing_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("nullish coalescing")),
-        "missing nullish coalescing in {errors:?}"
-    );
-}
-
 fn assert_promise_all_settled_rejection_text(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
@@ -33851,12 +33836,14 @@ fn promise_all_settled_source_variants() -> [&'static str; 10] {
 }
 
 #[test]
-fn check_rejects_nullish_coalescing_in_js_input() {
+fn check_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -33867,20 +33854,19 @@ fn check_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn json_check_rejects_nullish_coalescing_in_js_input() {
+fn json_check_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -33893,14 +33879,12 @@ fn json_check_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -34132,12 +34116,14 @@ fn json_test_rejects_promise_all_settled_in_ts_input() {
 }
 
 #[test]
-fn run_rejects_nullish_coalescing_in_js_input() {
+fn run_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -34148,20 +34134,21 @@ fn run_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
 }
 
 #[test]
-fn json_run_rejects_nullish_coalescing_in_js_input() {
+fn json_run_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -34174,14 +34161,12 @@ fn json_run_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -34258,12 +34243,13 @@ fn check_rejects_promise_all_settled_source_variants_in_js_input() {
 }
 
 #[test]
-fn test_rejects_nullish_coalescing_in_js_input() {
+fn test_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('nullish', () => { const value = null ?? 1; return value; });\n",
+        r#"Kali.test('nullish', () => { const value = null ?? 1; return value; });
+"#,
     )
     .expect("write source");
 
@@ -34274,20 +34260,18 @@ fn test_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn json_test_rejects_nullish_coalescing_in_js_input() {
+fn json_test_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('nullish', () => { const value = null ?? 1; return value; });\n",
+        r#"Kali.test('nullish', () => { const value = null ?? 1; return value; });
+"#,
     )
     .expect("write source");
 
@@ -34300,14 +34284,12 @@ fn json_test_rejects_nullish_coalescing_in_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
@@ -35430,33 +35412,15 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
     }
 }
 
-fn assert_browser_requested_nullish_coalescing_rejection_text(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
-}
-
-fn assert_browser_requested_nullish_coalescing_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("nullish coalescing")),
-        "missing nullish coalescing in {errors:?}"
-    );
-}
-
 #[test]
-fn run_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
+fn run_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -35470,19 +35434,21 @@ fn run_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input()
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_requested_nullish_coalescing_rejection_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
 }
 
 #[test]
-fn run_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input_in_json() {
+fn json_run_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -35498,23 +35464,22 @@ fn run_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input_i
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_requested_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn test_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
+fn test_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('browser nullish', () => { const value = null ?? 1; return value; });\n",
+        r#"Kali.test('browser nullish', () => { const value = null ?? 1; return value; });
+"#,
     )
     .expect("write source");
 
@@ -35528,19 +35493,18 @@ fn test_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input(
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_requested_nullish_coalescing_rejection_text(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn test_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input_in_json() {
+fn json_test_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('browser nullish', () => { const value = null ?? 1; return value; });\n",
+        r#"Kali.test('browser nullish', () => { const value = null ?? 1; return value; });
+"#,
     )
     .expect("write source");
 
@@ -35556,14 +35520,12 @@ fn test_rejects_nullish_coalescing_in_browser_api_surface_with_harness_js_input_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_requested_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]

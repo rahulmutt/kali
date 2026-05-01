@@ -2179,26 +2179,6 @@ fn test_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_inp
     );
 }
 
-fn assert_browser_late_nullish_coalescing_rejection(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("nullish coalescing"), "stderr: {stderr}");
-}
-
-fn assert_browser_late_nullish_coalescing_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("nullish coalescing")),
-        "missing nullish coalescing in {errors:?}"
-    );
-}
-
 fn assert_browser_late_promise_all_settled_rejection_text(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
@@ -2451,12 +2431,14 @@ fn test_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input
 }
 
 #[test]
-fn check_rejects_nullish_coalescing_in_browser_api_surface_js_input() {
+fn check_supports_nullish_coalescing_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -2469,19 +2451,19 @@ fn check_rejects_nullish_coalescing_in_browser_api_surface_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_nullish_coalescing_rejection(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn build_rejects_nullish_coalescing_in_browser_bundle_js_input() {
+fn build_supports_nullish_coalescing_in_browser_bundle_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -2495,19 +2477,19 @@ fn build_rejects_nullish_coalescing_in_browser_bundle_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_nullish_coalescing_rejection(&stderr);
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn check_rejects_nullish_coalescing_in_browser_api_surface_js_input_in_json() {
+fn json_check_supports_nullish_coalescing_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -2522,23 +2504,23 @@ fn check_rejects_nullish_coalescing_in_browser_api_surface_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 #[test]
-fn build_rejects_nullish_coalescing_in_browser_bundle_js_input_in_json() {
+fn json_build_supports_nullish_coalescing_in_browser_bundle_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
+        r#"const value = null ?? 1;
+console.log(value);
+"#,
     )
     .expect("write source");
 
@@ -2554,14 +2536,12 @@ fn build_rejects_nullish_coalescing_in_browser_bundle_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_nullish_coalescing_rejection_json(errors);
+    assert_eq!(json["success"], true);
 }
 
 fn late_eval_compatibility_source() -> &'static str {

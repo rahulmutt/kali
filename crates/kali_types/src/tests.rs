@@ -1004,7 +1004,7 @@ fn test_resolution_reports_math_sqrt_as_available_for_perfect_square_integer_lit
 }
 
 #[test]
-fn test_resolution_reports_nullish_coalescing_as_unavailable() {
+fn test_resolution_allows_nullish_coalescing() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
@@ -1016,17 +1016,10 @@ fn test_resolution_reports_nullish_coalescing_as_unavailable() {
 
     let result = ctx.resolve_statements(&statements);
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        result.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("nullish coalescing")));
 }
 
 #[test]
