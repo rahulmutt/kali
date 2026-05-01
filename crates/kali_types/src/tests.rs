@@ -2452,6 +2452,60 @@ fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_lite
 }
 
 #[test]
+fn test_resolution_supports_math_pow_member_calls_for_integer_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "pow".to_string(),
+            })),
+            args: vec![
+                Expression::Literal(LiteralValue::Number(2.0)),
+                Expression::Literal(LiteralValue::Number(3.0)),
+            ],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_reports_unsupported_math_pow_negative_exponents_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "pow".to_string(),
+            })),
+            args: vec![
+                Expression::Literal(LiteralValue::Number(2.0)),
+                Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
+                    operator: "-".to_string(),
+                    argument: Expression::Literal(LiteralValue::Number(1.0)),
+                })),
+            ],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("negative numeric literals"));
+}
+
+#[test]
 fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -3453,6 +3507,66 @@ fn test_resolution_rejects_for_of_array_iteration_with_identifier_iterable() {
 fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const value of values) { console.log(value); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "values".to_string(),
+                init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(1.0)),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(2.0)),
+                        )),
+                    ],
+                })),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "value".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::Identifier("values".to_string()),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("value".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: false,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_for_of_array_iteration_with_const_alias_in_ts_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
         "const values = [1, 2]; for (const value of values) { console.log(value); }",

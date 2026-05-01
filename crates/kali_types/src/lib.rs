@@ -1033,6 +1033,32 @@ impl TypeContext {
             return;
         }
 
+        if method == "pow" {
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow is unavailable for non-integer numeric literals in the current phase; use an integer-valued exponent or the later compatibility path",
+                ));
+                return;
+            }
+
+            if expr
+                .args
+                .get(1)
+                .is_some_and(|arg| self.contains_negative_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path",
+                ));
+            }
+            return;
+        }
+
         if matches!(
             method,
             "max"
@@ -1091,6 +1117,36 @@ impl TypeContext {
             }
             _ => false,
         }
+    }
+
+    fn resolve_static_numeric_literal_value(&self, expression: &Expression) -> Option<f64> {
+        match expression {
+            Expression::Literal(LiteralValue::Number(value)) => Some(*value),
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_static_numeric_literal_value(&expr.argument)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "-" => self
+                .resolve_static_numeric_literal_value(&expr.argument)
+                .map(|value| -value),
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn contains_negative_numeric_literal(&self, expression: &Expression) -> bool {
+        self.resolve_static_numeric_literal_value(expression)
+            .is_some_and(|value| value < 0.0)
     }
 
     fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {

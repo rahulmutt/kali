@@ -24879,6 +24879,52 @@ fn test_supports_math_max_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn test_supports_math_pow_builtin_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(&source_path, "console.log(Math.pow(2, 3));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("8\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_pow_builtin_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, "console.log(Math.pow(2, 3));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("8\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_math_min_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
@@ -37195,6 +37241,29 @@ fn test_supports_for_of_array_iteration_lowering_in_js_input() {
 fn test_supports_for_of_array_iteration_lowering_with_const_alias_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const value of values) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_of_array_iteration(&stdout);
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_lowering_with_const_alias_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
         "const values = [1, 2]; for (const value of values) { console.log(value); }",

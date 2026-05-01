@@ -34,8 +34,9 @@ const MATH_IMUL_IMPORT_INDEX: u32 = 11;
 const MATH_ROUND_IMPORT_INDEX: u32 = 12;
 const PROCESS_PID_IMPORT_INDEX: u32 = 13;
 const MATH_CLZ32_IMPORT_INDEX: u32 = 14;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 15;
-const FUNCTION_INDEX_OFFSET: u32 = 15;
+const MATH_POW_IMPORT_INDEX: u32 = 15;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 16;
+const FUNCTION_INDEX_OFFSET: u32 = 16;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
@@ -1163,6 +1164,70 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.math_pow_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(base) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+            let Some(exponent) = args.next() else {
+                if !self.emit_integer_math_arg(function, *base, "pow") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                function.instruction(&Instruction::Drop);
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            if self.contains_negative_numeric_literal(*exponent) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
+            if !self.emit_integer_math_arg(function, *base, "pow") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            if !self.emit_integer_math_arg(function, *exponent, "pow") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            function.instruction(&Instruction::Call(import_index));
+            for arg in args {
+                if !self.emit_integer_math_arg(function, *arg, "pow") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if matches!(
             callee_node.text.as_deref(),
             Some("round") | Some("trunc") | Some("ceil") | Some("floor")
@@ -1255,7 +1320,16 @@ impl<'a> FunctionEmitter<'a> {
 
             if !matches!(
                 method,
-                "max" | "min" | "abs" | "sign" | "imul" | "round" | "clz32" | "trunc" | "floor"
+                "max"
+                    | "min"
+                    | "abs"
+                    | "sign"
+                    | "imul"
+                    | "round"
+                    | "clz32"
+                    | "pow"
+                    | "trunc"
+                    | "floor"
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -1562,6 +1636,17 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn math_pow_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" && method == "pow" {
+            Some(MATH_POW_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
     fn math_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
         let method = callee_node.text.as_deref()?;
         let object = callee_node.children.first().copied()?;
@@ -1618,6 +1703,12 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn contains_negative_numeric_literal(&self, id: LirNodeId) -> bool {
+        self.render_static_value(id)
+            .and_then(|rendered| parse_number_literal(&rendered))
+            .is_some_and(|value| value < 0)
     }
 
     fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
@@ -1759,6 +1850,16 @@ impl<'a> FunctionEmitter<'a> {
                         "true" | "false" | "null" | "undefined" => Some(text.to_string()),
                         _ => None,
                     }
+                } else if node.children.len() == 1
+                    && matches!(node.text.as_deref(), Some("+") | Some("-"))
+                {
+                    let rendered = self.render_static_value(node.children[0])?;
+                    let value = parse_number_literal(&rendered)?;
+                    Some(if node.text.as_deref() == Some("-") {
+                        (-value).to_string()
+                    } else {
+                        value.to_string()
+                    })
                 } else if node.text.as_deref().is_some_and(|text| text == "length") {
                     if self.is_process_argv(node.children[0]) {
                         None
@@ -2227,6 +2328,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_round", EntityType::Function(4));
     import_section.import("kali:rt", "process_pid", EntityType::Function(2));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
+    import_section.import("kali:rt", "math_pow", EntityType::Function(3));
     if ctx.target.coverage {
         import_section.import("kali:rt", "coverage_hit", EntityType::Function(0));
     }

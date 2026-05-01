@@ -21,14 +21,14 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Implement generator lowering only when `yield` / `yield*`, async-generator interactions, and runtime state machines have conformance coverage.
 - Implement `for...of` and `for await...of` only with iterator protocol semantics, error/finalization behavior, and browser/Node/Deno evidence.
 - Until implemented, keep parser acceptance paired with canonical `E5506` gates.
-- Progress note: the limited literal-array `for...of` lowering slice is now live on the supported `check` / `build` / `run` / `test` paths, including browser-targeted smoke coverage in TS and `.js` input; the current slice covers literal arrays with literal elements and simple variable bindings, including simple const-bound aliases to those arrays, while `for await...of` and the broader iterator-protocol path remain gated.
+- Progress note: the limited literal-array `for...of` lowering slice is now live on the supported `check` / `build` / `run` / `test` paths, including browser-targeted smoke coverage in TS and `.js` input; the current slice covers literal arrays with literal elements and simple variable bindings, including simple const-bound aliases to those arrays in both TS and `.js` input, while `for await...of` and the broader iterator-protocol path remain gated.
 
 ### 11.2 Missing expression and built-in semantics
 
 - Promote nullish coalescing `??` and currently unsupported `Math` members only with runtime/checker/codegen coverage.
 - Keep unsupported built-ins rejected explicitly rather than lowering to placeholders.
 - Mirror accepted and rejected cases across TS/JS and JSON-output paths where user-visible.
-- Progress note: `Math.floor` now has integer-only smoke coverage; `Math.round` now also has integer-only smoke coverage; `Math.sqrt` now has a statically-known perfect-square integer literal path; `Math.cbrt` now has a statically-known perfect-cube integer literal path; nullish coalescing `??` is now implemented and covered across direct and browser-targeted smoke paths; `Promise.allSettled` now has runtime/checker/codegen coverage across standalone, browser-targeted, and Node smoke paths.
+- Progress note: `Math.floor` now has integer-only smoke coverage; `Math.round` now also has integer-only smoke coverage; `Math.sqrt` now has a statically-known perfect-square integer literal path; `Math.cbrt` now has a statically-known perfect-cube integer literal path; `Math.pow` now has an integer-exponent path with checker/codegen/runtime smoke coverage on positive integer literals; nullish coalescing `??` is now implemented and covered across direct and browser-targeted smoke paths; `Promise.allSettled` now has runtime/checker/codegen coverage across standalone, browser-targeted, and Node smoke paths.
 
 ### 11.3 Dynamic loading and module semantics
 

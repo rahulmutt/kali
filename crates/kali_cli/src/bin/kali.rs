@@ -2464,6 +2464,12 @@ const defaultImportObject = {{
     math_clz32(value) {{
       return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
     }},
+    math_pow(left, right) {{
+      if (right < 0n) {{
+        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+      }}
+      return BigInt.asIntN(64, left ** right);
+    }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{
         console.log(formatConsoleValue(val));
@@ -2643,6 +2649,12 @@ const defaultImportObject = {{
     }},
     math_clz32(value) {{
       return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
+    }},
+    math_pow(left, right) {{
+      if (right < 0n) {{
+        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+      }}
+      return BigInt.asIntN(64, left ** right);
     }},
     console_log(val) {{
       if (typeof console !== 'undefined' && typeof console.log === 'function') {{

@@ -1212,6 +1212,15 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
         .map_err(|error| host_import_error("math_clz32", error))?;
 
     linker
+        .func_wrap("kali:rt", "math_pow", |left: i64, right: i64| -> i64 {
+            if right < 0 {
+                panic!("Math.pow negative exponents are unavailable in the current phase");
+            }
+            left.wrapping_pow(right as u32)
+        })
+        .map_err(|error| host_import_error("math_pow", error))?;
+
+    linker
         .func_wrap(
             "kali:rt",
             "args_get",
@@ -2759,6 +2768,12 @@ const importObject = {{
     math_clz32(value) {{
       return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
     }},
+    math_pow(left, right) {{
+      if (right < 0n) {{
+        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+      }}
+      return BigInt.asIntN(64, left ** right);
+    }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
     }},
@@ -3063,6 +3078,12 @@ const importObject = {{
     }},
     math_clz32(value) {{
       return BigInt(Math.clz32(Number(BigInt.asUintN(32, value))));
+    }},
+    math_pow(left, right) {{
+      if (right < 0n) {{
+        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+      }}
+      return BigInt.asIntN(64, left ** right);
     }},
     console_log(val) {{
       console.log(formatConsoleValue(val));
