@@ -3113,8 +3113,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         + if uses_env_delete { 1 } else { 0 }
         + if uses_env_get { 1 } else { 0 }
         + if uses_cwd_set { 1 } else { 0 };
-    let env_get_type_index = if uses_env_access { Some(5) } else { None };
-    let cwd_set_type_index = if uses_cwd_set { Some(6) } else { None };
+    let env_get_type_index = if uses_env_access { Some(6) } else { None };
+    let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
     let env_set_import_index = if uses_env_set {
         Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
     } else {
@@ -3199,7 +3199,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_imul", EntityType::Function(3));
     import_section.import("kali:rt", "math_round", EntityType::Function(4));
     import_section.import("kali:rt", "process_pid", EntityType::Function(2));
-    import_section.import("kali:rt", "cwd", EntityType::Function(5));
+    import_section.import("kali:rt", "cwd", EntityType::Function(6));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     import_section.import("kali:rt", "math_pow", EntityType::Function(3));
     if ctx.target.coverage {
