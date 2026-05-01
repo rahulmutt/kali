@@ -1476,6 +1476,35 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_const_alias_in_
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = \"hello\"; const alias = value; for (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for-of array iteration with const string alias should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_for_of_array_iteration_with_const_alias_in_js_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_const_alias_in_input(
@@ -1498,6 +1527,22 @@ fn build_source_file_supports_for_of_array_iteration_with_const_alias_in_browser
     assert_build_source_file_supports_for_of_array_iteration_with_const_alias_in_input(
         ApiSurface::Browser,
         "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_js_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_ts_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
+        ApiSurface::Deno,
+        "ts",
     );
 }
 
@@ -1653,6 +1698,35 @@ fn assert_build_source_file_supports_for_await_array_iteration_with_const_alias_
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_for_await_array_iteration_with_const_string_alias_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = \"hello\"; const alias = value; for await (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for await array iteration with const string alias should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_for_await_array_iteration_with_const_alias_in_js_input() {
     assert_build_source_file_supports_for_await_array_iteration_with_const_alias_in_input(
@@ -1674,6 +1748,14 @@ fn build_source_file_supports_for_await_array_iteration_with_const_alias_in_brow
 ) {
     assert_build_source_file_supports_for_await_array_iteration_with_const_alias_in_input(
         ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_const_string_alias_in_js_input() {
+    assert_build_source_file_supports_for_await_array_iteration_with_const_string_alias_in_input(
+        ApiSurface::Deno,
         "js",
     );
 }

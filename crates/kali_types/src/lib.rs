@@ -597,9 +597,27 @@ impl TypeContext {
     }
 
     fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
-        matches!(expression, Expression::Literal(_))
-            || matches!(expression, Expression::Identifier(_)
-                if self.resolve_static_numeric_literal_value(expression).is_some())
+        match expression {
+            Expression::Literal(_) => true,
+            Expression::Identifier(_) => {
+                self.resolve_static_numeric_literal_value(expression)
+                    .is_some()
+                    || self.resolve_static_string_expression(expression).is_some()
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.is_static_array_iteration_element(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.is_static_array_iteration_element(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.is_static_array_iteration_element(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.is_static_array_iteration_element(&expr.expression)
+            }
+            _ => false,
+        }
     }
 
     fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
@@ -818,6 +836,15 @@ impl TypeContext {
                 Some(format!("{}{}", left, right))
             }
             Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_string_expression(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_string_expression(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_string_expression(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
                 self.resolve_static_string_expression(&expr.expression)
             }
             Expression::TemplateLiteral(template) => {
