@@ -3155,6 +3155,10 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
             "node explicit dns rejection row should be recorded exactly once in the package corpus matrix",
         ),
         (
+            "| npm-style package corpus | Node built-in packages (`node:worker_threads`) with explicit Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
+            "node explicit worker_threads rejection row should be recorded exactly once in the package corpus matrix",
+        ),
+        (
             "| npm-style package corpus | Node built-in packages (`node:net`) with inherited Node `apiSurface` on `.js` input | Node | `check`, `build`, `run`, `test` | rejected by default | `crates/kali_cli/tests/node_api_surface.rs` |",
             "node inherited net rejection row should be recorded exactly once in the package corpus matrix",
         ),
@@ -3267,7 +3271,7 @@ fn package_corpus_matrix_tracks_current_browser_and_default_rows() {
         "package corpus matrix should document the Node timers evidence note",
     );
     assert_note_once(
-        "The Node `node:timers/promises`, `node:stream/promises`, `node:net`, and `node:dns` rejection slices are tracked as negative contrast rows on both the explicit and inherited Node API surfaces so the late Node-module boundary stays visible alongside the other late Node-module rows.",
+        "The Node `node:timers/promises`, `node:stream/promises`, `node:net`, `node:dns`, and `node:worker_threads` rejection slices are tracked as negative contrast rows on both the explicit and inherited Node API surfaces so the late Node-module boundary stays visible alongside the other late Node-module rows.",
         "package corpus matrix should document the Node late-module rejection note",
     );
 }
