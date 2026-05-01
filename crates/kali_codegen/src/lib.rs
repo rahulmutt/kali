@@ -923,8 +923,8 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
-            let mut args = node.children.iter().skip(1);
-            let Some(first_arg) = args.next() else {
+            let args: Vec<_> = node.children.iter().skip(1).copied().collect();
+            let Some(first_arg) = args.first() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     "Math.max requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
@@ -936,13 +936,21 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let Some(folded) = self.math_extrema_static_literal_value("max", &args) {
+                function.instruction(&Instruction::I64Const(folded));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *first_arg, "max") {
                 return EmittedValue {
                     produced: false,
                     shape: ValueShape::Unknown,
                 };
             }
-            for arg in args {
+            for arg in args.iter().skip(1) {
                 if !self.emit_integer_math_arg(function, *arg, "max") {
                     return EmittedValue {
                         produced: false,
@@ -958,8 +966,8 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if let Some(import_index) = self.math_min_import_index(&callee_node) {
-            let mut args = node.children.iter().skip(1);
-            let Some(first_arg) = args.next() else {
+            let args: Vec<_> = node.children.iter().skip(1).copied().collect();
+            let Some(first_arg) = args.first() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     "Math.min requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
@@ -971,13 +979,21 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let Some(folded) = self.math_extrema_static_literal_value("min", &args) {
+                function.instruction(&Instruction::I64Const(folded));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *first_arg, "min") {
                 return EmittedValue {
                     produced: false,
                     shape: ValueShape::Unknown,
                 };
             }
-            for arg in args {
+            for arg in args.iter().skip(1) {
                 if !self.emit_integer_math_arg(function, *arg, "min") {
                     return EmittedValue {
                         produced: false,
@@ -1881,6 +1897,33 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         Some(folded as i64)
+    }
+
+    fn math_extrema_static_literal_value(&self, method: &str, args: &[LirNodeId]) -> Option<i64> {
+        let mut values = args.iter().map(|arg| {
+            let rendered = self.render_static_value(*arg)?;
+            let value = parse_numeric_literal_value(&rendered)?;
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || value < i64::MIN as f64
+                || value > i64::MAX as f64
+            {
+                return None;
+            }
+            Some(value as i64)
+        });
+
+        let mut folded = values.next().flatten()?;
+        for value in values {
+            let value = value?;
+            folded = if method == "max" {
+                folded.max(value)
+            } else {
+                folded.min(value)
+            };
+        }
+
+        Some(folded)
     }
 
     fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {

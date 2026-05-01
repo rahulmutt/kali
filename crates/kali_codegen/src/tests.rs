@@ -163,7 +163,7 @@ fn console_assert_member_lowering_uses_console_error_for_falsey_conditions() {
 
 #[test]
 fn math_max_member_calls_lower_to_math_host_imports() {
-    let program = parse_and_lower_lir("console.log(Math.max(1, 2, 3));");
+    let program = parse_and_lower_lir("function max(value) { return Math.max(value, 2, 3); }");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -181,8 +181,28 @@ fn math_max_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_max_member_constant_folds_static_numeric_literal_operand() {
+    let program = parse_and_lower_lir("console.log(Math.max(1, 2, 3));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+    assert!(!printed.contains("call 7"), "{printed}");
+}
+
+#[test]
 fn math_min_member_calls_lower_to_math_host_imports() {
-    let program = parse_and_lower_lir("console.log(Math.min(3, 2, 1));");
+    let program = parse_and_lower_lir("function min(value) { return Math.min(value, 3, 2); }");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -197,6 +217,28 @@ fn math_min_member_calls_lower_to_math_host_imports() {
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
     assert!(printed.contains("import \"kali:rt\" \"math_min\""));
+}
+
+#[test]
+fn math_min_member_constant_folds_static_numeric_literal_alias_chains() {
+    let program = parse_and_lower_lir(
+        "const value = 3; const alias = value; console.log(Math.min(alias, 2, 1));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(!printed.contains("call 8"), "{printed}");
 }
 
 #[test]

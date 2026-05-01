@@ -1199,6 +1199,38 @@ impl TypeContext {
             return;
         }
 
+        if method == "max" || method == "min" {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                    ),
+                ));
+                return;
+            }
+
+            if let Some(_folded) =
+                self.resolve_math_extrema_static_literal_value(method, &expr.args)
+            {
+                return;
+            }
+
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path"
+                    ),
+                ));
+            }
+            return;
+        }
+
         if method == "pow" {
             if expr.args.len() < 2 {
                 self.diagnostics.push(Diagnostic::error(
@@ -1451,6 +1483,38 @@ impl TypeContext {
     fn contains_negative_numeric_literal(&self, expression: &Expression) -> bool {
         self.resolve_static_numeric_literal_value(expression)
             .is_some_and(|value| value < 0.0)
+    }
+
+    fn resolve_math_extrema_static_literal_value(
+        &self,
+        method: &str,
+        expressions: &[Expression],
+    ) -> Option<i64> {
+        let mut values = expressions.iter().map(|expression| {
+            let value = self.resolve_static_numeric_literal_value(expression)?;
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || value < i64::MIN as f64
+                || value > i64::MAX as f64
+            {
+                return None;
+            }
+            Some(value as i64)
+        });
+
+        let first = values.next().flatten()?;
+        let mut folded = first;
+
+        for value in values {
+            let value = value?;
+            folded = if method == "max" {
+                folded.max(value)
+            } else {
+                folded.min(value)
+            };
+        }
+
+        Some(folded)
     }
 
     fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {
