@@ -571,6 +571,17 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
+            "yield" | "yield*" | "delegate" => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
             _ => {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();

@@ -4427,6 +4427,44 @@ fn test_resolution_rejects_generator_function_lowering_in_js_input() {
 }
 
 #[test]
+fn test_resolution_rejects_async_generator_function_lowering_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "async function* main() { yield 1; }\nmain();").unwrap();
+
+    let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
+        name: "main".to_string(),
+        params: vec![],
+        body: Box::new(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
+                    delegate: false,
+                    argument: Some(Expression::Literal(LiteralValue::Number(1.0))),
+                }))),
+            })],
+        }),
+        is_async: true,
+        generator: true,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("generator function lowering is unavailable"));
+}
+
+#[test]
 fn test_resolution_rejects_generator_function_lowering_in_jsx_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.jsx");
