@@ -1761,6 +1761,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser bundle console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting",
         "Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `Deno[\"pid\"]` / `globalThis.Deno.pid` / bracketed `globalThis[\"Deno\"][\"pid\"]` stays the default standalone exception)",
         "Browser-requested `run` / `test` process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`) in `.js` input",
+        "Unsupported `Math` member calls such as `Math.round()` / `Math.floor()`",
         "Basic optional chaining member and element access",
         "Basic BigInt addition semantics",
         "Basic BigInt addition semantics in `.js` input",
