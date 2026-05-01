@@ -1221,7 +1221,7 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
-    for method in ["sqrt"] {
+    for method in ["sqrt", "exp", "log"] {
         for source in unsupported_math_member_call_source_variants(method) {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
@@ -1244,7 +1244,7 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
             assert!(
                 error
                     .iter()
-                    .any(|diagnostic| diagnostic.message.contains("Math.sqrt")),
+                    .any(|diagnostic| diagnostic.message.contains(&format!("Math.{method}"))),
                 "unexpected diagnostics: {error:?}"
             );
         }
