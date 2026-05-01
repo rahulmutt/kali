@@ -1458,7 +1458,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            if method == "sin" || method == "cos" {
+            if method == "sin" || method == "cos" || method == "tan" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
                     self.diagnostics.push(Diagnostic::error(
@@ -1608,6 +1608,7 @@ impl<'a> FunctionEmitter<'a> {
                     | "pow"
                     | "trunc"
                     | "floor"
+                    | "tan"
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,

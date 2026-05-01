@@ -1259,7 +1259,7 @@ impl TypeContext {
             return;
         }
 
-        if method == "sin" || method == "cos" {
+        if method == "sin" || method == "cos" || method == "tan" {
             let Some(value) = expr
                 .args
                 .first()
@@ -1444,7 +1444,7 @@ impl TypeContext {
             return;
         }
 
-        if matches!(method, "max" | "min" | "abs" | "sign") {
+        if matches!(method, "max" | "min" | "abs" | "sign" | "tan") {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,

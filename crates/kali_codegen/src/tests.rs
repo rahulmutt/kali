@@ -887,6 +887,60 @@ fn supported_math_log_member_lowering_is_available_for_exact_one_literals() {
 }
 
 #[test]
+fn supported_math_tan_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.tan(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
+fn unsupported_math_tan_member_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.tan(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("Math.tan is unavailable unless the argument is a statically-known zero numeric literal")
+        }),
+        "expected an unavailable Math.tan diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn unsupported_math_exp_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.exp(2));");
     let mut ctx = CodegenCtx::new(TargetConfig {
