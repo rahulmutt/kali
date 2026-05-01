@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kali_ast::{ExportDefaultDeclaration, Expression, Statement};
+use kali_ast::{BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, Statement};
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::{template::resolve_interpolated_template_literal, FileId};
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
@@ -2399,11 +2399,13 @@ fn collect_library_exports_from_statements(
     source_path: &Path,
 ) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
+    let declared_function_signatures =
+        collect_declared_function_signatures(statements, source_path, &mut diagnostics);
     let mut exports = BTreeMap::<String, String>::new();
     for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
-                let signature = function_signature(&func.params);
+                let signature = infer_function_signature(&func.params, &func.body);
                 if exports.insert(func.name.clone(), signature).is_some() {
                     diagnostics.push(invalid_export_surface(
                         source_path,
@@ -2421,7 +2423,10 @@ fn collect_library_exports_from_statements(
                 }
 
                 for specifier in &declaration.specifiers {
-                    let signature = signature_from_export_specifier(&specifier.local);
+                    let signature = declared_function_signatures
+                        .get(&specifier.local)
+                        .cloned()
+                        .unwrap_or_else(|| signature_from_export_specifier(&specifier.local));
                     if exports
                         .insert(specifier.exported.clone(), signature)
                         .is_some()
@@ -2441,7 +2446,10 @@ fn collect_library_exports_from_statements(
                         func.name.clone()
                     };
                     if exports
-                        .insert(export_name.clone(), function_signature(&func.params))
+                        .insert(
+                            export_name.clone(),
+                            infer_function_signature(&func.params, &func.body),
+                        )
                         .is_some()
                     {
                         diagnostics.push(invalid_export_surface(
@@ -2884,8 +2892,134 @@ fn collect_direct_bundle_calls_from_expression(
     }
 }
 
-fn function_signature(params: &[String]) -> String {
-    format!("({}) => unknown", params.join(", "))
+fn collect_declared_function_signatures(
+    statements: &[Statement],
+    source_path: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<String, String> {
+    let mut declared_function_signatures = BTreeMap::new();
+    for statement in statements {
+        if let Statement::FunctionDeclaration(func) = statement {
+            let signature = infer_function_signature(&func.params, &func.body);
+            if declared_function_signatures
+                .insert(func.name.clone(), signature)
+                .is_some()
+            {
+                diagnostics.push(invalid_export_surface(
+                    source_path,
+                    &format!("duplicate export name `{}`", func.name),
+                ));
+            }
+        }
+    }
+
+    declared_function_signatures
+}
+
+fn infer_function_signature(params: &[String], body: &BlockStatement) -> String {
+    function_signature(params, infer_block_return_type(body))
+}
+
+fn function_signature(params: &[String], return_type: Option<&str>) -> String {
+    format!(
+        "({}) => {}",
+        params.join(", "),
+        return_type.unwrap_or("unknown")
+    )
+}
+
+fn infer_block_return_type(body: &BlockStatement) -> Option<&'static str> {
+    if body.body.len() != 1 {
+        return None;
+    }
+
+    let Statement::ReturnStatement(return_statement) = &body.body[0] else {
+        return None;
+    };
+
+    match &return_statement.argument {
+        Some(expression) => infer_expression_type(expression),
+        None => Some("void"),
+    }
+}
+
+fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
+    match expression {
+        Expression::Literal(value) => infer_literal_type(value),
+        Expression::BigIntLiteral(_) => Some("bigint"),
+        Expression::ParenthesizedExpression(parenthesized) => {
+            infer_expression_type(&parenthesized.expression)
+        }
+        Expression::TypeAssertion(type_assertion) => {
+            infer_expression_type(&type_assertion.expression)
+        }
+        Expression::SatisfiesExpression(satisfies_expression) => {
+            infer_expression_type(&satisfies_expression.expression)
+        }
+        Expression::SequenceExpression(sequence) => {
+            sequence.expressions.last().and_then(infer_expression_type)
+        }
+        Expression::ConditionalExpression(condition) => {
+            let consequent = infer_expression_type(&condition.consequent);
+            let alternate = infer_expression_type(&condition.alternate);
+            if consequent.is_some() && consequent == alternate {
+                consequent
+            } else {
+                None
+            }
+        }
+        Expression::UnaryExpression(unary) => infer_unary_expression_type(unary),
+        Expression::BinaryExpression(binary) => infer_binary_expression_type(binary),
+        _ => None,
+    }
+}
+
+fn infer_unary_expression_type(unary: &kali_ast::UnaryExpression) -> Option<&'static str> {
+    match unary.operator.as_str() {
+        "!" => Some("boolean"),
+        "+" | "-" => infer_expression_type(&unary.argument)
+            .filter(|type_name| matches!(*type_name, "number" | "bigint")),
+        "void" => Some("void"),
+        _ => None,
+    }
+}
+
+fn infer_binary_expression_type(binary: &kali_ast::BinaryExpression) -> Option<&'static str> {
+    let left = infer_expression_type(&binary.left);
+    let right = infer_expression_type(&binary.right);
+    match binary.operator.as_str() {
+        "+" => {
+            if left == Some("string") || right == Some("string") {
+                Some("string")
+            } else if is_numeric_like_type(left) && is_numeric_like_type(right) {
+                Some("number")
+            } else {
+                None
+            }
+        }
+        "-" | "*" | "/" | "%" | "**" | "<<" | ">>" | ">>>" | "&" | "|" | "^" => {
+            if is_numeric_like_type(left) && is_numeric_like_type(right) {
+                Some("number")
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn is_numeric_like_type(type_name: Option<&str>) -> bool {
+    matches!(type_name, Some("number" | "bigint"))
+}
+
+fn infer_literal_type(value: &LiteralValue) -> Option<&'static str> {
+    match value {
+        LiteralValue::Boolean(_) => Some("boolean"),
+        LiteralValue::Number(_) => Some("number"),
+        LiteralValue::String(_) => Some("string"),
+        LiteralValue::Regex { .. } => Some("RegExp"),
+        LiteralValue::Null => Some("null"),
+    }
 }
 
 fn signature_from_export_specifier(local: &str) -> String {
