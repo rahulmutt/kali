@@ -32,6 +32,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Add environment materialization/mutation, process identity/control, cwd/chdir, subprocess, and socket/listener APIs only with explicit effect keys, policy behavior, and resource limits.
 - Keep host visibility aligned with `apiSurface` and command context.
 - Maintain canonical gates for unavailable Node/Deno/browser host members.
+- Progress note: the documented Node surface now exposes the read-only `process.pid` query across the explicit and inherited `check` / `build` / `run` / `test` paths; `process.cwd` / `process.chdir` / `process.exit` remain gated.
 
 ### 12.4 Late object/runtime APIs
 

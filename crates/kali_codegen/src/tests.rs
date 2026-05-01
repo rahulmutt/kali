@@ -825,6 +825,63 @@ fn bracketed_global_this_deno_pid_member_calls_lower_to_runtime_pid_import() {
 }
 
 #[test]
+fn process_pid_member_calls_lower_to_runtime_pid_import() {
+    let program = parse_and_lower_lir("console.log(process.pid);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"process_pid\""));
+}
+
+#[test]
+fn global_this_process_pid_member_calls_lower_to_runtime_pid_import() {
+    let program = parse_and_lower_lir("console.log(globalThis.process.pid);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"process_pid\""));
+}
+
+#[test]
+fn bracketed_global_this_process_pid_member_calls_lower_to_runtime_pid_import() {
+    let program = parse_and_lower_lir("console.log(globalThis[\"process\"][\"pid\"]);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"process_pid\""));
+}
+
+#[test]
 fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
     let program = parse_and_lower_lir("console.log(Deno.env.get(\"HOME\"));");
     let mut ctx = CodegenCtx::new(TargetConfig {

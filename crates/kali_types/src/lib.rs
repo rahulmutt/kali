@@ -1456,6 +1456,10 @@ impl TypeContext {
             return;
         }
 
+        if expr.property == "pid" && object_name == "process" && self.api_surface == "node" {
+            return;
+        }
+
         if !matches!(object_name.as_str(), "Deno" | "process") {
             return;
         }

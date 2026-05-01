@@ -450,7 +450,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "pid" => {
-                if self.is_deno_pid(arg) {
+                if self.is_deno_pid(arg) || self.is_process_pid(arg) {
                     function.instruction(&Instruction::Call(PROCESS_PID_IMPORT_INDEX));
                     function.instruction(&Instruction::I64ExtendI32U);
                     return EmittedValue {
@@ -2123,6 +2123,19 @@ impl<'a> FunctionEmitter<'a> {
                 .children
                 .first()
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
+    }
+
+    fn is_process_pid(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.text.as_deref() == Some("process") {
+            return true;
+        }
+
+        node.text.as_deref() == Some("globalThis")
+            && node
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {

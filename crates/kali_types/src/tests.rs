@@ -1454,7 +1454,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.len() >= 10);
+    assert!(result.diagnostics.len() >= 8);
     assert!(result
         .diagnostics
         .iter()
@@ -1464,8 +1464,6 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         "Deno.chdir",
         "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
-        "process.pid",
-        "globalThis.process.pid",
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
@@ -1480,6 +1478,35 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
             result.diagnostics
         );
     }
+}
+
+#[test]
+fn test_resolution_allows_process_pid_query_in_node_api_surface() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("process".to_string()),
+                    property: "pid".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "pid".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 #[test]

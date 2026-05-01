@@ -194,7 +194,7 @@ Canonical gating rule:
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
 - `assert` — assertions
-- `process` — process global subset needed by real packages first (`env`, `argv`, selected control/query helpers); `pid`, `exit`, and `cwd`-style process-introspection/control APIs stay on the later compatibility path until the policy and embedding contract for them is specified. The current repository snapshot also rejects `process.env = ...` assignment mutations on the Node surface, keeping the mutable-environment boundary explicit until the dedicated Phase 3 path lands.
+- `process` — process global subset needed by real packages first (`env`, `argv`, selected control/query helpers); `process.pid` is already available as a read-only query on the Node surface, while `cwd`/`chdir`/`exit`-style process-introspection/control APIs stay on the later compatibility path until the policy and embedding contract for them is specified. The current repository snapshot also rejects `process.env = ...` assignment mutations on the Node surface, keeping the mutable-environment boundary explicit until the dedicated Phase 3 path lands.
 
 **Later compatibility expansion**
 - `os`
