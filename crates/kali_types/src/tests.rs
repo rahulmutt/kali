@@ -3214,6 +3214,34 @@ fn test_resolution_reports_math_asinh_acosh_atanh_non_identity_literals_as_unava
 }
 
 #[test]
+fn test_resolution_reports_math_atan2_non_matching_literals_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "atan2".to_string(),
+            })),
+            args: vec![
+                Expression::Literal(LiteralValue::Number(1.0)),
+                Expression::Literal(LiteralValue::Number(1.0)),
+            ],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.atan2")));
+}
+
+#[test]
 fn test_resolution_reports_math_max_without_arguments_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

@@ -1222,6 +1222,33 @@ fn unsupported_math_inverse_trig_member_reports_feature_unavailable() {
 }
 
 #[test]
+fn unsupported_math_atan2_member_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.atan2(1, 1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("Math.atan2 is unavailable in the current phase")
+        }),
+        "expected an unavailable Math.atan2 diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn unsupported_math_exp_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.exp(2));");
     let mut ctx = CodegenCtx::new(TargetConfig {

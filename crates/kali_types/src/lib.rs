@@ -1346,6 +1346,14 @@ impl TypeContext {
             return;
         }
 
+        if method == "atan2" {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Math.atan2 is unavailable in the current phase; use a supported Math builtin or the later compatibility path",
+            ));
+            return;
+        }
+
         if method == "sin" || method == "cos" || method == "tan" {
             let Some(value) = expr
                 .args
