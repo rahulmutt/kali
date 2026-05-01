@@ -340,6 +340,16 @@ fn test_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured
 }
 
 #[test]
+fn run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("run", "main.ts");
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("test", "smoke.test.ts");
+}
+
+#[test]
 fn run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited() {
     assert_inherited_browser_api_surface_reflect_own_keys("run", "main.js", false);
 }
@@ -347,6 +357,16 @@ fn run_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherit
 #[test]
 fn test_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_inherited() {
     assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.js", false);
+}
+
+#[test]
+fn run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.ts", false);
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.ts", false);
 }
 
 #[test]
@@ -360,6 +380,16 @@ fn json_test_supports_reflect_own_keys_in_js_input_when_browser_api_surface_is_i
 }
 
 #[test]
+fn json_run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.ts", true);
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.ts", true);
+}
+
+#[test]
 fn json_run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured() {
     assert_json_browser_requested_reflect_own_keys("run", "main.js");
 }
@@ -370,11 +400,31 @@ fn json_test_supports_reflect_own_keys_in_js_input_when_browser_harness_is_confi
 }
 
 #[test]
+fn json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("run", "main.ts");
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("test", "smoke.test.ts");
+}
+
+#[test]
 fn build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input() {
     assert_browser_bundle_reflect_own_keys("app.js", false);
 }
 
 #[test]
+fn build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input() {
+    assert_browser_bundle_reflect_own_keys("app.ts", false);
+}
+
+#[test]
 fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input() {
     assert_browser_bundle_reflect_own_keys("app.js", true);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input() {
+    assert_browser_bundle_reflect_own_keys("app.ts", true);
 }
