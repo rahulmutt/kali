@@ -1047,19 +1047,44 @@ impl TypeContext {
             return;
         }
 
-        if matches!(
-            method,
-            "max"
-                | "min"
-                | "abs"
-                | "sign"
-                | "imul"
-                | "round"
-                | "clz32"
-                | "trunc"
-                | "ceil"
-                | "floor"
-        ) {
+        if method == "round" {
+            if self
+                .resolve_math_round_like_static_literal_value(method, expr.args.first())
+                .is_some()
+            {
+                return;
+            }
+
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.round is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path",
+                ));
+            }
+            return;
+        }
+
+        if matches!(method, "trunc" | "ceil" | "floor") {
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path"
+                    ),
+                ));
+            }
+            return;
+        }
+
+        if matches!(method, "max" | "min" | "abs" | "sign" | "imul" | "clz32") {
             if expr
                 .args
                 .iter()
@@ -1130,6 +1155,27 @@ impl TypeContext {
             }
             _ => None,
         }
+    }
+
+    fn resolve_math_round_like_static_literal_value(
+        &self,
+        method: &str,
+        expression: Option<&Expression>,
+    ) -> Option<i64> {
+        let value = self.resolve_static_numeric_literal_value(expression?)?;
+        let folded = match method {
+            "round" => (value + 0.5).floor(),
+            "trunc" => value.trunc(),
+            "ceil" => value.ceil(),
+            "floor" => value.floor(),
+            _ => return None,
+        };
+
+        if !folded.is_finite() || folded < i64::MIN as f64 || folded > i64::MAX as f64 {
+            return None;
+        }
+
+        Some(folded as i64)
     }
 
     fn contains_negative_numeric_literal(&self, expression: &Expression) -> bool {

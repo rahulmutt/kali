@@ -314,6 +314,25 @@ fn math_round_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_round_member_calls_constant_fold_floating_literal() {
+    let program = parse_and_lower_lir("console.log(Math.round(1.6));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+}
+
+#[test]
 fn math_trunc_member_lowers_without_runtime_host_import() {
     let program = parse_and_lower_lir("console.log(Math.trunc(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {

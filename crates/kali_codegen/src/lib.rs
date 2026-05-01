@@ -1110,6 +1110,18 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let Some(folded) = self.math_round_static_literal_value(*value) {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             if !self.emit_integer_math_arg(function, *value, "round") {
                 return EmittedValue {
                     produced: false,
@@ -1788,6 +1800,22 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn math_round_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_numeric_literal_value(&rendered)?;
+        let folded = if value.fract() == 0.0 {
+            value
+        } else {
+            (value + 0.5).floor()
+        };
+
+        if !folded.is_finite() || folded < i64::MIN as f64 || folded > i64::MAX as f64 {
+            return None;
+        }
+
+        Some(folded as i64)
+    }
+
     fn contains_negative_numeric_literal(&self, id: LirNodeId) -> bool {
         self.render_static_value(id)
             .and_then(|rendered| parse_number_literal(&rendered))
@@ -1929,6 +1957,9 @@ impl<'a> FunctionEmitter<'a> {
                     if let Some(number) = parse_number_literal(text) {
                         return Some(number.to_string());
                     }
+                    if parse_numeric_literal_value(text).is_some() {
+                        return Some(text.to_string());
+                    }
                     match text {
                         "true" | "false" | "null" | "undefined" => Some(text.to_string()),
                         _ => None,
@@ -1937,12 +1968,20 @@ impl<'a> FunctionEmitter<'a> {
                     && matches!(node.text.as_deref(), Some("+") | Some("-"))
                 {
                     let rendered = self.render_static_value(node.children[0])?;
-                    let value = parse_number_literal(&rendered)?;
-                    Some(if node.text.as_deref() == Some("-") {
-                        (-value).to_string()
+                    if let Some(value) = parse_number_literal(&rendered) {
+                        Some(if node.text.as_deref() == Some("-") {
+                            (-value).to_string()
+                        } else {
+                            value.to_string()
+                        })
                     } else {
-                        value.to_string()
-                    })
+                        let value = parse_numeric_literal_value(&rendered)?;
+                        Some(if node.text.as_deref() == Some("-") {
+                            (-value).to_string()
+                        } else {
+                            value.to_string()
+                        })
+                    }
                 } else if node.text.as_deref().is_some_and(|text| text == "length") {
                     if self.is_process_argv(node.children[0]) {
                         None
@@ -2842,6 +2881,13 @@ fn parse_number_literal(text: &str) -> Option<i64> {
         return stripped.parse::<i64>().ok();
     }
     text.parse::<i64>().ok()
+}
+
+fn parse_numeric_literal_value(text: &str) -> Option<f64> {
+    if let Some(stripped) = text.strip_suffix('n') {
+        return stripped.parse::<f64>().ok();
+    }
+    text.parse::<f64>().ok()
 }
 
 #[cfg(test)]

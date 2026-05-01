@@ -2406,28 +2406,40 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
 }
 
 #[test]
-fn test_resolution_reports_unsupported_math_sqrt_member_calls_as_unavailable() {
+fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_literals() {
     let mut ctx = TypeContext::new();
-    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
-        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
-            callee: Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::Identifier("Math".to_string()),
-                property: "sqrt".to_string(),
-            })),
-            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
-        }))),
-    })];
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "round".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "round".to_string(),
+                })),
+                args: vec![Expression::UnaryExpression(Box::new(
+                    kali_ast::UnaryExpression {
+                        operator: "-".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(1.5)),
+                    },
+                ))],
+            }))),
+        }),
+    ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 1);
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Math.sqrt")));
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]
