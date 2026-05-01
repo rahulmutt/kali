@@ -1109,7 +1109,36 @@ impl TypeContext {
             return;
         }
 
-        if matches!(method, "trunc" | "ceil" | "floor") {
+        if method == "floor" {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.floor requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                return;
+            }
+
+            if self
+                .resolve_math_round_like_static_literal_value(method, expr.args.first())
+                .is_some()
+            {
+                return;
+            }
+
+            if expr
+                .args
+                .iter()
+                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.floor is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path",
+                ));
+            }
+            return;
+        }
+
+        if matches!(method, "trunc" | "ceil") {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,

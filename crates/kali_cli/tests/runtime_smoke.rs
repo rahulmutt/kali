@@ -26514,6 +26514,59 @@ fn json_run_supports_math_floor_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_math_floor_numeric_literal_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_math_floor_numeric_literal_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    let stdout = json["stdout"].as_str().expect("stdout");
+    assert!(stdout.contains("1"), "json: {json}");
+}
+
+#[test]
 fn run_supports_math_cbrt_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -34564,10 +34617,63 @@ fn json_check_rejects_non_integer_numeric_literals_in_math_trunc_member_calls_in
 }
 
 #[test]
-fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
+fn check_supports_math_floor_numeric_literal_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn json_check_supports_math_floor_numeric_literal_in_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], true);
+}
+
+#[test]
+fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34588,7 +34694,7 @@ fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_inpu
 fn json_check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -34615,7 +34721,7 @@ fn json_check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js
 fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
 
     for command in ["check", "build"] {
         for output_json in [false, true] {
@@ -34652,7 +34758,7 @@ fn check_rejects_unsupported_math_member_calls_in_browser_api_surface_in_ts_inpu
 fn check_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -34681,7 +34787,7 @@ fn check_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_
 fn json_check_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -34853,10 +34959,7 @@ fn run_rejects_unsupported_math_member_calls_in_js_input() {
 
 fn assert_unsupported_math_member_calls_rejection_text(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("Math.sqrt") || stderr.contains("Math.floor"),
-        "stderr: {stderr}"
-    );
+    assert!(stderr.contains("Math.sqrt"), "stderr: {stderr}");
     assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
 }
 
@@ -34869,7 +34972,7 @@ fn assert_unsupported_math_member_calls_rejection_json(errors: &[Value]) {
     assert!(
         errors.iter().any(|error| {
             let message = error["message"].as_str().expect("error message");
-            message.contains("Math.sqrt") || message.contains("Math.floor")
+            message.contains("Math.sqrt")
         }),
         "missing unsupported Math member call in {errors:?}"
     );
@@ -35006,7 +35109,7 @@ fn test_rejects_unsupported_math_member_calls_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write source");
 
@@ -35029,7 +35132,7 @@ fn test_rejects_unsupported_math_member_calls_in_js_input_in_json() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write source");
 
@@ -35056,7 +35159,7 @@ fn test_rejects_unsupported_math_member_calls_in_js_input_in_json() {
 fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -35078,7 +35181,7 @@ fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_inpu
 fn json_build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -35106,7 +35209,7 @@ fn json_build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js
 fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -35136,7 +35239,7 @@ fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_
 fn json_build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -35391,7 +35494,7 @@ fn run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_wi
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -35422,7 +35525,7 @@ fn json_run_rejects_unsupported_math_member_calls_in_inherited_browser_api_surfa
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.floor(1.6));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
     fs::write(
         dir.path().join("kali.json"),
         r#"{
@@ -35461,7 +35564,7 @@ fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harnes
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write source");
 
@@ -35529,7 +35632,7 @@ fn test_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_w
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write source");
     fs::write(
@@ -35569,10 +35672,10 @@ fn run_and_test_rejects_unsupported_math_member_calls_in_inherited_browser_api_s
     let dir = tempdir().expect("tempdir");
     let run_source_path = dir.path().join("main.ts");
     let test_source_path = dir.path().join("smoke.test.ts");
-    fs::write(&run_source_path, "console.log(Math.floor(1.6));\n").expect("write run source");
+    fs::write(&run_source_path, "console.log(Math.sqrt(1.6));\n").expect("write run source");
     fs::write(
         &test_source_path,
-        "Kali.test('unsupported math', () => { console.log(Math.floor(1.6)); });\n",
+        "Kali.test('unsupported math', () => { console.log(Math.sqrt(1.6)); });\n",
     )
     .expect("write test source");
     fs::write(

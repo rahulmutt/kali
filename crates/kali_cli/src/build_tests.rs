@@ -1359,7 +1359,7 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
-    for method in ["sqrt", "floor"] {
+    for method in ["sqrt"] {
         for source in unsupported_math_member_call_source_variants(method) {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
@@ -1382,8 +1382,7 @@ fn assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
             assert!(
                 error
                     .iter()
-                    .any(|diagnostic| diagnostic.message.contains("Math.sqrt")
-                        || diagnostic.message.contains("Math.floor")),
+                    .any(|diagnostic| diagnostic.message.contains("Math.sqrt")),
                 "unexpected diagnostics: {error:?}"
             );
         }

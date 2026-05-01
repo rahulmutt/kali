@@ -1131,7 +1131,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            if let Some(folded) = self.math_round_static_literal_value(*value) {
+            if let Some(folded) = self.math_round_like_static_literal_value("round", *value) {
                 function.instruction(&Instruction::I64Const(folded));
                 for arg in args {
                     let _ = self.emit_node(function, *arg, true);
@@ -1264,7 +1264,7 @@ impl<'a> FunctionEmitter<'a> {
 
         if matches!(
             callee_node.text.as_deref(),
-            Some("round") | Some("trunc") | Some("ceil") | Some("floor")
+            Some("floor") | Some("trunc") | Some("ceil")
         ) && callee_node
             .children
             .first()
@@ -1272,7 +1272,7 @@ impl<'a> FunctionEmitter<'a> {
             .and_then(|object| self.node(object).text.as_deref())
             == Some("Math")
         {
-            let method = callee_node.text.as_deref().unwrap_or("trunc").to_string();
+            let method = callee_node.text.as_deref().unwrap_or("floor").to_string();
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
                 function.instruction(&Instruction::I64Const(0));
@@ -1281,6 +1281,19 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 };
             };
+
+            if let Some(folded) = self.math_round_like_static_literal_value(method.as_str(), *value)
+            {
+                function.instruction(&Instruction::I64Const(folded));
+                for arg in args {
+                    let _ = self.emit_node(function, *arg, true);
+                    function.instruction(&Instruction::Drop);
+                }
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
 
             if !self.emit_integer_math_arg(function, *value, method.as_str()) {
                 return EmittedValue {
@@ -1822,13 +1835,19 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn math_round_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
+    fn math_round_like_static_literal_value(&self, method: &str, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
-        let folded = if value.fract() == 0.0 {
-            value
-        } else {
-            (value + 0.5).floor()
+        let folded = match method {
+            "round" => {
+                if value.fract() == 0.0 {
+                    value
+                } else {
+                    (value + 0.5).floor()
+                }
+            }
+            "floor" => value.floor(),
+            _ => return None,
         };
 
         if !folded.is_finite() || folded < i64::MIN as f64 || folded > i64::MAX as f64 {
