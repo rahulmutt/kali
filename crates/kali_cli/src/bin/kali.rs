@@ -2455,6 +2455,9 @@ const defaultImportObject = {{
       }}
       return value < 0n ? -1n : 1n;
     }},
+    math_round(value) {{
+      return value;
+    }},
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);
     }},
@@ -2623,6 +2626,9 @@ const defaultImportObject = {{
         return 0n;
       }}
       return value < 0n ? -1n : 1n;
+    }},
+    math_round(value) {{
+      return value;
     }},
     math_imul(left, right) {{
       return BigInt.asIntN(32, left * right);

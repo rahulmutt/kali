@@ -1582,10 +1582,11 @@ fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
         );
     }
 
-    let stage_doc = fs::read_to_string(root.join("plan/phase-15/README.md"))
-        .expect("read phase 15 doc");
+    let stage_doc =
+        fs::read_to_string(root.join("plan/phase-15/README.md")).expect("read phase 15 doc");
     assert!(
-        stage_doc.contains("proofs/BOUNDARY.md") && stage_doc.contains("sole theorem/property inventory"),
+        stage_doc.contains("proofs/BOUNDARY.md")
+            && stage_doc.contains("sole theorem/property inventory"),
         "phase 15 doc should point to the canonical proof boundary without duplicating it"
     );
 
@@ -1642,8 +1643,8 @@ fn collect_proof_sources(root: &Path) -> BTreeSet<String> {
 fn active_plan_tracks_language_semantics_phase() {
     let root = repo_root();
     let plan = fs::read_to_string(root.join("PLAN.md")).expect("read active plan");
-    let phase = fs::read_to_string(root.join("plan/phase-11/README.md"))
-        .expect("read phase 11 README");
+    let phase =
+        fs::read_to_string(root.join("plan/phase-11/README.md")).expect("read phase 11 README");
 
     for expected in [
         "Phase 11 — Language Semantics and Conformance Closure",
@@ -1654,7 +1655,10 @@ fn active_plan_tracks_language_semantics_phase() {
         "non-literal `import(expr)`",
         "Bounded inference",
     ] {
-        assert!(phase.contains(expected), "phase 11 README should mention {expected}");
+        assert!(
+            phase.contains(expected),
+            "phase 11 README should mention {expected}"
+        );
     }
 
     assert!(
@@ -1662,7 +1666,6 @@ fn active_plan_tracks_language_semantics_phase() {
         "top-level PLAN should link the active language phase"
     );
 }
-
 
 #[test]
 fn active_plan_removes_historical_phase_dashboards() {
@@ -1681,7 +1684,6 @@ fn active_plan_removes_historical_phase_dashboards() {
         );
     }
 }
-
 
 fn collect_proof_theorem_names(root: &Path) -> BTreeSet<String> {
     fn visit(dir: &Path, names: &mut BTreeSet<String>) {
@@ -1972,8 +1974,8 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 #[test]
 fn active_plan_tracks_runtime_host_phase() {
     let root = repo_root();
-    let phase = fs::read_to_string(root.join("plan/phase-12/README.md"))
-        .expect("read phase 12 README");
+    let phase =
+        fs::read_to_string(root.join("plan/phase-12/README.md")).expect("read phase 12 README");
 
     for expected in [
         "Phase 12 — Runtime, Host, and Capability Expansion",
@@ -1983,16 +1985,18 @@ fn active_plan_tracks_runtime_host_phase() {
         "Late object/runtime APIs",
         "Keep browser-targeted `check` / `build --bundle` distinct",
     ] {
-        assert!(phase.contains(expected), "phase 12 README should mention {expected}");
+        assert!(
+            phase.contains(expected),
+            "phase 12 README should mention {expected}"
+        );
     }
 }
-
 
 #[test]
 fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
     let root = repo_root();
-    let phase = fs::read_to_string(root.join("plan/phase-13/README.md"))
-        .expect("read phase 13 README");
+    let phase =
+        fs::read_to_string(root.join("plan/phase-13/README.md")).expect("read phase 13 README");
 
     for expected in [
         "Phase 13 — Ecosystem Compatibility Expansion",
@@ -2002,10 +2006,12 @@ fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
         "Registry-analysis boundaries",
         "support rung",
     ] {
-        assert!(phase.contains(expected), "phase 13 README should mention {expected}");
+        assert!(
+            phase.contains(expected),
+            "phase 13 README should mention {expected}"
+        );
     }
 }
-
 
 #[test]
 fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
@@ -2258,8 +2264,8 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
 #[test]
 fn active_plan_tracks_verification_and_contract_hardening_phase() {
     let root = repo_root();
-    let phase = fs::read_to_string(root.join("plan/phase-15/README.md"))
-        .expect("read phase 15 README");
+    let phase =
+        fs::read_to_string(root.join("plan/phase-15/README.md")).expect("read phase 15 README");
 
     for expected in [
         "Phase 15 — Verification and Machine-Contract Widening",
@@ -2269,16 +2275,18 @@ fn active_plan_tracks_verification_and_contract_hardening_phase() {
         "Schema and CLI contract hardening",
         "proofs/BOUNDARY.md",
     ] {
-        assert!(phase.contains(expected), "phase 15 README should mention {expected}");
+        assert!(
+            phase.contains(expected),
+            "phase 15 README should mention {expected}"
+        );
     }
 }
-
 
 #[test]
 fn active_plan_tracks_optimization_phase_without_inventory_journal() {
     let root = repo_root();
-    let phase = fs::read_to_string(root.join("plan/phase-14/README.md"))
-        .expect("read phase 14 README");
+    let phase =
+        fs::read_to_string(root.join("plan/phase-14/README.md")).expect("read phase 14 README");
 
     for expected in [
         "Phase 14 — Optimization and Performance Promotion",
@@ -2288,7 +2296,9 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
         "Benchmark promotion",
         "fast`, `release`, and `release-advanced`",
     ] {
-        assert!(phase.contains(expected), "phase 14 README should mention {expected}");
+        assert!(
+            phase.contains(expected),
+            "phase 14 README should mention {expected}"
+        );
     }
 }
-

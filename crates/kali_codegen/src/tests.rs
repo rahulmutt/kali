@@ -276,6 +276,25 @@ fn math_clz32_member_calls_lower_to_math_host_imports() {
 }
 
 #[test]
+fn math_round_member_calls_lower_to_math_host_imports() {
+    let program = parse_and_lower_lir("console.log(Math.round(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("import \"kali:rt\" \"math_round\""));
+}
+
+#[test]
 fn math_trunc_member_lowers_without_runtime_host_import() {
     let program = parse_and_lower_lir("console.log(Math.trunc(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
@@ -388,8 +407,8 @@ fn supported_math_floor_member_lowering_is_available() {
 }
 
 #[test]
-fn unsupported_math_round_member_reports_feature_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.round(1.6));");
+fn unsupported_math_sqrt_member_reports_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.sqrt(1.6));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -403,7 +422,7 @@ fn unsupported_math_round_member_reports_feature_unavailable() {
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
                 && diagnostic
                     .message
-                    .contains("Math.round is unavailable in the current phase")
+                    .contains("Math.sqrt is unavailable in the current phase")
         }),
         "expected an unavailable Math-member diagnostic: {:?}",
         result.diagnostics

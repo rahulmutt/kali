@@ -923,7 +923,16 @@ impl TypeContext {
 
         if matches!(
             method,
-            "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc" | "ceil" | "floor"
+            "max"
+                | "min"
+                | "abs"
+                | "sign"
+                | "imul"
+                | "round"
+                | "clz32"
+                | "trunc"
+                | "ceil"
+                | "floor"
         ) {
             if expr
                 .args

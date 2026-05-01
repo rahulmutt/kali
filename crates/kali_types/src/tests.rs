@@ -2392,13 +2392,13 @@ fn test_resolution_reports_late_object_model_globals_as_unavailable() {
 }
 
 #[test]
-fn test_resolution_reports_unsupported_math_round_member_calls_as_unavailable() {
+fn test_resolution_reports_unsupported_math_sqrt_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 object: Expression::Identifier("Math".to_string()),
-                property: "round".to_string(),
+                property: "sqrt".to_string(),
             })),
             args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),
@@ -2413,7 +2413,7 @@ fn test_resolution_reports_unsupported_math_round_member_calls_as_unavailable() 
     assert!(result
         .diagnostics
         .iter()
-        .any(|diag| diag.message.contains("Math.round")));
+        .any(|diag| diag.message.contains("Math.sqrt")));
 }
 
 #[test]

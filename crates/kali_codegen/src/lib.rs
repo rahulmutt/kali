@@ -31,10 +31,11 @@ const MATH_MIN_IMPORT_INDEX: u32 = 8;
 const MATH_ABS_IMPORT_INDEX: u32 = 9;
 const MATH_SIGN_IMPORT_INDEX: u32 = 10;
 const MATH_IMUL_IMPORT_INDEX: u32 = 11;
-const PROCESS_PID_IMPORT_INDEX: u32 = 12;
-const MATH_CLZ32_IMPORT_INDEX: u32 = 13;
-const COVERAGE_HIT_IMPORT_INDEX: u32 = 14;
-const FUNCTION_INDEX_OFFSET: u32 = 14;
+const MATH_ROUND_IMPORT_INDEX: u32 = 12;
+const PROCESS_PID_IMPORT_INDEX: u32 = 13;
+const MATH_CLZ32_IMPORT_INDEX: u32 = 14;
+const COVERAGE_HIT_IMPORT_INDEX: u32 = 15;
+const FUNCTION_INDEX_OFFSET: u32 = 15;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
@@ -1078,6 +1079,38 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.math_round_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(value) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            };
+
+            if !self.emit_integer_math_arg(function, *value, "round") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            function.instruction(&Instruction::Call(import_index));
+            for arg in args {
+                if !self.emit_integer_math_arg(function, *arg, "round") {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(import_index) = self.math_clz32_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(value) = args.next() else {
@@ -1112,7 +1145,7 @@ impl<'a> FunctionEmitter<'a> {
 
         if matches!(
             callee_node.text.as_deref(),
-            Some("trunc") | Some("ceil") | Some("floor")
+            Some("round") | Some("trunc") | Some("ceil") | Some("floor")
         ) && callee_node
             .children
             .first()
@@ -1154,7 +1187,7 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(method) = self.math_member_method(&callee_node) {
             if !matches!(
                 method,
-                "max" | "min" | "abs" | "sign" | "imul" | "clz32" | "trunc" | "floor"
+                "max" | "min" | "abs" | "sign" | "imul" | "round" | "clz32" | "trunc" | "floor"
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -1448,6 +1481,17 @@ impl<'a> FunctionEmitter<'a> {
         let object_name = self.node(object).text.as_deref()?;
         if object_name == "Math" && method == "imul" {
             Some(MATH_IMUL_IMPORT_INDEX)
+        } else {
+            None
+        }
+    }
+
+    fn math_round_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        let object = callee_node.children.first().copied()?;
+        let object_name = self.node(object).text.as_deref()?;
+        if object_name == "Math" && method == "round" {
+            Some(MATH_ROUND_IMPORT_INDEX)
         } else {
             None
         }
@@ -2003,6 +2047,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     import_section.import("kali:rt", "math_abs", EntityType::Function(4));
     import_section.import("kali:rt", "math_sign", EntityType::Function(4));
     import_section.import("kali:rt", "math_imul", EntityType::Function(3));
+    import_section.import("kali:rt", "math_round", EntityType::Function(4));
     import_section.import("kali:rt", "process_pid", EntityType::Function(2));
     import_section.import("kali:rt", "math_clz32", EntityType::Function(4));
     if ctx.target.coverage {
