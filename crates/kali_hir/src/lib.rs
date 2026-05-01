@@ -462,9 +462,17 @@ impl HirLowerer {
                 id
             }
             Statement::ForOfStatement(ForOfStatement {
-                left, right, body, ..
+                left,
+                right,
+                body,
+                is_await,
+                ..
             }) => {
-                let id = self.builder.alloc(HirNodeKind::ForOfStmt, None);
+                let id = self.builder.alloc_text(
+                    HirNodeKind::ForOfStmt,
+                    None,
+                    if *is_await { "for-await-of" } else { "for-of" },
+                );
                 match left {
                     ForOfLefthand::VariableDeclaration(v) => push_child!(
                         self,

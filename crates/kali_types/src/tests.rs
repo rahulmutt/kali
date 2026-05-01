@@ -3303,7 +3303,7 @@ fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
 }
 
 #[test]
-fn test_resolution_rejects_for_of_array_iteration() {
+fn test_resolution_supports_for_of_array_iteration() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -3347,21 +3347,14 @@ fn test_resolution_rejects_for_of_array_iteration() {
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        result.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message.contains("for-of array iteration")
-            || diag.message.contains("later compatibility")
-    }));
 }
 
 #[test]
-fn test_resolution_rejects_for_of_array_iteration_in_js_input() {
+fn test_resolution_supports_for_of_array_iteration_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -3405,6 +3398,48 @@ fn test_resolution_rejects_for_of_array_iteration_in_js_input() {
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
     assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_for_of_array_iteration_with_identifier_iterable() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const items = [1, 2];\nfor (const value of items) { console.log(value); }\n",
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::Identifier("items".to_string()),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("value".to_string())],
+                }))),
+            })],
+        })),
+        is_await: false,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
         result
             .diagnostics
             .iter()
@@ -3412,10 +3447,6 @@ fn test_resolution_rejects_for_of_array_iteration_in_js_input() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    assert!(result.diagnostics.iter().any(|diag| {
-        diag.message.contains("for-of array iteration")
-            || diag.message.contains("later compatibility")
-    }));
 }
 
 #[test]

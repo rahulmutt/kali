@@ -9,13 +9,14 @@ use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, BlockStatement, BreakStatement,
     CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement,
     DecoratedExpression, DoWhileStatement, EnumDeclaration, EnumMember, Expression,
-    ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForStatement,
-    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
-    ImportExpression, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement, JsxFragment,
-    LabeledStatement, LiteralValue, MemberExpression, NodeId, ObjectExpression, ObjectProperty,
-    ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement,
-    Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
-    TypeAliasDeclaration, TypeAssertion, VariableDeclaration, WhileStatement, WithStatement,
+    ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForOfLefthand,
+    ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam,
+    IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier, InterfaceDeclaration,
+    JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue, MemberExpression, NodeId,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
+    OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
+    TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
+    VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
@@ -440,11 +441,37 @@ impl TypeContext {
                 self.resolve_loop_body(body);
                 self.pop_scope();
             }
-            Statement::ForOfStatement(_) => {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
-                ));
+            Statement::ForOfStatement(ForOfStatement {
+                left,
+                right,
+                body,
+                is_await,
+            }) => {
+                if *is_await {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
+                    ));
+                    return;
+                }
+
+                if !matches!(left, ForOfLefthand::VariableDeclaration(_))
+                    || !Self::is_static_array_iteration_target(right)
+                {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+                    ));
+                    return;
+                }
+
+                self.push_scope(ScopeType::Block);
+                if let ForOfLefthand::VariableDeclaration(decl) = left {
+                    self.resolve_variable_declaration(decl)
+                }
+                self.resolve_expression(right);
+                self.resolve_loop_body(body);
+                self.pop_scope();
             }
             Statement::WhileStatement(WhileStatement { test, body }) => {
                 self.resolve_expression(test);
@@ -538,6 +565,21 @@ impl TypeContext {
         match body {
             Statement::BlockStatement(block) => self.resolve_block_body(block),
             other => self.resolve_statement(other),
+        }
+    }
+
+    fn is_static_array_iteration_target(expression: &Expression) -> bool {
+        match expression {
+            Expression::ParenthesizedExpression(parenthesized) => {
+                Self::is_static_array_iteration_target(&parenthesized.expression)
+            }
+            Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
+                matches!(
+                    element,
+                    Some(ExpressionOrSpread::Expression(Expression::Literal(_)))
+                )
+            }),
+            _ => false,
         }
     }
 

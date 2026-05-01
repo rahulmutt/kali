@@ -322,7 +322,12 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
             LirNodeKind::Value => self.emit_value(function, &node, want_value),
             LirNodeKind::Call => self.emit_call(function, &node),
-            LirNodeKind::Branch => self.emit_branch(function, &node, want_value),
+            LirNodeKind::Branch => match node.text.as_deref() {
+                Some("for-of") | Some("for-await-of") => {
+                    self.emit_for_of_array_iteration(function, &node)
+                }
+                _ => self.emit_branch(function, &node, want_value),
+            },
             LirNodeKind::Unknown => {
                 function.instruction(&Instruction::Unreachable);
                 EmittedValue {
@@ -1568,17 +1573,6 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn promise_member_method<'b>(&self, callee_node: &'b LirNode) -> Option<&'b str> {
-        let method = callee_node.text.as_deref()?;
-        let object = callee_node.children.first().copied()?;
-        let object_name = self.node(object).text.as_deref()?;
-        if object_name == "Promise" {
-            Some(method)
-        } else {
-            None
-        }
-    }
-
     fn emit_integer_math_arg(
         &mut self,
         function: &mut Function,
@@ -1969,6 +1963,111 @@ impl<'a> FunctionEmitter<'a> {
         let callback_node = node.children.get(2).copied()?;
         let callback_name = self.node(callback_node).text.as_deref()?;
         self.functions.get(callback_name).copied()
+    }
+
+    fn emit_for_of_array_iteration(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+    ) -> EmittedValue {
+        if node.text.as_deref() == Some("for-await-of") {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        let Some(array_id) = node.children.get(1).copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable in the current phase; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        let Some(array_id) = self.resolve_literal_aggregate(array_id) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        let array = self.node(array_id).clone();
+        if !self.is_array_literal(&array)
+            || !array
+                .children
+                .iter()
+                .all(|child| matches!(self.node(*child).kind, LirNodeKind::Literal))
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        let Some(loop_name) = self.for_of_binding_name(node) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable unless the loop target is a single variable declaration or identifier binding; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        let body = node.children.get(2).copied();
+        for child in &array.children {
+            let previous_binding = self.bindings.insert(loop_name.clone(), *child);
+            if let Some(body) = body {
+                let _ = self.emit_node(function, body, false);
+            }
+            if let Some(previous_binding) = previous_binding {
+                self.bindings.insert(loop_name.clone(), previous_binding);
+            } else {
+                self.bindings.remove(&loop_name);
+            }
+        }
+
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
+        }
+    }
+
+    fn for_of_binding_name(&self, node: &LirNode) -> Option<String> {
+        let left = node.children.first().copied()?;
+        let left_node = self.node(left);
+        if left_node.children.is_empty() {
+            return left_node.text.clone();
+        }
+
+        if matches!(left_node.text.as_deref(), Some("const" | "let" | "var")) {
+            let declarator = left_node.children.first().copied()?;
+            return self.node(declarator).text.clone();
+        }
+
+        None
     }
 
     fn emit_branch(

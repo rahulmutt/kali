@@ -181,7 +181,7 @@ Maintenance note:
 | Current-edition non-Annex-B semantics for features Kali marks as supported in a given command/profile | Phase 1 MVP | "Latest standard support" is not parser-only: once Kali claims a feature is supported for a command/profile, the supported path should aim at faithful current-edition semantics and be backed by the matching evidence track rather than by syntax acceptance alone |
 | Static ESM `import` / `export` | Phase 1 MVP | Core module system |
 | Generator function declarations / expressions and `yield` / `yield*` expressions | Phase 1 MVP | Parser-level syntax acceptance and AST preservation; the lowering path remains separately gated until the dedicated generator implementation packet lands |
-| `for...of` array iteration | Rejected by default | The parser accepts the loop syntax for grammar completeness, but lowering / execution is gated with the canonical `E5506` path until iterator-lowering support is explicitly implemented; browser-targeted `check` / `build --bundle` smoke coverage now also exercises the gate in TS and `.js` input, including JSON-output coverage |
+| `for...of` array iteration | Phase 1 MVP | The parser accepts the loop syntax for grammar completeness, and a limited literal-array lowering path is now live for literal arrays with literal elements and simple variable bindings; other iterable shapes remain gated with the canonical `E5506` path and later-compatibility fallbacks |
 | First-class JavaScript compilation with bounded inference | Phase 1 MVP | Required so `.js` projects are not forced to migrate to TypeScript before benefiting from Kali; this uses the shared **first-class JavaScript compilation** contract plus the shared **bounded inference contract** rather than open-ended whole-program search |
 | Budgeted local/intra-module constraint solving inside the shared bounded inference contract | Phase 1 MVP | Early stronger-than-`tsc` inference may use deterministic bounded constraint solving where compile-time budgets stay predictable |
 | Open-ended or unstable cross-module/public-API constraint solving | Phase 3 target | Exported/public boundaries should keep the shared **annotation-required inference boundary** until higher-cost solver work has an explicit later-phase contract |
@@ -609,7 +609,7 @@ This matrix is a compact cross-check for the features most likely to drift betwe
 | dynamic `require()` | Yes | Recognize as unsupported dynamic loading | No early-phase lowering | Rejected by default |
 | literal-string `import()` | Yes | Analyze as statically known target once implemented | Phase 3 target lowering to the already-linked graph | Phase 3 target |
 | non-literal `import(expr)` | Yes | Mark as dynamic effect boundary when analyzed | No early-phase lowering | Rejected by default |
-| `for...of` array iteration | Yes | Parse the grammar shape, but gate array-iteration lowering as unavailable in early phases | No early-phase lowering | Rejected by default |
+| `for...of` array iteration | Yes | Accept the loop grammar shape; static analysis permits only the supported literal-array lowering subset | Limited literal-array lowering | Literal-array cases only |
 | `eval` / `Function()` | Yes | Report `Eval` effect; type-check conservatively around the boundary | Phase 4 compatibility path only | Rejected by default unless `--compat eval` is implemented and enabled |
 | explicit `pure` / effect annotations | Yes | Phase 2 target validation | N/A beyond analysis metadata | N/A |
 | `Proxy` | Yes | Analyze conservatively where possible; may trigger `dynamicReasons: ["proxy-traps"]` | Lower only once faithful runtime support exists | Later compatibility |
@@ -623,7 +623,7 @@ The compiler should produce clear, stable diagnostics for these cases, using the
 - `eval` / `Function()` without `--compat eval`
 - host-registered sandbox policy predicates before the documented embedding-only compatibility path exists
 - `Proxy` usage in unsupported runtime modes
-- `for...of` array iteration before the iterator-lowering path is implemented
+- `for...of` array iteration outside the supported literal-array lowering path
 - weak-reference APIs before their semantics are implemented
 - `--api node` or browser-only assumptions outside the documented profile
 - `--wasm-threads` before the threaded runtime profile exists, or on targets/profiles that do not support it
