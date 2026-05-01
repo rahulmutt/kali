@@ -1759,7 +1759,7 @@ fn phase_six_conformance_dashboard_is_present_and_deterministic() {
         "Browser bundle `Reflect.ownKeys()` enumeration semantics in `.js` input, including JSON-output coverage",
         "Browser-requested `run` / `test` console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting in `.js` input",
         "Browser bundle console error / warn / info / debug routing plus signed numeric console output and `console.assert()` false-branch reporting",
-        "Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `globalThis.Deno.pid` / bracketed `globalThis[\"Deno\"][\"pid\"]` stays the default standalone exception)",
+        "Process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`; read-only `Deno.pid` / `Deno[\"pid\"]` / `globalThis.Deno.pid` / bracketed `globalThis[\"Deno\"][\"pid\"]` stays the default standalone exception)",
         "Browser-requested `run` / `test` process identity and process-control/working-directory APIs (`process.pid`, `Deno.exit`, `Deno.cwd`, `Deno.chdir`, `process.chdir`, `process.exit`) in `.js` input",
         "Basic optional chaining member and element access",
         "Basic BigInt addition semantics",

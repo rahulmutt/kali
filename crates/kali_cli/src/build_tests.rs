@@ -1644,6 +1644,67 @@ fn build_source_file_rejects_mixed_bracket_dot_process_control_in_ts_input() {
     }
 }
 
+fn assert_build_source_file_rejects_bracketed_process_control_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"globalThis["process"]["pid"]; globalThis["process"]["cwd"]; globalThis["process"]["chdir"]; globalThis["process"]["exit"];"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("bracketed process control should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "globalThis.process.pid",
+        "globalThis.process.cwd",
+        "globalThis.process.chdir",
+        "globalThis.process.exit",
+    ] {
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing {expected} in {error:?}"
+        );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_process_control_in_js_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_process_control_in_ts_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Browser, "ts");
+}
+
 #[test]
 fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_ts_input() {
     let dir = tempdir().expect("tempdir");
