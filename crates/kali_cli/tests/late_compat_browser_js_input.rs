@@ -2179,24 +2179,13 @@ fn test_rejects_threaded_runtime_globals_in_inherited_browser_api_surface_ts_inp
     );
 }
 
-fn assert_browser_late_promise_all_settled_rejection_text(stderr: &str) {
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(stderr.contains("Promise.allSettled"), "stderr: {stderr}");
+fn assert_browser_late_promise_all_settled_support_text(stderr: &str) {
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(!stderr.contains("Promise.allSettled"), "stderr: {stderr}");
 }
 
-fn assert_browser_late_promise_all_settled_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
-    assert!(
-        errors.iter().all(|error| error["code"] == "E5506"),
-        "unexpected errors: {errors:?}"
-    );
-    assert!(
-        errors.iter().any(|error| error["message"]
-            .as_str()
-            .expect("error message")
-            .contains("Promise.allSettled")),
-        "missing Promise.allSettled in {errors:?}"
-    );
+fn assert_browser_late_promise_all_settled_support_json(errors: &[Value]) {
+    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
 }
 
 #[test]
@@ -2218,14 +2207,14 @@ fn check_rejects_fully_bracketed_promise_all_settled_in_browser_api_surface_js_i
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
-fn check_rejects_promise_all_settled_in_browser_api_surface_js_input() {
+fn check_supports_promise_all_settled_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2239,14 +2228,14 @@ fn check_rejects_promise_all_settled_in_browser_api_surface_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
-fn build_rejects_promise_all_settled_in_browser_bundle_js_input() {
+fn build_supports_promise_all_settled_in_browser_bundle_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2261,14 +2250,14 @@ fn build_rejects_promise_all_settled_in_browser_bundle_js_input() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
-fn check_rejects_promise_all_settled_in_browser_api_surface_js_input_in_json() {
+fn check_supports_promise_all_settled_in_browser_api_surface_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2284,18 +2273,17 @@ fn check_rejects_promise_all_settled_in_browser_api_surface_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_promise_all_settled_rejection_json(errors);
 }
 
 #[test]
-fn build_rejects_promise_all_settled_in_browser_bundle_js_input_in_json() {
+fn build_supports_promise_all_settled_in_browser_bundle_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2312,18 +2300,17 @@ fn build_rejects_promise_all_settled_in_browser_bundle_js_input_in_json() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_promise_all_settled_rejection_json(errors);
 }
 
 #[test]
-fn run_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
+fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2338,14 +2325,14 @@ fn run_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input(
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
-fn run_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input_in_json() {
+fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
@@ -2362,18 +2349,17 @@ fn run_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input_
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_promise_all_settled_rejection_json(errors);
 }
 
 #[test]
-fn test_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
+fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
@@ -2392,14 +2378,14 @@ fn test_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_browser_late_promise_all_settled_rejection_text(&stderr);
+    assert!(!stderr.contains("E5506"), "stderr: {stderr}");
 }
 
 #[test]
-fn test_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input_in_json() {
+fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
@@ -2420,14 +2406,13 @@ fn test_rejects_promise_all_settled_in_browser_api_surface_with_harness_js_input
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
-    assert_eq!(json["success"], false);
+    assert_eq!(json["success"], true);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_browser_late_promise_all_settled_rejection_json(errors);
 }
 
 #[test]

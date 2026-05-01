@@ -1266,20 +1266,6 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        if let Some(method) = self.promise_member_method(&callee_node) {
-            if method == "allSettled" {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Promise.allSettled is unavailable in the current phase; use Promise.all or the later compatibility path".to_string(),
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            }
-        }
-
         if let Some(import_index) = self.env_set_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(key_expr) = args.next() else {

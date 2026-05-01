@@ -1308,7 +1308,7 @@ fn promise_all_settled_source_variants() -> [&'static str; 10] {
     ]
 }
 
-fn assert_build_source_file_rejects_promise_all_settled_in_input(
+fn assert_build_source_file_supports_promise_all_settled_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -1317,7 +1317,7 @@ fn assert_build_source_file_rejects_promise_all_settled_in_input(
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).expect("write source");
 
-        let error = build_source_file(
+        let output = build_source_file(
             &source_path,
             BuildMode::Fast,
             api_surface,
@@ -1327,24 +1327,19 @@ fn assert_build_source_file_rejects_promise_all_settled_in_input(
             None,
             None,
         )
-        .expect_err("Promise.allSettled should fail");
+        .expect("Promise.allSettled should succeed");
 
-        assert!(error.iter().any(|diagnostic| diagnostic.code
-            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-        assert!(
-            error
-                .iter()
-                .any(|diagnostic| diagnostic.message.contains("Promise.allSettled")),
-            "unexpected diagnostics: {error:?}"
-        );
+        Validator::new()
+            .validate_all(&output.wasm_bytes)
+            .expect("generated wasm should validate");
     }
 }
 
 #[test]
-fn build_source_file_rejects_promise_all_settled_across_input_classes() {
+fn build_source_file_supports_promise_all_settled_across_input_classes() {
     for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
         for extension in ["ts", "js", "jsx", "tsx"] {
-            assert_build_source_file_rejects_promise_all_settled_in_input(api_surface, extension);
+            assert_build_source_file_supports_promise_all_settled_in_input(api_surface, extension);
         }
     }
 }

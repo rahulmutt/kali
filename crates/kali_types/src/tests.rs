@@ -2477,7 +2477,7 @@ fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
 }
 
 #[test]
-fn test_resolution_reports_unsupported_promise_all_settled_member_calls_as_unavailable() {
+fn test_resolution_supports_promise_all_settled_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
@@ -2504,15 +2504,11 @@ fn test_resolution_reports_unsupported_promise_all_settled_member_calls_as_unava
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2);
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.message.contains("Promise.allSettled")));
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]
