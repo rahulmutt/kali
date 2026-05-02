@@ -1454,15 +1454,13 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.len() >= 7);
+    assert!(result.diagnostics.len() >= 5);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
     for expected in [
         "globalThis.Deno.cwd",
-        "Deno.chdir",
-        "globalThis.Deno.chdir",
         "globalThis.Deno.exit",
         "process.chdir",
         "globalThis.process.chdir",
@@ -1567,7 +1565,7 @@ fn test_resolution_allows_deno_cwd_query_in_default_standalone_surface() {
 }
 
 #[test]
-fn test_resolution_rejects_deno_chdir_mutation_in_default_standalone_surface() {
+fn test_resolution_allows_deno_chdir_mutation_in_default_standalone_surface() {
     let mut ctx = TypeContext::with_base_path_and_api_surface(".", "deno");
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
@@ -1592,19 +1590,40 @@ fn test_resolution_rejects_deno_chdir_mutation_in_default_standalone_surface() {
     ];
 
     let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_rejects_deno_exit_termination_in_default_standalone_surface() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "deno");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "exit".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "exit".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
     assert!(result.diagnostics.len() >= 2, "{:?}", result.diagnostics);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Deno.chdir")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("globalThis.Deno.chdir")));
 }
 
 #[test]
