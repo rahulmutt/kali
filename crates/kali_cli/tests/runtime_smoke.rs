@@ -35389,6 +35389,65 @@ fn run_supports_math_log10_on_positive_power_of_ten_integer_literals_in_js_input
     assert!(stdout.contains("3"), "stdout: {stdout}");
 }
 
+fn assert_build_supports_math_log2_and_log10_const_alias_chains(filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        "const log2Value = 8; const log2Alias = log2Value; console.log(Math.log2(log2Alias));\nconst log10Value = 1000; const log10Alias = log10Value; console.log(Math.log10(log10Alias));\n",
+    )
+    .expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output.current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("build")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(0));
+
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "build");
+            assert_eq!(json["success"], true);
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                stdout.contains("Built executable artifact at"),
+                "stdout: {stdout}"
+            );
+        }
+    }
+
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
+}
+
+#[test]
+fn build_supports_math_log2_and_log10_const_alias_chains_in_ts_input() {
+    assert_build_supports_math_log2_and_log10_const_alias_chains("main.ts");
+}
+
+#[test]
+fn build_supports_math_log2_and_log10_const_alias_chains_in_js_input() {
+    assert_build_supports_math_log2_and_log10_const_alias_chains("main.js");
+}
+
 #[test]
 fn check_supports_math_sin_and_cos_zero_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
