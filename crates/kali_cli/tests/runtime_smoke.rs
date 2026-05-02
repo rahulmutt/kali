@@ -27828,6 +27828,34 @@ fn build_emits_library_artifacts_and_metadata() {
 }
 
 #[test]
+fn build_rejects_function_declaration_export_aliases_for_library_artifact_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("math.js");
+    fs::write(
+        &source_path,
+        "export function main(input) { return 1; } export { main as alias };",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--lib")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(stderr.contains("alias"), "stderr: {stderr}");
+    assert!(!dir.path().join("math.lib.wasm").exists());
+    assert!(!dir.path().join("math.lib.wit").exists());
+    assert!(!dir.path().join("math.lib.meta.json").exists());
+}
+
+#[test]
 fn build_emits_library_artifacts_with_validate_ir() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.ts");
