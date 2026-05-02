@@ -193,7 +193,7 @@ Canonical gating rule:
 - `util` — utilities (promisify, inspect, etc.)
 - `url` — URL parsing
 - `assert` — assertions
-- `process` — process global subset needed by real packages first (`env`, `argv`, selected control/query helpers); `process.pid` is already available as a read-only query on the Node surface, `process.cwd` is also available as a read-only query in the current repository snapshot, `process.chdir` is now also available there as the working-directory mutation API, and `process.exit` is now also available there as the Node process-control exit API. The current repository snapshot also rejects `process.env = ...` assignment mutations on the Node surface, keeping the mutable-environment boundary explicit until the dedicated Phase 3 path lands.
+- `process` — process global subset needed by real packages first (`env`, `argv`, selected control/query helpers); `process.pid` is already available as a read-only query on the Node surface, `process.cwd` is also available as a read-only query in the current repository snapshot, `process.chdir` is now also available there as the working-directory mutation API, and `process.exit` is now also available there as the Node process-control exit API. The Node surface now also supports the `process.env.KEY = ...` / `delete process.env.KEY` property-mutation slice (including the equivalent `globalThis.process.env...` forms), while the broader `Deno.env.set` / `Deno.env.delete` mutation path remains a Phase 3 target.
 
 **Later compatibility expansion**
 - `os`

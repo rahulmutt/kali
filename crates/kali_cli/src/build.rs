@@ -604,7 +604,7 @@ fn analyze_source_file(
         source
     };
 
-    if source_uses_process_env_mutation(&source) {
+    if api_surface != ApiSurface::Node && source_uses_process_env_mutation(&source) {
         return Err(vec![Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "environment mutation API 'process.env' (aka process[\"env\"]) is unavailable until the later mutable env path is enabled",
@@ -665,8 +665,20 @@ fn source_uses_process_env_mutation(source: &str) -> bool {
         "process['env'] =",
         "globalThis.process[\"env\"] =",
         "globalThis.process['env'] =",
+        "globalThis[\"process\"].env =",
+        "globalThis['process'].env =",
         "globalThis[\"process\"][\"env\"] =",
         "globalThis['process']['env'] =",
+        "delete process.env",
+        "delete globalThis.process.env",
+        "delete process[\"env\"]",
+        "delete process['env']",
+        "delete globalThis.process[\"env\"]",
+        "delete globalThis.process['env']",
+        "delete globalThis[\"process\"].env",
+        "delete globalThis['process'].env",
+        "delete globalThis[\"process\"][\"env\"]",
+        "delete globalThis['process']['env']",
     ];
 
     patterns.iter().any(|pattern| source.contains(pattern))
