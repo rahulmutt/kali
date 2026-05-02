@@ -123,6 +123,44 @@ fn test_parse_async_await_expression() {
 }
 
 #[test]
+fn test_parse_function_declaration_stops_before_following_statement() {
+    let tokens = lex("function add(a, b) { return a + b; } add(1, 2);");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 2);
+
+    let Statement::FunctionDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected FunctionDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    assert_eq!(decl.body.body.len(), 1);
+
+    let Statement::ReturnStatement(return_stmt) = &decl.body.body[0] else {
+        panic!("Expected ReturnStatement, got {:?}", decl.body.body[0]);
+    };
+    assert!(return_stmt.argument.is_some());
+
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[1] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[1]
+        );
+    };
+    assert!(matches!(
+        expr_stmt.expression.as_ref(),
+        Expression::CallExpression(_)
+    ));
+}
+
+#[test]
 fn test_parse_for_await_of_statement() {
     let tokens = lex("async function main() { for await (const item of items) { item; } }");
     let mut parser = Parser::new(FileId::new(0), tokens);

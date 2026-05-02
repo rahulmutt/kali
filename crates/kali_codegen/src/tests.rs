@@ -1319,9 +1319,7 @@ fn unsupported_math_atan2_member_reports_feature_unavailable() {
         result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic
-                    .message
-                    .contains("Math.atan2 is unavailable in the current phase")
+                && diagnostic.message.contains("Math.atan2 is unavailable unless the first argument is a statically-known zero numeric literal and the second argument is a statically-known non-negative numeric literal in the current phase; use explicit constants or the later compatibility path")
         }),
         "expected an unavailable Math.atan2 diagnostic: {:?}",
         result.diagnostics

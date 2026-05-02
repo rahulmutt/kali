@@ -147,7 +147,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> &'static str {
-    r#"globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
+    r#"globalThis.Deno.exit; globalThis["Deno"]["exit"]; Deno["exit"]; globalThis.Deno["exit"]; globalThis.Deno.chdir; globalThis["Deno"].chdir; globalThis["Deno"]["chdir"]; Deno.chdir; Deno["chdir"]; globalThis.Deno["chdir"]; process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
 }
 
 fn late_process_env_mutation_source() -> &'static str {
@@ -5026,7 +5026,7 @@ fn check_rejects_late_process_control_members_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
+        "globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno.chdir; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"][\"chdir\"]; Deno.chdir; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis.process.cwd; globalThis[\"process\"][\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"][\"chdir\"]; process.exit; globalThis[\"process\"][\"exit\"];",
     )
     .expect("write source");
 

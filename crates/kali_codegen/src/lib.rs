@@ -249,6 +249,8 @@ impl<'a> FunctionEmitter<'a> {
         let produced = self.emit_node(function, body, returns_value);
         if returns_value && !produced.produced {
             function.instruction(&Instruction::I64Const(0));
+        } else if !returns_value && produced.produced {
+            function.instruction(&Instruction::Drop);
         }
     }
 
@@ -3116,6 +3118,8 @@ impl<'a> FunctionEmitter<'a> {
             let produced = self.emit_node(function, then_branch, want_value);
             if want_value && !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
+            } else if !want_value && produced.produced {
+                function.instruction(&Instruction::Drop);
             }
         } else if want_value {
             function.instruction(&Instruction::I64Const(0));
@@ -3126,6 +3130,8 @@ impl<'a> FunctionEmitter<'a> {
             let produced = self.emit_node(function, else_branch, want_value);
             if want_value && !produced.produced {
                 function.instruction(&Instruction::I64Const(0));
+            } else if !want_value && produced.produced {
+                function.instruction(&Instruction::Drop);
             }
         } else if want_value {
             function.instruction(&Instruction::Else);
@@ -3285,7 +3291,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 6;
+            let idx = function_types.len() as u32 + 7;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
@@ -3346,7 +3352,6 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
-            body.instruction(&Instruction::I32Const(0));
         } else {
             emitter.emit_function_body(&mut body, function.body, function.result, coverage_id);
         }

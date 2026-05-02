@@ -287,6 +287,7 @@ impl Parser {
                     params.push(param.value);
                 }
             }
+            let _ = self.stream.accept(TokenType::RightParen);
         }
 
         let previous_generator = self.in_generator_function;
