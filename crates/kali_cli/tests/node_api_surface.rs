@@ -2172,6 +2172,95 @@ fn node_api_surface_rejects_process_env_assignment_on_inherited_node_api_surface
 }
 
 #[test]
+fn node_api_surface_supports_process_env_property_mutation_in_js_input_on_check_build_run_and_test_commands(
+) {
+    let source_variants = [
+        "process.env.KALI_NODE_ENV_MUTATION = 'set'; delete process.env.KALI_NODE_ENV_MUTATION; console.log('node env mutation');",
+        "globalThis.process.env.KALI_NODE_ENV_MUTATION = 'set'; delete globalThis.process.env.KALI_NODE_ENV_MUTATION; console.log('node env mutation');",
+    ];
+
+    for source in source_variants {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let run_file = dir.path().join("main.js");
+            let test_file = dir.path().join("main.test.js");
+            fs::write(&run_file, format!("{source}\n")).expect("write run file");
+            fs::write(
+                &test_file,
+                format!("Kali.test('node env mutation', () => {{ {source} }});\n"),
+            )
+            .expect("write test file");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_file
+                } else {
+                    &run_file
+                };
+
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    text_output.status.success(),
+                    "{command} should be supported on the Node surface for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&text_output.stdout),
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+                assert!(
+                    !text_stderr.contains("E5506") && !text_stderr.contains("process.env"),
+                    "{command} stderr for {source} (inherited={inherited}): {text_stderr}"
+                );
+
+                let mut json_command = Command::new(kali_bin());
+                json_command
+                    .current_dir(dir.path())
+                    .arg("--output")
+                    .arg("json")
+                    .arg(command);
+                if !inherited {
+                    json_command.arg("--api").arg("node");
+                }
+                json_command.arg(input_path);
+
+                let json_output = json_command.output().expect("run kali");
+                assert!(
+                    json_output.status.success(),
+                    "json {command} should be supported on the Node surface for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&json_output.stdout),
+                    String::from_utf8_lossy(&json_output.stderr)
+                );
+                let json = parse_json_stdout(&json_output);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert_eq!(json["exitCode"], 0);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+            }
+        }
+    }
+}
+
+#[test]
 fn node_api_surface_supports_promise_all_settled_in_js_input_on_check_build_run_and_test_commands()
 {
     let source_variants = [

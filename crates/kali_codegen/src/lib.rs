@@ -539,6 +539,51 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
+            "delete" => {
+                if let Some(key_text) = process_env_property_key(&self.program.nodes, arg) {
+                    let Some(import_index) = self.env_delete_import_index else {
+                        self.diagnostics.push(Diagnostic::warning(
+                            e8::UNIMPLEMENTED as u32,
+                            "process.env property deletion is unavailable until the later mutable env path is enabled".to_string(),
+                        ));
+                        let produced = self.emit_node(function, arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                        function.instruction(&Instruction::I64Const(0));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Unknown,
+                        };
+                    };
+                    let (key_offset, key_len) = self.strings.intern(&key_text);
+                    function.instruction(&Instruction::I32Const(key_offset as i32));
+                    function.instruction(&Instruction::I32Const(key_len as i32));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::I32Const(0));
+                    function.instruction(&Instruction::Call(import_index));
+                    function.instruction(&Instruction::Drop);
+                    function.instruction(&Instruction::I64Const(0));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+
+                self.diagnostics.push(Diagnostic::warning(
+                    e8::UNIMPLEMENTED as u32,
+                    format!("unsupported unary operator '{}'", op),
+                ));
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                }
+            }
             "pid" => {
                 if self.is_deno_pid(arg) || self.is_process_pid(arg) {
                     function.instruction(&Instruction::Call(PROCESS_PID_IMPORT_INDEX));
@@ -803,6 +848,55 @@ impl<'a> FunctionEmitter<'a> {
         left: LirNodeId,
         right: LirNodeId,
     ) -> bool {
+        if op == "=" {
+            if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
+                let right_node = self.node(right);
+                if right_node.kind == LirNodeKind::Value
+                    && right_node.text.is_none()
+                    && right_node.children.len() != 1
+                {
+                    self.diagnostics.push(Diagnostic::warning(
+                        e8::UNIMPLEMENTED as u32,
+                        "process.env property mutation is unavailable unless the assigned value is a statically-known literal in the current phase".to_string(),
+                    ));
+                    let produced = self.emit_node(function, right, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                }
+
+                let Some(value_text) = self.render_static_value(right) else {
+                    self.diagnostics.push(Diagnostic::warning(
+                        e8::UNIMPLEMENTED as u32,
+                        "process.env property mutation is unavailable unless the assigned value is a statically-known literal in the current phase".to_string(),
+                    ));
+                    let produced = self.emit_node(function, right, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    function.instruction(&Instruction::I64Const(0));
+                    return true;
+                };
+
+                let Some(import_index) = self.env_set_import_index else {
+                    return false;
+                };
+
+                let (key_offset, key_len) = self.strings.intern(&key_text);
+                let (value_offset, value_len) = self.strings.intern(&value_text);
+                function.instruction(&Instruction::I32Const(key_offset as i32));
+                function.instruction(&Instruction::I32Const(key_len as i32));
+                function.instruction(&Instruction::I32Const(value_offset as i32));
+                function.instruction(&Instruction::I32Const(value_len as i32));
+                function.instruction(&Instruction::Call(import_index));
+                function.instruction(&Instruction::Drop);
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
+        }
+
         let Some(name) = self.assignment_target_name(node, left) else {
             return false;
         };
@@ -3718,8 +3812,49 @@ fn program_uses_env_get(lir: &LirProgram) -> bool {
     })
 }
 
+fn is_process_root(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+
+    if node.text.as_deref() == Some("process") {
+        return true;
+    }
+
+    node.text.as_deref() == Some("globalThis")
+        && node.children.first().is_some_and(|child| {
+            nodes
+                .get(child.0 as usize)
+                .is_some_and(|process| process.text.as_deref() == Some("process"))
+        })
+}
+
+fn process_env_property_key(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
+    let node = nodes.get(id.0 as usize)?;
+    let key = node.text.as_deref()?;
+    let object = node.children.first().copied()?;
+    let object_node = nodes.get(object.0 as usize)?;
+    if object_node.text.as_deref() != Some("env") {
+        return None;
+    }
+    let root = object_node.children.first().copied()?;
+    if !is_process_root(nodes, root) {
+        return None;
+    }
+
+    Some(key.to_string())
+}
+
 fn program_uses_env_set(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("=")
+            && node.children.len() == 2
+            && process_env_property_key(&lir.nodes, node.children[0]).is_some()
+        {
+            return true;
+        }
+
         if node.kind != LirNodeKind::Call {
             return false;
         }
@@ -3763,6 +3898,14 @@ fn program_uses_env_set(lir: &LirProgram) -> bool {
 
 fn program_uses_env_delete(lir: &LirProgram) -> bool {
     lir.nodes.iter().any(|node| {
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("delete")
+            && node.children.len() == 1
+            && process_env_property_key(&lir.nodes, node.children[0]).is_some()
+        {
+            return true;
+        }
+
         if node.kind != LirNodeKind::Call {
             return false;
         }
