@@ -3,12 +3,9 @@ pub fn resolve_interpolated_template_literal(
     mut resolve_expression: impl FnMut(&str) -> Option<String>,
 ) -> Option<String> {
     let trimmed = text.trim();
-    let Some(inner) = trimmed
+    let inner = trimmed
         .strip_prefix('`')
-        .and_then(|value| value.strip_suffix('`'))
-    else {
-        return None;
-    };
+        .and_then(|value| value.strip_suffix('`'))?;
 
     if !inner.contains("${") {
         return Some(inner.to_string());
@@ -26,9 +23,7 @@ pub fn resolve_interpolated_template_literal(
         rendered.push_str(&inner[index..chunk_start]);
 
         let expression_start = chunk_start + 2;
-        let Some(expression_end) = find_template_expression_end(inner, expression_start) else {
-            return None;
-        };
+        let expression_end = find_template_expression_end(inner, expression_start)?;
 
         let expression = &inner[expression_start..expression_end];
         rendered.push_str(&resolve_expression(expression)?);
