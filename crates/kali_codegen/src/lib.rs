@@ -2862,7 +2862,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let object = callee_node.children.first().copied()?;
-        if !self.is_deno_pid(object) {
+        if !self.is_deno_pid(object) && !self.is_process_cwd(object) {
             return None;
         }
 

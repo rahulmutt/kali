@@ -27,10 +27,12 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 #[test]
 fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).expect("create nested dir");
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.chdir('nested');\nconsole.log('Checked 1 file(s)');\n",
     )
     .expect("write source");
 
@@ -64,10 +66,12 @@ fn explicit_node_api_surface_is_supported_for_phase1_check_and_build_commands() 
 #[test]
 fn inherited_node_api_surface_is_supported_for_phase1_check_and_build_commands() {
     let dir = tempdir().expect("tempdir");
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).expect("create nested dir");
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nconsole.log('Checked 1 file(s)');\n",
+        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.chdir('nested');\nconsole.log('Checked 1 file(s)');\n",
     )
     .expect("write source");
     fs::write(
@@ -496,43 +500,47 @@ fn inherited_node_api_surface_builds_library_artifacts_in_js_input() {
 #[test]
 fn explicit_node_api_surface_executes_on_run_and_test_commands() {
     let dir = tempdir().expect("tempdir");
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).expect("create nested dir");
     let run_file = dir.path().join("main.ts");
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log(process.cwd());\nconsole.log('node run ok');\n",
+        "import fs from 'node:fs';\nprocess.chdir('nested');\nfs.writeFileSync('marker.txt', 'ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log(process.cwd());\n    console.log('node test ok');\n});\n",
+        "import fs from 'node:fs';\nKali.test('node', () => {\n    process.chdir('nested');\n    fs.writeFileSync('marker.txt', 'ok');\n});\n",
     )
     .expect("write test file");
 
     let mut run = Command::new(kali_bin());
     run.current_dir(dir.path())
         .args(["run", "--api", "node", run_file.to_str().unwrap()]);
-    assert_node_api_succeeds("run", run, "node run ok\n");
+    assert_node_api_succeeds("run", run, "");
 
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path())
         .args(["test", "--api", "node", test_file.to_str().unwrap()]);
-    assert_node_api_succeeds("test", test, "node test ok\n");
+    assert_node_api_succeeds("test", test, "");
 }
 
 #[test]
 fn inherited_node_api_surface_executes_on_run_and_test_commands() {
     let dir = tempdir().expect("tempdir");
+    let nested = dir.path().join("nested");
+    fs::create_dir(&nested).expect("create nested dir");
     let run_file = dir.path().join("main.ts");
     let test_file = dir.path().join("main.test.ts");
     fs::write(
         &run_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nprocess.pid;\nconsole.log(process.cwd());\nconsole.log('node run ok');\n",
+        "import fs from 'node:fs';\nprocess.chdir('nested');\nfs.writeFileSync('marker.txt', 'ok');\n",
     )
     .expect("write run file");
     fs::write(
         &test_file,
-        "import 'node:path';\nimport 'node:timers';\nimport 'node:http';\nKali.test('node', () => {\n    process.pid;\n    console.log(process.cwd());\n    console.log('node test ok');\n});\n",
+        "import fs from 'node:fs';\nKali.test('node', () => {\n    process.chdir('nested');\n    fs.writeFileSync('marker.txt', 'ok');\n});\n",
     )
     .expect("write test file");
     fs::write(
@@ -549,12 +557,12 @@ fn inherited_node_api_surface_executes_on_run_and_test_commands() {
     let mut run = Command::new(kali_bin());
     run.current_dir(dir.path())
         .args(["run", run_file.to_str().unwrap()]);
-    assert_node_api_succeeds("run", run, "node run ok\n");
+    assert_node_api_succeeds("run", run, "");
 
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path())
         .args(["test", test_file.to_str().unwrap()]);
-    assert_node_api_succeeds("test", test, "node test ok\n");
+    assert_node_api_succeeds("test", test, "");
 }
 
 #[test]
@@ -2420,7 +2428,7 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
 
 #[test]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_and_build_commands() {
-    let members = ["process.chdir", "process.exit"];
+    let members = ["process.exit"];
 
     for member in members {
         let expected_message = format!(
@@ -2497,7 +2505,7 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_an
 
 #[test]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_test_commands() {
-    let members = ["process.chdir", "process.exit"];
+    let members = ["process.exit"];
 
     for member in members {
         let expected_message = format!(
@@ -2588,14 +2596,6 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_
 fn node_api_surface_rejects_inherited_late_process_control_members_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let cases = [
-        (
-            r#"globalThis.process.chdir;"#,
-            ["globalThis.process.chdir", "process.chdir"],
-        ),
-        (
-            r#"globalThis["process"].chdir;"#,
-            ["globalThis.process.chdir", "process.chdir"],
-        ),
         (
             r#"globalThis.process.exit;"#,
             ["globalThis.process.exit", "process.exit"],

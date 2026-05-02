@@ -2070,6 +2070,10 @@ impl TypeContext {
             return;
         }
 
+        if expr.property == "chdir" && object_name == "process" && self.api_surface == "node" {
+            return;
+        }
+
         if expr.property == "pid" && object_name == "process" && self.api_surface == "node" {
             return;
         }
