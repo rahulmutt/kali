@@ -37620,6 +37620,61 @@ fn check_supports_math_hypot_on_perfect_square_integer_literal_sums_in_js_input(
     assert_eq!(output.status.code(), Some(0));
 }
 
+fn assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums(filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, "console.log(Math.hypot(3, 4));\n").expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output.current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("build")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(0));
+
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "build");
+            assert_eq!(json["success"], true);
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                stdout.contains("Built executable artifact at"),
+                "stdout: {stdout}"
+            );
+        }
+    }
+
+    assert!(
+        source_path.with_file_name("main.wasm").exists(),
+        "expected build artifact"
+    );
+}
+
+#[test]
+fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_ts_input() {
+    assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums("main.ts");
+}
+
+#[test]
+fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_js_input() {
+    assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums("main.js");
+}
+
 #[test]
 fn json_test_supports_math_hypot_on_perfect_square_integer_literal_sums_when_browser_harness_is_configured_in_js_input(
 ) {
