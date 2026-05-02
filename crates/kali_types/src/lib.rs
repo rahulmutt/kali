@@ -1383,6 +1383,33 @@ impl TypeContext {
             return;
         }
 
+        if method == "sinh" || method == "cosh" || method == "tanh" {
+            let Some(argument) = expr.args.first() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} requires at least one argument in the current phase; use an explicit argument or the later compatibility path"
+                    ),
+                ));
+                return;
+            };
+
+            if self
+                .resolve_math_hyperbolic_zero_constant_value(method, argument)
+                .is_some()
+            {
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                ),
+            ));
+            return;
+        }
+
         if method == "atan2" {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1752,6 +1779,19 @@ impl TypeContext {
             "asinh" | "atanh" if value == 0.0 => Some(0),
             _ => None,
         }
+    }
+
+    fn resolve_math_hyperbolic_zero_constant_value(
+        &self,
+        method: &str,
+        expression: &Expression,
+    ) -> Option<i64> {
+        let value = self.resolve_static_numeric_literal_value(expression)?;
+        if value != 0.0 {
+            return None;
+        }
+
+        Some(if method == "cosh" { 1 } else { 0 })
     }
 
     fn resolve_math_sqrt_static_literal_root(&self, expression: &Expression) -> Option<i64> {

@@ -36060,6 +36060,149 @@ fn json_test_supports_math_inverse_hyperbolic_exact_identity_literals_in_js_inpu
 }
 
 #[test]
+fn run_supports_math_hyperbolic_zero_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.sinh(0));\nconsole.log(Math.cosh(0));\nconsole.log(Math.tanh(0));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.matches("0").count() >= 2, "stdout: {stdout}");
+    assert!(stdout.matches("1").count() >= 1, "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_hyperbolic_zero_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.sinh(0));\nconsole.log(Math.cosh(0));\nconsole.log(Math.tanh(0));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    assert!(stdout.matches("0").count() >= 2, "stdout: {stdout}");
+    assert!(stdout.matches("1").count() >= 1, "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_math_hyperbolic_zero_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.sinh(0));\nconsole.log(Math.cosh(0));\nconsole.log(Math.tanh(0));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 2
+    );
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("1")
+            .count()
+            >= 1
+    );
+}
+
+#[test]
+fn json_test_supports_math_hyperbolic_zero_identity_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.sinh(0));\nconsole.log(Math.cosh(0));\nconsole.log(Math.tanh(0));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("0")
+            .count()
+            >= 2
+    );
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .matches("1")
+            .count()
+            >= 1
+    );
+}
+
+#[test]
 fn run_supports_math_inverse_trig_exact_identity_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
