@@ -25661,7 +25661,7 @@ fn test_supports_math_imul_builtin_semantics_in_js_input() {
 fn test_supports_math_clz32_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
-    fs::write(&source_path, "console.log(Math.clz32(1));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.clz32(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -27574,7 +27574,7 @@ fn run_supports_math_imul_builtin_semantics_in_js_input() {
 fn run_supports_math_clz32_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.clz32(1));\n").expect("write source");
+    fs::write(&source_path, "console.log(Math.clz32(1.6));\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())

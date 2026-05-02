@@ -1746,16 +1746,6 @@ impl TypeContext {
         }
 
         if method == "clz32" {
-            if expr
-                .args
-                .iter()
-                .any(|arg| self.contains_non_integer_numeric_literal(arg))
-            {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.clz32 is unavailable for non-integer numeric literals in the current phase; use an integer-valued expression or the later compatibility path",
-                ));
-            }
             return;
         }
 

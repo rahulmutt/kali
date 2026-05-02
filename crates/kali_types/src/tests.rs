@@ -3922,6 +3922,27 @@ fn test_resolution_supports_math_tan_zero_literal_member_calls() {
 }
 
 #[test]
+fn test_resolution_supports_math_clz32_non_integer_literal_member_calls() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "clz32".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_non_zero_literals_in_math_tan_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

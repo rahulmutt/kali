@@ -2951,8 +2951,9 @@ impl<'a> FunctionEmitter<'a> {
 
     fn math_clz32_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
-        let value = parse_number_literal(&rendered)?;
-        Some(i64::from((value as u32).leading_zeros()))
+        let value = parse_numeric_literal_value(&rendered)?;
+        let uint32 = self.to_uint32_literal_value(value)?;
+        Some(i64::from(uint32.leading_zeros()))
     }
 
     fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
@@ -2971,6 +2972,16 @@ impl<'a> FunctionEmitter<'a> {
         self.render_static_value(id)
             .and_then(|rendered| parse_number_literal(&rendered))
             .is_some_and(|value| value < 0)
+    }
+
+    fn to_uint32_literal_value(&self, value: f64) -> Option<u32> {
+        if !value.is_finite() {
+            return Some(0);
+        }
+
+        let truncated = value.trunc();
+        let modulo = truncated.rem_euclid(4_294_967_296.0);
+        Some(modulo as u32)
     }
 
     fn contains_non_integer_numeric_literal(&self, arg: LirNodeId) -> bool {
