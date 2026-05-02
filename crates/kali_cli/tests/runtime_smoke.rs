@@ -40824,6 +40824,57 @@ fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_j
     assert_eq!(json["command"], "build");
     assert_eq!(json["success"], true);
 }
+
+#[test]
+fn build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("js");
+}
+
+#[test]
+fn build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("ts");
+}
+
+fn assert_build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = \"hello\"; const alias = value; for (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (esm) at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
+}
+
 #[test]
 fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -40930,6 +40981,56 @@ fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_i
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
     assert_eq!(json["success"], true);
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("js");
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("ts");
+}
+
+fn assert_build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = \"hello\"; const alias = value; for await (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (esm) at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
 }
 
 #[test]

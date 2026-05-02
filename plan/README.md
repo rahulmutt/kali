@@ -25,3 +25,4 @@ This directory contains only active continuation planning. Completed historical 
 - Do not infer proof-backed scope from this plan; use [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 - Any public CLI/schema/diagnostic behavior change must update the owning specs before the work is considered complete.
 - Progress note: `Math.pow` now has browser-harness JS-input smoke coverage for the positive-integer-exponent alias-chain slice plus representative negative-exponent E5506 rejection coverage, alongside the existing checker/codegen/runtime and browser-bundle coverage.
+- Progress note: browser bundle smoke now also covers the const string-alias slice for `for...of` and `for await...of` on the browser API surface in both TS and `.js` input.
