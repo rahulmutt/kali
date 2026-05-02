@@ -447,10 +447,76 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn emit_update_expression(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        op: &str,
+        arg: LirNodeId,
+    ) -> EmittedValue {
+        let Some(name) = self.assignment_target_name(node, arg) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "update expression lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path",
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        };
+        let Some(index) = self.locals.get(&name).copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "update expression lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
+                    name
+                ),
+            ));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        let is_increment = matches!(op, "prefix++" | "postfix++");
+        let is_prefix = matches!(op, "prefix++" | "prefix--");
+        let temp_local = self.locals.len() as u32;
+
+        if !is_prefix {
+            function.instruction(&Instruction::LocalGet(index));
+            function.instruction(&Instruction::LocalSet(temp_local));
+        }
+
+        function.instruction(&Instruction::LocalGet(index));
+        function.instruction(&Instruction::I64Const(1));
+        if is_increment {
+            function.instruction(&Instruction::I64Add);
+        } else {
+            function.instruction(&Instruction::I64Sub);
+        }
+        function.instruction(&Instruction::LocalSet(index));
+
+        if is_prefix {
+            function.instruction(&Instruction::LocalGet(index));
+        } else {
+            function.instruction(&Instruction::LocalGet(temp_local));
+        }
+
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
     fn emit_unary(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         let op = node.text.as_deref().unwrap_or_default();
         let arg = node.children[0];
         match op {
+            "prefix++" | "postfix++" | "prefix--" | "postfix--" => {
+                self.emit_update_expression(function, node, op, arg)
+            }
             "-" => {
                 function.instruction(&Instruction::I64Const(0));
                 let _ = self.emit_node(function, arg, true);

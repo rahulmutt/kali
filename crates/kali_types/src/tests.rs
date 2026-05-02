@@ -5,7 +5,8 @@ use kali_ast::{
     ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand, ForOfStatement,
     FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
     ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
-    TypeAliasDeclaration, TypeAssertion, VariableDeclaration, VariableDeclarator, YieldExpression,
+    TypeAliasDeclaration, TypeAssertion, UpdateExpression, UpdateOperator, VariableDeclaration,
+    VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -3794,6 +3795,72 @@ fn test_resolution_rejects_non_zero_literals_in_math_tan_member_calls_as_unavail
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(result.diagnostics[0].message.contains("Math.tan"));
+}
+
+#[test]
+fn test_resolution_supports_update_expressions_on_mutable_bindings() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::UpdateExpression(Box::new(UpdateExpression {
+                operator: UpdateOperator::Increment,
+                argument: Expression::Identifier("value".to_string()),
+                prefix: true,
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::UpdateExpression(Box::new(UpdateExpression {
+                operator: UpdateOperator::Decrement,
+                argument: Expression::Identifier("value".to_string()),
+                prefix: false,
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_update_expressions_on_immutable_bindings() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::UpdateExpression(Box::new(UpdateExpression {
+                operator: UpdateOperator::Increment,
+                argument: Expression::Identifier("value".to_string()),
+                prefix: true,
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("mutable local binding"));
 }
 
 #[test]

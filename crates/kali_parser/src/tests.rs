@@ -1,5 +1,7 @@
 use super::*;
-use kali_ast::{AssignmentOperator, ObjectExpression, ObjectPropertyKind, PropertyName};
+use kali_ast::{
+    AssignmentOperator, ObjectExpression, ObjectPropertyKind, PropertyName, UpdateOperator,
+};
 use kali_lexer::Lexer;
 
 fn lex(source: &str) -> Vec<Token> {
@@ -22,6 +24,42 @@ fn test_parse_var_declaration() {
         }
         _ => panic!("Expected VariableDeclaration"),
     }
+}
+
+#[test]
+fn test_parse_prefix_update_expression() {
+    let tokens = lex("++value;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[0] else {
+        panic!("Expected ExpressionStatement");
+    };
+    let Expression::UpdateExpression(update) = expr_stmt.expression.as_ref() else {
+        panic!("Expected UpdateExpression");
+    };
+    assert!(update.prefix);
+    assert!(matches!(update.operator, UpdateOperator::Increment));
+    assert!(matches!(update.argument, Expression::Identifier(_)));
+}
+
+#[test]
+fn test_parse_postfix_update_expression() {
+    let tokens = lex("value--;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[0] else {
+        panic!("Expected ExpressionStatement");
+    };
+    let Expression::UpdateExpression(update) = expr_stmt.expression.as_ref() else {
+        panic!("Expected UpdateExpression");
+    };
+    assert!(!update.prefix);
+    assert!(matches!(update.operator, UpdateOperator::Decrement));
+    assert!(matches!(update.argument, Expression::Identifier(_)));
 }
 
 #[test]

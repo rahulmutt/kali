@@ -16,7 +16,7 @@ use kali_ast::{
     ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
     OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
     TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
-    VariableDeclaration, WhileStatement, WithStatement,
+    UpdateExpression, VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_common::template::resolve_interpolated_template_literal;
 use kali_error::{
@@ -48,6 +48,7 @@ pub struct Scope {
     pub scope_type: ScopeType,
     pub parent: Option<NodeId>,
     pub bindings: IndexMap<String, NodeId>,
+    pub mutable_bindings: IndexMap<String, bool>,
     pub static_values: IndexMap<String, String>,
     pub static_numeric_values: IndexMap<String, String>,
     pub static_arrays: IndexMap<String, bool>,
@@ -60,6 +61,7 @@ impl Scope {
             scope_type,
             parent,
             bindings: IndexMap::new(),
+            mutable_bindings: IndexMap::new(),
             static_values: IndexMap::new(),
             static_numeric_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
@@ -68,7 +70,9 @@ impl Scope {
     }
 
     pub fn bind(&mut self, name: impl Into<String>, node_id: NodeId) {
-        self.bindings.insert(name.into(), node_id);
+        let name = name.into();
+        self.bindings.insert(name.clone(), node_id);
+        self.mutable_bindings.insert(name, false);
     }
 
     pub fn lookup(&self, name: &str) -> Option<&NodeId> {
@@ -642,6 +646,30 @@ impl TypeContext {
         }
     }
 
+    fn is_simple_update_target_expression(&self, expression: &Expression) -> bool {
+        matches!(
+            expression,
+            Expression::Identifier(_)
+                | Expression::ParenthesizedExpression(_)
+                | Expression::TypeAssertion(_)
+                | Expression::SatisfiesExpression(_)
+        )
+    }
+
+    fn resolve_update_binding_name(&self, expression: &Expression) -> Option<String> {
+        match expression {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_update_binding_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => self.resolve_update_binding_name(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_update_binding_name(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
     fn resolve_switch_cases(&mut self, cases: &[SwitchCase]) {
         self.push_scope(ScopeType::Block);
         for case in cases {
@@ -663,6 +691,15 @@ impl TypeContext {
         for declarator in &declaration.declarations {
             if let Some(init) = &declarator.init {
                 self.resolve_expression(init);
+                if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                    scope
+                        .mutable_bindings
+                        .insert(declarator.id.clone(), declaration.kind != "const");
+                } else if self.global_scope.contains(&declarator.id) {
+                    self.global_scope
+                        .mutable_bindings
+                        .insert(declarator.id.clone(), declaration.kind != "const");
+                }
                 if declaration.kind == "const" {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
@@ -750,7 +787,7 @@ impl TypeContext {
                 self.resolve_expression(&expr.tag);
                 self.resolve_template_literal(&expr.template);
             }
-            Expression::UpdateExpression(expr) => self.resolve_expression(&expr.argument),
+            Expression::UpdateExpression(expr) => self.resolve_update_expression(expr),
             Expression::AssignmentExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
@@ -799,6 +836,55 @@ impl TypeContext {
             Expression::ThisExpression | Expression::SuperExpression => {}
             Expression::PrivateIdentifier(_) | Expression::BigIntLiteral(_) => {}
         }
+    }
+
+    fn resolve_update_expression(&mut self, expr: &UpdateExpression) {
+        self.resolve_expression(&expr.argument);
+
+        if !self.is_simple_update_target_expression(&expr.argument) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "update expression lowering is unavailable unless the target is a mutable local binding; use a local binding or the later compatibility path",
+            ));
+            return;
+        }
+
+        let Some(name) = self.resolve_update_binding_name(&expr.argument) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "update expression lowering is unavailable unless the target is a mutable local binding; use a local binding or the later compatibility path",
+            ));
+            return;
+        };
+
+        if !self.binding_is_mutable(&name) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "update expression lowering is unavailable for binding '{}' unless it was declared with a mutable binding kind; use a mutable local binding or the later compatibility path",
+                    name
+                ),
+            ));
+        }
+    }
+
+    fn binding_is_mutable(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.bindings.contains_key(name) {
+                return scope.mutable_bindings.get(name).copied().unwrap_or(false);
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.bindings.contains_key(name)
+            && self
+                .global_scope
+                .mutable_bindings
+                .get(name)
+                .copied()
+                .unwrap_or(false)
     }
 
     fn resolve_import_expression(&mut self, expr: &ImportExpression) {

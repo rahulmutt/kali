@@ -9,7 +9,8 @@ use kali_ast::{
     MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
     ParenthesizedExpression, PropertyName, ReturnStatement, SatisfiesExpression, Statement,
     SwitchCase, SwitchStatement, ThrowStatement, TryStatement, TypeAssertion, UnaryExpression,
-    VariableDeclaration, VariableDeclarator, WhileStatement, YieldExpression, AST,
+    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, WhileStatement,
+    YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -190,6 +191,12 @@ impl Parser {
                 }
             }
             TokenType::Yield => self.parse_expression_statement(),
+            TokenType::Plus if self.current_token_value_is("++") => {
+                self.parse_expression_statement()
+            }
+            TokenType::Minus if self.current_token_value_is("--") => {
+                self.parse_expression_statement()
+            }
             TokenType::Identifier
             | TokenType::Await
             | TokenType::This
@@ -973,6 +980,12 @@ impl Parser {
         }
     }
 
+    fn current_token_value_is(&self, value: &str) -> bool {
+        self.stream
+            .current()
+            .is_some_and(|token| token.value == value)
+    }
+
     fn parse_unary_expression(&mut self) -> Expression {
         match self.stream.current_kind() {
             Some(TokenType::Not) => {
@@ -983,21 +996,49 @@ impl Parser {
                     argument,
                 }))
             }
-            Some(TokenType::Minus) => {
-                let _ = self.stream.advance();
-                let argument = self.parse_unary_expression();
-                Expression::UnaryExpression(Box::new(UnaryExpression {
-                    operator: "-".to_string(),
-                    argument,
-                }))
-            }
             Some(TokenType::Plus) => {
-                let _ = self.stream.advance();
-                let argument = self.parse_unary_expression();
-                Expression::UnaryExpression(Box::new(UnaryExpression {
-                    operator: "+".to_string(),
-                    argument,
-                }))
+                if self
+                    .stream
+                    .current()
+                    .is_some_and(|token| token.value == "++")
+                {
+                    let _ = self.stream.advance();
+                    let argument = self.parse_unary_expression();
+                    Expression::UpdateExpression(Box::new(UpdateExpression {
+                        operator: UpdateOperator::Increment,
+                        argument,
+                        prefix: true,
+                    }))
+                } else {
+                    let _ = self.stream.advance();
+                    let argument = self.parse_unary_expression();
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "+".to_string(),
+                        argument,
+                    }))
+                }
+            }
+            Some(TokenType::Minus) => {
+                if self
+                    .stream
+                    .current()
+                    .is_some_and(|token| token.value == "--")
+                {
+                    let _ = self.stream.advance();
+                    let argument = self.parse_unary_expression();
+                    Expression::UpdateExpression(Box::new(UpdateExpression {
+                        operator: UpdateOperator::Decrement,
+                        argument,
+                        prefix: true,
+                    }))
+                } else {
+                    let _ = self.stream.advance();
+                    let argument = self.parse_unary_expression();
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "-".to_string(),
+                        argument,
+                    }))
+                }
             }
             _ => self.parse_call_expression(),
         }
@@ -1164,6 +1205,34 @@ impl Parser {
                 Some(TokenType::QuestionDot) => {
                     let _ = self.stream.advance();
                     expr = self.parse_optional_chain_expression(expr);
+                }
+                Some(TokenType::Plus)
+                    if self
+                        .stream
+                        .current()
+                        .is_some_and(|token| token.value == "++") =>
+                {
+                    let _ = self.stream.advance();
+                    expr = Expression::UpdateExpression(Box::new(UpdateExpression {
+                        operator: UpdateOperator::Increment,
+                        argument: expr,
+                        prefix: false,
+                    }));
+                    break;
+                }
+                Some(TokenType::Minus)
+                    if self
+                        .stream
+                        .current()
+                        .is_some_and(|token| token.value == "--") =>
+                {
+                    let _ = self.stream.advance();
+                    expr = Expression::UpdateExpression(Box::new(UpdateExpression {
+                        operator: UpdateOperator::Decrement,
+                        argument: expr,
+                        prefix: false,
+                    }));
+                    break;
                 }
                 Some(TokenType::As) => {
                     let _ = self.stream.advance();

@@ -774,6 +774,7 @@ impl HirLowerer {
                 push_child!(self, id, self.lower_template_literal(&expr.template));
                 id
             }
+            Expression::UpdateExpression(expr) => self.lower_update_expression(expr),
             Expression::AssignmentExpression(expr) => self.lower_assignment_expression(expr),
             Expression::LogicalExpression(expr) => {
                 let id = self.builder.alloc_text(
@@ -962,6 +963,16 @@ impl HirLowerer {
         id
     }
 
+    fn lower_update_expression(&mut self, expr: &UpdateExpression) -> HirNodeId {
+        let id = self.builder.alloc_text(
+            HirNodeKind::UpdateExpr,
+            None,
+            update_op_text(&expr.operator, expr.prefix),
+        );
+        push_child!(self, id, self.lower_expression(&expr.argument));
+        id
+    }
+
     fn lower_assignment_expression(&mut self, expr: &AssignmentExpression) -> HirNodeId {
         let id = self.builder.alloc_text(
             HirNodeKind::AssignmentExpr,
@@ -1089,6 +1100,15 @@ fn logical_op_text(op: &kali_ast::LogicalOperator) -> &'static str {
         kali_ast::LogicalOperator::And => "&&",
         kali_ast::LogicalOperator::Or => "||",
         kali_ast::LogicalOperator::Coalesce => "??",
+    }
+}
+
+fn update_op_text(op: &kali_ast::UpdateOperator, prefix: bool) -> &'static str {
+    match (op, prefix) {
+        (kali_ast::UpdateOperator::Increment, true) => "prefix++",
+        (kali_ast::UpdateOperator::Increment, false) => "postfix++",
+        (kali_ast::UpdateOperator::Decrement, true) => "prefix--",
+        (kali_ast::UpdateOperator::Decrement, false) => "postfix--",
     }
 }
 
