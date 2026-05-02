@@ -3012,6 +3012,21 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
         Expression::ChainExpression(chain_expression) => {
             infer_function_binding_signature(Some(&chain_expression.expression))
         }
+        Expression::SequenceExpression(sequence_expression) => sequence_expression
+            .expressions
+            .last()
+            .and_then(|expression| infer_function_binding_signature(Some(expression))),
+        Expression::ConditionalExpression(conditional_expression) => {
+            let consequent =
+                infer_function_binding_signature(Some(conditional_expression.consequent.as_ref()));
+            let alternate =
+                infer_function_binding_signature(Some(conditional_expression.alternate.as_ref()));
+            if consequent.is_some() && consequent == alternate {
+                consequent
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }

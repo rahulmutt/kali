@@ -4991,6 +4991,121 @@ fn collect_library_exports_infers_const_function_expression_bindings_and_aliases
 }
 
 #[test]
+fn collect_library_exports_infers_function_binding_signatures_through_sequence_and_conditional_wrappers(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 0; const helper = 1;").expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![
+                kali_ast::VariableDeclarator {
+                    id: "main".to_string(),
+                    init: Some(Expression::SequenceExpression(Box::new(
+                        kali_ast::SequenceExpression {
+                            expressions: vec![
+                                Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
+                                Expression::ParenthesizedExpression(Box::new(
+                                    kali_ast::ParenthesizedExpression {
+                                        expression: Box::new(Expression::ArrowFunctionExpression(
+                                            Box::new(kali_ast::ArrowFunctionExpression {
+                                                params: vec![kali_ast::FunctionParam {
+                                                    name: "input".to_string(),
+                                                }],
+                                                body: Expression::Literal(
+                                                    kali_ast::LiteralValue::Number(1.0),
+                                                ),
+                                                is_async: false,
+                                                returnType: None,
+                                            }),
+                                        )),
+                                    },
+                                )),
+                            ],
+                        },
+                    ))),
+                },
+                kali_ast::VariableDeclarator {
+                    id: "helper".to_string(),
+                    init: Some(Expression::ConditionalExpression(Box::new(
+                        kali_ast::ConditionalExpression {
+                            test: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(
+                                true,
+                            ))),
+                            consequent: Box::new(Expression::ParenthesizedExpression(Box::new(
+                                kali_ast::ParenthesizedExpression {
+                                    expression: Box::new(Expression::FunctionExpression(Box::new(
+                                        kali_ast::FunctionExpression {
+                                            id: None,
+                                            params: vec![kali_ast::FunctionParam {
+                                                name: "input".to_string(),
+                                            }],
+                                            body: Some(Box::new(kali_ast::BlockStatement {
+                                                body: vec![Statement::ReturnStatement(
+                                                    kali_ast::ReturnStatement {
+                                                        argument: Some(Expression::Literal(
+                                                            kali_ast::LiteralValue::Number(2.0),
+                                                        )),
+                                                    },
+                                                )],
+                                            })),
+                                            is_async: false,
+                                            generator: false,
+                                        },
+                                    ))),
+                                },
+                            ))),
+                            alternate: Box::new(Expression::ParenthesizedExpression(Box::new(
+                                kali_ast::ParenthesizedExpression {
+                                    expression: Box::new(Expression::ArrowFunctionExpression(
+                                        Box::new(kali_ast::ArrowFunctionExpression {
+                                            params: vec![kali_ast::FunctionParam {
+                                                name: "input".to_string(),
+                                            }],
+                                            body: Expression::Literal(
+                                                kali_ast::LiteralValue::Number(2.0),
+                                            ),
+                                            is_async: false,
+                                            returnType: None,
+                                        }),
+                                    )),
+                                },
+                            ))),
+                        },
+                    ))),
+                },
+            ],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![
+                kali_ast::ExportSpecifier {
+                    local: "main".to_string(),
+                    exported: "main".to_string(),
+                },
+                kali_ast::ExportSpecifier {
+                    local: "helper".to_string(),
+                    exported: "alias".to_string(),
+                },
+            ],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 2, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "main" && export.signature == "(input) => number" }));
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "alias" && export.signature == "(input) => number" }));
+}
+
+#[test]
 fn build_capi_result_round_trips_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "capi",
