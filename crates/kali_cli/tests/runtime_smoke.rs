@@ -24917,6 +24917,104 @@ fn assert_json_unary_prefix_semantics(command: &str, filename: &str) {
     assert_eq!(json["stderr"], "");
 }
 
+fn browser_harness_unary_prefix_semantics_source(test_mode: bool) -> String {
+    if test_mode {
+        return r#"Kali.test('unary prefix semantics', () => {
+  let counter = 1;
+  const prefix = ++counter;
+  if (prefix !== 2 || counter !== 2) {
+    throw new Error('expected prefix update expressions to return the incremented value');
+  }
+  const postfix = counter--;
+  if (postfix !== 2 || counter !== 1) {
+    throw new Error('expected postfix update expressions to return the previous value');
+  }
+});
+"#
+        .to_string();
+    }
+
+    r#"let counter = 1;
+const prefix = ++counter;
+if (prefix !== 2 || counter !== 2) {
+  throw new Error('expected prefix update expressions to return the incremented value');
+}
+const postfix = counter--;
+if (postfix !== 2 || counter !== 1) {
+  throw new Error('expected postfix update expressions to return the previous value');
+}
+"#
+    .to_string()
+}
+
+fn assert_browser_unary_prefix_semantics(command: &str, filename: &str, test_mode: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_harness_unary_prefix_semantics_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+}
+
+fn assert_json_browser_unary_prefix_semantics(command: &str, filename: &str, test_mode: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_harness_unary_prefix_semantics_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
 #[test]
 fn run_supports_unary_prefix_semantics() {
     assert_unary_prefix_semantics("run", "smoke.ts");
@@ -24955,6 +25053,26 @@ fn json_test_supports_unary_prefix_semantics() {
 #[test]
 fn json_test_supports_unary_prefix_semantics_in_js_input() {
     assert_json_unary_prefix_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn run_supports_unary_prefix_semantics_with_browser_harness_in_js_input() {
+    assert_browser_unary_prefix_semantics("run", "main.js", false);
+}
+
+#[test]
+fn json_run_supports_unary_prefix_semantics_with_browser_harness_in_js_input() {
+    assert_json_browser_unary_prefix_semantics("run", "main.js", false);
+}
+
+#[test]
+fn test_supports_unary_prefix_semantics_with_browser_harness_in_ts_input() {
+    assert_browser_unary_prefix_semantics("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn json_test_supports_unary_prefix_semantics_with_browser_harness_in_ts_input() {
+    assert_json_browser_unary_prefix_semantics("test", "smoke.test.ts", true);
 }
 
 #[test]
