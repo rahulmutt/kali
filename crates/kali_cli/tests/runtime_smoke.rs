@@ -155,7 +155,7 @@ fn late_process_env_mutation_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {});"
+    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis[\"Proxy\"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {});"
 }
 
 fn late_object_model_own_property_source() -> &'static str {
@@ -274,6 +274,9 @@ fn late_process_env_mutation_source_is_rejected_on_the_default_standalone_surfac
 fn late_object_model_source_includes_bracketed_spellings() {
     let source = late_object_model_source();
     for expected in [
+        r#"new Proxy({}, {})"#,
+        r#"new globalThis.Proxy({}, {})"#,
+        r#"new globalThis["Proxy"]({}, {})"#,
         r#"globalThis["Proxy"]"#,
         r#"globalThis["WeakMap"]"#,
         r#"globalThis["WeakSet"]"#,
@@ -6122,7 +6125,7 @@ fn run_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 18);
+    assert_eq!(errors.len(), 21);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
@@ -6445,7 +6448,7 @@ fn test_rejects_late_object_model_globals_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 18);
+    assert_eq!(errors.len(), 21);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
