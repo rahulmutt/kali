@@ -70,3 +70,52 @@ fn test_supports_math_round_when_browser_harness_is_configured_in_js_input() {
         browser_harness_math_round_test_source(),
     );
 }
+
+fn browser_harness_math_round_alias_run_source() -> &'static str {
+    "const value = 1.6; const alias = value; console.log(Math.round(alias));\n"
+}
+
+fn browser_harness_math_round_alias_test_source() -> &'static str {
+    r#"Kali.test('math round alias chain', () => {
+  const value = 1.6;
+  const alias = value;
+  console.log(Math.round(alias));
+});
+"#
+}
+
+#[test]
+fn run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_round(
+        "run",
+        "main.ts",
+        browser_harness_math_round_alias_run_source(),
+    );
+}
+
+#[test]
+fn run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_math_round(
+        "run",
+        "main.js",
+        browser_harness_math_round_alias_run_source(),
+    );
+}
+
+#[test]
+fn test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_round(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_round_alias_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_math_round(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_round_alias_test_source(),
+    );
+}
