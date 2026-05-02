@@ -194,8 +194,21 @@ fn runtime_projection_bundles_baseline_context() {
         &[String::from("kali"), String::from("run")]
     );
     assert_eq!(projection.env().get("HOME"), Some("/tmp/home"));
+    assert_eq!(
+        projection.env_snapshot().get("HOME"),
+        Some(&String::from("/tmp/home"))
+    );
     projection.env_mut().set("HOME", "/workspace/home");
+    projection.env_mut().set("EDITOR", "nano");
     assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
+    assert_eq!(
+        projection.env_snapshot().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
+        projection.env_snapshot().get("EDITOR"),
+        Some(&String::from("nano"))
+    );
     assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
     assert_eq!(projection.pid(), std::process::id());
     assert_eq!(projection.exit_code(), None);

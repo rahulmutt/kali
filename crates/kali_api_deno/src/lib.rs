@@ -810,6 +810,11 @@ impl DenoRuntimeProjection {
         &mut self.env
     }
 
+    /// Return a deterministic snapshot of the captured environment view.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.env.to_object()
+    }
+
     pub fn fs(&self) -> &DenoFs {
         &self.fs
     }
