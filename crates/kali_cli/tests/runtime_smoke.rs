@@ -1508,7 +1508,7 @@ fn check_build_and_run_accept_deno_env_has_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Deno.env.has('KALI_ENV_HAS_SMOKE'));\n",
+        "console.log(Deno.env.has('KALI_ENV_HAS_SMOKE') && Deno[\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis[\"Deno\"][\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis.Deno[\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis.Deno.env[\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis[\"Deno\"].env[\"has\"]('KALI_ENV_HAS_SMOKE'));\n",
     )
     .expect("write source");
 
@@ -1542,7 +1542,7 @@ fn test_supports_deno_env_has_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('env has', () => { if (!Deno.env.has('KALI_ENV_HAS_SMOKE')) { throw new Error('expected env presence'); } });\n",
+        "Kali.test('env has', () => { if (!(Deno.env.has('KALI_ENV_HAS_SMOKE') && Deno[\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis[\"Deno\"][\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis.Deno[\"env\"][\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis.Deno.env[\"has\"]('KALI_ENV_HAS_SMOKE') && globalThis[\"Deno\"].env[\"has\"]('KALI_ENV_HAS_SMOKE'))) { throw new Error('expected env presence'); } });\n",
     )
     .expect("write source");
 
