@@ -24,3 +24,4 @@ This directory contains only active continuation planning. Completed historical 
 - Do not infer availability from this plan; use [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - Do not infer proof-backed scope from this plan; use [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 - Any public CLI/schema/diagnostic behavior change must update the owning specs before the work is considered complete.
+- Progress note: `Math.pow` now has browser-harness JS-input smoke coverage for the positive-integer-exponent alias-chain slice, alongside the existing checker/codegen/runtime and browser-bundle coverage.
