@@ -901,9 +901,28 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {
+            if op == "??=" {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "nullish assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
             return false;
         };
         let Some(index) = self.locals.get(&name).copied() else {
+            if op == "??=" {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "nullish assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
+                        name
+                    ),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
             return false;
         };
 
@@ -913,6 +932,24 @@ impl<'a> FunctionEmitter<'a> {
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
+                function.instruction(&Instruction::LocalSet(index));
+                function.instruction(&Instruction::LocalGet(index));
+                true
+            }
+            "??=" => {
+                let temp_local = self.locals.len() as u32;
+                function.instruction(&Instruction::LocalGet(index));
+                function.instruction(&Instruction::LocalSet(temp_local));
+                function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::Else);
+                function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::End);
                 function.instruction(&Instruction::LocalSet(index));
                 function.instruction(&Instruction::LocalGet(index));
                 true

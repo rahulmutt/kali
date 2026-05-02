@@ -34,6 +34,7 @@ pub enum TokenType {
     AndAnd,
     OrOr,
     QuestionDot,
+    NullCoalesceEq,
     Arrow,
     Colon,
     Eq,
@@ -456,6 +457,9 @@ impl Lexer {
                 (TokenType::GtGt, ">>>".to_string(), 3)
             }
             '>' if self.nth(1) == Some('>') => (TokenType::GtGt, ">>".to_string(), 2),
+            '?' if self.nth(1) == Some('?') && self.nth(2) == Some('=') => {
+                (TokenType::NullCoalesceEq, "??=".to_string(), 3)
+            }
             '?' if self.nth(1) == Some('?') => (TokenType::NullCoalesce, "??".to_string(), 2),
             '?' if self.nth(1) == Some('.') => (TokenType::QuestionDot, "?.".to_string(), 2),
             '+' if self.nth(1) == Some('+') => (TokenType::Plus, "++".to_string(), 2),

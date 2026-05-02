@@ -36,7 +36,7 @@ enum ModuleItem {
 ### Expressions
 - `Identifier`, `Literal` (number, string, boolean, null, bigint, regexp)
 - `BinaryExpression`, `UnaryExpression`, `UpdateExpression`, `LogicalExpression`
-- `AssignmentExpression`, `ConditionalExpression`, `SequenceExpression`
+- `AssignmentExpression`, `ConditionalExpression`, `SequenceExpression` (including compound and nullish assignment operators such as `+=` and `??=`)
 - `CallExpression`, `NewExpression`, `MemberExpression`, `OptionalChainExpression`
 - `ArrowFunctionExpression`, `FunctionExpression`
 - `ObjectExpression`, `ArrayExpression`, `SpreadElement`
