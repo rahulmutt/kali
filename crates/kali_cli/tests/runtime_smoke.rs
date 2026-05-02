@@ -31953,6 +31953,82 @@ fn build_emits_browser_bundle_math_max_semantics_in_js_input() {
 }
 
 #[test]
+fn build_emits_browser_bundle_math_max_semantics_with_const_alias_chain_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: maxSmoke\nfunction maxSmoke() {\n  const value = 2; const alias = value;\n  const result = Math.max(1, alias, 3);\n  if (result !== 3) {\n    throw new Error('unexpected max');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "maxSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_math_min_semantics_with_const_alias_chain_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: minSmoke\nfunction minSmoke() {\n  const value = 3; const alias = value;\n  const result = Math.min(alias, 2, 1);\n  if (result !== 1) {\n    throw new Error('unexpected min');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "minSmoke");
+}
+
+#[test]
 fn json_build_emits_browser_bundle_math_max_semantics_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
