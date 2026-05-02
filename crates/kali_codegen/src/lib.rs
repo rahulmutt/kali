@@ -2537,7 +2537,10 @@ impl<'a> FunctionEmitter<'a> {
         };
         matches!(
             self.node(object).text.as_deref(),
-            Some("Math") | Some("globalThis.Math")
+            Some("Math")
+                | Some("globalThis.Math")
+                | Some(r#"globalThis["Math"]"#)
+                | Some(r#"globalThis['Math']"#)
         )
     }
 
