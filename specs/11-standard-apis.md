@@ -119,7 +119,7 @@ Deno is the primary standalone-runtime API surface because it fits Kali's explic
 - File APIs: `Deno.readTextFile`, `Deno.readTextFileSync`, `Deno.writeTextFile`, `Deno.writeTextFileSync`, `Deno.readFile`, `Deno.readFileSync`, `Deno.writeFile`, `Deno.writeFileSync`
 - Metadata APIs: `Deno.stat`, `Deno.statSync`, `Deno.readDir`, `Deno.readDirSync`
 - Invocation arguments: `Deno.args`
-- Environment access: `Deno.env.get` / `Deno.env.has` *(expose only the sandbox-permitted environment view rather than the raw host environment; bracketed `Deno["env"]["get"]` / `Deno["env"]["has"]` / `globalThis["Deno"]["env"]["get"]` / `globalThis["Deno"]["env"]["has"]` source forms stay on the same read-only env slice, including the mixed dot/bracket `globalThis.Deno["env"]["get"]` / `globalThis.Deno["env"]["has"]` forms; `Deno.env.toObject` remains a later object-materialization follow-up)*
+- Environment access: `Deno.env.get` / `Deno.env.has` *(expose only the sandbox-permitted environment view rather than the raw host environment; bracketed `Deno["env"]["get"]` / `Deno["env"]["has"]` / `globalThis["Deno"]["env"]["get"]` / `globalThis["Deno"]["env"]["has"]` source forms stay on the same read-only env slice, including the mixed dot/bracket `globalThis.Deno["env"]["get"]` / `globalThis.Deno["env"]["has"]` forms; the current repository snapshot also allows `Deno.env.set` / `Deno.env.delete` on the default standalone surface, while browser-targeted contexts still reject mutable env access; `Deno.env.toObject` remains a later object-materialization follow-up)*
 - `Deno.permissions` as the canonical **observation-only compatibility facade** over Kali sandbox policy state; in Phase 1 this is a **query-only** surface that reports granted/denied capability state and does not provide interactive permission prompts or privilege-escalation flows (the canonical maturity decision lives in [specs/19-feature-maturity.md](19-feature-maturity.md), and the cross-spec terminology lives in [SPEC.md](../SPEC.md))
 
 Effect/sandbox mapping simplification:
@@ -162,7 +162,7 @@ Rule of thumb: when Kali exposes a Deno file/metadata API in Phase 1, it should 
 
 **Phase 3 target expansion**
 - `Deno.open`, `Deno.create`, `Deno.mkdir`, `Deno.remove`, `Deno.rename`, `Deno.lstat`
-- `Deno.env.set` / `Deno.env.delete`
+- `Deno.env.set` / `Deno.env.delete` *(the broader cross-surface mutable-env path is still a Phase 3 target; the current repository snapshot already exposes this slice on the default standalone surface, while browser-targeted contexts still reject it)*
 - `Deno.Command` (process spawning)
 - `Deno.serve` (HTTP server / listen path)
 - broader filesystem, networking, and subprocess coverage

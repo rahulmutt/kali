@@ -214,7 +214,7 @@ Phase-1 capability snapshot for supported surfaces:
 | `effects.console` | Available in the Web baseline | Console writes are policy-controlled |
 | `effects.network.connect` / `listen` | Phase 3 target | Policy may deny them now; enabling them is rejected until the APIs exist |
 | `effects.process.spawn` | Phase 3 target | Same rule as above |
-| `effects.process.envWrite` | Phase 3 target | Same rule as above |
+| `effects.process.envWrite` | Available with `--api deno` | Same rule as above; the current repository snapshot already uses this capability for the default standalone Deno env-mutation slice and the Node `process.env` property-mutation slice, while browser-targeted contexts still reject it |
 | `effects.eval` | Phase 4 compatibility | Reserved for the `--compat eval` path |
 | `resources.maxSpawnedProcesses` | Phase 3 target | Becomes meaningful only once subprocess support exists |
 | `resources.maxThreads` | Later compatibility (opt-in only) | Reserved for the later threaded runtime profile |

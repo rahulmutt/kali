@@ -81,7 +81,7 @@ Interpretation rules:
 - in Kali-hosted standalone/embedded execution, these are normally satisfied by the native host adapter; in browser-targeted bundle output, the browser host adapter is responsible for wiring the equivalent behavior onto the real browser host
 - `fs_read`, `fs_write`, `fs_stat`, `fs_read_dir`, `env_get`, `env_list`, and `process_args` belong to the **Deno-oriented standalone surface** in Phase 1, not to the shared **Web baseline**; later Node compatibility may reuse similar host abstractions, but browser-targeted builds must not assume these imports exist.
 - `process_args` exposes only the invocation's caller-supplied argument vector; in schema v1 this is treated as execution-context input rather than a separately policy-gated host capability.
-- `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering.
+- `env_get` / `env_list` expose only the sandbox-permitted environment view; they must not leak the raw host environment and then rely on guest-side filtering. The current repository snapshot also wires `env_set` / `env_delete` for the default standalone Deno surface, but browser-targeted emitted artifacts must still not assume those imports exist.
 - The read-only `Deno.permissions` facade is the canonical **observation-only compatibility facade** for already-resolved runtime/policy state and normally does not need a dedicated host import; Kali should not model it as an interactive permission-prompt channel.
 - In Phase 1 this is a query-only compatibility surface: the runtime may expose the minimal status-query behavior (`Deno.permissions.query(...)`), while `request()` / `revoke()` stay **recognized-but-unavailable compatibility members** as defined in [SPEC.md](../SPEC.md).
 - Accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md), and returned states follow the shared **stable permission status subset (schema v1)**.
@@ -98,7 +98,7 @@ Interpretation rules:
 
 Later compatibility/embedding imports extend this set when the corresponding API surface is enabled:
 - `process_spawn(...)` for the Phase 3 subprocess-support path
-- `env_set(...)` for the Phase 3 mutable-environment path once `effects.process.envWrite` is part of the enabled host surface
+- `env_set(...)` / `env_delete(...)` for the broader mutable-environment path once `effects.process.envWrite` is part of the enabled host surface; the current standalone Deno surface already wires that slice, but browser-targeted emitted artifacts must still not assume those imports exist
 - socket/listener networking imports for the Phase 3 `Network.Connect` / `Network.Listen` / `Deno.serve` path
 - `process_pid()` only on the later compatibility process-identity path once a schema/policy revision defines its sandbox contract
 - `process_exit(code)` on the documented Node process-control path once the Node surface is enabled; the default standalone surface now also shares the same exit import for `Deno.exit`, and the Node surface's bracketed `process["exit"]` / `globalThis.process["exit"]` spellings lower through that same import
