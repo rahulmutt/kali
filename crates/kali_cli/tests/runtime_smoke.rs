@@ -37121,6 +37121,53 @@ fn run_and_test_rejects_additional_unsupported_math_member_calls_in_browser_api_
     }
 }
 
+#[test]
+fn run_and_test_rejects_negative_math_pow_exponents_in_browser_api_surface_with_harness_js_input() {
+    for (command, source_name, source) in [
+        ("run", "main.js", "console.log(Math.pow(2, -1));\n"),
+        (
+            "test",
+            "smoke.test.js",
+            "Kali.test('negative pow', () => { console.log(Math.pow(2, -1)); });\n",
+        ),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, source).expect("write source");
+
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            let output = output
+                .arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_unsupported_math_member_calls_rejection_json_for_method(errors, "Math.pow");
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_unsupported_math_member_calls_rejection_text_for_method(&stderr, "Math.pow");
+            }
+        }
+    }
+}
+
 fn assert_unsupported_math_member_calls_rejection_text(stderr: &str) {
     assert_unsupported_math_member_calls_rejection_text_for_method(stderr, "Math.sqrt");
 }
