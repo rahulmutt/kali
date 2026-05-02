@@ -61,6 +61,36 @@ fn runtime_projection_preserves_host_argv0_projection() {
 }
 
 #[test]
+fn runtime_projection_exposes_deterministic_env_snapshot() {
+    let mut env = BTreeMap::new();
+    env.insert("HOME".to_string(), "/tmp/home".to_string());
+    env.insert("EDITOR".to_string(), "nano".to_string());
+
+    let mut projection = NodeRuntimeProjection::from_host_context(
+        vec!["node".into(), "script.js".into()],
+        env,
+        "/workspace/project",
+    );
+
+    assert_eq!(
+        projection.env_snapshot(),
+        BTreeMap::from([
+            (String::from("EDITOR"), String::from("nano")),
+            (String::from("HOME"), String::from("/tmp/home")),
+        ])
+    );
+
+    projection.chdir("./nested/../other");
+    assert_eq!(
+        projection.env_snapshot(),
+        BTreeMap::from([
+            (String::from("EDITOR"), String::from("nano")),
+            (String::from("HOME"), String::from("/tmp/home")),
+        ])
+    );
+}
+
+#[test]
 fn default_process_context_uses_node_as_argv0() {
     let process = NodeProcess::default();
 

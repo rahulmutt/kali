@@ -552,6 +552,11 @@ impl NodeRuntimeProjection {
         &mut self.process
     }
 
+    /// Return a deterministic snapshot of the captured process environment.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.process.env_snapshot()
+    }
+
     /// Change the working directory for the full Node compatibility projection.
     pub fn chdir(&mut self, path: impl AsRef<Path>) {
         self.process.chdir(path);
