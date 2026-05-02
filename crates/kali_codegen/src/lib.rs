@@ -92,6 +92,7 @@ pub struct CodegenResult {
 struct FunctionPlan {
     name: String,
     params: Vec<String>,
+    locals: Vec<String>,
     body: LirNodeId,
     result: bool,
     is_entry: bool,
@@ -168,10 +169,14 @@ impl<'a> FunctionEmitter<'a> {
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
         params: &[String],
+        local_names: &[String],
     ) -> Self {
         let mut locals = BTreeMap::new();
         for (idx, name) in params.iter().enumerate() {
             locals.insert(name.clone(), idx as u32);
+        }
+        for (offset, name) in local_names.iter().enumerate() {
+            locals.insert(name.clone(), (params.len() + offset) as u32);
         }
 
         Self {
@@ -298,17 +303,27 @@ impl<'a> FunctionEmitter<'a> {
             }
             LirNodeKind::Instruction => {
                 if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
+                    let is_const = node.text.as_deref() == Some("const");
                     for declarator_id in &node.children {
                         let declarator = self.node(*declarator_id).clone();
                         if declarator.children.len() < 2 {
                             continue;
                         }
-                        if let Some(name) = declarator.text.clone() {
-                            self.bindings.insert(name, declarator.children[1]);
-                        }
                         let init = declarator.children[1];
-                        let init_result = self.emit_node(function, init, false);
-                        if init_result.produced {
+                        let init_result = self.emit_node(function, init, true);
+                        if !init_result.produced {
+                            function.instruction(&Instruction::I64Const(0));
+                        }
+                        if let Some(name) = declarator.text.clone() {
+                            if is_const {
+                                self.bindings.insert(name, declarator.children[1]);
+                                function.instruction(&Instruction::Drop);
+                            } else if let Some(index) = self.locals.get(&name).copied() {
+                                function.instruction(&Instruction::LocalSet(index));
+                            } else {
+                                function.instruction(&Instruction::Drop);
+                            }
+                        } else {
                             function.instruction(&Instruction::Drop);
                         }
                     }
@@ -694,6 +709,70 @@ impl<'a> FunctionEmitter<'a> {
         node.kind == LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)
     }
 
+    fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
+        let mut current = id;
+        loop {
+            let current_node = self.node(current);
+            if current_node.kind == LirNodeKind::Value && current_node.children.len() == 1 {
+                if current_node.text.is_none() {
+                    current = current_node.children[0];
+                    continue;
+                }
+            }
+            return (current_node.children.is_empty())
+                .then(|| current_node.text.clone())
+                .flatten();
+        }
+    }
+
+    fn emit_assignment(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        op: &str,
+        left: LirNodeId,
+        right: LirNodeId,
+    ) -> bool {
+        let Some(name) = self.assignment_target_name(node, left) else {
+            return false;
+        };
+        let Some(index) = self.locals.get(&name).copied() else {
+            return false;
+        };
+
+        match op {
+            "=" => {
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                function.instruction(&Instruction::LocalSet(index));
+                function.instruction(&Instruction::LocalGet(index));
+                true
+            }
+            "+=" | "-=" | "*=" | "/=" | "%=" | "**=" => {
+                function.instruction(&Instruction::LocalGet(index));
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::I64Const(0));
+                }
+                match op {
+                    "+=" => function.instruction(&Instruction::I64Add),
+                    "-=" => function.instruction(&Instruction::I64Sub),
+                    "*=" => function.instruction(&Instruction::I64Mul),
+                    "/=" => function.instruction(&Instruction::I64DivS),
+                    "%=" => function.instruction(&Instruction::I64RemS),
+                    "**=" => function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX)),
+                    _ => unreachable!(),
+                };
+                function.instruction(&Instruction::LocalSet(index));
+                function.instruction(&Instruction::LocalGet(index));
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn object_literal_field(&self, node: &LirNode, field: &str) -> Option<LirNodeId> {
         if !self.is_object_literal(node) {
             return None;
@@ -722,6 +801,14 @@ impl<'a> FunctionEmitter<'a> {
         let op = node.text.as_deref().unwrap_or_default();
         let left = node.children[0];
         let right = node.children[1];
+
+        if self.emit_assignment(function, node, op, left, right) {
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if op != "??" {
             let _ = self.emit_node(function, left, true);
             let _ = self.emit_node(function, right, true);
@@ -3259,6 +3346,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     all_functions.push(FunctionPlan {
         name: "_start".to_string(),
         params: Vec::new(),
+        locals: collect_function_locals(&lir.nodes, lir.root),
         body: lir.root,
         result: false,
         is_entry: true,
@@ -3387,7 +3475,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
 
     let mut code_section = CodeSection::new();
     for (coverage_id, function) in all_functions.iter().enumerate() {
-        let mut body = Function::new(vec![(1, ValType::I64)]);
+        let mut body = Function::new(vec![((function.locals.len() + 1) as u32, ValType::I64)]);
         let mut emitter = FunctionEmitter::new(
             lir,
             &function_name_to_index,
@@ -3399,6 +3487,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &mut string_pool,
             ctx.source_path.clone(),
             &function.params,
+            &function.locals,
         );
         let coverage_id = ctx.target.coverage.then_some(coverage_id as u32);
         if function.is_entry {
@@ -3659,9 +3748,12 @@ fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
         }
     }
 
+    let locals = collect_function_locals(nodes, body_id);
+
     Some(FunctionPlan {
         name,
         params,
+        locals,
         body: body_id,
         result: true,
         is_entry: false,
@@ -3670,6 +3762,49 @@ fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
 
 fn is_function_like(nodes: &[LirNode], id: LirNodeId) -> bool {
     function_plan(nodes, id).is_some()
+}
+
+fn collect_function_locals(nodes: &[LirNode], body_id: LirNodeId) -> Vec<String> {
+    let mut locals = Vec::new();
+    let mut seen = HashSet::new();
+    collect_function_locals_from_node(nodes, body_id, &mut seen, &mut locals);
+    locals
+}
+
+fn collect_function_locals_from_node(
+    nodes: &[LirNode],
+    id: LirNodeId,
+    seen: &mut HashSet<LirNodeId>,
+    locals: &mut Vec<String>,
+) {
+    if !seen.insert(id) {
+        return;
+    }
+
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return;
+    };
+
+    if node.kind == LirNodeKind::Instruction && matches!(node.text.as_deref(), Some("let" | "var"))
+    {
+        for declarator in &node.children {
+            let Some(declarator_node) = nodes.get(declarator.0 as usize) else {
+                continue;
+            };
+            if let Some(name) = declarator_node.text.clone() {
+                if !locals.contains(&name) {
+                    locals.push(name);
+                }
+            }
+        }
+    }
+
+    for child in &node.children {
+        if is_function_like(nodes, *child) {
+            continue;
+        }
+        collect_function_locals_from_node(nodes, *child, seen, locals);
+    }
 }
 
 fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {
