@@ -105,6 +105,8 @@ pub struct KaliHostState {
     pub active_spawned_processes: usize,
     /// Active worker/thread instances counted for later threaded-profile enforcement.
     pub active_threads: usize,
+    /// Pending process exit code requested by the guest, if any.
+    pub pending_exit_code: Option<i32>,
 }
 
 /// A scheduled timer callback.
@@ -534,6 +536,7 @@ impl RuntimeCtx {
                 active_network_connections: 0,
                 active_spawned_processes: 0,
                 active_threads: 0,
+                pending_exit_code: None,
             },
         );
         store.limiter(|state| &mut state.store_limits);
@@ -579,6 +582,20 @@ impl RuntimeCtx {
             })?;
 
         if let Err(error) = start.call(&mut store, ()) {
+            if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
+                let state = store.data();
+                return Ok(RuntimeOutcome {
+                    exit_code,
+                    tests_run: 0,
+                    tests_failed: 0,
+                    stdout: state.stdout.clone(),
+                    stderr: state.stderr.clone(),
+                    coverage_hits: state.coverage_hits.iter().copied().collect(),
+                    runtime_profiles: normalized_runtime_profiles.clone(),
+                    host_contract: self.host_contract(),
+                    runtime_backend: self.runtime_backend(),
+                });
+            }
             if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
                 return Err(vec![diagnostic]);
             }
@@ -588,7 +605,23 @@ impl RuntimeCtx {
             ))]);
         }
 
-        drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
+        if let Err(diagnostic) = drain_event_loop(&instance, &mut store) {
+            if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
+                let state = store.data();
+                return Ok(RuntimeOutcome {
+                    exit_code,
+                    tests_run: 0,
+                    tests_failed: 0,
+                    stdout: state.stdout.clone(),
+                    stderr: state.stderr.clone(),
+                    coverage_hits: state.coverage_hits.iter().copied().collect(),
+                    runtime_profiles: normalized_runtime_profiles.clone(),
+                    host_contract: self.host_contract(),
+                    runtime_backend: self.runtime_backend(),
+                });
+            }
+            return Err(vec![diagnostic]);
+        }
 
         if !run_registered_tests {
             let state = store.data();
@@ -632,6 +665,20 @@ impl RuntimeCtx {
             match invoke_callback(&instance, &mut store, callback_id) {
                 Ok(()) => {}
                 Err(diagnostic) => {
+                    if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
+                        let state = store.data();
+                        return Ok(RuntimeOutcome {
+                            exit_code,
+                            tests_run,
+                            tests_failed,
+                            stdout: state.stdout.clone(),
+                            stderr: state.stderr.clone(),
+                            coverage_hits: state.coverage_hits.iter().copied().collect(),
+                            runtime_profiles: normalized_runtime_profiles.clone(),
+                            host_contract: self.host_contract(),
+                            runtime_backend: self.runtime_backend(),
+                        });
+                    }
                     let rendered = diagnostic.to_string();
                     store.data_mut().stderr.push_str(&rendered);
                     store.data_mut().stderr.push('\n');
@@ -639,7 +686,23 @@ impl RuntimeCtx {
                 }
             }
 
-            drain_event_loop(&instance, &mut store).map_err(|diagnostic| vec![diagnostic])?;
+            if let Err(diagnostic) = drain_event_loop(&instance, &mut store) {
+                if let Some(exit_code) = store.data_mut().take_pending_exit_code() {
+                    let state = store.data();
+                    return Ok(RuntimeOutcome {
+                        exit_code,
+                        tests_run,
+                        tests_failed,
+                        stdout: state.stdout.clone(),
+                        stderr: state.stderr.clone(),
+                        coverage_hits: state.coverage_hits.iter().copied().collect(),
+                        runtime_profiles: normalized_runtime_profiles.clone(),
+                        host_contract: self.host_contract(),
+                        runtime_backend: self.runtime_backend(),
+                    });
+                }
+                return Err(vec![diagnostic]);
+            }
         }
 
         let state = store.data();
@@ -1174,6 +1237,26 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
     linker
         .func_wrap(
             "kali:rt",
+            "process_exit",
+            |mut caller: Caller<'_, KaliHostState>, code: i64| -> wasmtime::Result<()> {
+                let exit_code = i32::try_from(code).unwrap_or_else(|_| {
+                    if code.is_negative() {
+                        i32::MIN
+                    } else {
+                        i32::MAX
+                    }
+                });
+                caller.data_mut().pending_exit_code = Some(exit_code);
+                Err(wasmtime::Error::msg(format!(
+                    "process.exit({exit_code}) requested guest termination"
+                )))
+            },
+        )
+        .map_err(|error| host_import_error("process_exit", error))?;
+
+    linker
+        .func_wrap(
+            "kali:rt",
             "cwd",
             |mut caller: Caller<'_, KaliHostState>,
              _path_ptr: i32,
@@ -1435,6 +1518,7 @@ fn register_node_host_imports(
     let fs_promises_for_write_text = fs_promises.clone();
     let fs_promises_for_write_file = fs_promises.clone();
     let process = std::sync::Arc::new(std::sync::Mutex::new(node_projection.process().clone()));
+    let process_for_len = std::sync::Arc::clone(&process);
     let process_for_argv_get = std::sync::Arc::clone(&process);
     let process_for_env_get = std::sync::Arc::clone(&process);
     let stream = node_projection.stream();
@@ -2063,12 +2147,37 @@ fn register_node_host_imports(
 
     linker
         .func_wrap("kali:node", "process_args_len", move || -> i32 {
-            process
+            process_for_len
                 .lock()
                 .expect("node process mutex poisoned")
                 .argv_len() as i32
         })
         .map_err(|error| host_import_error("process_args_len", error))?;
+
+    let process_for_exit = std::sync::Arc::clone(&process);
+    linker
+        .func_wrap(
+            "kali:node",
+            "process_exit",
+            move |mut caller: Caller<'_, KaliHostState>, code: i64| -> wasmtime::Result<()> {
+                let exit_code = i32::try_from(code).unwrap_or_else(|_| {
+                    if code.is_negative() {
+                        i32::MIN
+                    } else {
+                        i32::MAX
+                    }
+                });
+                process_for_exit
+                    .lock()
+                    .expect("node process mutex poisoned")
+                    .set_exit_code(exit_code);
+                caller.data_mut().pending_exit_code = Some(exit_code);
+                Err(wasmtime::Error::msg(format!(
+                    "process.exit({exit_code}) requested guest termination"
+                )))
+            },
+        )
+        .map_err(|error| host_import_error("process_exit", error))?;
 
     linker
         .func_wrap(
@@ -3731,6 +3840,7 @@ impl Default for KaliHostState {
             active_network_connections: 0,
             active_spawned_processes: 0,
             active_threads: 0,
+            pending_exit_code: None,
         }
     }
 }
@@ -3928,6 +4038,10 @@ impl KaliHostState {
     #[allow(dead_code)]
     fn finish_thread(&mut self) {
         self.active_threads = self.active_threads.saturating_sub(1);
+    }
+
+    fn take_pending_exit_code(&mut self) -> Option<i32> {
+        self.pending_exit_code.take()
     }
 }
 

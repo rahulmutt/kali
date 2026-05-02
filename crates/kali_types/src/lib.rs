@@ -2078,6 +2078,10 @@ impl TypeContext {
             return;
         }
 
+        if expr.property == "exit" && object_name == "process" && self.api_surface == "node" {
+            return;
+        }
+
         if !matches!(object_name.as_str(), "Deno" | "process") {
             return;
         }

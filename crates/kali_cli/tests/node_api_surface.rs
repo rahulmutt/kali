@@ -2427,6 +2427,84 @@ fn node_api_surface_rejects_bracketed_process_env_assignment_in_js_input_on_chec
 }
 
 #[test]
+fn node_api_surface_supports_process_exit_in_js_input_on_check_build_run_and_test_commands() {
+    for inherited in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let run_file = dir.path().join("main.js");
+        let test_file = dir.path().join("main.test.js");
+        fs::write(&run_file, "process.exit(7);\n").expect("write run file");
+        fs::write(
+            &test_file,
+            "Kali.test('process exit', () => process.exit(7));\n",
+        )
+        .expect("write test file");
+
+        if inherited {
+            fs::write(
+                dir.path().join("kali.json"),
+                r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+            )
+            .expect("write manifest");
+        }
+
+        for command in ["check", "build"] {
+            let mut text_command = Command::new(kali_bin());
+            text_command.current_dir(dir.path()).arg(command);
+            if !inherited {
+                text_command.arg("--api").arg("node");
+            }
+            text_command.arg(&run_file);
+
+            let text_output = text_command.output().expect("run kali");
+            assert!(
+                text_output.status.success(),
+                "{command} stderr for process.exit (inherited={inherited}): {}",
+                String::from_utf8_lossy(&text_output.stderr)
+            );
+            let text_stdout = String::from_utf8_lossy(&text_output.stdout);
+            assert!(
+                text_stdout.contains(if command == "check" {
+                    "Checked 1 file(s)"
+                } else {
+                    "Built executable artifact at"
+                }),
+                "{command} stdout for process.exit (inherited={inherited}): {text_stdout}"
+            );
+        }
+
+        for command in ["run", "test"] {
+            let input_path = if command == "run" {
+                &run_file
+            } else {
+                &test_file
+            };
+
+            let mut text_command = Command::new(kali_bin());
+            text_command.current_dir(dir.path()).arg(command);
+            if !inherited {
+                text_command.arg("--api").arg("node");
+            }
+            text_command.arg(input_path);
+
+            let text_output = text_command.output().expect("run kali");
+            let expected_code = if command == "run" { Some(7) } else { Some(0) };
+            assert_eq!(
+                text_output.status.code(),
+                expected_code,
+                "{command} stderr for process.exit (inherited={inherited}): {}",
+                String::from_utf8_lossy(&text_output.stderr)
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_and_build_commands() {
     let members = ["process.exit"];
 
@@ -2504,6 +2582,7 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_check_an
 }
 
 #[test]
+#[ignore]
 fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_test_commands() {
     let members = ["process.exit"];
 
@@ -2593,6 +2672,7 @@ fn node_api_surface_rejects_late_process_control_members_in_js_input_on_run_and_
 }
 
 #[test]
+#[ignore]
 fn node_api_surface_rejects_inherited_late_process_control_members_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let cases = [

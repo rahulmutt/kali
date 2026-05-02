@@ -148,6 +148,7 @@ struct FunctionEmitter<'a> {
     env_delete_import_index: Option<u32>,
     env_get_import_index: Option<u32>,
     cwd_set_import_index: Option<u32>,
+    process_exit_import_index: Option<u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
     source_path: Option<PathBuf>,
@@ -165,6 +166,7 @@ impl<'a> FunctionEmitter<'a> {
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
         cwd_set_import_index: Option<u32>,
+        process_exit_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
@@ -187,6 +189,7 @@ impl<'a> FunctionEmitter<'a> {
             env_delete_import_index,
             env_get_import_index,
             cwd_set_import_index,
+            process_exit_import_index,
             diagnostics,
             strings,
             source_path,
@@ -2300,6 +2303,25 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.process_exit_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            if let Some(code_expr) = args.next() {
+                let _ = self.emit_node(function, *code_expr, true);
+            } else {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -2869,6 +2891,20 @@ impl<'a> FunctionEmitter<'a> {
         self.cwd_set_import_index
     }
 
+    fn process_exit_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "exit" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        if !self.is_process_exit(object) {
+            return None;
+        }
+
+        self.process_exit_import_index
+    }
+
     fn render_console_call(&self, node: &LirNode) -> Option<String> {
         let args = node.children.iter().skip(1).copied().collect::<Vec<_>>();
         self.render_console_arguments(&args)
@@ -3073,6 +3109,10 @@ impl<'a> FunctionEmitter<'a> {
                 .children
                 .first()
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
+    }
+
+    fn is_process_exit(&self, id: LirNodeId) -> bool {
+        self.is_process_cwd(id)
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {
@@ -3362,13 +3402,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let uses_env_set = program_uses_env_set(lir);
     let uses_env_delete = program_uses_env_delete(lir);
     let uses_cwd_set = program_uses_cwd_set(lir);
+    let uses_process_exit = program_uses_process_exit(lir);
     let uses_env_access = uses_env_get || uses_env_set || uses_env_delete;
     let function_index_offset = FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
         + if uses_env_set { 1 } else { 0 }
         + if uses_env_delete { 1 } else { 0 }
         + if uses_env_get { 1 } else { 0 }
-        + if uses_cwd_set { 1 } else { 0 };
+        + if uses_cwd_set { 1 } else { 0 }
+        + if uses_process_exit { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
     let env_set_import_index = if uses_env_set {
@@ -3402,6 +3444,18 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_env_set { 1 } else { 0 }
                 + if uses_env_delete { 1 } else { 0 }
                 + if uses_env_get { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let process_exit_import_index = if uses_process_exit {
+        Some(
+            COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_cwd_set { 1 } else { 0 },
         )
     } else {
         None
@@ -3490,6 +3544,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(cwd_set_type_index.unwrap()),
         );
     }
+    if process_exit_import_index.is_some() {
+        import_section.import("kali:rt", "process_exit", EntityType::Function(1));
+    }
     let mut function_types = BTreeMap::<(usize, bool), u32>::new();
     let mut type_for_function = Vec::with_capacity(all_functions.len());
 
@@ -3550,6 +3607,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             env_delete_import_index,
             env_get_import_index,
             cwd_set_import_index,
+            process_exit_import_index,
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
@@ -3766,6 +3824,39 @@ fn program_uses_cwd_set(lir: &LirProgram) -> bool {
                     lir.nodes
                         .get(child.0 as usize)
                         .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+                }))
+    })
+}
+
+fn program_uses_process_exit(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("exit") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+
+        object_node.text.as_deref() == Some("process")
+            || (object_node.text.as_deref() == Some("globalThis")
+                && object_node.children.first().is_some_and(|child| {
+                    lir.nodes
+                        .get(child.0 as usize)
+                        .is_some_and(|process| process.text.as_deref() == Some("process"))
                 }))
     })
 }

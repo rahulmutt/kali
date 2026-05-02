@@ -98,6 +98,23 @@ fn runtime_exposes_arguments() {
 }
 
 #[test]
+fn runtime_records_guest_process_exit_codes() {
+    let runtime = RuntimeCtx::default();
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "process_exit" (func $process_exit (param i64)))
+                (func (export "_start")
+                    i64.const 7
+                    call $process_exit))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 7);
+}
+
+#[test]
 fn runtime_context_carries_process_identity() {
     let runtime =
         RuntimeCtx::with_host_context(None, Vec::new(), capture_env(), PathBuf::from("."));

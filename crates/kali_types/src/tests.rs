@@ -1455,7 +1455,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert!(result.diagnostics.len() >= 5);
+    assert!(result.diagnostics.len() >= 4);
     assert!(result
         .diagnostics
         .iter()
@@ -1463,7 +1463,6 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
     for expected in [
         "globalThis.Deno.cwd",
         "globalThis.Deno.exit",
-        "globalThis.process.exit",
     ] {
         assert!(
             result
