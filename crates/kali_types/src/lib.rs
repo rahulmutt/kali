@@ -2058,6 +2058,10 @@ impl TypeContext {
             return;
         }
 
+        if expr.property == "exit" && object_name == "Deno" && self.api_surface == "deno" {
+            return;
+        }
+
         if expr.property == "cwd" && object_name == "Deno" && self.api_surface == "deno" {
             return;
         }

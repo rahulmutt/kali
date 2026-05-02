@@ -101,7 +101,7 @@ Later compatibility/embedding imports extend this set when the corresponding API
 - `env_set(...)` for the Phase 3 mutable-environment path once `effects.process.envWrite` is part of the enabled host surface
 - socket/listener networking imports for the Phase 3 `Network.Connect` / `Network.Listen` / `Deno.serve` path
 - `process_pid()` only on the later compatibility process-identity path once a schema/policy revision defines its sandbox contract
-- `process_exit(code)` on the documented Node process-control path once the Node surface is enabled; this does **not** imply that `Deno.exit` is part of the Phase 1 API surface
+- `process_exit(code)` on the documented Node process-control path once the Node surface is enabled; the default standalone surface now also shares the same exit import for `Deno.exit`
 - `cwd_get(...)` / `cwd_set(...)` only on the later compatibility working-directory path once a documented policy/effect contract exists
 - `eval_execute(...)` only for the Phase 4 `--compat eval` path; this import name is a host-boundary label, not permission to spin up a second optimized runtime-compilation/JIT pipeline
 

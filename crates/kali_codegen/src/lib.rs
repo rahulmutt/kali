@@ -2992,7 +2992,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let object = callee_node.children.first().copied()?;
-        if !self.is_process_exit(object) {
+        if !self.is_process_exit(object) && !self.is_deno_exit(object) {
             return None;
         }
 
@@ -3177,6 +3177,10 @@ impl<'a> FunctionEmitter<'a> {
                 .children
                 .first()
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
+    }
+
+    fn is_deno_exit(&self, id: LirNodeId) -> bool {
+        self.is_deno_pid(id)
     }
 
     fn is_process_pid(&self, id: LirNodeId) -> bool {
@@ -4004,11 +4008,12 @@ fn program_uses_process_exit(lir: &LirProgram) -> bool {
         };
 
         object_node.text.as_deref() == Some("process")
+            || object_node.text.as_deref() == Some("Deno")
             || (object_node.text.as_deref() == Some("globalThis")
                 && object_node.children.first().is_some_and(|child| {
-                    lir.nodes
-                        .get(child.0 as usize)
-                        .is_some_and(|process| process.text.as_deref() == Some("process"))
+                    lir.nodes.get(child.0 as usize).is_some_and(|host| {
+                        matches!(host.text.as_deref(), Some("process") | Some("Deno"))
+                    })
                 }))
     })
 }
