@@ -2392,6 +2392,15 @@ fn build_source_file_supports_for_of_array_iteration_with_const_alias_in_browser
 }
 
 #[test]
+fn build_source_file_supports_for_of_array_iteration_with_const_alias_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_const_alias_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
 fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_js_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
         ApiSurface::Deno,
@@ -2420,6 +2429,15 @@ fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_
 fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_browser_api_surface_in_ts_input(
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_input(
         ApiSurface::Browser,
         "ts",
     );
