@@ -3112,7 +3112,16 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_process_exit(&self, id: LirNodeId) -> bool {
-        self.is_process_cwd(id)
+        let node = self.node(id);
+        if node.text.as_deref() == Some("process") {
+            return true;
+        }
+
+        node.text.as_deref() == Some("globalThis")
+            && node
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {

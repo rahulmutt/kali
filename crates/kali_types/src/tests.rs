@@ -1460,10 +1460,7 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    for expected in [
-        "globalThis.Deno.cwd",
-        "globalThis.Deno.exit",
-    ] {
+    for expected in ["globalThis.Deno.cwd", "globalThis.Deno.exit"] {
         assert!(
             result
                 .diagnostics

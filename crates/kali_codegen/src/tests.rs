@@ -2192,6 +2192,25 @@ fn bracketed_global_this_process_cwd_member_calls_lower_to_runtime_cwd_import() 
 }
 
 #[test]
+fn process_exit_member_calls_lower_to_runtime_process_exit_import() {
+    let program = parse_and_lower_lir("process.exit(7);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    assert!(printed.contains("import \"kali:rt\" \"process_exit\""));
+}
+
+#[test]
 fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
     let program = parse_and_lower_lir("console.log(Deno.env.get(\"HOME\"));");
     let mut ctx = CodegenCtx::new(TargetConfig {
