@@ -1960,6 +1960,32 @@ fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source).expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.atan2 wrapper literal build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_math_inverse_trig_identity_literals_in_js_input() {
     assert_build_source_file_supports_math_inverse_trig_identity_literals_in_input(
@@ -2029,6 +2055,46 @@ fn build_source_file_supports_global_this_math_atan2_zero_numerator_and_non_nega
     Validator::new()
         .validate_all(&output.wasm_bytes)
         .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_as_const_wrappers_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+        "const zero = (0 as const); const one = (1 as const); console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_satisfies_wrappers_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+        "const zero = (0 satisfies number); const one = (1 satisfies number); console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_as_const_wrappers_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+        "const zero = (0 as const); const one = (1 as const); console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_satisfies_wrappers_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+        "const zero = (0 satisfies number); const one = (1 satisfies number); console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+    );
 }
 
 #[test]
