@@ -41280,6 +41280,18 @@ fn build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_
     assert_build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("ts");
 }
 
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_bundle_context_in_input("js");
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_bundle_context_in_input("ts");
+}
+
 fn assert_build_supports_for_await_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input(
     extension: &str,
 ) {
@@ -41288,6 +41300,44 @@ fn assert_build_supports_for_await_array_iteration_lowering_with_const_string_al
     fs::write(
         &source_path,
         "const value = \"hello\"; const alias = value; for await (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (esm) at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
+}
+
+fn assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = 2; const values = ([1, (value)]); for await (const item of (values)) { console.log(item); }\n",
     )
     .expect("write source");
 
