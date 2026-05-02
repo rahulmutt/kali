@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kali_ast::{BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, Statement};
+use kali_ast::{
+    BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, Statement,
+    VariableDeclaration,
+};
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::{template::resolve_interpolated_template_literal, FileId};
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
@@ -2899,25 +2902,106 @@ fn collect_declared_function_signatures(
 ) -> BTreeMap<String, String> {
     let mut declared_function_signatures = BTreeMap::new();
     for statement in statements {
-        if let Statement::FunctionDeclaration(func) = statement {
-            let signature = infer_function_signature(&func.params, &func.body);
-            if declared_function_signatures
-                .insert(func.name.clone(), signature)
-                .is_some()
-            {
-                diagnostics.push(invalid_export_surface(
-                    source_path,
-                    &format!("duplicate export name `{}`", func.name),
-                ));
+        match statement {
+            Statement::FunctionDeclaration(func) => {
+                let signature = infer_function_signature(&func.params, &func.body);
+                if declared_function_signatures
+                    .insert(func.name.clone(), signature)
+                    .is_some()
+                {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        &format!("duplicate export name `{}`", func.name),
+                    ));
+                }
             }
+            Statement::VariableDeclaration(declaration) if declaration.kind == "const" => {
+                collect_declared_function_binding_signatures(
+                    declaration,
+                    source_path,
+                    diagnostics,
+                    &mut declared_function_signatures,
+                );
+            }
+            _ => {}
         }
     }
 
     declared_function_signatures
 }
 
+fn collect_declared_function_binding_signatures(
+    declaration: &VariableDeclaration,
+    source_path: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+    declared_function_signatures: &mut BTreeMap<String, String>,
+) {
+    for declarator in &declaration.declarations {
+        let Some(signature) = infer_function_binding_signature(declarator.init.as_ref()) else {
+            continue;
+        };
+
+        if declared_function_signatures
+            .insert(declarator.id.clone(), signature)
+            .is_some()
+        {
+            diagnostics.push(invalid_export_surface(
+                source_path,
+                &format!("duplicate export name `{}`", declarator.id),
+            ));
+        }
+    }
+}
+
 fn infer_function_signature(params: &[String], body: &BlockStatement) -> String {
     function_signature(params, infer_block_return_type(body))
+}
+
+fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<String> {
+    let expression = expression?;
+    match expression {
+        Expression::FunctionExpression(func) => {
+            if func.is_async || func.generator {
+                return None;
+            }
+
+            let body = func.body.as_ref()?;
+            let params = func
+                .params
+                .iter()
+                .map(|param| param.name.clone())
+                .collect::<Vec<_>>();
+            Some(function_signature(&params, infer_block_return_type(body)))
+        }
+        Expression::ArrowFunctionExpression(func) => {
+            if func.is_async {
+                return None;
+            }
+
+            let params = func
+                .params
+                .iter()
+                .map(|param| param.name.clone())
+                .collect::<Vec<_>>();
+            Some(function_signature(
+                &params,
+                infer_expression_type(&func.body),
+            ))
+        }
+        Expression::ParenthesizedExpression(parenthesized) => {
+            infer_function_binding_signature(Some(&parenthesized.expression))
+        }
+        Expression::TypeAssertion(type_assertion) => {
+            infer_function_binding_signature(Some(&type_assertion.expression))
+        }
+        Expression::SatisfiesExpression(satisfies_expression) => {
+            infer_function_binding_signature(Some(&satisfies_expression.expression))
+        }
+        Expression::ChainExpression(chain_expression) => {
+            infer_function_binding_signature(Some(&chain_expression.expression))
+        }
+        _ => None,
+    }
 }
 
 fn function_signature(params: &[String], return_type: Option<&str>) -> String {

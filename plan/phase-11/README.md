@@ -42,7 +42,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Improve local/intra-module inference under deterministic budgets.
 - Add negative coverage for annotation-required public boundaries.
 - Do not promote open-ended public-API or cross-module solving without a new solver budget and evidence lane.
-- Progress note: library-export metadata now infers trivial return types for top-level function exports when the body collapses to a single literal-return or transparent wrapper, while preserving the conservative `unknown` fallback outside that bounded slice.
+- Progress note: library-export metadata now infers trivial return types for top-level function exports when the body collapses to a single literal-return or transparent wrapper, and now also covers top-level `const` function-expression / arrow-function bindings plus their export aliases, while preserving the conservative `unknown` fallback outside that bounded slice.
 
 ## Exit gate
 
