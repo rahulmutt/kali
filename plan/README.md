@@ -24,5 +24,5 @@ This directory contains only active continuation planning. Completed historical 
 - Do not infer availability from this plan; use [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - Do not infer proof-backed scope from this plan; use [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 - Any public CLI/schema/diagnostic behavior change must update the owning specs before the work is considered complete.
-- Progress note: `Math.pow` now has browser-harness JS-input smoke coverage for the positive-integer-exponent alias-chain slice plus representative negative-exponent E5506 rejection coverage, alongside the existing checker/codegen/runtime and browser-bundle coverage.
+- Progress note: `Math.pow` now has browser-harness TS/JS-input smoke coverage for the positive-integer-exponent alias-chain slice plus representative negative-exponent E5506 rejection coverage, and the documented `globalThis.Math.pow` root now mirrors that slice in the browser harness and browser-bundle smoke paths, alongside the existing checker/codegen/runtime coverage.
 - Progress note: browser bundle smoke now also covers the const string-alias slice for `for...of` and `for await...of` on the browser API surface in both TS and `.js` input.

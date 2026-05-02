@@ -18,10 +18,35 @@ function mathPowAliasChain() {
 "##
 }
 
+fn browser_bundle_global_this_math_pow_alias_source() -> &'static str {
+    r##"// kali-tree-shake: globalThisMathPowAliasChain
+function globalThisMathPowAliasChain() {
+  const exponent = 3;
+  const alias = exponent;
+  console.log(globalThis.Math.pow(2, alias));
+  return globalThis.Math.pow(2, alias);
+}
+"##
+}
+
 fn assert_browser_bundle_math_pow_alias(filename: &str, json_output: bool) {
+    assert_browser_bundle_math_pow_alias_with_source(
+        filename,
+        json_output,
+        browser_bundle_math_pow_alias_source(),
+        "mathPowAliasChain",
+    );
+}
+
+fn assert_browser_bundle_math_pow_alias_with_source(
+    filename: &str,
+    json_output: bool,
+    source: &'static str,
+    export_name: &str,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, browser_bundle_math_pow_alias_source()).expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -68,9 +93,11 @@ fn assert_browser_bundle_math_pow_alias(filename: &str, json_output: bool) {
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        r#"const mod = await import(bundleJs.href);
-await mod.mathPowAliasChain();
-"#,
+        &format!(
+            r#"const mod = await import(bundleJs.href);
+await mod.{export_name}();
+"#
+        ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -115,4 +142,44 @@ fn json_build_emits_math_pow_alias_chain_in_js_input() {
 #[test]
 fn json_build_emits_math_pow_alias_chain_in_ts_input() {
     assert_browser_bundle_math_pow_alias("app.ts", true);
+}
+
+#[test]
+fn build_emits_global_this_math_pow_alias_chain_in_js_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.js",
+        false,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn build_emits_global_this_math_pow_alias_chain_in_ts_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.ts",
+        false,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn json_build_emits_global_this_math_pow_alias_chain_in_js_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.js",
+        true,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn json_build_emits_global_this_math_pow_alias_chain_in_ts_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.ts",
+        true,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
 }
