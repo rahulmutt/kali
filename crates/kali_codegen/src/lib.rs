@@ -779,11 +779,12 @@ impl<'a> FunctionEmitter<'a> {
         let mut current = id;
         loop {
             let current_node = self.node(current);
-            if current_node.kind == LirNodeKind::Value && current_node.children.len() == 1 {
-                if current_node.text.is_none() {
-                    current = current_node.children[0];
-                    continue;
-                }
+            if current_node.kind == LirNodeKind::Value
+                && current_node.children.len() == 1
+                && current_node.text.is_none()
+            {
+                current = current_node.children[0];
+                continue;
             }
             return (current_node.children.is_empty())
                 .then(|| current_node.text.clone())

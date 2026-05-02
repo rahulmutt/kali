@@ -864,7 +864,6 @@ impl HirLowerer {
                 );
                 id
             }
-            _ => self.builder.alloc(HirNodeKind::Unknown, None),
         }
     }
 
