@@ -26577,6 +26577,35 @@ fn run_supports_global_this_math_max_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_global_this_math_builtin_slices_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(globalThis.Math.min(3, 2, 1));\nconsole.log(globalThis.Math.abs(-4));\nconsole.log(globalThis.Math.sign(0));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n"), "stdout: {stdout}");
+    assert!(stdout.contains("0\n"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_global_this_math_atan2_zero_slice_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

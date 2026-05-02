@@ -2701,6 +2701,65 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
 }
 
 #[test]
+fn test_resolution_supports_global_this_math_builtin_slices_for_supported_methods() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Math".to_string(),
+                    })),
+                    property: "min".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Math".to_string(),
+                    })),
+                    property: "abs".to_string(),
+                })),
+                args: vec![Expression::UnaryExpression(Box::new(
+                    kali_ast::UnaryExpression {
+                        operator: "-".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(4.0)),
+                    },
+                ))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Math".to_string(),
+                    })),
+                    property: "sign".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(0.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
