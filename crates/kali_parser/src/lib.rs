@@ -947,17 +947,30 @@ impl Parser {
     fn parse_assignment_expression(&mut self) -> Expression {
         let left = self.parse_binary_expression(0);
 
-        if !matches!(self.stream.current_kind(), Some(TokenType::Eq)) {
+        let Some(operator) = self.parse_assignment_operator() else {
             return left;
-        }
+        };
 
         let _ = self.stream.advance();
         let right = self.parse_assignment_expression();
         Expression::AssignmentExpression(Box::new(AssignmentExpression {
-            operator: AssignmentOperator::Assign,
+            operator,
             left,
             right,
         }))
+    }
+
+    fn parse_assignment_operator(&self) -> Option<AssignmentOperator> {
+        match self.stream.current_kind().copied()? {
+            TokenType::Eq => Some(AssignmentOperator::Assign),
+            TokenType::PlusEq => Some(AssignmentOperator::AddAssign),
+            TokenType::MinusEq => Some(AssignmentOperator::SubtractAssign),
+            TokenType::StarEq => Some(AssignmentOperator::MultiplyAssign),
+            TokenType::SlashEq => Some(AssignmentOperator::DivideAssign),
+            TokenType::PercentEq => Some(AssignmentOperator::ModuloAssign),
+            TokenType::StarStarEq => Some(AssignmentOperator::ExponentAssign),
+            _ => None,
+        }
     }
 
     fn parse_unary_expression(&mut self) -> Expression {

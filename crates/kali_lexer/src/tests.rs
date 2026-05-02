@@ -59,6 +59,30 @@ fn test_lexer_plus() {
 }
 
 #[test]
+fn test_lexer_compound_assignment_tokens() {
+    let lexer = Lexer::new(FileId::new(0), "+= -= *= /= %= **=".to_string());
+    let result = lexer.lex_all();
+    let kinds: Vec<_> = result.tokens.iter().map(|token| token.kind).collect();
+    assert_eq!(
+        kinds,
+        vec![
+            TokenType::PlusEq,
+            TokenType::MinusEq,
+            TokenType::StarEq,
+            TokenType::SlashEq,
+            TokenType::PercentEq,
+            TokenType::StarStarEq,
+            TokenType::Eof,
+        ]
+    );
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_lexer_unterminated_string() {
     let lexer = Lexer::new(FileId::new(0), "\"hello".to_string());
     let result = lexer.lex_all();

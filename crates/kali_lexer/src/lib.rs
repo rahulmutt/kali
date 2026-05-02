@@ -29,6 +29,8 @@ pub enum TokenType {
     MinusEq,
     StarEq,
     SlashEq,
+    PercentEq,
+    StarStarEq,
     AndAnd,
     OrOr,
     QuestionDot,
@@ -375,6 +377,10 @@ impl Lexer {
     fn lex_division_or_comment(&mut self) -> Token {
         self.position += 1;
         match self.source.get(self.position) {
+            Some(&'=') => {
+                self.position += 1;
+                Token::new(TokenType::SlashEq, "/=".into(), self.span())
+            }
             Some(&'*') => self.lex_block_comment(),
             Some(&'/') => self.lex_line_comment(),
             _ => Token::new(TokenType::Slash, "/".into(), self.span()),
@@ -452,12 +458,17 @@ impl Lexer {
             '>' if self.nth(1) == Some('>') => (TokenType::GtGt, ">>".to_string(), 2),
             '?' if self.nth(1) == Some('?') => (TokenType::NullCoalesce, "??".to_string(), 2),
             '?' if self.nth(1) == Some('.') => (TokenType::QuestionDot, "?.".to_string(), 2),
-            '.' if self.nth(1) == Some('.') && self.nth(2) == Some('.') => {
-                (TokenType::DotDotDot, "...".to_string(), 3)
-            }
-            '=' if self.nth(1) == Some('>') => (TokenType::Arrow, "=>".to_string(), 2),
             '+' if self.nth(1) == Some('+') => (TokenType::Plus, "++".to_string(), 2),
+            '+' if self.nth(1) == Some('=') => (TokenType::PlusEq, "+=".to_string(), 2),
             '-' if self.nth(1) == Some('-') => (TokenType::Minus, "--".to_string(), 2),
+            '-' if self.nth(1) == Some('=') => (TokenType::MinusEq, "-=".to_string(), 2),
+            '*' if self.nth(1) == Some('*') && self.nth(2) == Some('=') => {
+                (TokenType::StarStarEq, "**=".to_string(), 3)
+            }
+            '*' if self.nth(1) == Some('=') => (TokenType::StarEq, "*=".to_string(), 2),
+            '/' if self.nth(1) == Some('=') => (TokenType::SlashEq, "/=".to_string(), 2),
+            '%' if self.nth(1) == Some('=') => (TokenType::PercentEq, "%=".to_string(), 2),
+            '=' if self.nth(1) == Some('>') => (TokenType::Arrow, "=>".to_string(), 2),
             '+' => (TokenType::Plus, "+".to_string(), 1),
             '-' => (TokenType::Minus, "-".to_string(), 1),
             '*' => (TokenType::Star, "*".to_string(), 1),
@@ -470,6 +481,9 @@ impl Lexer {
             '?' => (TokenType::Question, "?".to_string(), 1),
             '=' => (TokenType::Eq, "=".to_string(), 1),
             ':' => (TokenType::Colon, ":".to_string(), 1),
+            '.' if self.nth(1) == Some('.') && self.nth(2) == Some('.') => {
+                (TokenType::DotDotDot, "...".to_string(), 3)
+            }
             '.' => (TokenType::Dot, ".".to_string(), 1),
             '#' => (TokenType::Hash, "#".to_string(), 1),
             '@' => (TokenType::At, "@".to_string(), 1),

@@ -1,5 +1,5 @@
 use super::*;
-use kali_ast::{ObjectExpression, ObjectPropertyKind, PropertyName};
+use kali_ast::{AssignmentOperator, ObjectExpression, ObjectPropertyKind, PropertyName};
 use kali_lexer::Lexer;
 
 fn lex(source: &str) -> Vec<Token> {
@@ -243,6 +243,62 @@ fn test_parse_nullish_coalescing_expression() {
         panic!("Expected BinaryExpression, got {init:?}");
     };
     assert_eq!(expr.operator, "??");
+}
+
+#[test]
+fn test_parse_compound_assignment_expression() {
+    let tokens = lex("value += 1; value **= 2; value %= 3;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 3);
+
+    let Statement::ExpressionStatement(first) = &output.statements[0] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Expression::AssignmentExpression(first_assign) = first.expression.as_ref() else {
+        panic!("Expected AssignmentExpression, got {:?}", first.expression);
+    };
+    assert!(matches!(
+        first_assign.operator,
+        AssignmentOperator::AddAssign
+    ));
+
+    let Statement::ExpressionStatement(second) = &output.statements[1] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[1]
+        );
+    };
+    let Expression::AssignmentExpression(second_assign) = second.expression.as_ref() else {
+        panic!("Expected AssignmentExpression, got {:?}", second.expression);
+    };
+    assert!(matches!(
+        second_assign.operator,
+        AssignmentOperator::ExponentAssign
+    ));
+
+    let Statement::ExpressionStatement(third) = &output.statements[2] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[2]
+        );
+    };
+    let Expression::AssignmentExpression(third_assign) = third.expression.as_ref() else {
+        panic!("Expected AssignmentExpression, got {:?}", third.expression);
+    };
+    assert!(matches!(
+        third_assign.operator,
+        AssignmentOperator::ModuloAssign
+    ));
 }
 
 #[test]
