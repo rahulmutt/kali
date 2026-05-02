@@ -1700,6 +1700,10 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     assert!(result.diagnostics.iter().any(|diag| diag
         .message
         .contains("globalThis[\"Deno\"][\"env\"][\"toObject\"]")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("object-aggregate lowering")));
 }
 
 #[test]

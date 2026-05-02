@@ -137,6 +137,7 @@ fn assert_browser_late_env_materialization_rejection(stderr: &str) {
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
+        "object-aggregate lowering",
     ] {
         assert!(
             stderr.contains(expected),
@@ -157,6 +158,7 @@ fn assert_browser_late_env_materialization_rejection_json(errors: &[Value]) {
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
+        "object-aggregate lowering",
     ] {
         assert!(
             errors.iter().any(|error| error["message"]

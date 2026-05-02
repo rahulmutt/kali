@@ -3716,6 +3716,7 @@ fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains("environment snapshot materialization API")
+            && diagnostic.message.contains("object-aggregate lowering")
             && (diagnostic.message.contains("Deno.env.toObject")
                 || diagnostic.message.contains("globalThis.Deno.env.toObject")
                 || diagnostic
@@ -3762,6 +3763,7 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains("environment snapshot materialization API")
+            && diagnostic.message.contains("object-aggregate lowering")
             && (diagnostic.message.contains("Deno.env.toObject")
                 || diagnostic.message.contains("globalThis.Deno.env.toObject")
                 || diagnostic
@@ -3808,6 +3810,7 @@ fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains("environment snapshot materialization API")
+            && diagnostic.message.contains("object-aggregate lowering")
             && (diagnostic.message.contains("Deno.env.toObject")
                 || diagnostic.message.contains("globalThis.Deno.env.toObject")
                 || diagnostic
@@ -3854,6 +3857,7 @@ fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains("environment snapshot materialization API")
+            && diagnostic.message.contains("object-aggregate lowering")
             && (diagnostic.message.contains("Deno.env.toObject")
                 || diagnostic.message.contains("globalThis.Deno.env.toObject")
                 || diagnostic
@@ -3900,6 +3904,7 @@ fn build_source_file_rejects_deno_env_to_object_in_browser_api_surface_in_js_inp
         error.iter().any(|diagnostic| diagnostic
             .message
             .contains("environment snapshot materialization API")
+            && diagnostic.message.contains("object-aggregate lowering")
             && (diagnostic.message.contains("Deno.env.toObject")
                 || diagnostic.message.contains("globalThis.Deno.env.toObject")
                 || diagnostic

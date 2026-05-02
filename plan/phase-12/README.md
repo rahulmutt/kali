@@ -40,6 +40,12 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Promote only with conformance evidence and sandbox/resource implications documented.
 - Progress note: the non-browser literal-object `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice now folds static object literals and const alias chains in JS input; browser-targeted static-object-call slices are now supported on the documented browser command set, and dynamic-object cases remain gated. The late object-model smoke now also explicitly exercises `new Proxy` / `new globalThis.Proxy` / `new globalThis["Proxy"]` rejection spellings on the gated path.
 
+### 12.5 Object-aggregate materialization
+
+- Add guest-language object aggregate lowering for host-snapshot materialization APIs such as `Deno.env.toObject` only once the object aggregate/value plumbing is in place.
+- Keep `Deno.env.toObject` and related host-snapshot APIs gated until the compiler can build and pass object values honestly across the supported runtime surfaces.
+- Progress note: the current env-snapshot helper plumbing is already present on the host-side Deno/Node projections, but the language-visible `Deno.env.toObject` path is still blocked by the missing object-aggregate lowering path, so the repository keeps that gate explicit instead of overclaiming the surface.
+
 ## Exit gate
 
 - New host/runtime support has integration, sandbox/effect, resource-budget, and JSON-output evidence.
