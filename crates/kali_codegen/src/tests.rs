@@ -611,6 +611,33 @@ fn math_pow_member_uses_integer_exponent_alias_chain() {
 }
 
 #[test]
+fn math_pow_member_uses_negative_integer_base_with_integer_exponent_alias_chain() {
+    let program = parse_and_lower_lir(
+        "const exponent = 3; const alias = exponent; console.log(Math.pow(-2, alias));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(
+        printed.contains(r#"import "kali:rt" "math_pow""#),
+        "{printed}"
+    );
+    assert!(printed.contains("i64.const 0"), "{printed}");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+}
+
+#[test]
 fn math_round_member_calls_lower_to_math_host_imports() {
     let program = parse_and_lower_lir("console.log(Math.round(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
