@@ -116,6 +116,11 @@ impl NodeProcess {
         &self.env
     }
 
+    /// Materialize the captured environment into an owned deterministic snapshot.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.env.clone()
+    }
+
     /// Return the number of captured argv entries.
     pub fn argv_len(&self) -> usize {
         self.argv.len()
