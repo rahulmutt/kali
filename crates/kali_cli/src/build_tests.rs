@@ -1945,6 +1945,42 @@ fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denomin
 }
 
 #[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
 fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_js_input(
 ) {
     assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_const_alias_chain_in_input(
