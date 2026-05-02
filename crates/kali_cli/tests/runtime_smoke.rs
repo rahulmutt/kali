@@ -1503,6 +1503,63 @@ fn check_build_and_run_accept_deno_env_get_in_js_input() {
 }
 
 #[test]
+fn check_build_and_run_accept_deno_env_has_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Deno.env.has('KALI_ENV_HAS_SMOKE'));\n",
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success(), "{command} failed: {:?}", output);
+    }
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_HAS_SMOKE", "hello-environment")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "1", "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_deno_env_has_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('env has', () => { if (!Deno.env.has('KALI_ENV_HAS_SMOKE')) { throw new Error('expected env presence'); } });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_ENV_HAS_SMOKE", "hello-environment")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_build_and_run_accept_type_assertion_and_satisfies_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -25238,6 +25295,29 @@ fn test_supports_math_pow_negative_base_builtin_semantics_in_js_input() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("-8\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_math_pow_zero_exponent_for_non_integer_base_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, "console.log(Math.pow(1.6, 0));\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\nok 1"), "stdout: {stdout}");
 }
 
 #[test]

@@ -147,6 +147,7 @@ struct FunctionEmitter<'a> {
     env_set_import_index: Option<u32>,
     env_delete_import_index: Option<u32>,
     env_get_import_index: Option<u32>,
+    env_has_import_index: Option<u32>,
     cwd_set_import_index: Option<u32>,
     process_exit_import_index: Option<u32>,
     diagnostics: &'a mut Vec<Diagnostic>,
@@ -165,6 +166,7 @@ impl<'a> FunctionEmitter<'a> {
         env_set_import_index: Option<u32>,
         env_delete_import_index: Option<u32>,
         env_get_import_index: Option<u32>,
+        env_has_import_index: Option<u32>,
         cwd_set_import_index: Option<u32>,
         process_exit_import_index: Option<u32>,
         diagnostics: &'a mut Vec<Diagnostic>,
@@ -188,6 +190,7 @@ impl<'a> FunctionEmitter<'a> {
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
+            env_has_import_index,
             cwd_set_import_index,
             process_exit_import_index,
             diagnostics,
@@ -1576,46 +1579,51 @@ impl<'a> FunctionEmitter<'a> {
 
             let exponent_identity = self
                 .render_static_value(*exponent)
-                .and_then(|rendered| parse_number_literal(&rendered))
-                .filter(|value| *value == 0 || *value == 1);
+                .and_then(|rendered| parse_numeric_literal_value(&rendered))
+                .filter(|value| *value == 0.0 || *value == 1.0);
 
             if let Some(exponent_identity) = exponent_identity {
-                if !self.emit_integer_math_arg(function, *base, "pow") {
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
-                }
-                if !self.emit_integer_math_arg(function, *exponent, "pow") {
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
-                }
-                for arg in args {
-                    if !self.emit_integer_math_arg(function, *arg, "pow") {
+                match exponent_identity {
+                    0.0 => {
+                        let base_result = self.emit_node(function, *base, true);
+                        if base_result.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                        for arg in args {
+                            let produced = self.emit_node(function, *arg, true);
+                            if produced.produced {
+                                function.instruction(&Instruction::Drop);
+                            }
+                        }
+                        function.instruction(&Instruction::I64Const(1));
                         return EmittedValue {
-                            produced: false,
-                            shape: ValueShape::Unknown,
+                            produced: true,
+                            shape: ValueShape::Scalar,
                         };
                     }
-                    function.instruction(&Instruction::Drop);
-                }
-                match exponent_identity {
-                    0 => {
-                        function.instruction(&Instruction::Drop);
-                        function.instruction(&Instruction::Drop);
-                        function.instruction(&Instruction::I64Const(1));
-                    }
-                    1 => {
-                        function.instruction(&Instruction::Drop);
+                    1.0 => {
+                        if !self.emit_integer_math_arg(function, *base, "pow") {
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
+                        for arg in args {
+                            if !self.emit_integer_math_arg(function, *arg, "pow") {
+                                return EmittedValue {
+                                    produced: false,
+                                    shape: ValueShape::Unknown,
+                                };
+                            }
+                            function.instruction(&Instruction::Drop);
+                        }
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
                     }
                     _ => unreachable!(),
                 }
-                return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
-                };
             }
 
             if !self.emit_integer_math_arg(function, *base, "pow") {
@@ -2373,6 +2381,40 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(import_index) = self.env_has_import_index(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(key_expr) = args.next() else {
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(key_text) = self.render_static_value(*key_expr) else {
+                self.push_placeholder_fallback_diagnostic("call target", "Deno.env.has");
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let (key_offset, key_len) = self.strings.intern(&key_text);
+            function.instruction(&Instruction::I32Const(key_offset as i32));
+            function.instruction(&Instruction::I32Const(key_len as i32));
+            function.instruction(&Instruction::Call(import_index));
+            function.instruction(&Instruction::I64ExtendI32U);
+            for arg in args {
+                let _ = self.emit_node(function, *arg, true);
+                function.instruction(&Instruction::Drop);
+            }
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if let Some(import_index) = self.cwd_set_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(path_expr) = args.next() else {
@@ -2957,6 +2999,26 @@ impl<'a> FunctionEmitter<'a> {
         self.env_get_import_index
     }
 
+    fn env_has_import_index(&self, callee_node: &LirNode) -> Option<u32> {
+        let method = callee_node.text.as_deref()?;
+        if method != "has" {
+            return None;
+        }
+
+        let object = callee_node.children.first().copied()?;
+        let object_node = self.node(object);
+        if object_node.text.as_deref() != Some("env") {
+            return None;
+        }
+
+        let root = object_node.children.first().copied()?;
+        if !self.is_deno_pid(root) {
+            return None;
+        }
+
+        self.env_has_import_index
+    }
+
     fn cwd_import_index(&self, callee_node: &LirNode) -> Option<u32> {
         let method = callee_node.text.as_deref()?;
         if method != "cwd" {
@@ -3506,19 +3568,22 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut function_name_to_index = BTreeMap::new();
     let mut string_pool = StringPool::new(ENV_GET_BUFFER_RESERVED);
     let uses_env_get = program_uses_env_get(lir);
+    let uses_env_has = program_uses_env_has(lir);
     let uses_env_set = program_uses_env_set(lir);
     let uses_env_delete = program_uses_env_delete(lir);
     let uses_cwd_set = program_uses_cwd_set(lir);
     let uses_process_exit = program_uses_process_exit(lir);
-    let uses_env_access = uses_env_get || uses_env_set || uses_env_delete;
+    let uses_env_access = uses_env_get || uses_env_has || uses_env_set || uses_env_delete;
     let function_index_offset = FUNCTION_INDEX_OFFSET
         + if ctx.target.coverage { 1 } else { 0 }
         + if uses_env_set { 1 } else { 0 }
         + if uses_env_delete { 1 } else { 0 }
         + if uses_env_get { 1 } else { 0 }
+        + if uses_env_has { 1 } else { 0 }
         + if uses_cwd_set { 1 } else { 0 }
         + if uses_process_exit { 1 } else { 0 };
     let env_get_type_index = if uses_env_access { Some(6) } else { None };
+    let env_has_type_index = if uses_env_has { Some(7) } else { None };
     let cwd_set_type_index = if uses_cwd_set { Some(5) } else { None };
     let env_set_import_index = if uses_env_set {
         Some(COVERAGE_HIT_IMPORT_INDEX + if ctx.target.coverage { 1 } else { 0 })
@@ -3544,13 +3609,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     } else {
         None
     };
-    let cwd_set_import_index = if uses_cwd_set {
+    let env_has_import_index = if uses_env_has {
         Some(
             COVERAGE_HIT_IMPORT_INDEX
                 + if ctx.target.coverage { 1 } else { 0 }
                 + if uses_env_set { 1 } else { 0 }
                 + if uses_env_delete { 1 } else { 0 }
                 + if uses_env_get { 1 } else { 0 },
+        )
+    } else {
+        None
+    };
+    let cwd_set_import_index = if uses_cwd_set {
+        Some(
+            COVERAGE_HIT_IMPORT_INDEX
+                + if ctx.target.coverage { 1 } else { 0 }
+                + if uses_env_set { 1 } else { 0 }
+                + if uses_env_delete { 1 } else { 0 }
+                + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 },
         )
     } else {
         None
@@ -3562,6 +3639,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 + if uses_env_set { 1 } else { 0 }
                 + if uses_env_delete { 1 } else { 0 }
                 + if uses_env_get { 1 } else { 0 }
+                + if uses_env_has { 1 } else { 0 }
                 + if uses_cwd_set { 1 } else { 0 },
         )
     } else {
@@ -3602,6 +3680,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
         vec![ValType::I32],
     );
+    type_section
+        .ty()
+        .function(vec![ValType::I32, ValType::I32], vec![ValType::I32]);
     let mut import_section = ImportSection::new();
     import_section.import("kali:rt", "test_register", EntityType::Function(0));
     import_section.import("kali:rt", "console_log", EntityType::Function(1));
@@ -3644,6 +3725,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             EntityType::Function(env_get_type_index.unwrap()),
         );
     }
+    if env_has_import_index.is_some() {
+        import_section.import(
+            "kali:rt",
+            "env_has",
+            EntityType::Function(env_has_type_index.unwrap()),
+        );
+    }
     if cwd_set_import_index.is_some() {
         import_section.import(
             "kali:rt",
@@ -3662,7 +3750,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         let type_index = if let Some(&idx) = function_types.get(&key) {
             idx
         } else {
-            let idx = function_types.len() as u32 + 7;
+            let idx = function_types.len() as u32 + 8;
             let params = vec![ValType::I64; function.params.len()];
             let results = if function.result {
                 vec![ValType::I64]
@@ -3713,6 +3801,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             env_set_import_index,
             env_delete_import_index,
             env_get_import_index,
+            env_has_import_index,
             cwd_set_import_index,
             process_exit_import_index,
             &mut diagnostics,
@@ -3786,6 +3875,49 @@ fn program_uses_env_get(lir: &LirProgram) -> bool {
             return false;
         };
         if callee_node.text.as_deref() != Some("get") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first() else {
+            return false;
+        };
+        let Some(object_node) = lir.nodes.get(object.0 as usize) else {
+            return false;
+        };
+        if object_node.text.as_deref() != Some("env") {
+            return false;
+        }
+
+        let Some(root) = object_node.children.first() else {
+            return false;
+        };
+        let Some(root_node) = lir.nodes.get(root.0 as usize) else {
+            return false;
+        };
+
+        root_node.text.as_deref() == Some("Deno")
+            || (root_node.text.as_deref() == Some("globalThis")
+                && root_node.children.first().is_some_and(|child| {
+                    lir.nodes
+                        .get(child.0 as usize)
+                        .is_some_and(|deno| deno.text.as_deref() == Some("Deno"))
+                }))
+    })
+}
+
+fn program_uses_env_has(lir: &LirProgram) -> bool {
+    lir.nodes.iter().any(|node| {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first() else {
+            return false;
+        };
+        let Some(callee_node) = lir.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        if callee_node.text.as_deref() != Some("has") {
             return false;
         }
 

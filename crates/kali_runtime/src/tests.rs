@@ -3158,6 +3158,40 @@ fn runtime_exposes_environment_variables() {
 }
 
 #[test]
+fn runtime_reports_environment_variable_presence() {
+    let mut env = BTreeMap::new();
+    env.insert("KALI_RUNTIME_TEST_ENV".to_string(), "hello".to_string());
+    let runtime = RuntimeCtx::with_host_context(
+        None,
+        vec!["alpha".to_string(), "beta".to_string()],
+        env,
+        PathBuf::from("."),
+    );
+
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "env_has" (func $env_has (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "KALI_RUNTIME_TEST_ENV")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 21
+                    call $env_has
+                    i32.const 1
+                    i32.eq
+                    if
+                    else
+                        unreachable
+                    end))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("runtime outcome");
+    assert_eq!(outcome.exit_code, 0);
+}
+
+#[test]
 fn runtime_reports_current_working_directory() {
     let dir = tempfile::tempdir().expect("tempdir");
     let cwd = dir.path().to_path_buf();

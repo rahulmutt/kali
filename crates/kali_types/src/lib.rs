@@ -1573,10 +1573,15 @@ impl TypeContext {
                 return;
             }
 
-            if expr
-                .args
-                .iter()
-                .any(|arg| self.contains_non_integer_numeric_literal(arg))
+            let exponent_is_static_zero = self
+                .resolve_static_numeric_literal_value(expr.args.get(1).unwrap())
+                .is_some_and(|value| value == 0.0);
+
+            if !exponent_is_static_zero
+                && expr
+                    .args
+                    .iter()
+                    .any(|arg| self.contains_non_integer_numeric_literal(arg))
             {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
