@@ -32,5 +32,6 @@ This directory contains only active continuation planning. Completed historical 
 - Progress note: browser-harness and browser-bundle smoke now also cover the exact `Math.asinh` / `Math.acosh` / `Math.atanh` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.pow` zero-exponent non-integer-base slice in TS and `.js` input.
+- Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` / fully bracketed `globalThis["Math"]["floor"]`, `globalThis["Math"]["trunc"]`, and `globalThis["Math"]["ceil"]` slices in TS and `.js` input.
 - Progress note: browser bundle smoke now also covers the `Math.floor` / `Math.trunc` / `Math.ceil` const-alias-chain slice in TS and `.js` input.
 - Progress note: the static numeric-literal `Object.is` slice now folds deterministically on the supported standalone/browser smoke paths, including const alias chains and bracketed `globalThis["Object"]["is"]` spellings, and browser-harness run/test smoke now also mirrors that slice in TS and `.js` input.
