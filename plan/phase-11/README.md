@@ -48,7 +48,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Improve local/intra-module inference under deterministic budgets.
 - Add negative coverage for annotation-required public boundaries.
 - Do not promote open-ended public-API or cross-module solving without a new solver budget and evidence lane.
-- Progress note: library-export metadata now infers trivial return types for top-level function exports when the body collapses to a single literal-return or transparent wrapper, and now also covers top-level `const` function-expression / arrow-function bindings plus their export aliases, plus deterministic sequence/conditional wrappers around that same bounded slice, while preserving the conservative `unknown` fallback outside that bounded slice; the CLI `build --lib` smoke now also pins the current JS-input alias-rejection path on the end-to-end build surface.
+- Progress note: library-export metadata now infers trivial return types for top-level function exports when the body collapses to a single literal-return or transparent wrapper, and now also covers top-level `const` function-expression / arrow-function bindings plus their export aliases, plus deterministic sequence/conditional wrappers around that same bounded slice, while preserving the conservative `unknown` fallback outside that bounded slice; the CLI `build --lib` smoke now also pins the current JS-input alias-rejection path on the end-to-end build surface, and now also keeps mixed conditional public-boundary exports on the conservative `unknown` fallback instead of overpromoting them.
 
 ## Exit gate
 
