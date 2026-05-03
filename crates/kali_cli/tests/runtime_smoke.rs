@@ -44386,6 +44386,61 @@ fn build_rejects_non_literal_dynamic_import_targets_in_js_input() {
 }
 
 #[test]
+fn build_rejects_non_literal_dynamic_import_targets_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(&source_path, "let specifier; import(specifier);").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("non-literal dynamic import()")
+            || stderr.contains("statically known import specifier"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_build_rejects_non_literal_dynamic_import_targets_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(&source_path, "let specifier; import(specifier);").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_non_literal_dynamic_import_rejection_json(errors);
+}
+
+#[test]
 fn build_rejects_async_generator_function_expression_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
