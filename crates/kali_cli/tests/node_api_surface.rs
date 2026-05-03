@@ -2124,6 +2124,7 @@ fn node_api_surface_supports_process_env_property_mutation_in_js_input_on_check_
         "globalThis.process[\"env\"].KALI_NODE_ENV_MUTATION = 'set'; delete globalThis.process[\"env\"].KALI_NODE_ENV_MUTATION; console.log('node env mutation');",
         "globalThis[\"process\"].env.KALI_NODE_ENV_MUTATION = 'set'; delete globalThis[\"process\"].env.KALI_NODE_ENV_MUTATION; console.log('node env mutation');",
         "globalThis[\"process\"][\"env\"].KALI_NODE_ENV_MUTATION = 'set'; delete globalThis[\"process\"][\"env\"].KALI_NODE_ENV_MUTATION; console.log('node env mutation');",
+        "globalThis[\"process\"][\"env\"][\"KALI_NODE_ENV_MUTATION\"] = 'set'; delete globalThis[\"process\"][\"env\"][\"KALI_NODE_ENV_MUTATION\"]; console.log('node env mutation');",
     ];
 
     for source in source_variants {

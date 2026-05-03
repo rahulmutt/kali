@@ -151,7 +151,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {};"#
+    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
 }
 
 fn late_object_model_source() -> &'static str {
@@ -224,6 +224,7 @@ fn late_process_env_mutation_source_includes_bracketed_spellings() {
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }

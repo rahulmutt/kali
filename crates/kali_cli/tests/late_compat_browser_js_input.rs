@@ -16,7 +16,7 @@ fn late_env_materialization_source() -> &'static str {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {};"
+    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; delete globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"];"
 }
 
 fn late_env_mutation_source() -> &'static str {
@@ -624,6 +624,7 @@ fn browser_late_process_env_mutation_source_includes_bracketed_forms() {
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis.process["env"]"#,
         r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION"#,
     ] {
