@@ -54,6 +54,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now also covers the `Math.sinh` / `Math.cosh` / `Math.tanh` zero-identity slice in TS and `.js` input.
 - Browser bundle smoke now also covers the exact `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input.
 - Direct build smoke now also covers the bracketed `globalThis["Math"]` root for the `Math.atan2` zero-numerator / non-negative-denominator slice in JS input.
+- Progress note: codegen smoke now also covers the bracketed `globalThis["Math"]["floor"]` / `globalThis["Math"]["trunc"]` / `globalThis["Math"]["ceil"]` slices and the bracketed `globalThis["Math"]["pow"]` one-base identity slice.
 
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` / fully bracketed `globalThis["Math"]["round"]` slice for `Math.round` identity cases in TS and `.js` input, and now also cover the `globalThis.Math.round` root slice in TS and `.js` input.
 - Progress note: browser-harness/browser-bundle smoke now also covers the mixed-bracket `globalThis["Object"].prototype.hasOwnProperty.call` and `globalThis.Object["prototype"].hasOwnProperty.call` spellings for the supported `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice in TS and `.js` input.
