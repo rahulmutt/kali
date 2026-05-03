@@ -266,7 +266,7 @@ impl BrowserRuntimeContract {
 
     /// Return a stable note that describes browser-harness summary fallback behavior.
     pub const fn summary_file_fallback_note() -> &'static str {
-        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid"
+        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid"
     }
 }
 

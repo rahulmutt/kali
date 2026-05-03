@@ -28,6 +28,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Keep browser-targeted `check` / `build --bundle` distinct from standalone browser execution and post-deployment sandbox enforcement.
 - Progress note: the browser runtime contract diagnostics now also spell out the summary-file fallback rule, where stdout remains authoritative when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid.
 - Progress note: browser-requested and browser-bundle runtime smoke now also cover the missing-summary-file fallback path, keeping the stdout-authoritative rule pinned when the configured browser harness summary file is absent or whitespace-only; the browser-requested JSON smoke now also pins the whitespace-only summary-file variant in JS input.
+- Progress note: the browser runtime contract fallback note now explicitly includes unreadable summary files alongside missing, unparseable, and shape-invalid ones so the diagnostic wording stays aligned with the actual fallback behavior.
 
 ### 12.3 Late host APIs
 
