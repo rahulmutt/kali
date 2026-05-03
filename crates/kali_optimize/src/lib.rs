@@ -1934,6 +1934,14 @@ impl Optimizer {
 
             let node = program.nodes.get(id.0 as usize)?;
             if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+            {
+                id = node.children[0];
+                continue;
+            }
+
+            if node.kind == LirNodeKind::Value
                 && node.children.is_empty()
                 && node.text.as_deref().is_some()
             {
