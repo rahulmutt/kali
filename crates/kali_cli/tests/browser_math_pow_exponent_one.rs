@@ -188,6 +188,16 @@ fn build_emits_math_pow_exponent_one_identity_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_pow_exponent_one_identity_in_jsx_input() {
+    assert_browser_bundle_math_pow_exponent_one_identity("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_pow_exponent_one_identity_in_tsx_input() {
+    assert_browser_bundle_math_pow_exponent_one_identity("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_math_pow_exponent_one_identity_in_js_input() {
     assert_browser_bundle_math_pow_exponent_one_identity("app.js", true);
 }
@@ -195,6 +205,16 @@ fn json_build_emits_math_pow_exponent_one_identity_in_js_input() {
 #[test]
 fn json_build_emits_math_pow_exponent_one_identity_in_ts_input() {
     assert_browser_bundle_math_pow_exponent_one_identity("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_exponent_one_identity_in_jsx_input() {
+    assert_browser_bundle_math_pow_exponent_one_identity("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_exponent_one_identity_in_tsx_input() {
+    assert_browser_bundle_math_pow_exponent_one_identity("app.tsx", true);
 }
 
 #[test]
@@ -213,6 +233,28 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
     assert_browser_harness_math_pow_exponent_one_identity(
         "run",
         "main.ts",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.tsx",
         browser_harness_math_pow_exponent_one_identity_run_source(),
         "2\n2\n2",
         false,
@@ -244,6 +286,30 @@ fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_conf
 }
 
 #[test]
+fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.tsx",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        true,
+    );
+}
+
+#[test]
 fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_math_pow_exponent_one_identity(
         "test",
@@ -259,6 +325,28 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
     assert_browser_harness_math_pow_exponent_one_identity(
         "test",
         "smoke.test.ts",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\nok 1",
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\nok 1",
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
         "2\n2\n2\nok 1",
         false,
@@ -283,6 +371,30 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
     assert_browser_harness_math_pow_exponent_one_identity(
         "test",
         "smoke.test.ts",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
         "2\n2\n2\n",
         true,
