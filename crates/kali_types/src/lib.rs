@@ -2306,12 +2306,21 @@ impl TypeContext {
     }
 
     fn resolve_late_permission_escalation_member(&mut self, expr: &MemberExpression) -> bool {
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
         if !matches!(
-            Self::member_access_name(expr).as_deref(),
-            Some("Deno.permissions.request")
-                | Some("Deno.permissions.revoke")
-                | Some("globalThis.Deno.permissions.request")
-                | Some("globalThis.Deno.permissions.revoke")
+            dotted.as_str(),
+            "Deno.permissions.request"
+                | "Deno.permissions.revoke"
+                | "globalThis.Deno.permissions.request"
+                | "globalThis.Deno.permissions.revoke"
+        ) && !matches!(
+            bracketed.as_str(),
+            r#"Deno["permissions"]["request"]"#
+                | r#"Deno["permissions"]["revoke"]"#
+                | r#"globalThis["Deno"]["permissions"]["request"]"#
+                | r#"globalThis["Deno"]["permissions"]["revoke"]"#
         ) {
             return false;
         }
@@ -2336,6 +2345,9 @@ impl TypeContext {
         if !matches!(
             dotted.as_str(),
             "Deno.env.toObject" | "globalThis.Deno.env.toObject"
+        ) && !matches!(
+            bracketed.as_str(),
+            r#"Deno["env"]["toObject"]"# | r#"globalThis["Deno"]["env"]["toObject"]"#
         ) {
             return false;
         }

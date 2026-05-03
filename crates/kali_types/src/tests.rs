@@ -1707,6 +1707,29 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
 }
 
 #[test]
+fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
+    let expr = kali_ast::MemberExpression {
+        object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: "Deno".to_string(),
+            })),
+            property: "env".to_string(),
+        })),
+        property: "toObject".to_string(),
+    };
+
+    assert_eq!(
+        TypeContext::member_access_name(&expr).as_deref(),
+        Some("globalThis.Deno.env.toObject")
+    );
+    assert_eq!(
+        TypeContext::member_access_name_bracketed(&expr).as_deref(),
+        Some(r#"globalThis["Deno"]["env"]["toObject"]"#)
+    );
+}
+
+#[test]
 fn test_resolution_rejects_process_env_assignment_as_unavailable_in_node_api_surface() {
     let mut ctx = TypeContext::with_api_surface("node");
     let statements = vec![
@@ -2506,6 +2529,26 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
             result.diagnostics
         );
     }
+}
+
+#[test]
+fn test_member_access_bracketed_name_for_permission_escalation() {
+    let expr = kali_ast::MemberExpression {
+        object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            object: Expression::Identifier("Deno".to_string()),
+            property: "permissions".to_string(),
+        })),
+        property: "request".to_string(),
+    };
+
+    assert_eq!(
+        TypeContext::member_access_name(&expr).as_deref(),
+        Some("Deno.permissions.request")
+    );
+    assert_eq!(
+        TypeContext::member_access_name_bracketed(&expr).as_deref(),
+        Some(r#"Deno["permissions"]["request"]"#)
+    );
 }
 
 #[test]
