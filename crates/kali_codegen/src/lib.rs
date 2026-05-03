@@ -854,6 +854,10 @@ impl<'a> FunctionEmitter<'a> {
         left: LirNodeId,
         right: LirNodeId,
     ) -> bool {
+        if !matches!(op, "=" | "??=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**=") {
+            return false;
+        }
+
         if op == "=" {
             if let Some(key_text) = process_env_property_key(&self.program.nodes, left) {
                 let right_node = self.node(right);
@@ -904,29 +908,40 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {
-            if op == "??=" {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "nullish assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string(),
-                ));
-                function.instruction(&Instruction::I64Const(0));
-                return true;
+            if op == "=" {
+                return false;
             }
-            return false;
+
+            let message = if op == "??=" {
+                "nullish assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string()
+            } else {
+                "compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string()
+            };
+            self.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
         };
         let Some(index) = self.locals.get(&name).copied() else {
-            if op == "??=" {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    format!(
-                        "nullish assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
-                        name
-                    ),
-                ));
-                function.instruction(&Instruction::I64Const(0));
-                return true;
+            if op == "=" {
+                return false;
             }
-            return false;
+
+            let message = if op == "??=" {
+                format!(
+                    "nullish assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
+                    name
+                )
+            } else {
+                format!(
+                    "compound assignment lowering is unavailable for binding '{}' unless it is a mutable local binding; use a mutable variable or the later compatibility path",
+                    name
+                )
+            };
+            self.diagnostics
+                .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+            function.instruction(&Instruction::I64Const(0));
+            return true;
         };
 
         match op {

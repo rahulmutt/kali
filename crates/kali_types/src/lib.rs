@@ -6,17 +6,18 @@
 
 use indexmap::IndexMap;
 use kali_ast::{
-    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, BlockStatement, BreakStatement,
-    CallExpression, CatchClause, ClassBody, ClassDeclaration, ClassExpression, ContinueStatement,
-    DecoratedExpression, DoWhileStatement, EnumDeclaration, EnumMember, Expression,
-    ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement, ForInit, ForOfLefthand,
-    ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam,
-    IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier, InterfaceDeclaration,
-    JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue, MemberExpression, NodeId,
-    ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
-    OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
-    TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
-    UpdateExpression, VariableDeclaration, WhileStatement, WithStatement,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
+    BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration,
+    ClassExpression, ContinueStatement, DecoratedExpression, DoWhileStatement, EnumDeclaration,
+    EnumMember, Expression, ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement,
+    ForInit, ForOfLefthand, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression,
+    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier,
+    InterfaceDeclaration, JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue,
+    MemberExpression, NodeId, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement, Statement,
+    SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
+    TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration, WhileStatement,
+    WithStatement,
 };
 use kali_common::template::resolve_interpolated_template_literal;
 use kali_error::{
@@ -800,7 +801,54 @@ impl TypeContext {
             Expression::AssignmentExpression(expr) => {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
-                self.resolve_late_env_assignment_mutation(expr);
+
+                if self.resolve_late_env_assignment_mutation(expr) {
+                    return;
+                }
+
+                if matches!(expr.operator, AssignmentOperator::Assign) {
+                    if let Expression::MemberExpression(member) = &expr.left {
+                        let dotted = Self::member_access_name(member)
+                            .unwrap_or_else(|| member.property.clone());
+                        if self.api_surface == "node"
+                            && Self::is_process_env_mutation_path(&dotted)
+                            && !Self::is_process_env_root_path(&dotted)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                if matches!(expr.operator, AssignmentOperator::Assign) {
+                    return;
+                }
+
+                let Some(name) = self.resolve_update_binding_name(&expr.left) else {
+                    let message = if matches!(expr.operator, AssignmentOperator::NullishAssign) {
+                        "nullish assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string()
+                    } else {
+                        "compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path".to_string()
+                    };
+                    self.diagnostics
+                        .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                    return;
+                };
+
+                if !self.binding_is_mutable(&name) {
+                    let message = if matches!(expr.operator, AssignmentOperator::NullishAssign) {
+                        format!(
+                            "nullish assignment lowering is unavailable for binding '{}' unless it was declared with a mutable binding kind; use a mutable variable or the later compatibility path",
+                            name
+                        )
+                    } else {
+                        format!(
+                            "compound assignment lowering is unavailable for binding '{}' unless it was declared with a mutable binding kind; use a mutable variable or the later compatibility path",
+                            name
+                        )
+                    };
+                    self.diagnostics
+                        .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                }
             }
             Expression::LogicalExpression(expr) => {
                 self.resolve_expression(&expr.left);

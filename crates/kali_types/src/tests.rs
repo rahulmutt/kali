@@ -4092,6 +4092,69 @@ fn test_resolution_rejects_update_expressions_on_immutable_bindings() {
 }
 
 #[test]
+fn test_resolution_rejects_compound_assignment_on_non_local_targets_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "target".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        kind: ObjectPropertyKind::Init,
+                        key: PropertyName::Identifier("value".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                    }],
+                })),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::AddAssign,
+                    left: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("target".to_string()),
+                        property: "value".to_string(),
+                    })),
+                    right: Expression::Literal(LiteralValue::Number(2.0)),
+                },
+            ))),
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::AddAssign,
+                    left: Expression::Identifier("value".to_string()),
+                    right: Expression::Literal(LiteralValue::Number(2.0)),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("compound assignment lowering")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("binding 'value'")));
+}
+
+#[test]
 fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_calls_as_unavailable(
 ) {
     let mut ctx = TypeContext::new();
