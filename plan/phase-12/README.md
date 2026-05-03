@@ -31,6 +31,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Progress note: the browser runtime contract fallback note now explicitly includes unreadable summary files alongside missing, unparseable, and shape-invalid ones so the diagnostic wording stays aligned with the actual fallback behavior.
 - Progress note: the browser-requested unreadable-summary fallback smoke now also covers `.ts` input on the supported JSON `test` and human `run` / `test` paths, keeping the stdout-authoritative rule aligned across source classes.
 - Progress note: the browser-requested unparseable-summary fallback smoke now also covers `.tsx` input on the supported JSON `test` and human `run` paths, keeping the stdout-authoritative rule aligned across another browser-capable source class.
+- Progress note: the browser-requested unreadable-summary fallback smoke now also covers `.tsx` input on the supported JSON `test` and human `run` / `test` paths, keeping the stdout-authoritative rule pinned across the same browser-capable source class.
 
 ### 12.3 Late host APIs
 
