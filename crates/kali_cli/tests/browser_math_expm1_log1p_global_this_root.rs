@@ -192,6 +192,16 @@ fn build_emits_global_this_math_expm1_log1p_identity_literals_in_ts_input() {
 }
 
 #[test]
+fn build_emits_global_this_math_expm1_log1p_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_expm1_log1p("app.jsx", false);
+}
+
+#[test]
+fn build_emits_global_this_math_expm1_log1p_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_expm1_log1p("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_global_this_math_expm1_log1p_identity_literals_in_js_input() {
     assert_browser_bundle_global_this_math_expm1_log1p("app.js", true);
 }
@@ -199,6 +209,16 @@ fn json_build_emits_global_this_math_expm1_log1p_identity_literals_in_js_input()
 #[test]
 fn json_build_emits_global_this_math_expm1_log1p_identity_literals_in_ts_input() {
     assert_browser_bundle_global_this_math_expm1_log1p("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_expm1_log1p_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_expm1_log1p("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_expm1_log1p_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_expm1_log1p("app.tsx", true);
 }
 
 #[test]
@@ -218,6 +238,28 @@ fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harn
     assert_browser_harness_global_this_math_expm1_log1p(
         "run",
         "main.js",
+        browser_harness_global_this_math_expm1_log1p_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "run",
+        "main.jsx",
+        browser_harness_global_this_math_expm1_log1p_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "run",
+        "main.tsx",
         browser_harness_global_this_math_expm1_log1p_run_source(),
         false,
     );
@@ -246,6 +288,28 @@ fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_har
 }
 
 #[test]
+fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_global_this_math_expm1_log1p_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_global_this_math_expm1_log1p_test_source(),
+        false,
+    );
+}
+
+#[test]
 fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_js_input(
 ) {
     assert_browser_harness_global_this_math_expm1_log1p(
@@ -257,11 +321,55 @@ fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harn
 }
 
 #[test]
+fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "run",
+        "main.jsx",
+        browser_harness_global_this_math_expm1_log1p_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "run",
+        "main.tsx",
+        browser_harness_global_this_math_expm1_log1p_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_js_input(
 ) {
     assert_browser_harness_global_this_math_expm1_log1p(
         "test",
         "smoke.test.js",
+        browser_harness_global_this_math_expm1_log1p_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_global_this_math_expm1_log1p_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_expm1_log1p_identity_literals_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_global_this_math_expm1_log1p(
+        "test",
+        "smoke.test.tsx",
         browser_harness_global_this_math_expm1_log1p_test_source(),
         true,
     );
