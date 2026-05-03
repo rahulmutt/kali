@@ -1348,6 +1348,36 @@ fn supported_math_expm1_and_log1p_member_lowering_is_available_for_exact_zero_li
 }
 
 #[test]
+fn supported_math_expm1_and_log1p_member_lowering_is_available_for_const_numeric_alias_chain_literals(
+) {
+    let program = parse_and_lower_lir(
+        "const zero = 0; const alias = zero; console.log(Math.expm1(alias)); console.log(Math.log1p(alias));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn supported_math_tan_member_lowering_is_available_for_exact_zero_literals() {
     let program = parse_and_lower_lir("const zero = 0; console.log(Math.tan(zero));");
     let mut ctx = CodegenCtx::new(TargetConfig {

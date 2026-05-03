@@ -59,6 +59,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-harness/browser-bundle Math.atan2 smoke now also covers the single-quoted bracketed `globalThis['Math']['atan2']` spelling in TS and `.js` input.
 - Progress note: browser bundle smoke for the bracketed `globalThis["Math"].round` / `globalThis["Math"]["round"]` identity slice now also covers `.jsx` and `.tsx` inputs, keeping the round evidence aligned with the broader browser build matrix.
 
+- Progress note: type-resolution and codegen smoke now also pin the `Math.expm1` / `Math.log1p` const numeric alias-chain slice, keeping the zero-identity evidence aligned with the documented current repository state.
+
 ### 11.3 Dynamic loading and module semantics
 
 - Preserve literal-string `import()` as linked-graph lowering.
