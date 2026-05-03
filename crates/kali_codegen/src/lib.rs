@@ -41,6 +41,30 @@ const FUNCTION_INDEX_OFFSET: u32 = 17;
 const ENV_GET_BUFFER_RESERVED: u32 = 4096;
 const STRING_HANDLE_TAG: u64 = 0x8000_0000_0000_0000;
 
+#[derive(Clone, Debug, PartialEq)]
+enum StaticObjectIdentityValue {
+    Boolean(bool),
+    Number(f64),
+    String(String),
+    Null,
+}
+
+impl StaticObjectIdentityValue {
+    fn same_value(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Null, Self::Null) => true,
+            (Self::Number(left), Self::Number(right)) => {
+                (left.is_nan() && right.is_nan())
+                    || (left == right
+                        && (left != &0.0 || left.is_sign_positive() == right.is_sign_positive()))
+            }
+            _ => false,
+        }
+    }
+}
+
 /// WASM code generator context.
 pub struct CodegenCtx {
     /// Target configuration.
@@ -1282,10 +1306,10 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let Some(left_value) = self.resolve_static_numeric_value(*left) else {
+            let Some(left_value) = self.resolve_static_object_identity_value(*left) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -1293,10 +1317,10 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Unknown,
                 };
             };
-            let Some(right_value) = self.resolve_static_numeric_value(*right) else {
+            let Some(right_value) = self.resolve_static_object_identity_value(*right) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -1305,13 +1329,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
-            let same_value = if left_value.is_nan() && right_value.is_nan() {
-                true
-            } else if left_value == 0.0 && right_value == 0.0 {
-                left_value.is_sign_positive() == right_value.is_sign_positive()
-            } else {
-                left_value == right_value
-            };
+            let same_value = left_value.same_value(&right_value);
 
             for arg in args {
                 let produced = self.emit_node(function, *arg, true);
@@ -2681,6 +2699,54 @@ impl<'a> FunctionEmitter<'a> {
                 | Some(r#"globalThis["Object"]"#)
                 | Some(r#"globalThis['Object']"#)
         )
+    }
+
+    fn resolve_static_object_identity_value(
+        &self,
+        id: LirNodeId,
+    ) -> Option<StaticObjectIdentityValue> {
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => match node.text.as_deref() {
+                Some("true") => Some(StaticObjectIdentityValue::Boolean(true)),
+                Some("false") => Some(StaticObjectIdentityValue::Boolean(false)),
+                Some("null") => Some(StaticObjectIdentityValue::Null),
+                Some(text) => parse_numeric_literal_value(text)
+                    .map(StaticObjectIdentityValue::Number)
+                    .or_else(|| {
+                        Some(StaticObjectIdentityValue::String(
+                            strip_string_delimiters(text).to_string(),
+                        ))
+                    }),
+                None => None,
+            },
+            LirNodeKind::Value if node.children.is_empty() => {
+                let text = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(text).copied() {
+                    return self.resolve_static_object_identity_value(bound);
+                }
+                parse_numeric_literal_value(text).map(StaticObjectIdentityValue::Number)
+            }
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                None | Some("") | Some("+") => {
+                    self.resolve_static_object_identity_value(node.children[0])
+                }
+                Some("-") => self
+                    .resolve_static_object_identity_value(node.children[0])
+                    .and_then(|value| match value {
+                        StaticObjectIdentityValue::Number(number) => {
+                            Some(StaticObjectIdentityValue::Number(if number == 0.0 {
+                                -0.0
+                            } else {
+                                -number
+                            }))
+                        }
+                        _ => None,
+                    }),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {

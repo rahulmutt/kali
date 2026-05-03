@@ -2086,7 +2086,7 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
 }
 
 #[test]
-fn test_resolution_rejects_object_is_with_non_numeric_literals_as_unavailable() {
+fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
@@ -2096,7 +2096,7 @@ fn test_resolution_rejects_object_is_with_non_numeric_literals_as_unavailable() 
             })),
             args: vec![
                 Expression::Identifier("value".to_string()),
-                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::Literal(LiteralValue::Null),
             ],
         }))),
     })];
@@ -2108,8 +2108,74 @@ fn test_resolution_rejects_object_is_with_non_numeric_literals_as_unavailable() 
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(result.diagnostics[0].message.contains(
-        "Object.is is unavailable unless both arguments are statically-known numeric literals"
+        "Object.is is unavailable unless both arguments are statically-known primitive literals"
     ));
+}
+
+#[test]
+fn test_resolution_accepts_object_is_with_static_primitive_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "flag".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Boolean(true))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "text".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "hello".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("flag".to_string()),
+                    Expression::Literal(LiteralValue::Boolean(true)),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("text".to_string()),
+                    Expression::Literal(LiteralValue::String("hello".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Null),
+                    Expression::Literal(LiteralValue::Null),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]

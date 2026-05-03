@@ -116,6 +116,29 @@ fn boolean_branches_use_the_layout_fast_path() {
 }
 
 #[test]
+fn object_is_lowers_for_static_primitive_literals() {
+    let program = parse_and_lower_lir(
+        "const flag = true; const text = \"hello\"; console.log(Object.is(flag, true)); console.log(Object.is(text, \"hello\")); console.log(Object.is(null, null)); console.log(Object.is(1, 0));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn console_member_calls_lower_to_console_host_imports() {
     let program = parse_and_lower_lir(
         "console.log(1); console.error(2); console.warn(3); console.info(4); console.debug(5);",

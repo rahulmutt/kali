@@ -8,14 +8,17 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_object_is_run_source() -> &'static str {
-    "const zero = 0; const alias = zero; console.log(Object.is(alias, -0)); console.log(globalThis[\"Object\"][\"is\"](1, 1));\n"
+    "const zero = 0; const alias = zero; console.log(Object.is(alias, -0)); console.log(Object.is(true, true)); console.log(Object.is(\"hello\", \"hello\")); console.log(Object.is(null, null)); console.log(globalThis[\"Object\"][\"is\"](1, 1));\n"
 }
 
 fn browser_harness_object_is_test_source() -> &'static str {
-    r#"Kali.test('object is numeric literals', () => {
+    r#"Kali.test('object is primitive literals', () => {
   const zero = 0;
   const alias = zero;
   console.log(Object.is(alias, -0));
+  console.log(Object.is(true, true));
+  console.log(Object.is("hello", "hello"));
+  console.log(Object.is(null, null));
   console.log(globalThis["Object"]["is"](1, 1));
 });
 "#
@@ -73,11 +76,11 @@ fn assert_browser_harness_object_is(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("0\n1"), "json: {json}");
+        assert!(stdout.contains("0\n1\n1\n1\n1"), "json: {json}");
         assert_eq!(json["stderr"], "");
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("0\n1"), "stdout: {stdout}");
+        assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");
         if command == "test" {
             assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         }

@@ -44,7 +44,7 @@ pub enum ScopeType {
 }
 
 /// A lexical scope.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Scope {
     pub scope_type: ScopeType,
     pub parent: Option<NodeId>,
@@ -52,6 +52,7 @@ pub struct Scope {
     pub mutable_bindings: IndexMap<String, bool>,
     pub static_values: IndexMap<String, String>,
     pub static_numeric_values: IndexMap<String, String>,
+    pub static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
 }
@@ -65,6 +66,7 @@ impl Scope {
             mutable_bindings: IndexMap::new(),
             static_values: IndexMap::new(),
             static_numeric_values: IndexMap::new(),
+            static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             static_objects: IndexMap::new(),
         }
@@ -91,6 +93,30 @@ pub struct ResolutionResult {
     pub diagnostics: Vec<Diagnostic>,
     pub scopes: IndexMap<NodeId, Scope>,
     pub global_scope: Scope,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum StaticObjectIdentityValue {
+    Boolean(bool),
+    Number(f64),
+    String(String),
+    Null,
+}
+
+impl StaticObjectIdentityValue {
+    fn same_value(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Null, Self::Null) => true,
+            (Self::Number(left), Self::Number(right)) => {
+                (left.is_nan() && right.is_nan())
+                    || (left == right
+                        && (left != &0.0 || left.is_sign_positive() == right.is_sign_positive()))
+            }
+            _ => false,
+        }
+    }
 }
 
 /// Type / name-resolution context.
@@ -714,6 +740,13 @@ impl TypeContext {
                                 .insert(declarator.id.clone(), value.to_string());
                         }
                     }
+                    if let Some(value) = self.resolve_static_object_identity_literal_value(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .static_identity_values
+                                .insert(declarator.id.clone(), value);
+                        }
+                    }
                     if self.is_static_array_iteration_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_arrays.insert(declarator.id.clone(), true);
@@ -1055,6 +1088,69 @@ impl TypeContext {
         self.resolve_static_string_expression(initializer)
     }
 
+    fn resolve_static_object_identity_binding(
+        &self,
+        name: &str,
+    ) -> Option<StaticObjectIdentityValue> {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id)?;
+            if let Some(value) = scope.static_identity_values.get(name) {
+                return Some(value.clone());
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_identity_values.get(name).cloned()
+    }
+
+    fn resolve_static_object_identity_literal_value(
+        &self,
+        expression: &Expression,
+    ) -> Option<StaticObjectIdentityValue> {
+        match expression {
+            Expression::Literal(LiteralValue::Boolean(value)) => {
+                Some(StaticObjectIdentityValue::Boolean(*value))
+            }
+            Expression::Literal(LiteralValue::Number(value)) => {
+                Some(StaticObjectIdentityValue::Number(*value))
+            }
+            Expression::Literal(LiteralValue::String(value)) => {
+                Some(StaticObjectIdentityValue::String(value.clone()))
+            }
+            Expression::Literal(LiteralValue::Null) => Some(StaticObjectIdentityValue::Null),
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_static_object_identity_literal_value(&expr.argument)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "-" => self
+                .resolve_static_object_identity_literal_value(&expr.argument)
+                .and_then(|value| match value {
+                    StaticObjectIdentityValue::Number(number) => {
+                        Some(StaticObjectIdentityValue::Number(if number == 0.0 {
+                            -0.0
+                        } else {
+                            -number
+                        }))
+                    }
+                    _ => None,
+                }),
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::Identifier(name) => self.resolve_static_object_identity_binding(name),
+            _ => None,
+        }
+    }
+
     fn resolve_static_numeric_binding(&self, name: &str) -> Option<f64> {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
@@ -1327,28 +1423,34 @@ impl TypeContext {
         let Some(left) = expr.args.first() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                "Object.is requires at least two statically-known primitive literal arguments in the current phase; use explicit constants or the later compatibility path",
             ));
             return true;
         };
         let Some(right) = expr.args.get(1) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                "Object.is requires at least two statically-known primitive literal arguments in the current phase; use explicit constants or the later compatibility path",
             ));
             return true;
         };
 
-        if self.resolve_static_numeric_literal_value(left).is_none()
-            || self.resolve_static_numeric_literal_value(right).is_none()
-        {
+        let Some(left_value) = self.resolve_static_object_identity_literal_value(left) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+                "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
             ));
             return true;
-        }
+        };
+        let Some(right_value) = self.resolve_static_object_identity_literal_value(right) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
+            ));
+            return true;
+        };
 
+        let _ = left_value.same_value(&right_value);
         self.resolve_expression(left);
         self.resolve_expression(right);
         for arg in expr.args.iter().skip(2) {
