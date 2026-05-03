@@ -16,7 +16,7 @@ fn late_env_materialization_source() -> &'static str {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    "process.env = {}; globalThis.process.env = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"][\"env\"] = {}; globalThis.process[\"env\"] = {};"
+    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {};"
 }
 
 fn late_env_mutation_source() -> &'static str {
@@ -608,10 +608,15 @@ fn browser_late_process_env_mutation_source_includes_bracketed_forms() {
     let source = late_process_env_mutation_source();
     for expected in [
         r#"process.env"#,
+        r#"process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process.env"#,
+        r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"].env"#,
+        r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]"#,
+        r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process["env"]"#,
+        r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }

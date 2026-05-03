@@ -753,7 +753,16 @@ impl TypeContext {
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
             }
-            Expression::UnaryExpression(expr) => self.resolve_expression(&expr.argument),
+            Expression::UnaryExpression(expr) => {
+                if expr.operator == "delete" {
+                    if let Expression::MemberExpression(member) = &expr.argument {
+                        if self.resolve_late_process_env_mutation_member(member) {
+                            return;
+                        }
+                    }
+                }
+                self.resolve_expression(&expr.argument)
+            }
             Expression::CallExpression(expr) => self.resolve_call_expression(expr),
             Expression::MemberExpression(expr) => self.resolve_member_expression(expr),
             Expression::ArrayExpression(ArrayExpression { elements }) => {
@@ -2175,49 +2184,72 @@ impl TypeContext {
         let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
         let bracketed =
             Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
-        let is_process_env = Self::is_process_env_assignment_target(member)
-            || matches!(dotted.as_str(), "process.env" | "globalThis.process.env")
-            || dotted.contains("process")
-                && (dotted.ends_with(".env") || dotted.ends_with(r#"["env"]"#))
-            || matches!(
-                bracketed.as_str(),
-                r#"process["env"]"#
-                    | r#"globalThis.process["env"]"#
-                    | r#"globalThis["process"]["env"]"#
-                    | r#"globalThis["process"].env"#
-            )
-            || bracketed.contains("process")
-                && (bracketed.ends_with(".env") || bracketed.ends_with(r#"["env"]"#));
 
-        if !is_process_env {
-            return false;
+        if Self::is_process_env_root_path(&dotted) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
+                    dotted, bracketed
+                ),
+            ));
+            return true;
         }
 
-        self.diagnostics.push(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
-            format!(
-                "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
-                dotted, bracketed
-            ),
-        ));
-        true
+        if self.api_surface == "browser" && Self::is_process_env_mutation_path(&dotted) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
+                    dotted, bracketed
+                ),
+            ));
+            return true;
+        }
+
+        false
     }
 
-    fn is_process_env_assignment_target(member: &MemberExpression) -> bool {
-        if member.property != "env" {
-            return false;
+    fn resolve_late_process_env_mutation_member(&mut self, member: &MemberExpression) -> bool {
+        let dotted = Self::member_access_name(member).unwrap_or_else(|| member.property.clone());
+        let bracketed =
+            Self::member_access_name_bracketed(member).unwrap_or_else(|| dotted.clone());
+
+        if Self::is_process_env_root_path(&dotted) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
+                    dotted, bracketed
+                ),
+            ));
+            return true;
         }
 
-        match &member.object {
-            Expression::Identifier(name) if name == "process" => true,
-            Expression::MemberExpression(parent) => {
-                matches!(
-                    Self::member_access_name(parent).as_deref(),
-                    Some("globalThis.process")
-                )
-            }
-            _ => false,
+        if self.api_surface == "browser" && Self::is_process_env_mutation_path(&dotted) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
+                    dotted, bracketed
+                ),
+            ));
+            return true;
         }
+
+        false
+    }
+
+    fn is_process_env_root_path(path: &str) -> bool {
+        matches!(path, "process.env" | "globalThis.process.env")
+    }
+
+    fn is_process_env_mutation_path(path: &str) -> bool {
+        Self::is_process_env_root_path(path)
+            || path.starts_with("process.env.")
+            || path.starts_with("process.env[")
+            || path.starts_with("globalThis.process.env.")
+            || path.starts_with("globalThis.process.env[")
     }
 
     fn resolve_late_intl_member(&mut self, expr: &MemberExpression) -> bool {

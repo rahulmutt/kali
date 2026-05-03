@@ -5,8 +5,8 @@ use kali_ast::{
     ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand, ForOfStatement,
     FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
     ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
-    TypeAliasDeclaration, TypeAssertion, UpdateExpression, UpdateOperator, VariableDeclaration,
-    VariableDeclarator, YieldExpression,
+    TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
+    VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -1815,6 +1815,63 @@ fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() 
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("browser API surface")));
+}
+
+#[test]
+fn test_resolution_rejects_process_env_property_mutation_as_unavailable_in_browser_api_surface() {
+    let mut ctx = TypeContext::with_api_surface("browser");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::MemberExpression(Box::new(MemberExpression {
+                                object: Expression::Identifier("globalThis".to_string()),
+                                property: "process".to_string(),
+                            })),
+                            property: "env".to_string(),
+                        })),
+                        property: "KALI_BROWSER_ENV_MUTATION".to_string(),
+                    })),
+                    right: Expression::Literal(LiteralValue::String("set".to_string())),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::UnaryExpression(Box::new(UnaryExpression {
+                operator: "delete".to_string(),
+                argument: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "process".to_string(),
+                        })),
+                        property: "env".to_string(),
+                    })),
+                    property: "KALI_BROWSER_ENV_DELETE".to_string(),
+                })),
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result.diagnostics.iter().any(|diag| diag
+        .message
+        .contains("globalThis.process.env.KALI_BROWSER_ENV_MUTATION")));
+    assert!(result.diagnostics.iter().any(|diag| diag
+        .message
+        .contains("globalThis.process.env.KALI_BROWSER_ENV_DELETE")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("browser API surface")));
 }
 
 #[test]
