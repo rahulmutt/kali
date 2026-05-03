@@ -20,7 +20,7 @@ fn late_process_env_mutation_source() -> &'static str {
 }
 
 fn late_env_mutation_source() -> &'static str {
-    r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"]["delete"]('KALI_ENV_DELETE_SMOKE');"#
+    r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"].env["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"].env["delete"]('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"]["delete"]('KALI_ENV_DELETE_SMOKE');"#
 }
 
 fn late_permission_escalation_source() -> &'static str {
@@ -666,6 +666,10 @@ fn browser_late_env_mutation_source_includes_bracketed_forms() {
     for expected in [
         r#"Deno["env"]["set"]"#,
         r#"Deno["env"]["delete"]"#,
+        r#"globalThis.Deno["env"]["set"]"#,
+        r#"globalThis.Deno["env"]["delete"]"#,
+        r#"globalThis["Deno"].env["set"]"#,
+        r#"globalThis["Deno"].env["delete"]"#,
         r#"globalThis["Deno"]["env"]["set"]"#,
         r#"globalThis["Deno"]["env"]["delete"]"#,
     ] {
