@@ -2979,6 +2979,35 @@ fn assert_build_source_file_supports_for_await_array_iteration_with_parenthesize
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let value = 0; for await ((value) of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for await array iteration with parenthesized binding should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
     api_surface: ApiSurface,
 ) {
@@ -3508,6 +3537,40 @@ fn build_source_file_supports_for_await_array_iteration_with_const_alias_in_brow
     assert_build_source_file_supports_for_await_array_iteration_with_const_alias_in_input(
         ApiSurface::Browser,
         "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_js_input() {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_ts_input() {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "ts",
     );
 }
 
