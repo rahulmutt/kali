@@ -1,12 +1,12 @@
 use super::*;
 use kali_ast::{
     ArrowFunctionExpression, AssignmentExpression, AssignmentOperator, BinaryExpression,
-    BlockStatement, CallExpression, ExportDefaultDeclaration, ExportNamedDeclaration,
-    ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand, ForOfStatement,
-    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, ObjectExpression,
-    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
-    TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
-    VariableDeclaration, VariableDeclarator, YieldExpression,
+    BlockStatement, CallExpression, DecoratedExpression, ExportDefaultDeclaration,
+    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
+    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
+    SatisfiesExpression, TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression,
+    UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -2247,6 +2247,69 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 args: vec![
                     Expression::Literal(LiteralValue::Null),
                     Expression::Literal(LiteralValue::Null),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_helpers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::DecoratedExpression(DecoratedExpression {
+                    expression: Box::new(Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    })),
+                })),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "hasOwn".to_string(),
+                })),
+                args: vec![
+                    Expression::DecoratedExpression(DecoratedExpression {
+                        expression: Box::new(Expression::Identifier("object".to_string())),
+                    }),
+                    Expression::DecoratedExpression(DecoratedExpression {
+                        expression: Box::new(Expression::Literal(LiteralValue::String(
+                            "a".to_string(),
+                        ))),
+                    }),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::DecoratedExpression(DecoratedExpression {
+                        expression: Box::new(Expression::Literal(LiteralValue::Boolean(true))),
+                    }),
+                    Expression::DecoratedExpression(DecoratedExpression {
+                        expression: Box::new(Expression::Literal(LiteralValue::Boolean(true))),
+                    }),
                 ],
             }))),
         }),

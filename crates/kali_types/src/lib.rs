@@ -1047,6 +1047,9 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.resolve_static_string_expression(&expr.expression)
             }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_string_expression(&expr.expression)
+            }
             Expression::TemplateLiteral(template) => {
                 let mut rendered = String::new();
                 for (idx, quasi) in template.quasis.iter().enumerate() {
@@ -1125,9 +1128,6 @@ impl TypeContext {
             Expression::UnaryExpression(expr) if expr.operator == "+" => {
                 self.resolve_static_object_identity_literal_value(&expr.argument)
             }
-            Expression::UnaryExpression(expr) if expr.operator == "+" => {
-                self.resolve_static_object_identity_literal_value(&expr.argument)
-            }
             Expression::UnaryExpression(expr) if expr.operator == "-" => self
                 .resolve_static_object_identity_literal_value(&expr.argument)
                 .and_then(|value| match value {
@@ -1147,6 +1147,9 @@ impl TypeContext {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
             }
             Expression::ChainExpression(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
             }
             Expression::Identifier(name) => self.resolve_static_object_identity_binding(name),
@@ -1208,6 +1211,9 @@ impl TypeContext {
                 self.resolve_static_object_model_target(&expr.expression)
             }
             Expression::ChainExpression(expr) => {
+                self.resolve_static_object_model_target(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_model_target(&expr.expression)
             }
             Expression::ObjectExpression(ObjectExpression { properties }) => {
@@ -2007,6 +2013,9 @@ impl TypeContext {
                 }
             },
             Expression::ChainExpression(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }
             Expression::Identifier(name) => self.resolve_static_numeric_binding(name),
