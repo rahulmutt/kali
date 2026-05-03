@@ -112,6 +112,26 @@ fn run_supports_object_is_numeric_literals_when_browser_harness_is_configured_in
 }
 
 #[test]
+fn run_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_is(
+        "run",
+        "main.jsx",
+        browser_harness_object_is_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_is(
+        "run",
+        "main.tsx",
+        browser_harness_object_is_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_object_is(
         "test",
@@ -126,6 +146,26 @@ fn test_supports_object_is_numeric_literals_when_browser_harness_is_configured_i
     assert_browser_harness_object_is(
         "test",
         "smoke.test.ts",
+        browser_harness_object_is_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_is(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_is_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_is(
+        "test",
+        "smoke.test.tsx",
         browser_harness_object_is_test_source(),
         false,
     );
@@ -152,6 +192,26 @@ fn json_run_supports_object_is_numeric_literals_when_browser_harness_is_configur
 }
 
 #[test]
+fn json_run_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_is(
+        "run",
+        "main.jsx",
+        browser_harness_object_is_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_is(
+        "run",
+        "main.tsx",
+        browser_harness_object_is_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_object_is(
         "test",
@@ -166,6 +226,26 @@ fn json_test_supports_object_is_numeric_literals_when_browser_harness_is_configu
     assert_browser_harness_object_is(
         "test",
         "smoke.test.ts",
+        browser_harness_object_is_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_is(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_is_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_object_is_numeric_literals_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_is(
+        "test",
+        "smoke.test.tsx",
         browser_harness_object_is_test_source(),
         true,
     );
