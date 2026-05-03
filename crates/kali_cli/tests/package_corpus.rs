@@ -12767,7 +12767,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 ? 0 : 1; }\n",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
             "0",
         ),
         (
@@ -12801,6 +12801,16 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
     ] {
+        if package == "node-process-corpus" {
+            assert!(
+                body.contains("process.chdir"),
+                "node process corpus should confirm process.chdir"
+            );
+            assert!(
+                body.contains("process.exit"),
+                "node process corpus should confirm process.exit"
+            );
+        }
         if package == "node-timers-corpus" {
             assert!(
                 body.contains("clearInterval"),
@@ -12913,7 +12923,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 ? 0 : 1; }\n",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
             "0",
         ),
         (
@@ -12927,6 +12937,17 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
     ] {
+        if package == "node-process-corpus" {
+            assert!(
+                body.contains("process.chdir"),
+                "node process corpus should confirm process.chdir"
+            );
+            assert!(
+                body.contains("process.exit"),
+                "node process corpus should confirm process.exit"
+            );
+        }
+
         let dir = tempdir().expect("tempdir");
         write_manifest(dir.path(), Some("node"));
         write_module_only_package(dir.path(), package, body);
