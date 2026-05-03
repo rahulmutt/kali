@@ -182,6 +182,26 @@ fn mutable_local_reassignment_keeps_runtime_reads() {
 }
 
 #[test]
+fn mutable_local_compound_assignment_accepts_wrapper_targets() {
+    let program = parse_and_lower_lir("let value = 1; ((value)) += 2; console.log(value);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("local.set"), "{printed}");
+    assert!(printed.contains("local.get"), "{printed}");
+}
+
+#[test]
 fn update_expression_lowering_keeps_prefix_and_postfix_local_reads() {
     let program = parse_and_lower_lir(
         "let value = 1; console.log(++value); console.log(value--); console.log(value);",

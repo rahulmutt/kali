@@ -832,7 +832,10 @@ impl<'a> FunctionEmitter<'a> {
             let current_node = self.node(current);
             if current_node.kind == LirNodeKind::Value
                 && current_node.children.len() == 1
-                && current_node.text.is_none()
+                && match current_node.text.as_deref() {
+                    None => true,
+                    Some(text) => text.is_empty(),
+                }
             {
                 current = current_node.children[0];
                 continue;
