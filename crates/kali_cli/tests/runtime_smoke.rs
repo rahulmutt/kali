@@ -151,7 +151,7 @@ fn late_process_control_source() -> &'static str {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
+    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
 }
 
 fn late_object_model_source() -> &'static str {
@@ -221,11 +221,14 @@ fn late_process_env_mutation_source_includes_bracketed_spellings() {
     let source = late_process_env_mutation_source();
     for expected in [
         r#"process["env"]"#,
+        r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process["env"]"#,
         r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"].env"#,
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
@@ -273,7 +276,10 @@ fn late_process_env_mutation_source_is_rejected_on_the_default_standalone_surfac
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(stderr.contains("E5506"), "stderr: {stderr}");
-                assert!(stderr.contains("process.env"), "stderr: {stderr}");
+                assert!(
+                    stderr.contains("process.env") || stderr.contains(r#"process["env"]"#),
+                    "stderr: {stderr}"
+                );
             }
         }
     }

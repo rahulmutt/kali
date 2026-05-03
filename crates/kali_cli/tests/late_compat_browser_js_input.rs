@@ -16,11 +16,11 @@ fn late_env_materialization_source() -> &'static str {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; delete globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"];"
+    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process[\"env\"] = {}; process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; delete process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis.process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis[\"process\"].env[\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"];"
 }
 
 fn late_env_mutation_source() -> &'static str {
-    r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"].env["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"].env["delete"]('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); Deno["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"].delete('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"].delete('KALI_ENV_DELETE_SMOKE');"#
+    r#"Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"].env["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"].env["delete"]('KALI_ENV_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); Deno["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); Deno["env"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno["env"]["set"]('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis.Deno["env"]["delete"]('KALI_ENV_DELETE_SMOKE'); globalThis["Deno"]["env"].set('KALI_ENV_SET_SMOKE', 'hello-environment'); globalThis["Deno"]["env"].delete('KALI_ENV_DELETE_SMOKE');"#
 }
 
 fn late_permission_escalation_source() -> &'static str {
@@ -633,18 +633,93 @@ fn browser_late_process_env_mutation_source_includes_bracketed_forms() {
     let source = late_process_env_mutation_source();
     for expected in [
         r#"process.env"#,
+        r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process.env"#,
         r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"].env"#,
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis.process["env"]"#,
         r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_process_env_mutation_source_is_rejected_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    let test_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, late_process_env_mutation_source()).expect("write source");
+    fs::write(&test_path, late_process_env_mutation_source()).expect("write test source");
+
+    for command in ["check", "build", "run", "test"] {
+        for json_output in [false, true] {
+            let mut command_line = Command::new(kali_bin());
+            command_line.current_dir(dir.path());
+            if json_output {
+                command_line.arg("--output").arg("json");
+            }
+            if command == "run" || command == "test" {
+                command_line.env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+            }
+            command_line.arg(command);
+            if command == "build" {
+                command_line.arg("--bundle");
+            }
+            command_line.arg("--api").arg("browser");
+            command_line.arg(if command == "test" {
+                &test_path
+            } else {
+                &source_path
+            });
+
+            let output = command_line.output().expect("run kali");
+            assert!(
+                !output.status.success(),
+                "{command} should reject late browser process env mutation (json={json_output})\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(output.status.code(), Some(1));
+
+            if json_output {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert!(
+                    errors.iter().any(|error| matches!(
+                        error["code"].as_str(),
+                        Some("E3100") | Some("E5506")
+                    )),
+                    "expected E3100 or E5506 in {errors:?}"
+                );
+                assert!(
+                    errors.iter().any(|error| {
+                        error["message"]
+                            .as_str()
+                            .expect("error message")
+                            .contains("process")
+                    }),
+                    "missing process reference in {errors:?}"
+                );
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(
+                    stderr.contains("E3100") || stderr.contains("E5506"),
+                    "stderr: {stderr}"
+                );
+                assert!(stderr.contains("process"), "stderr: {stderr}");
+            }
+        }
     }
 }
 
@@ -683,6 +758,7 @@ fn browser_late_env_mutation_source_includes_bracketed_forms() {
     for expected in [
         r#"Deno["env"].set"#,
         r#"globalThis.Deno["env"].set"#,
+        r#"globalThis.Deno["env"]["set"]"#,
         r#"globalThis["Deno"].env["set"]"#,
         r#"globalThis["Deno"]["env"].set"#,
     ] {

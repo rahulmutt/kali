@@ -27,7 +27,7 @@ fn late_js_compatibility_source_without_object_has_own() -> String {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; delete globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"];"
+    "process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process[\"env\"] = {}; process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; globalThis.process[\"env\"] = {}; globalThis.process[\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; globalThis[\"process\"].env = {}; globalThis[\"process\"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"] = {}; globalThis[\"process\"][\"env\"].KALI_BROWSER_ENV_MUTATION = {}; globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"] = {}; delete process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis.process[\"env\"][\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis[\"process\"].env[\"KALI_BROWSER_ENV_MUTATION\"]; delete globalThis[\"process\"][\"env\"][\"KALI_BROWSER_ENV_MUTATION\"];"
 }
 
 fn assert_late_js_compatibility_rejection(stderr: &str) {
@@ -304,16 +304,20 @@ fn late_js_compatibility_source_includes_bracketed_process_env_mutation_forms() 
     let source = late_process_env_mutation_source();
     for expected in [
         r#"process.env"#,
+        r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process.env"#,
         r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"].env"#,
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis.process["env"]"#,
         r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION"#,
+        r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
