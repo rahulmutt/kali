@@ -4447,6 +4447,80 @@ fn check_accepts_inherited_wasm_threads_runtime_profile() {
 }
 
 #[test]
+fn threaded_runtime_globals_accept_on_default_standalone_surface() {
+    for inherited in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("main.js");
+        let test_path = dir.path().join("main.test.js");
+        fs::write(
+            &source_path,
+            "SharedArrayBuffer; Atomics; console.log('threaded globals ok');\n",
+        )
+        .expect("write source");
+        fs::write(
+            &test_path,
+            "Kali.test('threaded globals', () => { SharedArrayBuffer; Atomics; console.log('threaded globals ok'); });\n",
+        )
+        .expect("write test source");
+
+        if inherited {
+            fs::write(
+                dir.path().join("kali.json"),
+                r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+            )
+            .expect("write manifest");
+        }
+
+        for command in ["check", "build", "run", "test"] {
+            let input_path = if command == "test" {
+                &test_path
+            } else {
+                &source_path
+            };
+
+            let mut cli_command = Command::new(kali_bin());
+            cli_command.current_dir(dir.path()).arg(command);
+            if !inherited {
+                cli_command.arg("--wasm-threads");
+            }
+            cli_command.arg(input_path);
+
+            let output = cli_command.output().expect("run kali");
+            assert!(
+                output.status.success(),
+                "{command} should accept threaded globals on the default standalone surface (inherited={inherited})\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            match command {
+                "check" => assert!(stdout.contains("Checked 1 file(s)"), "stdout: {stdout}"),
+                "build" => {
+                    assert!(
+                        stdout.contains("Built executable artifact at"),
+                        "stdout: {stdout}"
+                    );
+                    assert!(
+                        source_path.with_file_name("main.wasm").exists(),
+                        "expected build artifact"
+                    );
+                }
+                "run" | "test" => {
+                    assert!(stdout.contains("threaded globals ok"), "stdout: {stdout}")
+                }
+                _ => unreachable!("unexpected command"),
+            }
+        }
+    }
+}
+
+#[test]
 fn check_rejects_inherited_duplicate_runtime_profiles() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
