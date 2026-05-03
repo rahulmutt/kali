@@ -18,6 +18,7 @@ if (
   !globalThis["Object"].hasOwn(alias, "a") ||
   !Object.prototype.hasOwnProperty.call(alias, "a") ||
   !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") ||
+  !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") ||
   !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") ||
   !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") ||
   !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")
