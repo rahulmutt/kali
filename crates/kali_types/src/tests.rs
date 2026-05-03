@@ -1677,10 +1677,37 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
                 },
             ))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "env".to_string(),
+                    })),
+                    property: "toObject".to_string(),
+                })),
+                args: vec![],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "env".to_string(),
+                    })),
+                    property: "toObject".to_string(),
+                })),
+                args: vec![],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2);
+    assert_eq!(result.diagnostics.len(), 4);
     assert!(result
         .diagnostics
         .iter()
