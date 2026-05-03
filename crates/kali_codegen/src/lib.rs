@@ -1845,12 +1845,7 @@ impl<'a> FunctionEmitter<'a> {
         if matches!(
             callee_node.text.as_deref(),
             Some("floor") | Some("trunc") | Some("ceil")
-        ) && callee_node
-            .children
-            .first()
-            .copied()
-            .and_then(|object| self.node(object).text.as_deref())
-            == Some("Math")
+        ) && self.is_math_object(&callee_node)
         {
             let method = callee_node.text.as_deref().unwrap_or("floor").to_string();
             let mut args = node.children.iter().skip(1);
