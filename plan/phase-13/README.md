@@ -21,7 +21,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 - Keep package evidence grouped by package shape, source class, API surface, command, and support rung.
 - Record expected failures for native, binary, bootstrap-heavy, host-mismatched, and published-bin entrypoint cases.
 - Keep corpus snapshots concise and deterministic.
-- Progress note: the package corpus now also keeps the `spawn-tools` Deno-host package shape exercised on the standalone Deno surface and on the browser surface's check/bundle lanes, preserving the support-rung boundary across contexts while the standalone browser runtime gate remains separate.
+- Progress note: the package corpus now also keeps the `spawn-tools` Deno-host package shape exercised on the standalone Deno surface, the browser surface's check/bundle lanes, and the browser-harness run/test lanes, preserving the support-rung boundary across contexts while the standalone browser runtime gate remains separate.
 
 ### 13.2 Node ecosystem breadth
 

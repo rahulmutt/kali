@@ -12174,6 +12174,72 @@ fn browser_corpus_packages_with_spawn_tools_remain_checkable_and_bundleable_on_t
 }
 
 #[test]
+fn browser_runtime_corpus_packages_with_spawn_tools_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package = "spawn-tools";
+    write_manifest(dir.path(), Some("browser"));
+    write_deno_host_package(
+        dir.path(),
+        package,
+        "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+    );
+    write_types_stub_package(dir.path(), package);
+
+    let run_source_path = dir.path().join("main.js");
+    fs::write(
+        &run_source_path,
+        format!(
+            "import root from '{package}';\nconsole.log(root());\n",
+            package = package
+        ),
+    )
+    .expect("write browser runtime run source");
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(run_source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        run.status.success(),
+        "browser runtime package {package} should stay executable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+
+    let test_source_path = dir.path().join("main.test.js");
+    fs::write(
+        &test_source_path,
+        format!(
+            "import root from '{package}';\nconsole.log(root());\nKali.test('browser runtime package', () => {{ console.log(root()); }});\n",
+            package = package
+        ),
+    )
+    .expect("write browser runtime test source");
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(test_source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "browser runtime package {package} should stay testable on the browser surface in JS input\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&test.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("deno"));
