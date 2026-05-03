@@ -2440,7 +2440,7 @@ fn collect_library_exports_from_statements(
     for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
-                let signature = infer_function_signature(&func.params, &func.body);
+                let signature = infer_function_signature(&func.params, &func.body, func.is_async);
                 if exports.insert(func.name.clone(), signature).is_some() {
                     diagnostics.push(invalid_export_surface(
                         source_path,
@@ -2483,7 +2483,7 @@ fn collect_library_exports_from_statements(
                     if exports
                         .insert(
                             export_name.clone(),
-                            infer_function_signature(&func.params, &func.body),
+                            infer_function_signature(&func.params, &func.body, func.is_async),
                         )
                         .is_some()
                     {
@@ -2950,7 +2950,7 @@ fn collect_declared_function_signatures(
     for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
-                let signature = infer_function_signature(&func.params, &func.body);
+                let signature = infer_function_signature(&func.params, &func.body, func.is_async);
                 if declared_function_signatures
                     .insert(func.name.clone(), signature)
                     .is_some()
@@ -2999,15 +2999,15 @@ fn collect_declared_function_binding_signatures(
     }
 }
 
-fn infer_function_signature(params: &[String], body: &BlockStatement) -> String {
-    function_signature(params, infer_block_return_type(body))
+fn infer_function_signature(params: &[String], body: &BlockStatement, is_async: bool) -> String {
+    function_signature(params, infer_block_return_type(body), is_async)
 }
 
 fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<String> {
     let expression = expression?;
     match expression {
         Expression::FunctionExpression(func) => {
-            if func.is_async || func.generator {
+            if func.generator {
                 return None;
             }
 
@@ -3017,13 +3017,13 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
                 .iter()
                 .map(|param| param.name.clone())
                 .collect::<Vec<_>>();
-            Some(function_signature(&params, infer_block_return_type(body)))
+            Some(function_signature(
+                &params,
+                infer_block_return_type(body),
+                func.is_async,
+            ))
         }
         Expression::ArrowFunctionExpression(func) => {
-            if func.is_async {
-                return None;
-            }
-
             let params = func
                 .params
                 .iter()
@@ -3032,6 +3032,7 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
             Some(function_signature(
                 &params,
                 infer_expression_type(&func.body),
+                func.is_async,
             ))
         }
         Expression::ParenthesizedExpression(parenthesized) => {
@@ -3068,12 +3069,14 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
     }
 }
 
-fn function_signature(params: &[String], return_type: Option<&str>) -> String {
-    format!(
-        "({}) => {}",
-        params.join(", "),
-        return_type.unwrap_or("unknown")
-    )
+fn function_signature(params: &[String], return_type: Option<&str>, is_async: bool) -> String {
+    let return_type = return_type.unwrap_or("unknown");
+    let return_type = if is_async {
+        format!("Promise<{return_type}>")
+    } else {
+        return_type.to_string()
+    };
+    format!("({}) => {}", params.join(", "), return_type)
 }
 
 fn infer_block_return_type(body: &BlockStatement) -> Option<&'static str> {
