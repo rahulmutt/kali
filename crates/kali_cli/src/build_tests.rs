@@ -5736,7 +5736,7 @@ fn collect_library_exports_infers_async_function_declarations_and_aliases() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "export async function main(input) { return 1; } export { main as alias };",
+        "export async function main(input) { return await 1; } export { main as alias };",
     )
     .expect("write source");
 
@@ -5746,7 +5746,11 @@ fn collect_library_exports_infers_async_function_declarations_and_aliases() {
             params: vec!["input".to_string()],
             body: Box::new(kali_ast::BlockStatement {
                 body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
-                    argument: Some(Expression::Literal(kali_ast::LiteralValue::Number(1.0))),
+                    argument: Some(Expression::AwaitExpression(Box::new(
+                        kali_ast::AwaitExpression {
+                            argument: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                        },
+                    ))),
                 })],
             }),
             is_async: true,
@@ -5771,6 +5775,35 @@ fn collect_library_exports_infers_async_function_declarations_and_aliases() {
     assert!(exports.iter().any(|export| {
         export.name == "alias" && export.signature == "(input) => Promise<number>"
     }));
+}
+
+#[test]
+fn collect_library_exports_infers_default_async_function_expression_exports_through_await() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "export default async (input) => await 1;").expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::ArrowFunctionExpression(
+            Box::new(kali_ast::ArrowFunctionExpression {
+                params: vec![kali_ast::FunctionParam {
+                    name: "input".to_string(),
+                }],
+                body: Expression::AwaitExpression(Box::new(kali_ast::AwaitExpression {
+                    argument: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                })),
+                is_async: true,
+                returnType: None,
+            }),
+        )),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => Promise<number>");
 }
 
 #[test]

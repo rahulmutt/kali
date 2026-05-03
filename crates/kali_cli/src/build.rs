@@ -3101,6 +3101,9 @@ fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
         Expression::ParenthesizedExpression(parenthesized) => {
             infer_expression_type(&parenthesized.expression)
         }
+        Expression::AwaitExpression(await_expression) => {
+            infer_expression_type(&await_expression.argument)
+        }
         Expression::TypeAssertion(type_assertion) => {
             infer_expression_type(&type_assertion.expression)
         }
