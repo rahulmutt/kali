@@ -13,14 +13,15 @@ function globalThisMathExp2ZeroIdentity() {
   const zero = 0;
   console.log(globalThis.Math.exp2(zero));
   console.log(globalThis.Math["exp2"](zero));
+  console.log(globalThis["Math"].exp2(zero));
   console.log(globalThis["Math"]["exp2"](zero));
-  return [globalThis.Math.exp2(zero), globalThis.Math["exp2"](zero), globalThis["Math"]["exp2"](zero)];
+  return [globalThis.Math.exp2(zero), globalThis.Math["exp2"](zero), globalThis["Math"].exp2(zero), globalThis["Math"]["exp2"](zero)];
 }
 "##
 }
 
 fn browser_harness_global_this_math_exp2_run_source() -> &'static str {
-    "const zero = 0; console.log(globalThis.Math.exp2(zero)); console.log(globalThis.Math[\"exp2\"](zero)); console.log(globalThis[\"Math\"][\"exp2\"](zero));\n"
+    "const zero = 0; console.log(globalThis.Math.exp2(zero)); console.log(globalThis.Math[\"exp2\"](zero)); console.log(globalThis[\"Math\"].exp2(zero)); console.log(globalThis[\"Math\"][\"exp2\"](zero));\n"
 }
 
 fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
@@ -28,11 +29,11 @@ fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
   const zero = 0;
   console.log(globalThis.Math.exp2(zero));
   console.log(globalThis.Math["exp2"](zero));
+  console.log(globalThis["Math"].exp2(zero));
   console.log(globalThis["Math"]["exp2"](zero));
 });
 "#
 }
-
 fn assert_browser_bundle_global_this_math_exp2(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
