@@ -112,9 +112,49 @@ fn run_accepts_wrapped_object_enumeration_in_js_input() {
 }
 
 #[test]
+fn run_accepts_wrapped_object_enumeration_in_ts_input() {
+    assert_wrapped_object_enumeration("run", "main.ts", wrapped_object_enumeration_source());
+}
+
+#[test]
 fn json_run_accepts_wrapped_object_enumeration_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
+    fs::write(&source_path, wrapped_object_enumeration_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("run stdout")
+            .contains("wrapped object enumeration ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_run_accepts_wrapped_object_enumeration_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
     fs::write(&source_path, wrapped_object_enumeration_source()).expect("write source");
 
     let output = Command::new(kali_bin())
@@ -156,9 +196,52 @@ fn test_accepts_wrapped_object_enumeration_in_js_input() {
 }
 
 #[test]
+fn test_accepts_wrapped_object_enumeration_in_ts_input() {
+    assert_wrapped_object_enumeration(
+        "test",
+        "main.test.ts",
+        wrapped_object_enumeration_test_source(),
+    );
+}
+
+#[test]
 fn json_test_accepts_wrapped_object_enumeration_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.test.js");
+    fs::write(&source_path, wrapped_object_enumeration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_accepts_wrapped_object_enumeration_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.test.ts");
     fs::write(&source_path, wrapped_object_enumeration_test_source()).expect("write source");
 
     let output = Command::new(kali_bin())
