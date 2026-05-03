@@ -30,6 +30,7 @@ This directory contains only active continuation planning. Completed historical 
 - Progress note: direct build smoke now also covers the `for await...of` parenthesized-binding wrapper slice in Deno and browser TS and `.js` inputs, matching the already-covered codegen/runtime slice.
 - Progress note: browser-harness smoke now also covers the supported `globalThis.Math.exp` / `globalThis.Math.log` exact-identity slice in TS and `.js` input, and browser build smoke mirrors that root-access slice on the browser API surface.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.exp` / `Math.log` identity slice in TS and `.js` input.
+- Progress note: browser-harness and browser-bundle smoke now also cover the fully bracketed `globalThis["Math"]["exp"]` / `globalThis["Math"]["log"]` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the exact `Math.asinh` / `Math.acosh` / `Math.atanh` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.pow` zero-exponent non-integer-base slice in TS and `.js` input.
