@@ -42463,6 +42463,7 @@ fn check_supports_for_of_array_iteration_lowering_in_browser_analysis_context_in
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 #[test]
 fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_js_input() {
@@ -42528,6 +42529,7 @@ fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_j
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
     assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -42631,6 +42633,7 @@ fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
@@ -42686,6 +42689,7 @@ fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_i
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "build");
     assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
