@@ -706,7 +706,7 @@ fn run_supports_deno_chdir_in_js_input() {
     let nested_dir = dir.path().join("nested");
     fs::create_dir(&nested_dir).expect("create nested dir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "Deno[\"chdir\"]('nested'); console.log(1);\n").expect("write source");
+    fs::write(&source_path, "Deno.chdir('nested'); console.log(1);\n").expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -725,10 +725,41 @@ fn run_supports_deno_chdir_in_js_input() {
 }
 
 #[test]
-fn standalone_surface_supports_deno_exit_in_js_input() {
+fn standalone_surface_supports_bracketed_deno_chdir_aliases_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "globalThis[\"Deno\"][\"exit\"](7);\n").expect("write source");
+    fs::write(
+        &source_path,
+        "Deno[\"chdir\"]('nested'); globalThis.Deno[\"chdir\"]('nested'); globalThis[\"Deno\"][\"chdir\"]('nested');\n",
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg(command)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "{command} stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn standalone_surface_supports_deno_exit_aliases_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Deno.exit(7); Deno[\"exit\"](7); globalThis.Deno[\"exit\"](7); globalThis[\"Deno\"][\"exit\"](7);\n",
+    )
+    .expect("write source");
 
     for command in ["check", "build"] {
         let output = Command::new(kali_bin())
