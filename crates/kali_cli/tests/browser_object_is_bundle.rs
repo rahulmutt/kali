@@ -125,6 +125,16 @@ fn build_emits_browser_object_is_in_ts_input() {
 }
 
 #[test]
+fn build_emits_browser_object_is_in_jsx_input() {
+    assert_browser_bundle_object_is("app.jsx", false, browser_bundle_object_is_js_source());
+}
+
+#[test]
+fn build_emits_browser_object_is_in_tsx_input() {
+    assert_browser_bundle_object_is("app.tsx", false, browser_bundle_object_is_ts_source());
+}
+
+#[test]
 fn json_build_emits_browser_object_is_in_js_input() {
     assert_browser_bundle_object_is("app.js", true, browser_bundle_object_is_js_source());
 }
@@ -132,4 +142,14 @@ fn json_build_emits_browser_object_is_in_js_input() {
 #[test]
 fn json_build_emits_browser_object_is_in_ts_input() {
     assert_browser_bundle_object_is("app.ts", true, browser_bundle_object_is_ts_source());
+}
+
+#[test]
+fn json_build_emits_browser_object_is_in_jsx_input() {
+    assert_browser_bundle_object_is("app.jsx", true, browser_bundle_object_is_js_source());
+}
+
+#[test]
+fn json_build_emits_browser_object_is_in_tsx_input() {
+    assert_browser_bundle_object_is("app.tsx", true, browser_bundle_object_is_ts_source());
 }
