@@ -2001,6 +2001,11 @@ impl TypeContext {
             Expression::SatisfiesExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    self.resolve_static_numeric_literal_value(object)
+                }
+            },
             Expression::ChainExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }

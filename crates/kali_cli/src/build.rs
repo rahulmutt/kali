@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use kali_ast::{
-    BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, Statement,
-    VariableDeclaration,
+    BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, OptionalChainInner,
+    Statement, VariableDeclaration,
 };
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::{template::resolve_interpolated_template_literal, FileId};
@@ -3044,6 +3044,13 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
         Expression::SatisfiesExpression(satisfies_expression) => {
             infer_function_binding_signature(Some(&satisfies_expression.expression))
         }
+        Expression::OptionalChainExpression(optional_chain) => {
+            match optional_chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    infer_function_binding_signature(Some(object))
+                }
+            }
+        }
         Expression::ChainExpression(chain_expression) => {
             infer_function_binding_signature(Some(&chain_expression.expression))
         }
@@ -3112,6 +3119,11 @@ fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
         }
         Expression::SatisfiesExpression(satisfies_expression) => {
             infer_expression_type(&satisfies_expression.expression)
+        }
+        Expression::OptionalChainExpression(optional_chain) => {
+            match optional_chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => infer_expression_type(object),
+            }
         }
         Expression::SequenceExpression(sequence) => {
             sequence.expressions.last().and_then(infer_expression_type)

@@ -2969,6 +2969,34 @@ fn test_resolution_supports_math_round_member_calls_for_non_integer_numeric_lite
 }
 
 #[test]
+fn test_resolution_supports_math_round_member_calls_through_optional_chain_wrappers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "round".to_string(),
+            })),
+            args: vec![Expression::OptionalChainExpression(Box::new(
+                OptionalChainExpression {
+                    inner: Box::new(OptionalChainInner::NonNull {
+                        object: Box::new(Expression::Literal(LiteralValue::Number(1.6))),
+                        optional: true,
+                    }),
+                },
+            ))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_global_this_math_builtin_slices_for_supported_methods() {
     let mut ctx = TypeContext::new();
     let statements = vec![

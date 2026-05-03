@@ -6242,6 +6242,50 @@ fn collect_library_exports_infers_default_function_expression_exports() {
 }
 
 #[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_optional_chain_wrapper(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "export default (input) => 1;").expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::OptionalChainExpression(
+            Box::new(kali_ast::OptionalChainExpression {
+                inner: Box::new(kali_ast::OptionalChainInner::NonNull {
+                    object: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                        kali_ast::ArrowFunctionExpression {
+                            params: vec![kali_ast::FunctionParam {
+                                name: "input".to_string(),
+                            }],
+                            body: Expression::OptionalChainExpression(Box::new(
+                                kali_ast::OptionalChainExpression {
+                                    inner: Box::new(kali_ast::OptionalChainInner::NonNull {
+                                        object: Box::new(Expression::Literal(
+                                            kali_ast::LiteralValue::Number(1.0),
+                                        )),
+                                        optional: true,
+                                    }),
+                                },
+                            )),
+                            is_async: false,
+                            returnType: None,
+                        },
+                    ))),
+                    optional: true,
+                }),
+            }),
+        )),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_default_function_expression_exports_through_conditional_wrapper()
 {
     let dir = tempdir().expect("tempdir");
@@ -6282,6 +6326,64 @@ fn collect_library_exports_infers_default_function_expression_exports_through_co
 
     assert_eq!(exports.len(), 1, "exports: {exports:?}");
     assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
+fn collect_library_exports_infers_function_binding_signatures_through_optional_chain_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = (input) => 1;").expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::OptionalChainExpression(Box::new(
+                    kali_ast::OptionalChainExpression {
+                        inner: Box::new(kali_ast::OptionalChainInner::NonNull {
+                            object: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                                kali_ast::ArrowFunctionExpression {
+                                    params: vec![kali_ast::FunctionParam {
+                                        name: "input".to_string(),
+                                    }],
+                                    body: Expression::OptionalChainExpression(Box::new(
+                                        kali_ast::OptionalChainExpression {
+                                            inner: Box::new(
+                                                kali_ast::OptionalChainInner::NonNull {
+                                                    object: Box::new(Expression::Literal(
+                                                        kali_ast::LiteralValue::Number(1.0),
+                                                    )),
+                                                    optional: true,
+                                                },
+                                            ),
+                                        },
+                                    )),
+                                    is_async: false,
+                                    returnType: None,
+                                },
+                            ))),
+                            optional: true,
+                        }),
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "alias");
     assert_eq!(exports[0].signature, "(input) => number");
 }
 
