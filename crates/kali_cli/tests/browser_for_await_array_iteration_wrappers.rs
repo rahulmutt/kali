@@ -157,6 +157,46 @@ fn json_build_emits_for_await_as_const_wrapper_in_ts_input() {
 }
 
 #[test]
+fn build_emits_for_await_as_const_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.jsx",
+        false,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_as_const_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.jsx",
+        true,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_as_const_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.tsx",
+        false,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_as_const_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.tsx",
+        true,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
 fn build_emits_for_await_satisfies_wrapper_in_js_input() {
     assert_browser_bundle_for_await_wrapper(
         "app.js",
@@ -190,6 +230,46 @@ fn build_emits_for_await_satisfies_wrapper_in_ts_input() {
 fn json_build_emits_for_await_satisfies_wrapper_in_ts_input() {
     assert_browser_bundle_for_await_wrapper(
         "app.ts",
+        true,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_satisfies_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.jsx",
+        false,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_satisfies_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.jsx",
+        true,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_satisfies_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.tsx",
+        false,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_satisfies_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.tsx",
         true,
         for_await_satisfies_source(),
         "forAwaitArrayIterationSatisfiesWrapper",
