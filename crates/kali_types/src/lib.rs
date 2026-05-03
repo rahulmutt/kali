@@ -2189,19 +2189,19 @@ impl TypeContext {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
-                    dotted, bracketed
+                    "environment mutation API '{}' (aka {}) is unavailable on the {} API surface until the later mutable env path is enabled",
+                    dotted, bracketed, self.api_surface
                 ),
             ));
             return true;
         }
 
-        if self.api_surface == "browser" && Self::is_process_env_mutation_path(&dotted) {
+        if self.api_surface != "node" && Self::is_process_env_mutation_path(&dotted) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
-                    dotted, bracketed
+                    "environment mutation API '{}' (aka {}) is unavailable on the {} API surface until the later mutable env path is enabled",
+                    dotted, bracketed, self.api_surface
                 ),
             ));
             return true;
@@ -2219,19 +2219,19 @@ impl TypeContext {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "environment mutation API '{}' (aka {}) is unavailable until the later mutable env path is enabled",
-                    dotted, bracketed
+                    "environment mutation API '{}' (aka {}) is unavailable on the {} API surface until the later mutable env path is enabled",
+                    dotted, bracketed, self.api_surface
                 ),
             ));
             return true;
         }
 
-        if self.api_surface == "browser" && Self::is_process_env_mutation_path(&dotted) {
+        if self.api_surface != "node" && Self::is_process_env_mutation_path(&dotted) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
-                    dotted, bracketed
+                    "environment mutation API '{}' (aka {}) is unavailable on the {} API surface until the later mutable env path is enabled",
+                    dotted, bracketed, self.api_surface
                 ),
             ));
             return true;
