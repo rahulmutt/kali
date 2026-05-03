@@ -91,6 +91,28 @@ fn assert_browser_harness_math_exp_log(
 }
 
 #[test]
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_math_exp_log(
+        "run",
+        "main.js",
+        browser_harness_math_exp_log_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_jsx_input()
+{
+    assert_browser_harness_math_exp_log(
+        "run",
+        "main.jsx",
+        browser_harness_math_exp_log_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_ts_input()
 {
     assert_browser_harness_math_exp_log(
@@ -102,12 +124,34 @@ fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_confi
 }
 
 #[test]
-fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_js_input()
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_tsx_input()
 {
     assert_browser_harness_math_exp_log(
         "run",
-        "main.js",
+        "main.tsx",
         browser_harness_math_exp_log_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_math_exp_log(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_exp_log_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_exp_log_test_source(),
         false,
     );
 }
@@ -124,11 +168,11 @@ fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_conf
 }
 
 #[test]
-fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_js_input()
-{
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_tsx_input(
+) {
     assert_browser_harness_math_exp_log(
         "test",
-        "smoke.test.js",
+        "smoke.test.tsx",
         browser_harness_math_exp_log_test_source(),
         false,
     );
@@ -146,11 +190,77 @@ fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_confi
 }
 
 #[test]
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "run",
+        "main.jsx",
+        browser_harness_math_exp_log_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_ts_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "run",
+        "main.ts",
+        browser_harness_math_exp_log_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "run",
+        "main.tsx",
+        browser_harness_math_exp_log_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_js_input(
 ) {
     assert_browser_harness_math_exp_log(
         "test",
         "smoke.test.js",
+        browser_harness_math_exp_log_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_exp_log_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_ts_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_exp_log_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_math_exp_and_log_identity_literals_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_math_exp_log(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_exp_log_test_source(),
         true,
     );
