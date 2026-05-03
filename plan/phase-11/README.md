@@ -44,6 +44,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` / fully bracketed `globalThis["Math"]["round"]` slice for `Math.round` identity cases in TS and `.js` input.
 
+- Progress note: browser-harness and browser-bundle smoke now also cover the `globalThis.Math.atan2` / `globalThis.Math["atan2"]` zero slice in TS and `.js` input, complementing the existing bracketed-root coverage.
+
 ### 11.3 Dynamic loading and module semantics
 
 - Preserve literal-string `import()` as linked-graph lowering.
