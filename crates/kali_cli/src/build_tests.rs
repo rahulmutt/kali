@@ -1588,6 +1588,72 @@ fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_b
     );
 }
 
+fn assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"console.log(globalThis["Math"]["floor"](1.6)); console.log(globalThis["Math"]["trunc"](1.6)); console.log(globalThis["Math"]["ceil"](1.6));
+"#,
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("bracketed Math floor/trunc/ceil literal slices should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_js_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_ts_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
