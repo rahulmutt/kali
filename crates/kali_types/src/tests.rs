@@ -2075,6 +2075,21 @@ fn test_resolution_supports_object_is_numeric_literal_member_calls() {
                 ],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "+".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(1.0)),
+                    })),
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                ],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);

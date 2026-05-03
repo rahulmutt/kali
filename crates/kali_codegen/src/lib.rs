@@ -2749,6 +2749,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    #[allow(dead_code)]
     fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {
         let node = self.node(id);
         match node.kind {

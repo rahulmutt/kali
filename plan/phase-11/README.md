@@ -26,7 +26,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input, and now also cover the `Math.max` / `Math.min` / `Math.abs` / `Math.sign` / `Math.imul` / `Math.clz32` core suite in TS and `.js` input.
 - Progress note: browser bundle smoke now also covers the `Math.floor` / `Math.trunc` / `Math.ceil` const-alias-chain slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.pow` zero-exponent non-integer-base slice in TS and `.js` input.
-- Progress note: `Object.is` now also accepts the static primitive-literal slice on the supported `check` / `build` / `run` / `test` paths, including const alias chains and transparent wrapper forms for numeric, string, boolean, and null literals, and the browser bundle / browser-harness smoke now mirrors that slice in TS and `.js` input.
+- Progress note: `Object.is` now also accepts the static primitive-literal slice on the supported `check` / `build` / `run` / `test` paths, including const alias chains and transparent wrapper forms for numeric, string, boolean, and null literals, plus unary-plus-wrapped numeric literals, and the browser bundle / browser-harness smoke now mirrors that slice in TS and `.js` input.
 
 ### 11.2 Missing expression and built-in semantics
 

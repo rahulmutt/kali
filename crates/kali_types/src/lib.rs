@@ -52,7 +52,7 @@ pub struct Scope {
     pub mutable_bindings: IndexMap<String, bool>,
     pub static_values: IndexMap<String, String>,
     pub static_numeric_values: IndexMap<String, String>,
-    pub static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
+    static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
 }
@@ -1121,6 +1121,9 @@ impl TypeContext {
             Expression::Literal(LiteralValue::Null) => Some(StaticObjectIdentityValue::Null),
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::UnaryExpression(expr) if expr.operator == "+" => {
+                self.resolve_static_object_identity_literal_value(&expr.argument)
             }
             Expression::UnaryExpression(expr) if expr.operator == "+" => {
                 self.resolve_static_object_identity_literal_value(&expr.argument)
