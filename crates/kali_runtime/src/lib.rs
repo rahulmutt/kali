@@ -197,10 +197,11 @@ impl BrowserRuntimeContract {
     pub const SUPPORTED_COMMANDS: [&'static str; 2] = ["run", "test"];
 
     /// Canonical diagnostic notes for the browser runtime contract.
-    pub const DIAGNOSTIC_NOTES: [&'static str; 4] = [
+    pub const DIAGNOSTIC_NOTES: [&'static str; 5] = [
         Self::supported_commands_note(),
         Self::summary_note(),
         Self::contract_scope_note(),
+        Self::summary_file_fallback_note(),
         Self::host_description_note(),
     ];
 
@@ -261,6 +262,11 @@ impl BrowserRuntimeContract {
     /// Return a stable note that summarizes the future browser runtime contract scope.
     pub const fn contract_scope_note() -> &'static str {
         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
+    }
+
+    /// Return a stable note that describes browser-harness summary fallback behavior.
+    pub const fn summary_file_fallback_note() -> &'static str {
+        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid"
     }
 }
 

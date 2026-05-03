@@ -68,6 +68,7 @@ fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -98,6 +99,7 @@ fn validate_doctor_payload_value_accepts_auto_browser_harness_override_null() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -140,6 +142,7 @@ fn validate_doctor_payload_value_rejects_browser_harness_source_override_mismatc
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                     "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                     "browser runtime host description: real browser host"
                 ]
             }
@@ -173,6 +176,7 @@ fn validate_doctor_payload_value_rejects_executable_command_mismatch() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -208,6 +212,7 @@ fn validate_doctor_payload_value_rejects_args_command_mismatch() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1041,6 +1046,7 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_command() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1077,6 +1083,7 @@ fn validate_doctor_payload_value_rejects_unexpected_browser_harness_keys() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1109,6 +1116,7 @@ fn validate_doctor_payload_value_rejects_empty_supported_commands() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1144,6 +1152,7 @@ fn validate_doctor_payload_value_rejects_unsupported_supported_commands_item() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1180,6 +1189,7 @@ fn validate_doctor_payload_value_rejects_duplicate_supported_commands() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1215,6 +1225,7 @@ fn validate_doctor_payload_value_rejects_out_of_order_supported_commands() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1309,6 +1320,7 @@ fn validate_doctor_payload_value_rejects_diagnostic_notes_drift() {
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime host description: real browser host"
             ],
@@ -1343,6 +1355,7 @@ fn validate_doctor_payload_value_rejects_unexpected_keys() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ],
         }
@@ -1375,6 +1388,7 @@ fn validate_doctor_payload_value_rejects_unexpected_browser_runtime_contract_key
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ],
             "unexpected": true,
@@ -1411,6 +1425,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1439,6 +1454,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1467,6 +1483,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1495,6 +1512,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         17,
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1523,6 +1541,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1551,6 +1570,7 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                         "browser runtime host description: real browser host"
                     ]
                 }
@@ -1589,6 +1609,7 @@ fn validate_doctor_payload_value_rejects_non_string_host_description_note() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1624,6 +1645,7 @@ fn validate_doctor_payload_value_rejects_empty_host_description_note() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1659,6 +1681,7 @@ fn validate_doctor_payload_value_rejects_wrong_host_description_note() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }
@@ -1694,6 +1717,7 @@ fn validate_doctor_payload_value_rejects_empty_diagnostic_hint() {
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid",
                 "browser runtime host description: real browser host"
             ]
         }

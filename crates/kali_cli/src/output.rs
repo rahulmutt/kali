@@ -1226,12 +1226,15 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
                     "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness".to_string(),
                 ),
                 Value::String(
+                    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid".to_string(),
+                ),
+                Value::String(
                     "browser runtime host description: real browser host".to_string(),
                 ),
             ];
             if items.as_slice() != expected_diagnostic_notes {
                 return Err(
-                    "doctor browserRuntimeContract diagnosticNotes must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime host description: real browser host`] in that order"
+                    "doctor browserRuntimeContract diagnosticNotes must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
                         .to_string(),
                 );
             }
