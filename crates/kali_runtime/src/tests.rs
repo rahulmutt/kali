@@ -124,6 +124,67 @@ fn runtime_context_carries_process_identity() {
 }
 
 #[test]
+fn runtime_context_exposes_deterministic_env_snapshots() {
+    let mut runtime = RuntimeCtx::with_host_context(
+        None,
+        Vec::new(),
+        BTreeMap::from([
+            (String::from("BETA"), String::from("2")),
+            (String::from("ALPHA"), String::from("1")),
+        ]),
+        PathBuf::from("."),
+    );
+
+    let snapshot = runtime.env_snapshot();
+    let snapshot_keys = snapshot.keys().cloned().collect::<Vec<_>>();
+    assert_eq!(
+        snapshot_keys,
+        vec![String::from("ALPHA"), String::from("BETA")]
+    );
+    assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
+    assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+
+    let json_snapshot = runtime.env_snapshot_value();
+    let json_snapshot = json_snapshot.as_object().expect("json object");
+    assert_eq!(
+        json_snapshot.get("ALPHA"),
+        Some(&serde_json::Value::String(String::from("1")))
+    );
+    assert_eq!(
+        json_snapshot.get("BETA"),
+        Some(&serde_json::Value::String(String::from("2")))
+    );
+
+    runtime.env.insert(String::from("GAMMA"), String::from("3"));
+    assert!(!snapshot.contains_key("GAMMA"));
+    assert!(!json_snapshot.contains_key("GAMMA"));
+
+    let host_state = KaliHostState {
+        env: BTreeMap::from([
+            (String::from("BETA"), String::from("2")),
+            (String::from("ALPHA"), String::from("1")),
+        ]),
+        ..KaliHostState::default()
+    };
+
+    let host_snapshot = host_state.env_snapshot();
+    assert_eq!(
+        host_snapshot.keys().cloned().collect::<Vec<_>>(),
+        vec![String::from("ALPHA"), String::from("BETA")]
+    );
+    let host_json_snapshot = host_state.env_snapshot_value();
+    let host_json_snapshot = host_json_snapshot.as_object().expect("json object");
+    assert_eq!(
+        host_json_snapshot.get("ALPHA"),
+        Some(&serde_json::Value::String(String::from("1")))
+    );
+    assert_eq!(
+        host_json_snapshot.get("BETA"),
+        Some(&serde_json::Value::String(String::from("2")))
+    );
+}
+
+#[test]
 fn runtime_context_carries_runtime_profiles() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno").with_runtime_profiles(vec![
         "beta".to_string(),

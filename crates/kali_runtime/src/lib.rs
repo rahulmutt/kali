@@ -378,6 +378,16 @@ impl RuntimeCtx {
             .unwrap_or(self.max_threads)
     }
 
+    /// Return the deterministic environment snapshot captured for this execution context.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.env.clone()
+    }
+
+    /// Return the deterministic environment snapshot as a JSON object value.
+    pub fn env_snapshot_value(&self) -> serde_json::Value {
+        env_snapshot_value(&self.env)
+    }
+
     /// Return the canonical runtime-profile vector for the current execution context.
     ///
     /// This normalizes the public `runtime_profiles` field so direct API callers
@@ -2346,6 +2356,14 @@ fn capture_env() -> BTreeMap<String, String> {
     std::env::vars().collect()
 }
 
+fn env_snapshot_value(env: &BTreeMap<String, String>) -> serde_json::Value {
+    serde_json::Value::Object(
+        env.iter()
+            .map(|(key, value)| (key.clone(), serde_json::Value::String(value.clone())))
+            .collect(),
+    )
+}
+
 fn decode_spawn_args(encoded: &str) -> Vec<String> {
     if encoded.is_empty() {
         return Vec::new();
@@ -3878,6 +3896,16 @@ impl KaliHostState {
     /// Return the host process identifier preserved in the runtime store state.
     pub fn process_id(&self) -> u32 {
         self.process_id
+    }
+
+    /// Return the deterministic environment snapshot preserved in the runtime store state.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.env.clone()
+    }
+
+    /// Return the deterministic environment snapshot as a JSON object value.
+    pub fn env_snapshot_value(&self) -> serde_json::Value {
+        env_snapshot_value(&self.env)
     }
 
     fn schedule_timer(
