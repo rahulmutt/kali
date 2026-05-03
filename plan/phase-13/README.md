@@ -27,6 +27,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 - Add Node package support only when required built-ins and process semantics are explicitly supported.
 - Keep late Node modules (`node:net`, `node:dns`, worker/thread modules, unresolved promise/timer subpaths, and process-control APIs) gated until Phase 12 contracts exist.
 - Separate package-content support from published CLI/bin entrypoint support.
+- Progress note: the Node package corpus now also exercises a `process.cwd` / `process.pid` package slice on the documented Node surface, keeping package-content evidence aligned with the supported process semantics.
 
 ### 13.3 Browser package deployability
 

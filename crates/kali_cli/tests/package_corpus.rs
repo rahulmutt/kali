@@ -12585,6 +12585,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             "0",
         ),
         (
+            "node-process-corpus",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 ? 0 : 1; }\n",
+            "0",
+        ),
+        (
             "node-timers-corpus",
             "import timers from \"node:timers\";\nexport default function root() { return typeof timers.setTimeout === \"function\" && typeof timers.clearTimeout === \"function\" && typeof timers.setInterval === \"function\" && typeof timers.clearInterval === \"function\" ? 0 : 1; }\n",
             "0",
@@ -12723,6 +12728,11 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         (
             "node-http-corpus",
             "import http from \"node:http\";\nexport default function root() { return typeof http.get === \"function\" ? 0 : 1; }\n",
+            "0",
+        ),
+        (
+            "node-process-corpus",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 ? 0 : 1; }\n",
             "0",
         ),
         (
