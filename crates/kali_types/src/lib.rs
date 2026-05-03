@@ -1197,6 +1197,10 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_static_object_identity_call(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.callee);
         for arg in &expr.args {
             self.resolve_expression(arg);
@@ -1302,6 +1306,51 @@ impl TypeContext {
 
         self.resolve_expression(object_arg);
         self.resolve_expression(key_arg);
+        for arg in expr.args.iter().skip(2) {
+            self.resolve_expression(arg);
+        }
+        true
+    }
+
+    fn resolve_static_object_identity_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) = Self::member_access_name(match &expr.callee {
+            Expression::MemberExpression(member) => member,
+            _ => return false,
+        }) else {
+            return false;
+        };
+
+        if !matches!(callee_name.as_str(), "Object.is" | "globalThis.Object.is") {
+            return false;
+        }
+
+        let Some(left) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+            ));
+            return true;
+        };
+        let Some(right) = expr.args.get(1) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+            ));
+            return true;
+        };
+
+        if self.resolve_static_numeric_literal_value(left).is_none()
+            || self.resolve_static_numeric_literal_value(right).is_none()
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+            ));
+            return true;
+        }
+
+        self.resolve_expression(left);
+        self.resolve_expression(right);
         for arg in expr.args.iter().skip(2) {
             self.resolve_expression(arg);
         }

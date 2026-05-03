@@ -1231,6 +1231,45 @@ fn assert_build_source_file_supports_object_has_own_call_in_input(
     assert!(!output.wasm_bytes.is_empty());
 }
 
+fn assert_build_source_file_supports_object_is_numeric_literal_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"const zero = 0; const zeroAlias = zero; console.log(Object.is(zeroAlias, -0)); console.log(globalThis["Object"]["is"](0, zeroAlias));"#,
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Object.is numeric literal build should succeed");
+
+    assert!(!output.wasm_bytes.is_empty());
+}
+
+#[test]
+fn build_source_file_supports_object_is_numeric_literal_in_deno_and_browser_ts_and_js_input() {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js"] {
+            assert_build_source_file_supports_object_is_numeric_literal_in_input(
+                api_surface,
+                extension,
+            );
+        }
+    }
+}
+
 #[test]
 fn build_source_file_supports_object_has_own_call_in_jsx_input() {
     let dir = tempdir().expect("tempdir");

@@ -1256,6 +1256,77 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_object_identity_object(&callee_node) && callee_node.text.as_deref() == Some("is")
+        {
+            let mut args = node.children.iter().skip(1);
+            let Some(left) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(right) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(left_value) = self.resolve_static_numeric_value(*left) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(right_value) = self.resolve_static_numeric_value(*right) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Object.is is unavailable unless both arguments are statically-known numeric literals in the current phase; use explicit constants or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let same_value = if left_value.is_nan() && right_value.is_nan() {
+                true
+            } else if left_value == 0.0 && right_value == 0.0 {
+                left_value.is_sign_positive() == right_value.is_sign_positive()
+            } else {
+                left_value == right_value
+            };
+
+            for arg in args {
+                let produced = self.emit_node(function, *arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+
+            function.instruction(&Instruction::I64Const(if same_value { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
             let args: Vec<_> = node.children.iter().skip(1).copied().collect();
             let Some(first_arg) = args.first() else {
@@ -2597,6 +2668,42 @@ impl<'a> FunctionEmitter<'a> {
                 | Some(r#"globalThis["Math"]"#)
                 | Some(r#"globalThis['Math']"#)
         )
+    }
+
+    fn is_object_identity_object(&self, callee_node: &LirNode) -> bool {
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Object")
+                | Some("globalThis.Object")
+                | Some(r#"globalThis["Object"]"#)
+                | Some(r#"globalThis['Object']"#)
+        )
+    }
+
+    fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
+            LirNodeKind::Value if node.children.is_empty() => {
+                let text = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(text).copied() {
+                    return self.resolve_static_numeric_value(bound);
+                }
+                parse_numeric_literal_value(text)
+            }
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                None | Some("") => self.resolve_static_numeric_value(node.children[0]),
+                Some("+") => self.resolve_static_numeric_value(node.children[0]),
+                Some("-") => self
+                    .resolve_static_numeric_value(node.children[0])
+                    .map(|value| if value == 0.0 { -0.0 } else { -value }),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     fn math_max_import_index(&self, callee_node: &LirNode) -> Option<u32> {
