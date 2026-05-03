@@ -43131,6 +43131,106 @@ fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_i
 }
 
 #[test]
+fn build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input("ts");
+}
+
+#[test]
+fn build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input("js");
+}
+
+fn assert_build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let value = 0; for ((value) of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (esm) at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input("ts");
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input("js");
+}
+
+fn assert_build_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let value = 0; for await ((value) of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Built browser bundle (esm) at"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
+}
+
+#[test]
 fn build_rejects_non_literal_dynamic_import_targets_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
