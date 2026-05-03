@@ -638,6 +638,36 @@ Deno.lstat('/workspace/input.txt');
 }
 
 #[test]
+fn effect_analysis_marks_computed_bracketed_deno_command_constructors_as_dynamic_in_js_input() {
+    let source = write_source_fixture_with_extension(
+        r#"
+new globalThis["Deno"]["Command"]('sh').spawn();
+new globalThis["Deno"].Command('sh').spawn();
+new Deno["Command"]('sh').spawn();
+"#,
+        "js",
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Process.Spawn"));
+
+    let diagnostics = compare_effects_to_policy(&inference.effects, &valid_policy());
+    assert!(
+        diagnostics.iter().any(|diag| diag.code == Some(9007)),
+        "expected an E9007 policy mismatch diagnostic: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn effect_analysis_marks_computed_deno_host_access_as_dynamic() {
     let source = write_source_fixture(
         r#"

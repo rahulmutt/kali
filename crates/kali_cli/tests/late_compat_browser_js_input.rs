@@ -28,7 +28,7 @@ fn late_permission_escalation_source() -> &'static str {
 }
 
 fn late_subprocess_source() -> &'static str {
-    "new Deno.Command('sh').spawn();"
+    "new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis[\"Deno\"].Command('sh').spawn(); new globalThis[\"Deno\"][\"Command\"]('sh').spawn();"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -327,16 +327,21 @@ fn assert_browser_non_literal_dynamic_import_rejection_json(errors: &[Value]) {
 fn assert_browser_late_subprocess_rejection(stderr: &str) {
     assert!(stderr.contains("E9007"), "stderr: {stderr}");
     assert!(stderr.contains("Process.Spawn"), "stderr: {stderr}");
+    assert_eq!(
+        stderr.matches("Process.Spawn").count(),
+        4,
+        "stderr: {stderr}"
+    );
 }
 
 fn assert_browser_late_subprocess_rejection_json(errors: &[Value]) {
-    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert_eq!(errors.len(), 4, "errors array: {errors:?}");
     assert!(
         errors.iter().all(|error| error["code"] == "E9007"),
         "unexpected errors: {errors:?}"
     );
     assert!(
-        errors.iter().any(|error| error["message"]
+        errors.iter().all(|error| error["message"]
             .as_str()
             .expect("error message")
             .contains("Process.Spawn")),
