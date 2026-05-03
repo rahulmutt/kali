@@ -864,7 +864,7 @@ fn check_build_run_and_test_accept_deno_env_set_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nconsole.log(Deno.env.get('KALI_ENV_SET_SMOKE'));\n",
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nconsole.log(Deno.env.get('KALI_ENV_SET_SMOKE'));\n",
     )
     .expect("write source");
 
@@ -897,7 +897,7 @@ fn check_build_run_and_test_accept_deno_env_set_in_js_input() {
     let test_path = dir.path().join("smoke.test.js");
     fs::write(
         &test_path,
-        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nKali.test('env mutation', () => { if (Deno.env.get('KALI_ENV_SET_SMOKE') !== 'hello-environment') { throw new Error('expected env mutation'); } });\n",
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nKali.test('env mutation', () => { if (Deno.env.get('KALI_ENV_SET_SMOKE') !== 'hello-environment') { throw new Error('expected env mutation'); } });\n",
     )
     .expect("write test source");
 
@@ -921,7 +921,7 @@ fn json_check_build_run_and_test_accept_deno_env_set_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nconsole.log(Deno.env.get('KALI_ENV_SET_SMOKE'));\n",
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nconsole.log(Deno.env.get('KALI_ENV_SET_SMOKE'));\n",
     )
     .expect("write source");
 
@@ -1002,7 +1002,7 @@ fn json_check_build_run_and_test_accept_deno_env_set_in_js_input() {
     let test_path = dir.path().join("smoke.test.js");
     fs::write(
         &test_path,
-        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nKali.test('env mutation', () => { if (Deno.env.get('KALI_ENV_SET_SMOKE') !== 'hello-environment') { throw new Error('expected env mutation'); } });\n",
+        "Deno.env.set('KALI_ENV_SET_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello-environment');\nKali.test('env mutation', () => { if (Deno.env.get('KALI_ENV_SET_SMOKE') !== 'hello-environment') { throw new Error('expected env mutation'); } });\n",
     )
     .expect("write test source");
 
@@ -1044,7 +1044,7 @@ fn check_build_run_and_test_accept_deno_env_delete_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno.env.delete('KALI_ENV_DELETE_SMOKE');\nif (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); }\nconsole.log('deleted');\n",
+        "Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno.env.delete('KALI_ENV_DELETE_SMOKE');\nDeno[\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE');\nglobalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE');\nif (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); }\nconsole.log('deleted');\n",
     )
     .expect("write source");
 
@@ -1077,7 +1077,7 @@ fn check_build_run_and_test_accept_deno_env_delete_in_js_input() {
     let test_path = dir.path().join("smoke.test.js");
     fs::write(
         &test_path,
-        "Kali.test('env delete', () => { Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); if (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); } });\n",
+        "Kali.test('env delete', () => { Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno[\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno[\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); if (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); } });\n",
     )
     .expect("write test source");
 
@@ -1101,7 +1101,7 @@ fn json_check_build_run_and_test_accept_deno_env_delete_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno.env.delete('KALI_ENV_DELETE_SMOKE');\nif (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); }\nconsole.log('deleted');\n",
+        "Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno[\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nglobalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment');\nDeno.env.delete('KALI_ENV_DELETE_SMOKE');\nDeno[\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE');\nglobalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE');\nif (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); }\nconsole.log('deleted');\n",
     )
     .expect("write source");
 
@@ -1182,7 +1182,7 @@ fn json_check_build_run_and_test_accept_deno_env_delete_in_js_input() {
     let test_path = dir.path().join("smoke.test.js");
     fs::write(
         &test_path,
-        "Kali.test('env delete', () => { Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); if (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); } });\n",
+        "Kali.test('env delete', () => { Deno.env.set('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno[\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno[\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); if (Deno.env.get('KALI_ENV_DELETE_SMOKE') !== void 0) { throw new Error('expected env deletion'); } });\n",
     )
     .expect("write test source");
 
