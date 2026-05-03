@@ -1696,10 +1696,10 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     assert!(result
         .diagnostics
         .iter()
-        .any(|diag| diag.message.contains("Deno[\"env\"][\"toObject\"]")));
+        .any(|diag| diag.message.contains(r#"Deno["env"]["toObject"]"#)));
     assert!(result.diagnostics.iter().any(|diag| diag
         .message
-        .contains("globalThis[\"Deno\"][\"env\"][\"toObject\"]")));
+        .contains(r#"globalThis["Deno"]["env"]["toObject"]"#)));
     assert!(result
         .diagnostics
         .iter()

@@ -47,7 +47,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 
 - Add guest-language object aggregate lowering for host-snapshot materialization APIs such as `Deno.env.toObject` only once the object aggregate/value plumbing is in place.
 - Keep `Deno.env.toObject` and related host-snapshot APIs gated until the compiler can build and pass object values honestly across the supported runtime surfaces.
-- Progress note: the current env-snapshot helper plumbing is already present on the host-side Deno/Node projections, and the Deno runtime projection now also exposes a JSON-ready snapshot helper alongside the BTreeMap view, but the language-visible `Deno.env.toObject` path is still blocked by the missing object-aggregate lowering path, so the repository keeps that gate explicit instead of overclaiming the surface. The Node surface still stays outside the default-standalone `Deno.env.set` / `Deno.env.delete` slice.
+- Progress note: the current env-snapshot helper plumbing is already present on the host-side Deno/Node projections, and the Deno runtime projection now also exposes a JSON-ready snapshot helper alongside the BTreeMap view, but the language-visible `Deno.env.toObject` path is still blocked by the missing object-aggregate lowering path, so the repository keeps that gate explicit instead of overclaiming the surface. The gate coverage now also keeps the `Deno.env.toObject` rejection path under regression coverage so the alias family stays consistently gated. The Node surface still stays outside the default-standalone `Deno.env.set` / `Deno.env.delete` slice.
 
 ## Exit gate
 
