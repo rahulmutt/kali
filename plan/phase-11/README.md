@@ -25,6 +25,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: direct build and browser-bundle smoke now also cover the const-alias-chain slice for both `for...of` and `for await...of` in TS and `.js` inputs, alongside the existing const-string-alias coverage.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input, and now also cover the `Math.max` / `Math.min` / `Math.abs` / `Math.sign` / `Math.imul` / `Math.clz32` core suite in TS and `.js` input.
 - Progress note: browser bundle smoke now also covers the `Math.floor` / `Math.trunc` / `Math.ceil` const-alias-chain slice in TS and `.js` input.
+- Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.pow` zero-exponent non-integer-base slice in TS and `.js` input.
 
 ### 11.2 Missing expression and built-in semantics
 
