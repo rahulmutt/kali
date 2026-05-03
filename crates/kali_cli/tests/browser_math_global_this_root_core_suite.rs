@@ -82,11 +82,9 @@ fn assert_browser_bundle_global_this_math_core_suite(filename: &str, json_output
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.globalThisMathCoreSuite();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
