@@ -145,3 +145,83 @@ fn json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured
         true,
     );
 }
+
+#[test]
+fn run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_exp2(
+        "run",
+        "main.jsx",
+        browser_harness_math_exp2_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_exp2(
+        "run",
+        "main.tsx",
+        browser_harness_math_exp2_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_exp2(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_exp2_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_exp2(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_exp2_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_exp2(
+        "run",
+        "main.jsx",
+        browser_harness_math_exp2_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_exp2(
+        "run",
+        "main.tsx",
+        browser_harness_math_exp2_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_exp2(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_exp2_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_exp2(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_exp2_test_source(),
+        true,
+    );
+}
