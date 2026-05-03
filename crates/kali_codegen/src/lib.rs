@@ -1721,10 +1721,54 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            let base_identity = self
+                .render_static_value(*base)
+                .and_then(|rendered| parse_numeric_literal_value(&rendered))
+                .filter(|value| *value == 0.0 || *value == 1.0);
             let exponent_identity = self
                 .render_static_value(*exponent)
                 .and_then(|rendered| parse_numeric_literal_value(&rendered))
                 .filter(|value| *value == 0.0 || *value == 1.0);
+
+            if let Some(base_identity) = base_identity {
+                if base_identity == 1.0 {
+                    let _ = self.emit_node(function, *base, true);
+                    function.instruction(&Instruction::Drop);
+                    let produced = self.emit_node(function, *exponent, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    for arg in args {
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    function.instruction(&Instruction::I64Const(1));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+
+                if let Some(exponent) = exponent_identity {
+                    if exponent == 0.0 {
+                        let _ = self.emit_node(function, *base, true);
+                        function.instruction(&Instruction::Drop);
+                        for arg in args {
+                            let produced = self.emit_node(function, *arg, true);
+                            if produced.produced {
+                                function.instruction(&Instruction::Drop);
+                            }
+                        }
+                        function.instruction(&Instruction::I64Const(1));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
+                }
+            }
 
             if let Some(exponent_identity) = exponent_identity {
                 match exponent_identity {
