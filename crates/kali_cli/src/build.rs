@@ -2493,11 +2493,25 @@ fn collect_library_exports_from_statements(
                         ));
                     }
                 }
-                ExportDefaultDeclaration::Expression(_)
-                | ExportDefaultDeclaration::ClassDeclaration(_) => {
+                ExportDefaultDeclaration::Expression(expression) => {
+                    if let Some(signature) = infer_function_binding_signature(Some(expression)) {
+                        if exports.insert("default".to_string(), signature).is_some() {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                "duplicate export name `default`",
+                            ));
+                        }
+                    } else {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            "default export expressions are only part of the Phase-1 base library artifact when they resolve to a statically known function shape; use an explicit function declaration or the later compatibility path",
+                        ));
+                    }
+                }
+                ExportDefaultDeclaration::ClassDeclaration(_) => {
                     diagnostics.push(invalid_export_surface(
                         source_path,
-                        "default export expressions and classes are not part of the Phase-1 base library artifact",
+                        "default export classes are not part of the Phase-1 base library artifact",
                     ));
                 }
             },
