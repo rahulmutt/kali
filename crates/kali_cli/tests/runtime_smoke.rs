@@ -6432,6 +6432,174 @@ fn json_build_rejects_late_object_model_members_in_js_input() {
 }
 
 #[test]
+fn check_rejects_late_object_model_globals_in_browser_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+        "Proxy.revocable",
+        "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn check_rejects_late_object_model_globals_in_browser_analysis_context_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+        "Proxy.revocable",
+        "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(
+            messages.iter().any(|message| message.contains(expected)),
+            "missing {expected} in {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn build_rejects_late_object_model_members_in_browser_bundle() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+        "Proxy.revocable",
+        "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn build_rejects_late_object_model_members_in_browser_bundle_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_object_model_source()).expect("write source");
+    write_browser_api_surface_manifest(dir.path());
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(errors.iter().all(|error| error["code"] == "E5506"));
+    let messages = errors
+        .iter()
+        .map(|error| error["message"].as_str().expect("error message"))
+        .collect::<Vec<_>>();
+    for expected in [
+        "Proxy",
+        "globalThis.Proxy",
+        "WeakMap",
+        "WeakSet",
+        "FinalizationRegistry",
+        "Proxy.revocable",
+        "globalThis.Proxy.revocable",
+        r#"globalThis["Proxy"]["revocable"]"#,
+    ] {
+        assert!(
+            messages.iter().any(|message| message.contains(expected)),
+            "missing {expected} in {messages:?}"
+        );
+    }
+}
+
+#[test]
 fn test_rejects_late_process_control_members() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
