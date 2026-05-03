@@ -124,6 +124,14 @@ fn json_build_emits_bracketed_global_this_math_expm1_log1p_identity_literals_in_
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_expm1_log1p_identity_literals_in_jsx_and_tsx_input() {
+    for filename in ["app.jsx", "app.tsx"] {
+        assert_browser_bundle_bracketed_global_this_math_expm1_log1p(filename, false);
+        assert_browser_bundle_bracketed_global_this_math_expm1_log1p(filename, true);
+    }
+}
+
+#[test]
 fn run_and_test_supports_bracketed_global_this_math_expm1_log1p_identities_when_browser_harness_is_configured_in_js_and_ts_input(
 ) {
     for (command, source_name, source) in [
@@ -145,6 +153,26 @@ fn run_and_test_supports_bracketed_global_this_math_expm1_log1p_identities_when_
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed expm1/log1p identities', () => { const zero = 0; console.log(globalThis[\"Math\"].expm1(zero)); console.log(globalThis[\"Math\"].log1p(zero)); });\n",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].expm1(zero)); console.log(globalThis[\"Math\"].log1p(zero));\n",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed expm1/log1p identities', () => { const zero = 0; console.log(globalThis[\"Math\"].expm1(zero)); console.log(globalThis[\"Math\"].log1p(zero)); });\n",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].expm1(zero)); console.log(globalThis[\"Math\"].log1p(zero));\n",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed expm1/log1p identities', () => { const zero = 0; console.log(globalThis[\"Math\"].expm1(zero)); console.log(globalThis[\"Math\"].log1p(zero)); });\n",
         ),
     ] {

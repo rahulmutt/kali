@@ -138,6 +138,14 @@ fn json_build_emits_global_this_math_bracketed_expm1_log1p_identity_literals_in_
 }
 
 #[test]
+fn build_emits_global_this_math_bracketed_expm1_log1p_identity_literals_in_jsx_and_tsx_input() {
+    for filename in ["app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_bracketed_expm1_log1p(filename, false);
+        assert_browser_bundle_global_this_math_bracketed_expm1_log1p(filename, true);
+    }
+}
+
+#[test]
 fn run_and_test_supports_global_this_math_bracketed_expm1_log1p_identities_when_browser_harness_is_configured_in_js_and_ts_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
@@ -162,6 +170,30 @@ fn run_and_test_supports_global_this_math_bracketed_expm1_log1p_identities_when_
         (
             "test",
             "smoke.test.ts",
+            browser_harness_global_this_math_bracketed_expm1_log1p_test_source(),
+            "0\n0",
+        ),
+        (
+            "run",
+            "main.jsx",
+            browser_harness_global_this_math_bracketed_expm1_log1p_run_source(),
+            "0\n0",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            browser_harness_global_this_math_bracketed_expm1_log1p_test_source(),
+            "0\n0",
+        ),
+        (
+            "run",
+            "main.tsx",
+            browser_harness_global_this_math_bracketed_expm1_log1p_run_source(),
+            "0\n0",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             browser_harness_global_this_math_bracketed_expm1_log1p_test_source(),
             "0\n0",
         ),
