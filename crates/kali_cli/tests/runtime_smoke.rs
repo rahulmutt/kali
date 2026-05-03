@@ -25428,6 +25428,33 @@ fn test_supports_math_pow_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn test_supports_math_pow_exponent_one_identity_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_math_pow_negative_base_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
