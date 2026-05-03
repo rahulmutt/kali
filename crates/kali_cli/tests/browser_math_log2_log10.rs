@@ -158,6 +158,26 @@ fn json_build_emits_math_log2_and_log10_identity_literals_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_log2_and_log10_identity_literals_in_jsx_input() {
+    assert_browser_bundle_math_log2_log10("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_log2_and_log10_identity_literals_in_tsx_input() {
+    assert_browser_bundle_math_log2_log10("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_math_log2_and_log10_identity_literals_in_jsx_input() {
+    assert_browser_bundle_math_log2_log10("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_log2_and_log10_identity_literals_in_tsx_input() {
+    assert_browser_bundle_math_log2_log10("app.tsx", true);
+}
+
+#[test]
 fn run_supports_math_log2_and_log10_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_math_log2_log10(
         "run",
