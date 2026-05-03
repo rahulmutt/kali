@@ -35014,6 +35014,34 @@ fn nullish_assignment_source() -> &'static str {
     "let value = null; value ??= 1; console.log(value);\n"
 }
 
+fn compound_assignment_non_local_source() -> &'static str {
+    "let target = { value: 1 }; target.value += 2;\n"
+}
+
+fn compound_assignment_immutable_source() -> &'static str {
+    "const value = 1; value += 2;\n"
+}
+
+fn assert_compound_assignment_rejection_text(stderr: &str, expected: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains(expected), "stderr: {stderr}");
+}
+
+fn assert_compound_assignment_rejection_json(errors: &[Value], expected: &str) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains(expected)),
+        "missing compound-assignment diagnostic in {errors:?}"
+    );
+}
+
 #[test]
 fn check_supports_nullish_coalescing_in_js_input() {
     let dir = tempdir().expect("tempdir");
@@ -35144,6 +35172,106 @@ fn json_run_supports_nullish_assignment_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
+}
+
+#[test]
+fn check_rejects_compound_assignment_on_non_local_targets_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, compound_assignment_non_local_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_compound_assignment_rejection_text(
+        &stderr,
+        "compound assignment lowering is unavailable unless the target is a mutable local binding",
+    );
+}
+
+#[test]
+fn json_check_rejects_compound_assignment_on_non_local_targets_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, compound_assignment_non_local_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_compound_assignment_rejection_json(
+        errors,
+        "compound assignment lowering is unavailable unless the target is a mutable local binding",
+    );
+}
+
+#[test]
+fn run_rejects_compound_assignment_on_immutable_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, compound_assignment_immutable_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_compound_assignment_rejection_text(
+        &stderr,
+        "compound assignment lowering is unavailable for binding 'value'",
+    );
+}
+
+#[test]
+fn json_run_rejects_compound_assignment_on_immutable_bindings_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, compound_assignment_immutable_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_compound_assignment_rejection_json(
+        errors,
+        "compound assignment lowering is unavailable for binding 'value'",
+    );
 }
 
 #[test]
