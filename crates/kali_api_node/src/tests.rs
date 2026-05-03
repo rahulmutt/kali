@@ -28,6 +28,10 @@ fn process_context_tracks_env_and_output() {
         process.env_snapshot(),
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
     );
+    assert_eq!(
+        process.env_snapshot_value(),
+        serde_json::json!({ "HOME": "/tmp/home" })
+    );
     assert_eq!(process.env_set("EDITOR", "nano"), None);
     assert_eq!(process.env_remove("HOME"), Some(String::from("/tmp/home")));
     assert_eq!(process.env_get("HOME"), None);
@@ -35,6 +39,10 @@ fn process_context_tracks_env_and_output() {
     assert_eq!(
         process.env_snapshot(),
         BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
+    );
+    assert_eq!(
+        process.env_snapshot_value(),
+        serde_json::json!({ "EDITOR": "nano" })
     );
 
     process.write_stdout("hello");
@@ -79,6 +87,10 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
             (String::from("HOME"), String::from("/tmp/home")),
         ])
     );
+    assert_eq!(
+        projection.env_snapshot_value(),
+        serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
+    );
 
     projection.chdir("./nested/../other");
     assert_eq!(
@@ -87,6 +99,10 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
             (String::from("EDITOR"), String::from("nano")),
             (String::from("HOME"), String::from("/tmp/home")),
         ])
+    );
+    assert_eq!(
+        projection.env_snapshot_value(),
+        serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
     );
 }
 

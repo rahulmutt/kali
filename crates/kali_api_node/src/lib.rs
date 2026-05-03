@@ -7,6 +7,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use getrandom::fill as fill_random_bytes;
 use hmac::{Hmac, Mac};
+use serde_json::Value;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 use std::{
     collections::BTreeMap,
@@ -119,6 +120,16 @@ impl NodeProcess {
     /// Materialize the captured environment into an owned deterministic snapshot.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.env.clone()
+    }
+
+    /// Return the captured environment as a JSON object value.
+    pub fn env_snapshot_value(&self) -> Value {
+        Value::Object(
+            self.env
+                .iter()
+                .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                .collect(),
+        )
     }
 
     /// Return the number of captured argv entries.
@@ -555,6 +566,11 @@ impl NodeRuntimeProjection {
     /// Return a deterministic snapshot of the captured process environment.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.process.env_snapshot()
+    }
+
+    /// Return the captured process environment as a JSON object value.
+    pub fn env_snapshot_value(&self) -> Value {
+        self.process.env_snapshot_value()
     }
 
     /// Change the working directory for the full Node compatibility projection.
