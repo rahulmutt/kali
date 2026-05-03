@@ -33,6 +33,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Progress note: the browser-requested unreadable-summary fallback smoke now also covers `.ts` input on the supported JSON `test` and human `run` / `test` paths, keeping the stdout-authoritative rule aligned across source classes.
 - Progress note: the browser-requested unparseable-summary fallback smoke now also covers `.tsx` input on the supported JSON `test` and human `run` paths, keeping the stdout-authoritative rule aligned across another browser-capable source class.
 - Progress note: the browser-requested unreadable-summary fallback smoke now also covers `.tsx` input on the supported JSON `test` and human `run` / `test` paths, keeping the stdout-authoritative rule pinned across the same browser-capable source class.
+- Progress note: the browser-requested whitespace-only summary fallback smoke now also covers `.ts` and `.tsx` input on the supported JSON `test` path, keeping the blank-summary fallback aligned across the browser-capable source classes.
 
 ### 12.3 Late host APIs
 
