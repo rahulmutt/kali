@@ -12124,6 +12124,56 @@ fn deno_host_corpus_packages_remain_checkable_buildable_and_executable_on_the_de
 }
 
 #[test]
+fn browser_corpus_packages_with_spawn_tools_remain_checkable_and_bundleable_on_the_browser_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package = "spawn-tools";
+    write_manifest(dir.path(), Some("browser"));
+    write_deno_host_package(
+        dir.path(),
+        package,
+        "export default function spawn() {\n  new Deno.Command('sh').spawn();\n  return 'spawn';\n}\n",
+    );
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        format!(
+            "import root from '{package}';\nconsole.log(root());\n",
+            package = package
+        ),
+    )
+    .expect("write browser host source");
+
+    let check = run_kali(
+        dir.path(),
+        ["check", "--api", "browser", source_path.to_str().unwrap()],
+    );
+    assert!(
+        check.status.success(),
+        "browser host package {package} should remain checkable on the browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&check.stdout),
+        String::from_utf8_lossy(&check.stderr)
+    );
+
+    let build = run_kali(
+        dir.path(),
+        [
+            "build",
+            "--bundle",
+            "--api",
+            "browser",
+            source_path.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        build.status.success(),
+        "browser host package {package} should remain bundleable on the browser surface\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+}
+
+#[test]
 fn jsr_corpus_packages_remain_checkable_buildable_and_executable_on_the_deno_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("deno"));
