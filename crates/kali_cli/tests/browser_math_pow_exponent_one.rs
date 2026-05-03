@@ -116,6 +116,34 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str 
 "#
 }
 
+fn browser_bundle_math_pow_base_one_identity_source() -> &'static str {
+    r##"// kali-tree-shake: mathPowBaseOneIdentity
+function mathPowBaseOneIdentity() {
+  const exponent = 7;
+  const alias = exponent;
+  console.log(Math.pow(1, alias));
+  console.log(globalThis.Math.pow(1, alias));
+  console.log(globalThis["Math"]["pow"](1, alias));
+  return [Math.pow(1, alias), globalThis.Math.pow(1, alias), globalThis["Math"]["pow"](1, alias)];
+}
+"##
+}
+
+fn browser_harness_math_pow_base_one_identity_run_source() -> &'static str {
+    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias));\n"
+}
+
+fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
+    r#"Kali.test('math pow base one identity', () => {
+  const exponent = 7;
+  const alias = exponent;
+  console.log(Math.pow(1, alias));
+  console.log(globalThis.Math.pow(1, alias));
+  console.log(globalThis["Math"]["pow"](1, alias));
+});
+"#
+}
+
 fn assert_browser_harness_math_pow_exponent_one_identity(
     command: &str,
     filename: &str,
@@ -175,6 +203,22 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
     }
+}
+
+fn assert_browser_harness_math_pow_base_one_identity(
+    command: &str,
+    filename: &str,
+    source: &str,
+    expected_stdout: &str,
+    json_output: bool,
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        command,
+        filename,
+        source,
+        expected_stdout,
+        json_output,
+    );
 }
 
 #[test]
@@ -398,5 +442,92 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
         browser_harness_math_pow_exponent_one_identity_test_source(),
         "2\n2\n2\n",
         true,
+    );
+}
+
+#[test]
+fn build_emits_math_pow_base_one_identity_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        browser_bundle_math_pow_base_one_identity_source(),
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser");
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        &format!(
+            r#"const mod = await import(bundleJs.href);
+await mod.mathPowBaseOneIdentity();
+"#
+        ),
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+            .ok()
+            .as_deref(),
+    );
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n1\n1\n"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.js",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\nok 1",
+        false,
     );
 }
