@@ -34,6 +34,7 @@ Remaining goals:
 - Expand package-corpus coverage by host/API context and support rung without turning individual package successes into blanket npm claims.
 - Grow Node package support only where the required Node built-ins and process APIs are explicitly supported or deliberately gated.
 - Grow browser deployability and browser-harness package evidence while keeping published binary entrypoints and native/bootstrap-heavy packages rejected by default.
+- Progress note: the browser package-corpus published-bin-entrypoint probes now also reject the `@mariozechner/pi-coding-agent` browser runtime entrypoint on both the explicit browser surface and the inherited browser surface when a harness command is configured, keeping that negative evidence separate from ordinary browser-package content support.
 - Keep registry-analysis commands (`package-effects`, `package-audit`) single-package and registry-identifier based unless a future spec revision defines batch/local/raw-URL behavior.
 
 ## Optimization, PGO, and performance
