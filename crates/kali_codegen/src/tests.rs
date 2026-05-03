@@ -897,6 +897,29 @@ fn math_round_member_calls_constant_fold_floating_literal() {
 }
 
 #[test]
+fn math_round_member_calls_global_this_root_lower_to_math_host_imports() {
+    let program =
+        parse_and_lower_lir("function f(value) { console.log(globalThis.Math.round(value)); }");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(
+        printed.contains(r#"import "kali:rt" "math_round""#),
+        "{printed}"
+    );
+}
+
+#[test]
 fn math_trunc_member_lowers_without_runtime_host_import() {
     let program = parse_and_lower_lir("console.log(Math.trunc(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
