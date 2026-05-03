@@ -4300,7 +4300,7 @@ fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"].toObject; globalThis["Deno"]["env"]["toObject"]; globalThis.Deno["env"]["toObject"];"#,
     )
     .expect("write source");
 
@@ -4347,7 +4347,7 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"].toObject; globalThis["Deno"]["env"]["toObject"]; globalThis.Deno["env"]["toObject"];"#,
     )
     .expect("write source");
 
@@ -4394,7 +4394,7 @@ fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
-        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"].toObject; globalThis["Deno"]["env"]["toObject"]; globalThis.Deno["env"]["toObject"];"#,
     )
     .expect("write source");
 
@@ -4441,7 +4441,7 @@ fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"].toObject; globalThis["Deno"]["env"]["toObject"]; globalThis.Deno["env"]["toObject"];"#,
     )
     .expect("write source");
 
@@ -4488,7 +4488,7 @@ fn build_source_file_rejects_deno_env_to_object_in_browser_api_surface_in_js_inp
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"]["toObject"];"#,
+        r#"Deno.env.toObject; globalThis.Deno.env.toObject; globalThis.Deno.env["toObject"]; Deno.env["toObject"]; Deno["env"]["toObject"]; Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis.Deno["env"].toObject; globalThis.Deno["env"]["toObject"]; globalThis["Deno"].env.toObject; globalThis["Deno"].env["toObject"]; globalThis["Deno"]["env"].toObject; globalThis["Deno"]["env"]["toObject"]; globalThis.Deno["env"]["toObject"];"#,
     )
     .expect("write source");
 

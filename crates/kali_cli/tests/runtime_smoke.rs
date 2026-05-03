@@ -167,7 +167,7 @@ fn broader_intl_source() -> &'static str {
 }
 
 fn late_env_materialization_source() -> &'static str {
-    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"].env.toObject; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"];"
+    "Deno.env.toObject; globalThis.Deno.env.toObject; Deno.env[\"toObject\"]; Deno[\"env\"][\"toObject\"]; Deno[\"env\"].toObject; globalThis.Deno.env[\"toObject\"]; globalThis.Deno[\"env\"][\"toObject\"]; globalThis.Deno[\"env\"].toObject; globalThis[\"Deno\"].env.toObject; globalThis[\"Deno\"].env[\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"].toObject; globalThis.Deno[\"env\"][\"toObject\"];"
 }
 
 #[test]
@@ -176,11 +176,15 @@ fn late_env_materialization_source_includes_bracketed_spellings() {
     for expected in [
         r#"Deno.env["toObject"]"#,
         r#"Deno["env"]["toObject"]"#,
+        r#"Deno["env"].toObject"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis.Deno["env"].toObject"#,
         r#"globalThis.Deno.env["toObject"]"#,
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
+        r#"globalThis["Deno"]["env"].toObject"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"].toObject"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
