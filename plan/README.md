@@ -26,6 +26,7 @@ This directory contains only active continuation planning. Completed historical 
 - Any public CLI/schema/diagnostic behavior change must update the owning specs before the work is considered complete.
 - Progress note: `Math.pow` now has browser-harness TS/JS-input smoke coverage for the positive-integer-exponent alias-chain slice plus representative negative-exponent E5506 rejection coverage, and the documented `globalThis.Math.pow` root now mirrors that slice in the browser harness and browser-bundle smoke paths, alongside the existing checker/codegen/runtime coverage.
 - Progress note: browser bundle smoke now also covers the const string-alias slice for `for...of` and `for await...of` on the browser API surface in both TS and `.js` input.
+- Progress note: browser build smoke now also covers the `for await...of` `as const` and `satisfies` wrapper slices in TS input on both the Deno and browser surfaces.
 - Progress note: browser-harness smoke now also covers the supported `globalThis.Math.exp` / `globalThis.Math.log` exact-identity slice in TS and `.js` input, and browser build smoke mirrors that root-access slice on the browser API surface.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.exp` / `Math.log` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the exact `Math.asinh` / `Math.acosh` / `Math.atanh` identity slice in TS and `.js` input.
