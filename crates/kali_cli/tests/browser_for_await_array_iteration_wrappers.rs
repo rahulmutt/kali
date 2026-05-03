@@ -117,6 +117,26 @@ await mod.{harness_function}();
 }
 
 #[test]
+fn build_emits_for_await_as_const_wrapper_in_js_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.js",
+        false,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_as_const_wrapper_in_js_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.js",
+        true,
+        for_await_as_const_source(),
+        "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
 fn build_emits_for_await_as_const_wrapper_in_ts_input() {
     assert_browser_bundle_for_await_wrapper(
         "app.ts",
@@ -133,6 +153,26 @@ fn json_build_emits_for_await_as_const_wrapper_in_ts_input() {
         true,
         for_await_as_const_source(),
         "forAwaitArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_satisfies_wrapper_in_js_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.js",
+        false,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_satisfies_wrapper_in_js_input() {
+    assert_browser_bundle_for_await_wrapper(
+        "app.js",
+        true,
+        for_await_satisfies_source(),
+        "forAwaitArrayIterationSatisfiesWrapper",
     );
 }
 
