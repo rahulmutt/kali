@@ -1259,9 +1259,10 @@ fn assert_build_source_file_supports_object_is_numeric_literal_in_input(
 }
 
 #[test]
-fn build_source_file_supports_object_is_numeric_literal_in_deno_and_browser_ts_and_js_input() {
+fn build_source_file_supports_object_is_numeric_literal_in_deno_and_browser_ts_js_jsx_and_tsx_input(
+) {
     for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
-        for extension in ["ts", "js"] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
             assert_build_source_file_supports_object_is_numeric_literal_in_input(
                 api_surface,
                 extension,
