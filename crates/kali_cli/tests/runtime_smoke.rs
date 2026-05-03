@@ -14,7 +14,7 @@ use std::{
 };
 
 #[cfg(unix)]
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{symlink, PermissionsExt};
 
 use base64::Engine;
 use flate2::{write::GzEncoder, Compression};
@@ -7508,6 +7508,57 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_is_unparseable_when_
         .env(
             "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
             r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "not-json"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser unparseable\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("\"testsFailed\":0"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[cfg(unix)]
+#[test]
+fn json_test_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("unreadable-summary.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('browser unreadable summary', () => { console.log('browser unreadable summary'); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); const summary = process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE; fs.writeFileSync(summary, "{\"args\":[\"alpha\"],\"tests\":[\"browser unreadable summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); fs.chmodSync(summary, 0o000); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser unreadable summary\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#,
         )
         .arg("--output")
         .arg("json")
