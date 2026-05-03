@@ -64,6 +64,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser bundle smoke for the bracketed `globalThis["Math"].round` / `globalThis["Math"]["round"]` identity slice now also covers `.jsx` and `.tsx` inputs, keeping the round evidence aligned with the broader browser build matrix.
 
 - Progress note: type-resolution and codegen smoke now also pin the `Math.expm1` / `Math.log1p` const numeric alias-chain slice, and the browser-harness/browser-bundle root smoke for that zero-identity slice now also covers JSX and TSX input alongside TS and `.js` input, keeping the zero-identity evidence aligned with the documented current repository state.
+- Progress note: browser-harness/browser-bundle smoke now also covers the `globalThis.Math.exp2` zero-identity slice in TS and `.js` input, keeping the exp2 root alias aligned with the existing bare `Math.exp2` coverage.
 - Progress note: browser-targeted `check` / `build --bundle` rejection coverage now also pins the late object-model globals and revocable-call slice on the browser API surface in `.js` input, keeping the browser-specific E5506 lane aligned with the existing default standalone gate.
 
 ### 11.3 Dynamic loading and module semantics
