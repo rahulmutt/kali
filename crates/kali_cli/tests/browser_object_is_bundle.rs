@@ -12,7 +12,7 @@ fn browser_bundle_object_is_js_source() -> &'static str {
 function browserObjectIs() {
   const zero = 0;
   const alias = zero;
-  if (Object.is(alias, -0) !== false || Object.is(true, true) !== true || Object.is("hello", "hello") !== true || Object.is(null, null) !== true || globalThis["Object"]["is"](0, alias) !== false || globalThis.Object["is"](0, alias) !== false || globalThis["Object"].is(0, alias) !== false) {
+  if (Object.is(alias, -0) !== false || Object.is(+1, 1) !== true || Object.is(true, true) !== true || Object.is("hello", "hello") !== true || Object.is(null, null) !== true || globalThis["Object"]["is"](+1, 1) !== true || globalThis.Object["is"](+1, 1) !== true || globalThis["Object"].is(+1, 1) !== true) {
     throw new Error('unexpected browser Object.is result');
   }
   console.log('browser object is ok');
@@ -25,7 +25,7 @@ fn browser_bundle_object_is_ts_source() -> &'static str {
 function browserObjectIs() {
   const zero = (0 as const);
   const alias = zero;
-  if (Object.is(alias, -0) !== false || Object.is(true, true) !== true || Object.is("hello", "hello") !== true || Object.is(null, null) !== true || globalThis["Object"]["is"](0, alias) !== false || globalThis.Object["is"](0, alias) !== false || globalThis["Object"].is(0, alias) !== false) {
+  if (Object.is(alias, -0) !== false || Object.is(+1, 1) !== true || Object.is(true, true) !== true || Object.is("hello", "hello") !== true || Object.is(null, null) !== true || globalThis["Object"]["is"](+1, 1) !== true || globalThis.Object["is"](+1, 1) !== true || globalThis["Object"].is(+1, 1) !== true) {
     throw new Error('unexpected browser Object.is result');
   }
   console.log('browser object is ok');
