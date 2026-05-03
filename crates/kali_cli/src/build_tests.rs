@@ -2221,13 +2221,13 @@ fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denomin
 }
 
 #[test]
-fn build_source_file_supports_global_this_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_js_input(
+fn build_source_file_supports_bracketed_global_this_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const zero = 0; const one = 1; console.log(globalThis.Math.atan2(zero, one));\n",
+        "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
     )
     .expect("write source");
 
@@ -2241,7 +2241,7 @@ fn build_source_file_supports_global_this_math_atan2_zero_numerator_and_non_nega
         None,
         None,
     )
-    .expect("globalThis.Math.atan2 literal build should succeed");
+    .expect("globalThis[\"Math\"].atan2 literal build should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)

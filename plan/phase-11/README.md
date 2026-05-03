@@ -36,6 +36,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now also covers the `Math.exp` / `Math.log` identity slice in TS and `.js` input.
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now also covers the `Math.sinh` / `Math.cosh` / `Math.tanh` zero-identity slice in TS and `.js` input.
 - Browser bundle smoke now also covers the exact `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input.
+- Direct build smoke now also covers the bracketed `globalThis["Math"]` root for the `Math.atan2` zero-numerator / non-negative-denominator slice in JS input.
 
 ### 11.3 Dynamic loading and module semantics
 
