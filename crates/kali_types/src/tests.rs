@@ -3445,6 +3445,69 @@ fn test_resolution_supports_math_exp_and_log_exact_identity_literals() {
 }
 
 #[test]
+fn test_resolution_supports_math_exp2_exact_identity_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "zero".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("zero".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "exp2".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_reports_math_exp2_non_identity_literals_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "exp2".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.exp2")
+            && diag.message.contains("zero numeric literal")));
+}
+
+#[test]
 fn test_resolution_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![

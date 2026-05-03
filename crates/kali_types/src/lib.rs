@@ -1526,7 +1526,7 @@ impl TypeContext {
             return;
         }
 
-        if method == "exp" || method == "log" {
+        if method == "exp" || method == "log" || method == "exp2" {
             let Some(value) = expr
                 .args
                 .first()
@@ -1536,13 +1536,18 @@ impl TypeContext {
                     e5::FEATURE_UNAVAILABLE as u32,
                     format!(
                         "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
-                        if method == "exp" { "zero" } else { "one" }
+                        match method {
+                            "exp" | "exp2" => "zero",
+                            _ => "one",
+                        }
                     ),
                 ));
                 return;
             };
 
-            if (method == "exp" && value == 0.0) || (method == "log" && value == 1.0) {
+            if (method == "exp" || method == "exp2") && value == 0.0
+                || (method == "log" && value == 1.0)
+            {
                 return;
             }
 
@@ -1550,7 +1555,10 @@ impl TypeContext {
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
                     "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
-                    if method == "exp" { "zero" } else { "one" }
+                    match method {
+                        "exp" | "exp2" => "zero",
+                        _ => "one",
+                    }
                 ),
             ));
             return;

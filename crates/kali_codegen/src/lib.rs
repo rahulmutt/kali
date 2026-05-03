@@ -1961,7 +1961,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            if method == "exp" || method == "log" {
+            if method == "exp" || method == "log" || method == "exp2" {
                 let mut args = node.children.iter().skip(1);
                 let Some(value) = args.next() else {
                     self.diagnostics.push(Diagnostic::error(
@@ -1977,7 +1977,7 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 };
 
-                let folded = if method == "exp" {
+                let folded = if method == "exp" || method == "exp2" {
                     self.math_exp_constant_value(*value)
                 } else {
                     self.math_log_constant_value(*value)
@@ -1987,7 +1987,7 @@ impl<'a> FunctionEmitter<'a> {
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
                             "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
-                            if method == "exp" { "zero" } else { "one" }
+                            if method == "exp" || method == "exp2" { "zero" } else { "one" }
                         ),
                     ));
                     function.instruction(&Instruction::Unreachable);
