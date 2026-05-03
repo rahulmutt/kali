@@ -233,6 +233,40 @@ fn build_source_file_supports_deno_env_has_in_jsx_and_tsx_input() {
     }
 }
 
+fn assert_build_source_file_supports_deno_env_set_and_delete_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"Deno.env.set('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_SET_DELETE_SMOKE'); Deno["env"]["set"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); Deno["env"]["delete"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis["Deno"]["env"]["set"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis["Deno"]["env"]["delete"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis.Deno["env"]["set"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis.Deno["env"]["delete"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis["Deno"].env["set"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis["Deno"].env["delete"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis.Deno.env["set"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis.Deno.env["delete"]('KALI_ENV_SET_DELETE_SMOKE');"#,
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists(), "extension: {extension}");
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
+fn build_source_file_supports_deno_env_set_and_delete_in_all_inputs() {
+    for extension in ["ts", "js", "jsx", "tsx"] {
+        assert_build_source_file_supports_deno_env_set_and_delete_in_input(extension);
+    }
+}
+
 #[test]
 fn build_source_file_supports_deno_pid_in_ts_input() {
     let dir = tempdir().expect("tempdir");
