@@ -13,13 +13,14 @@ function globalThisMathExp2ZeroIdentity() {
   const zero = 0;
   console.log(globalThis.Math.exp2(zero));
   console.log(globalThis.Math["exp2"](zero));
-  return [globalThis.Math.exp2(zero), globalThis.Math["exp2"](zero)];
+  console.log(globalThis["Math"]["exp2"](zero));
+  return [globalThis.Math.exp2(zero), globalThis.Math["exp2"](zero), globalThis["Math"]["exp2"](zero)];
 }
 "##
 }
 
 fn browser_harness_global_this_math_exp2_run_source() -> &'static str {
-    "const zero = 0; console.log(globalThis.Math.exp2(zero)); console.log(globalThis.Math[\"exp2\"](zero));\n"
+    "const zero = 0; console.log(globalThis.Math.exp2(zero)); console.log(globalThis.Math[\"exp2\"](zero)); console.log(globalThis[\"Math\"][\"exp2\"](zero));\n"
 }
 
 fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
@@ -27,6 +28,7 @@ fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
   const zero = 0;
   console.log(globalThis.Math.exp2(zero));
   console.log(globalThis.Math["exp2"](zero));
+  console.log(globalThis["Math"]["exp2"](zero));
 });
 "#
 }

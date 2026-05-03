@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_exp2_run_source() -> &'static str {
-    "const zero = 0; const alias = zero; console.log(Math.exp2(alias));\n"
+    "const zero = 0; const alias = zero; console.log(Math.exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n"
 }
 
 fn browser_harness_math_exp2_test_source() -> &'static str {
@@ -16,6 +16,7 @@ fn browser_harness_math_exp2_test_source() -> &'static str {
   const zero = 0;
   const alias = zero;
   console.log(Math.exp2(alias));
+  console.log(globalThis["Math"]["exp2"](alias));
 });
 "#
 }
