@@ -5899,6 +5899,74 @@ fn collect_library_exports_infers_default_async_function_expression_exports() {
 }
 
 #[test]
+fn collect_library_exports_infers_async_function_expression_bindings_and_aliases() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = true ? async (input) => await 1 : async (input) => await 1; export { main as alias };",
+    )
+    .expect("write source");
+
+    let async_function_expression = |value| {
+        Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                kali_ast::ArrowFunctionExpression {
+                    params: vec![kali_ast::FunctionParam {
+                        name: "input".to_string(),
+                    }],
+                    body: Expression::AwaitExpression(Box::new(kali_ast::AwaitExpression {
+                        argument: Expression::Literal(kali_ast::LiteralValue::Number(value)),
+                    })),
+                    is_async: true,
+                    returnType: None,
+                },
+            ))),
+        }))
+    };
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::ConditionalExpression(Box::new(
+                    kali_ast::ConditionalExpression {
+                        test: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(true))),
+                        consequent: Box::new(async_function_expression(1.0)),
+                        alternate: Box::new(async_function_expression(1.0)),
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![
+                kali_ast::ExportSpecifier {
+                    local: "main".to_string(),
+                    exported: "main".to_string(),
+                },
+                kali_ast::ExportSpecifier {
+                    local: "main".to_string(),
+                    exported: "alias".to_string(),
+                },
+            ],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 2, "exports: {exports:?}");
+    assert!(exports.iter().any(|export| {
+        export.name == "main" && export.signature == "(input) => Promise<number>"
+    }));
+    assert!(exports.iter().any(|export| {
+        export.name == "alias" && export.signature == "(input) => Promise<number>"
+    }));
+}
+
+#[test]
 fn collect_library_exports_infers_default_function_expression_exports() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
