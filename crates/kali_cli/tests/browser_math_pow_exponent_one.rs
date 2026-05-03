@@ -14,7 +14,8 @@ function mathPowExponentOneIdentity() {
   const alias = exponent;
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
-  return [Math.pow(2, alias), globalThis.Math.pow(2, alias)];
+  console.log(globalThis["Math"]["pow"](2, alias));
+  return [Math.pow(2, alias), globalThis.Math.pow(2, alias), globalThis["Math"]["pow"](2, alias)];
 }
 "##
 }
@@ -97,11 +98,11 @@ await mod.mathPowExponentOneIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\n2\n"), "stdout: {stdout}");
+    assert!(stdout.contains("2\n2\n2\n"), "stdout: {stdout}");
 }
 
 fn browser_harness_math_pow_exponent_one_identity_run_source() -> &'static str {
-    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias));\n"
+    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias));\n"
 }
 
 fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str {
@@ -110,6 +111,7 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str 
   const alias = exponent;
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
+  console.log(globalThis["Math"]["pow"](2, alias));
 });
 "#
 }
@@ -119,6 +121,7 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
     filename: &str,
     source: &str,
     expected_stdout: &str,
+    json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -128,6 +131,9 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
     output
         .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
         .current_dir(dir.path());
+    if json_output {
+        output.arg("--output").arg("json");
+    }
     let output = output
         .arg(command)
         .arg("--api")
@@ -147,8 +153,28 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        if command == "run" {
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            let payload = json["payload"].as_object().expect("payload object");
+            assert_eq!(payload["total"], 1);
+            assert_eq!(payload["passed"], 1);
+            assert_eq!(payload["failed"], 0);
+            assert_eq!(payload["skipped"], 0);
+        }
+        let stdout = json["stdout"].as_str().expect("stdout");
+        assert!(stdout.contains(expected_stdout), "json: {json}");
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
+    }
 }
 
 #[test]
@@ -177,7 +203,8 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.js",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2",
+        "2\n2\n2",
+        false,
     );
 }
 
@@ -187,7 +214,32 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.ts",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2",
+        "2\n2\n2",
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.js",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_ts_input()
+{
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "run",
+        "main.ts",
+        browser_harness_math_pow_exponent_one_identity_run_source(),
+        "2\n2\n2",
+        true,
     );
 }
 
@@ -197,7 +249,8 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.js",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\nok 1",
+        "2\n2\n2\nok 1",
+        false,
     );
 }
 
@@ -207,6 +260,31 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.ts",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\nok 1",
+        "2\n2\n2\nok 1",
+        false,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_harness_math_pow_exponent_one_identity(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_pow_exponent_one_identity_test_source(),
+        "2\n2\n2\n",
+        true,
     );
 }
