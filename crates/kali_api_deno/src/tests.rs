@@ -41,6 +41,17 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
 
+    let json_snapshot = env.to_json_value();
+    let json_snapshot = json_snapshot.as_object().expect("json object");
+    assert_eq!(
+        json_snapshot.get("ALPHA"),
+        Some(&serde_json::Value::String(String::from("1")))
+    );
+    assert_eq!(
+        json_snapshot.get("BETA"),
+        Some(&serde_json::Value::String(String::from("2")))
+    );
+
     env.set("ALPHA", "updated");
     env.set("GAMMA", "3");
     env.remove("BETA");
@@ -48,6 +59,15 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
     assert!(!snapshot.contains_key("GAMMA"));
+    assert_eq!(
+        json_snapshot.get("ALPHA"),
+        Some(&serde_json::Value::String(String::from("1")))
+    );
+    assert_eq!(
+        json_snapshot.get("BETA"),
+        Some(&serde_json::Value::String(String::from("2")))
+    );
+    assert!(!json_snapshot.contains_key("GAMMA"));
 }
 
 #[test]
@@ -208,6 +228,16 @@ fn runtime_projection_bundles_baseline_context() {
     assert_eq!(
         projection.env_snapshot().get("EDITOR"),
         Some(&String::from("nano"))
+    );
+    let json_snapshot = projection.env_snapshot_value();
+    let json_snapshot = json_snapshot.as_object().expect("json object");
+    assert_eq!(
+        json_snapshot.get("HOME"),
+        Some(&serde_json::Value::String(String::from("/workspace/home")))
+    );
+    assert_eq!(
+        json_snapshot.get("EDITOR"),
+        Some(&serde_json::Value::String(String::from("nano")))
     );
     assert_eq!(projection.fs().cwd(), Path::new("/workspace/project"));
     assert_eq!(projection.pid(), std::process::id());

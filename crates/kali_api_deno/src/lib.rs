@@ -25,6 +25,8 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use serde_json::Value;
+
 /// Initialize the Deno API compatibility surface.
 pub fn deno_api_init() {
     kali_api_web::web_api_init();
@@ -60,6 +62,16 @@ impl DenoEnv {
     /// Return a deterministic snapshot of the visible environment.
     pub fn to_object(&self) -> BTreeMap<String, String> {
         self.values.clone()
+    }
+
+    /// Return the visible environment as a JSON object value.
+    pub fn to_json_value(&self) -> Value {
+        Value::Object(
+            self.values
+                .iter()
+                .map(|(key, value)| (key.clone(), Value::String(value.clone())))
+                .collect(),
+        )
     }
 
     /// Iterate over the captured key/value pairs.
@@ -813,6 +825,11 @@ impl DenoRuntimeProjection {
     /// Return a deterministic snapshot of the captured environment view.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.env.to_object()
+    }
+
+    /// Return the captured environment as a JSON object value.
+    pub fn env_snapshot_value(&self) -> Value {
+        self.env.to_json_value()
     }
 
     pub fn fs(&self) -> &DenoFs {
