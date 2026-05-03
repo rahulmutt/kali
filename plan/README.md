@@ -38,3 +38,4 @@ This directory contains only active continuation planning. Completed historical 
 - Progress note: browser bundle smoke now also covers the `Math.floor` / `Math.trunc` / `Math.ceil` const-alias-chain slice in TS and `.js` input.
 - Progress note: the static numeric-literal `Object.is` slice now folds deterministically on the supported standalone/browser smoke paths, including const alias chains and bracketed `globalThis["Object"]["is"]` spellings, and browser-harness run/test smoke now also mirrors that slice in TS and `.js` input.
 - Progress note: bounded library-export coverage now also includes async `const` function-expression bindings through transparent conditional wrappers and export aliases.
+- Progress note: browser-requested run/test JSON-output coverage now also covers the `Math.asinh` / `Math.acosh` / `Math.atanh` identity slice and the `Math.sinh` / `Math.cosh` / `Math.tanh` zero-identity slice in TS and `.js` input.
