@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
+    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -76,6 +76,8 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
         "stderr: {stderr}"
     );
     for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
@@ -107,6 +109,8 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
         "expected at least one E3100 error: {errors:?}"
     );
     for expected in [
+        "Deno.pid",
+        "globalThis.Deno.pid",
         "globalThis.Deno.cwd",
         "Deno.chdir",
         "globalThis.Deno.chdir",
@@ -557,6 +561,11 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
 fn browser_late_process_control_source_includes_bracketed_forms() {
     let source = late_process_control_source();
     for expected in [
+        r#"Deno.pid"#,
+        r#"globalThis.Deno.pid"#,
+        r#"globalThis["Deno"]["pid"]"#,
+        r#"Deno["pid"]"#,
+        r#"globalThis.Deno["pid"]"#,
         r#"globalThis["Deno"]["cwd"]"#,
         r#"Deno["cwd"]"#,
         r#"globalThis.Deno["cwd"]"#,

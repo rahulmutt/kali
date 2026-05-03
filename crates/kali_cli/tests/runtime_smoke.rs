@@ -2393,7 +2393,7 @@ fn browser_harness_bracketed_deno_pid_source() -> &'static str {
 }
 
 #[test]
-fn run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
+fn run_rejects_bracketed_deno_pid_in_js_input_with_browser_harness() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, browser_harness_bracketed_deno_pid_source()).expect("write source");
@@ -2408,26 +2408,19 @@ fn run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
         .output()
         .expect("run kali");
 
-    assert!(output.status.success(), "run failed: {:?}", output);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut lines = stdout.lines();
-    let first = lines
-        .next()
-        .expect("first pid line")
-        .parse::<u32>()
-        .expect("first pid stdout");
-    let second = lines
-        .next()
-        .expect("second pid line")
-        .parse::<u32>()
-        .expect("second pid stdout");
-    assert_eq!(lines.next(), None, "stdout: {stdout}");
-    assert!(first > 0 && second > 0, "stdout: {stdout}");
-    assert_eq!(first, second, "stdout: {stdout}");
+    assert!(
+        !output.status.success(),
+        "run unexpectedly succeeded: {:?}",
+        output
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Deno.pid"), "stderr: {stderr}");
+    assert!(stderr.contains("globalThis.Deno.pid"), "stderr: {stderr}");
 }
 
 #[test]
-fn json_run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
+fn json_run_rejects_bracketed_deno_pid_in_js_input_with_browser_harness() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, browser_harness_bracketed_deno_pid_source()).expect("write source");
@@ -2445,35 +2438,35 @@ fn json_run_accepts_bracketed_deno_pid_in_js_input_with_browser_harness() {
         .expect("run kali");
 
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "run unexpectedly succeeded: {:?}",
+        output
     );
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-    let stdout = json["stdout"].as_str().expect("stdout");
-    let mut lines = stdout.lines();
-    let first = lines
-        .next()
-        .expect("first pid line")
-        .parse::<u32>()
-        .expect("first pid stdout");
-    let second = lines
-        .next()
-        .expect("second pid line")
-        .parse::<u32>()
-        .expect("second pid stdout");
-    assert_eq!(lines.next(), None, "json: {json}");
-    assert!(first > 0 && second > 0, "json: {json}");
-    assert_eq!(first, second, "json: {json}");
-    assert_eq!(json["stderr"], "");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 1);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert!(
+        errors.iter().any(|error| error["code"] == "E5506"),
+        "errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("Deno.pid")),
+        "errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["message"]
+            .as_str()
+            .expect("error message")
+            .contains("globalThis.Deno.pid")),
+        "errors: {errors:?}"
+    );
 }
 
 fn structured_clone_and_event_primitives_source(test_mode: bool) -> String {

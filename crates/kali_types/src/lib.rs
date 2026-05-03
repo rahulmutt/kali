@@ -2155,7 +2155,7 @@ impl TypeContext {
             return;
         };
 
-        if expr.property == "pid" && object_name == "Deno" {
+        if expr.property == "pid" && object_name == "Deno" && self.api_surface == "deno" {
             return;
         }
 
