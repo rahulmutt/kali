@@ -43826,6 +43826,18 @@ fn build_supports_for_of_array_iteration_lowering_in_browser_bundle_context_in_j
 }
 
 #[test]
+fn build_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_bundle_context_in_js_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_bundle_context_in_input("js");
+}
+
+#[test]
+fn build_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_bundle_context_in_ts_input(
+) {
+    assert_build_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_bundle_context_in_input("ts");
+}
+
+#[test]
 fn build_supports_for_of_array_iteration_lowering_with_const_alias_chain_in_browser_bundle_context_in_js_input(
 ) {
     assert_build_supports_for_of_array_iteration_lowering_with_const_alias_chain_in_browser_bundle_context_in_input("js");
@@ -43847,6 +43859,59 @@ fn build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_bro
 fn build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_ts_input(
 ) {
     assert_build_supports_for_of_array_iteration_lowering_with_const_string_alias_in_browser_bundle_context_in_input("ts");
+}
+
+fn assert_build_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_bundle_context_in_input(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = 2; for (const item of ([1, (value)] as const)) { console.log(item); }",
+    )
+    .expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output.current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("build")
+            .arg("--bundle")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(0));
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "build");
+            assert_eq!(json["success"], true);
+            assert!(json["errors"].as_array().expect("errors array").is_empty());
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                stdout.contains("Built browser bundle (esm) at"),
+                "stdout: {stdout}"
+            );
+        }
+    }
+
+    assert!(
+        source_path.with_file_name("main").exists(),
+        "expected browser bundle artifact"
+    );
 }
 
 fn assert_build_supports_for_of_array_iteration_lowering_with_const_alias_chain_in_browser_bundle_context_in_input(
