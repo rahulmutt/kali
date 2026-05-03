@@ -6020,6 +6020,95 @@ fn collect_library_exports_infers_default_async_function_expression_exports() {
 }
 
 #[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_await_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "export default await ((input) => 1);").expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::AwaitExpression(Box::new(
+            kali_ast::AwaitExpression {
+                argument: Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                            kali_ast::ArrowFunctionExpression {
+                                params: vec![kali_ast::FunctionParam {
+                                    name: "input".to_string(),
+                                }],
+                                body: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                                is_async: false,
+                                returnType: None,
+                            },
+                        ))),
+                    },
+                )),
+            },
+        ))),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
+fn collect_library_exports_infers_function_binding_signatures_through_await_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = await ((input) => 1); export { main as alias };",
+    )
+    .expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::AwaitExpression(Box::new(
+                    kali_ast::AwaitExpression {
+                        argument: Expression::ParenthesizedExpression(Box::new(
+                            kali_ast::ParenthesizedExpression {
+                                expression: Box::new(Expression::ArrowFunctionExpression(
+                                    Box::new(kali_ast::ArrowFunctionExpression {
+                                        params: vec![kali_ast::FunctionParam {
+                                            name: "input".to_string(),
+                                        }],
+                                        body: Expression::Literal(kali_ast::LiteralValue::Number(
+                                            1.0,
+                                        )),
+                                        is_async: false,
+                                        returnType: None,
+                                    }),
+                                )),
+                            },
+                        )),
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "alias");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_async_function_expression_bindings_and_aliases() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

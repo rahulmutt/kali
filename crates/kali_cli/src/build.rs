@@ -3047,6 +3047,9 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
         Expression::ChainExpression(chain_expression) => {
             infer_function_binding_signature(Some(&chain_expression.expression))
         }
+        Expression::AwaitExpression(await_expression) => {
+            infer_function_binding_signature(Some(&await_expression.argument))
+        }
         Expression::SequenceExpression(sequence_expression) => sequence_expression
             .expressions
             .last()
