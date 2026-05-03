@@ -3543,21 +3543,27 @@ fn browser_runtime_summary_for_outcome(
 ) -> BrowserRuntimeSummary {
     let stdout_summary = parse_browser_runtime_summary(&outcome.stdout);
     match fs::read_to_string(summary_path) {
-        Ok(text) => match parse_browser_runtime_summary_opt(&text) {
-            Some(mut summary) => {
-                if summary.tests_failed.is_none() {
-                    summary.tests_failed = stdout_summary.tests_failed;
-                }
-                if summary.host_contract.is_none() {
-                    summary.host_contract = stdout_summary.host_contract;
-                }
-                if summary.runtime_backend.is_none() {
-                    summary.runtime_backend = stdout_summary.runtime_backend;
-                }
-                summary
+        Ok(text) => {
+            if text.trim().is_empty() {
+                return stdout_summary;
             }
-            None => stdout_summary,
-        },
+
+            match parse_browser_runtime_summary_opt(&text) {
+                Some(mut summary) => {
+                    if summary.tests_failed.is_none() {
+                        summary.tests_failed = stdout_summary.tests_failed;
+                    }
+                    if summary.host_contract.is_none() {
+                        summary.host_contract = stdout_summary.host_contract;
+                    }
+                    if summary.runtime_backend.is_none() {
+                        summary.runtime_backend = stdout_summary.runtime_backend;
+                    }
+                    summary
+                }
+                None => stdout_summary,
+            }
+        }
         Err(_) => stdout_summary,
     }
 }
