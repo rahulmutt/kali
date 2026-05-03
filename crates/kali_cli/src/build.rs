@@ -3036,6 +3036,9 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
             .expressions
             .last()
             .and_then(|expression| infer_function_binding_signature(Some(expression))),
+        Expression::DecoratedExpression(decorated_expression) => {
+            infer_function_binding_signature(Some(&decorated_expression.expression))
+        }
         Expression::ConditionalExpression(conditional_expression) => {
             let consequent =
                 infer_function_binding_signature(Some(conditional_expression.consequent.as_ref()));
@@ -3089,6 +3092,9 @@ fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
         }
         Expression::SequenceExpression(sequence) => {
             sequence.expressions.last().and_then(infer_expression_type)
+        }
+        Expression::DecoratedExpression(decorated_expression) => {
+            infer_expression_type(&decorated_expression.expression)
         }
         Expression::ConditionalExpression(condition) => {
             let consequent = infer_expression_type(&condition.consequent);

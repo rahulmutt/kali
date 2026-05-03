@@ -5660,6 +5660,61 @@ fn collect_library_exports_infers_function_binding_signatures_through_sequence_a
 }
 
 #[test]
+fn collect_library_exports_infers_function_binding_signatures_through_decorated_wrappers() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 0; export { main as alias };").expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::DecoratedExpression(
+                    kali_ast::DecoratedExpression {
+                        expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                            kali_ast::ParenthesizedExpression {
+                                expression: Box::new(Expression::ArrowFunctionExpression(
+                                    Box::new(kali_ast::ArrowFunctionExpression {
+                                        params: vec![kali_ast::FunctionParam {
+                                            name: "input".to_string(),
+                                        }],
+                                        body: Expression::DecoratedExpression(
+                                            kali_ast::DecoratedExpression {
+                                                expression: Box::new(Expression::Literal(
+                                                    kali_ast::LiteralValue::Number(1.0),
+                                                )),
+                                            },
+                                        ),
+                                        is_async: false,
+                                        returnType: None,
+                                    }),
+                                )),
+                            },
+                        ))),
+                    },
+                )),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "alias" && export.signature == "(input) => number" }));
+}
+
+#[test]
 fn build_capi_result_round_trips_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "capi",
