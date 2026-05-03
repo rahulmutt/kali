@@ -2731,6 +2731,34 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapp
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
+    api_surface: ApiSurface,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const value = 2; for (const item of ([1, (value)] as const)) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for-of array iteration with as const wrapper should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_const_alias_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -2873,6 +2901,21 @@ fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_t
 fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_browser_api_surface_in_ts_input(
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
+        ApiSurface::Browser,
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_ts_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
+        ApiSurface::Deno,
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
         ApiSurface::Browser,
     );
 }
