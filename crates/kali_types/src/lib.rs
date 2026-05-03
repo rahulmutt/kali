@@ -2363,7 +2363,7 @@ impl TypeContext {
     }
 
     fn resolve_late_env_mutation_member(&mut self, expr: &MemberExpression) -> bool {
-        if self.api_surface != "browser" {
+        if self.api_surface == "deno" {
             return false;
         }
 
@@ -2383,8 +2383,8 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "environment mutation API '{}' (aka {}) is unavailable in the browser API surface until the later mutable env path is enabled",
-                dotted, bracketed
+                "environment mutation API '{}' (aka {}) is unavailable on the {} API surface until the later mutable env path is enabled",
+                dotted, bracketed, self.api_surface
             ),
         ));
         true

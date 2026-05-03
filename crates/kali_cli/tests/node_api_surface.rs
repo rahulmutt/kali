@@ -2209,6 +2209,114 @@ fn node_api_surface_supports_process_env_property_mutation_in_js_input_on_check_
 }
 
 #[test]
+fn node_api_surface_rejects_deno_env_mutation_in_js_input_on_check_build_run_and_test_commands() {
+    let cases = [
+        (
+            r#"Deno.env.set('KALI_NODE_DENO_ENV_MUTATION', 'set'); Deno.env.delete('KALI_NODE_DENO_ENV_MUTATION'); console.log('deno env mutation');"#,
+            "Deno.env.set",
+        ),
+        (
+            r#"Deno["env"]["set"]('KALI_NODE_DENO_ENV_MUTATION', 'set'); Deno["env"]["delete"]('KALI_NODE_DENO_ENV_MUTATION'); console.log('deno env mutation');"#,
+            r#"Deno["env"]["set"]"#,
+        ),
+    ];
+
+    for (source, expected_fragment) in cases {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("main.js");
+            let test_path = dir.path().join("main.test.js");
+            fs::write(&source_path, format!("{source}\n")).expect("write source");
+            fs::write(
+                &test_path,
+                format!("Kali.test('deno env mutation rejection', () => {{ {source} }});\n"),
+            )
+            .expect("write test source");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_path
+                } else {
+                    &source_path
+                };
+
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    !text_output.status.success(),
+                    "{command} should be rejected on the Node surface for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&text_output.stdout),
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+                assert!(
+                    text_stderr.contains("environment mutation API"),
+                    "{command} stderr missing environment mutation gate for {source} (inherited={inherited}): {text_stderr}"
+                );
+                assert!(
+                    text_stderr.contains(expected_fragment),
+                    "{command} stderr missing {expected_fragment} for {source} (inherited={inherited}): {text_stderr}"
+                );
+
+                let mut json_command = Command::new(kali_bin());
+                json_command
+                    .current_dir(dir.path())
+                    .arg("--output")
+                    .arg("json")
+                    .arg(command);
+                if !inherited {
+                    json_command.arg("--api").arg("node");
+                }
+                json_command.arg(input_path);
+
+                let json_output = json_command.output().expect("run kali");
+                assert!(
+                    !json_output.status.success(),
+                    "json {command} should surface the Node rejection as machine-readable output for {source} (inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&json_output.stdout),
+                    String::from_utf8_lossy(&json_output.stderr)
+                );
+                let json = parse_json_stdout(&json_output);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                assert_eq!(json["exitCode"], 1);
+                assert_eq!(json["errors"][0]["code"], "E5506");
+                let message = json["errors"][0]["message"]
+                    .as_str()
+                    .expect("json error message string");
+                assert!(
+                    message.contains("environment mutation API"),
+                    "json {command} message missing environment mutation gate for {source} (inherited={inherited}): {message}"
+                );
+                assert!(
+                    message.contains(expected_fragment),
+                    "json {command} message missing {expected_fragment} for {source} (inherited={inherited}): {message}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn node_api_surface_supports_promise_all_settled_in_js_input_on_check_build_run_and_test_commands()
 {
     let source_variants = [
