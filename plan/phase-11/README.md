@@ -55,6 +55,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Direct build smoke now also covers the bracketed `globalThis["Math"]` root for the `Math.atan2` zero-numerator / non-negative-denominator slice in JS input.
 
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` / fully bracketed `globalThis["Math"]["round"]` slice for `Math.round` identity cases in TS and `.js` input, and now also cover the `globalThis.Math.round` root slice in TS and `.js` input.
+- Progress note: browser-harness/browser-bundle smoke now also covers the mixed-bracket `globalThis["Object"].prototype.hasOwnProperty.call` and `globalThis.Object["prototype"].hasOwnProperty.call` spellings for the supported `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice in TS and `.js` input.
 
 - Progress note: browser-harness and browser-bundle smoke now also cover the `globalThis.Math.atan2` / `globalThis.Math["atan2"]` zero slice in TS and `.js` input, complementing the existing bracketed-root coverage.
 - Progress note: browser-harness/browser-bundle Math.atan2 smoke now also covers the single-quoted bracketed `globalThis['Math']['atan2']` spelling in TS and `.js` input.

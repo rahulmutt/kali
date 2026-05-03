@@ -18,6 +18,8 @@ if (
   !globalThis["Object"].hasOwn(alias, "a") ||
   !Object.prototype.hasOwnProperty.call(alias, "a") ||
   !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") ||
+  !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") ||
+  !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") ||
   !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")
 ) {
   throw new Error('unexpected browser Object.hasOwn result');
@@ -38,6 +40,8 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     !globalThis["Object"].hasOwn(alias, "a") ||
     !Object.prototype.hasOwnProperty.call(alias, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") ||
+    !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") ||
+    !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") ||
     !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")
   ) {
     throw new Error('unexpected browser Object.hasOwn result');
