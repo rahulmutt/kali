@@ -734,7 +734,7 @@ fn standalone_surface_supports_bracketed_deno_chdir_aliases_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno[\"chdir\"]('nested'); globalThis.Deno[\"chdir\"]('nested'); globalThis[\"Deno\"][\"chdir\"]('nested');\n",
+        "Deno[\"chdir\"]('nested'); globalThis.Deno.chdir('nested'); globalThis.Deno[\"chdir\"]('nested'); globalThis[\"Deno\"].chdir('nested'); globalThis[\"Deno\"][\"chdir\"]('nested');\n",
     )
     .expect("write source");
 
@@ -761,7 +761,7 @@ fn standalone_surface_supports_deno_exit_aliases_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Deno.exit(7); Deno[\"exit\"](7); globalThis.Deno[\"exit\"](7); globalThis[\"Deno\"][\"exit\"](7);\n",
+        "globalThis.Deno.exit(7); globalThis[\"Deno\"].exit(7); Deno.exit(7); Deno[\"exit\"](7); globalThis.Deno[\"exit\"](7); globalThis[\"Deno\"][\"exit\"](7);\n",
     )
     .expect("write source");
 
