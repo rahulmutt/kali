@@ -17,6 +17,15 @@ console.log('object hasOwn ok');
 "#
 }
 
+fn object_has_own_as_const_source() -> &'static str {
+    r#"const object = ({ a: 1, "b": 2 } as const);
+if (!Object.hasOwn(object, "a") || !Object.prototype.hasOwnProperty.call(object, "a")) {
+  throw new Error('unexpected as const Object.hasOwn result');
+}
+console.log('as const object hasOwn ok');
+"#
+}
+
 fn object_has_own_test_source() -> &'static str {
     r#"Kali.test('object hasOwn', () => {
   const object = { a: 1, "b": 2 };
@@ -33,6 +42,27 @@ fn check_accepts_object_has_own_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, object_has_own_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn check_accepts_object_has_own_for_as_const_object_alias_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, object_has_own_as_const_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -71,6 +101,33 @@ fn run_accepts_object_has_own_in_js_input() {
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("object hasOwn ok"), "stdout: {stdout}");
+}
+
+#[test]
+fn run_accepts_object_has_own_for_as_const_object_alias_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, object_has_own_as_const_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("as const object hasOwn ok"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
