@@ -5930,6 +5930,50 @@ fn collect_library_exports_infers_default_function_expression_exports() {
 }
 
 #[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_conditional_wrapper()
+{
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "export default true ? ((input) => 1) : ((input) => 1);",
+    )
+    .expect("write source");
+
+    let function_expression = |value| {
+        Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                kali_ast::ArrowFunctionExpression {
+                    params: vec![kali_ast::FunctionParam {
+                        name: "input".to_string(),
+                    }],
+                    body: Expression::Literal(kali_ast::LiteralValue::Number(value)),
+                    is_async: false,
+                    returnType: None,
+                },
+            ))),
+        }))
+    };
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::ConditionalExpression(
+            Box::new(kali_ast::ConditionalExpression {
+                test: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(true))),
+                consequent: Box::new(function_expression(1.0)),
+                alternate: Box::new(function_expression(1.0)),
+            }),
+        )),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_function_binding_signatures_through_sequence_and_conditional_wrappers(
 ) {
     let dir = tempdir().expect("tempdir");
