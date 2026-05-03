@@ -6333,6 +6333,65 @@ fn collect_library_exports_infers_function_binding_signatures_through_decorated_
 }
 
 #[test]
+fn collect_library_exports_preserves_unknown_signature_for_mixed_conditional_binding_exports() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = true ? ((input) => 1) : ((input, extra) => 2); export { main as alias };",
+    )
+    .expect("write source");
+
+    let function_expression = |params: Vec<&str>, value: f64| {
+        Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                kali_ast::ArrowFunctionExpression {
+                    params: params
+                        .into_iter()
+                        .map(|name| kali_ast::FunctionParam {
+                            name: name.to_string(),
+                        })
+                        .collect(),
+                    body: Expression::Literal(kali_ast::LiteralValue::Number(value)),
+                    is_async: false,
+                    returnType: None,
+                },
+            ))),
+        }))
+    };
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::ConditionalExpression(Box::new(
+                    kali_ast::ConditionalExpression {
+                        test: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(true))),
+                        consequent: Box::new(function_expression(vec!["input"], 1.0)),
+                        alternate: Box::new(function_expression(vec!["input", "extra"], 2.0)),
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "alias");
+    assert_eq!(exports[0].signature, "(main) => unknown");
+}
+
+#[test]
 fn build_capi_result_round_trips_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "capi",
