@@ -1200,6 +1200,25 @@ fn browser_runtime_harness_summary_file_capture_is_deterministic() {
 }
 
 #[test]
+fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["zeta"],"tests":["7"],"testsFailed":0}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, Some(0));
+    assert_eq!(summary.host_contract, None);
+    assert_eq!(summary.runtime_backend, None);
+}
+
+#[test]
 fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
@@ -1841,6 +1860,43 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
 }
 
 #[test]
+fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser missing\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["zeta".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser missing".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_unparseable() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let wasm = compile_wat(
@@ -2040,6 +2096,65 @@ fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_
         outcome
             .stdout
             .contains("\"runtimeBackend\":\"browser-harness\""),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_missing() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'process.stdout.write("{\"args\":[\"zeta\"],\"tests\":[\"browser missing\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["zeta".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["zeta".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser missing".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
         "stdout: {}",
         outcome.stdout
     );
