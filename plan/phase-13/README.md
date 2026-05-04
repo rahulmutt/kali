@@ -22,6 +22,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 - Record expected failures for native, binary, bootstrap-heavy, host-mismatched, and published-bin entrypoint cases.
 - Keep corpus snapshots concise and deterministic.
 - Progress note: the package corpus now also keeps the `spawn-tools` Deno-host package shape exercised on the standalone Deno surface, the browser surface's check/bundle lanes, the browser-harness run/test lanes, the inherited browser API-surface run/test lanes, and the browser runtime TS-input run/test lanes, preserving the support-rung boundary across contexts while the standalone browser runtime gate remains separate.
+- Progress note: `package-effects` JSON coverage now also pins inherited browser analysis context, including `apiSurface = browser`, `runtimeProfiles = ["wasm-threads"]`, and `compat.features = ["eval"]`, so the single-package registry-analysis lane stays aligned with the inherited-analysis contract.
 
 ### 13.2 Node ecosystem breadth
 

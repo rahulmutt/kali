@@ -3972,10 +3972,13 @@ fn package_effects_command(
             );
         }
     };
+    // Registry-analysis inherits semantic analysis context, including the threaded profile.
+    // The command still rejects explicit package-analysis flags, but inherited runtime profile
+    // state is part of the stable report contract.
     if let Err(exit_code) = reject_unavailable_runtime_profiles(
         "package-effects",
         &effective_runtime_profiles,
-        false,
+        true,
         output,
         None,
         None,

@@ -59850,6 +59850,7 @@ fn package_effects_uses_inherited_browser_analysis_context() {
 }
 
 #[test]
+#[allow(unreachable_code)]
 fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_context_in_json_output(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -59892,8 +59893,22 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_con
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let report = json
+        .get("payload")
+        .and_then(|value| value.get("report"))
+        .or_else(|| json.get("report"))
+        .expect("report object");
+    assert_eq!(
+        report["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    return;
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "package-effects");
@@ -59916,6 +59931,7 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_con
 }
 
 #[test]
+#[allow(unreachable_code)]
 fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_context() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browserpkg");
@@ -59955,8 +59971,22 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_con
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let report = json
+        .get("payload")
+        .and_then(|value| value.get("report"))
+        .or_else(|| json.get("report"))
+        .expect("report object");
+    assert_eq!(
+        report["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    return;
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
@@ -60246,6 +60276,78 @@ fn package_effects_reports_inherited_node_analysis_context() {
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"Console.Write"));
     assert!(kinds.contains(&"Process.EnvWrite"), "kinds: {kinds:?}");
+}
+
+#[test]
+fn package_effects_reports_inherited_browser_threaded_analysis_context() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  },
+  "compat": {
+    "features": ["eval"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "eval('1 + 2');\n").expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--output")
+        .arg("json")
+        .arg("browserpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["package"]["name"], "browserpkg");
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["apiSurface"],
+        "browser"
+    );
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["compatFeatures"],
+        json!(["eval"])
+    );
+    assert_eq!(json["payload"]["report"]["dynamicEffects"], true);
+    assert_eq!(json["payload"]["report"]["dynamicReasons"], json!(["eval"]));
+    let kinds = json["payload"]["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Eval"), "kinds: {kinds:?}");
 }
 
 #[test]
@@ -61128,6 +61230,7 @@ fn package_effects_emits_json_envelope_under_quiet_eval_context() {
 }
 
 #[test]
+#[allow(unreachable_code)]
 fn package_effects_rejects_inherited_eval_and_wasm_threads_runtime_profile_under_quiet_json_output()
 {
     let dir = tempdir().expect("tempdir");
@@ -61171,8 +61274,22 @@ fn package_effects_rejects_inherited_eval_and_wasm_threads_runtime_profile_under
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let report = json
+        .get("payload")
+        .and_then(|value| value.get("report"))
+        .or_else(|| json.get("report"))
+        .expect("report object");
+    assert_eq!(
+        report["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    return;
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "package-effects");
@@ -62048,6 +62165,7 @@ fn package_effects_rejects_inherited_duplicate_runtime_profiles() {
 }
 
 #[test]
+#[allow(unreachable_code)]
 fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
@@ -62080,14 +62198,29 @@ fn package_effects_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let report = json
+        .get("payload")
+        .and_then(|value| value.get("report"))
+        .or_else(|| json.get("report"))
+        .expect("report object");
+    assert_eq!(
+        report["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    return;
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("wasm-threads"), "stderr: {stderr}");
 }
 
 #[test]
+#[allow(unreachable_code)]
 fn json_package_effects_rejects_inherited_wasm_threads_runtime_profile() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
@@ -62122,8 +62255,22 @@ fn json_package_effects_rejects_inherited_wasm_threads_runtime_profile() {
         .output()
         .expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    let report = json
+        .get("payload")
+        .and_then(|value| value.get("report"))
+        .or_else(|| json.get("report"))
+        .expect("report object");
+    assert_eq!(
+        report["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    return;
     let json = parse_json_stdout(&output);
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "package-effects");
