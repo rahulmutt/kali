@@ -42699,6 +42699,72 @@ fn test_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_b
 }
 
 #[test]
+fn run_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_api_surface_with_harness_tsx_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "let value = 0; for ((value) of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_api_surface_with_harness_tsx_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.tsx");
+    fs::write(
+        &source_path,
+        "let value = 0; for ((value) of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
 fn test_supports_for_of_array_iteration_lowering_with_identifier_binding_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -43706,6 +43772,72 @@ fn test_supports_for_await_array_iteration_lowering_with_parenthesized_binding_i
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "let value = 0; for await ((value) of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_browser_for_await_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_api_surface_with_harness_tsx_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "let value = 0; for await ((value) of [1, 2]) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    assert_browser_for_await_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_parenthesized_binding_in_browser_api_surface_with_harness_tsx_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.tsx");
     fs::write(
         &source_path,
         "let value = 0; for await ((value) of [1, 2]) { console.log(value); }\n",
