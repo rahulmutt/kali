@@ -150,6 +150,46 @@ fn json_build_emits_for_of_const_alias_chain_in_ts_input() {
     );
 }
 
+#[test]
+fn build_emits_for_of_const_alias_chain_in_jsx_input() {
+    assert_browser_bundle_for_of_alias_chain(
+        "app.jsx",
+        false,
+        for_of_const_alias_chain_source(),
+        "forOfArrayIterationConstAliasChainWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_const_alias_chain_in_jsx_input() {
+    assert_browser_bundle_for_of_alias_chain(
+        "app.jsx",
+        true,
+        for_of_const_alias_chain_source(),
+        "forOfArrayIterationConstAliasChainWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_of_const_alias_chain_in_tsx_input() {
+    assert_browser_bundle_for_of_alias_chain(
+        "app.tsx",
+        false,
+        for_of_const_alias_chain_source(),
+        "forOfArrayIterationConstAliasChainWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_const_alias_chain_in_tsx_input() {
+    assert_browser_bundle_for_of_alias_chain(
+        "app.tsx",
+        true,
+        for_of_const_alias_chain_source(),
+        "forOfArrayIterationConstAliasChainWrapper",
+    );
+}
+
 fn browser_harness_for_of_const_alias_chain_source() -> &'static str {
     "const values = [1, 2]; const alias = values; for (const value of alias) { console.log(value); }\n"
 }

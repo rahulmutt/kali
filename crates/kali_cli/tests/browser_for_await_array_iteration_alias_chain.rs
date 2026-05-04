@@ -257,3 +257,43 @@ fn json_run_supports_for_await_const_alias_chain_in_browser_api_surface_with_har
 fn json_test_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_js_input() {
     assert_browser_harness_for_await_alias_chain("test", "smoke.test.js", true);
 }
+
+#[test]
+fn run_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_harness_for_await_alias_chain("run", "main.jsx", false);
+}
+
+#[test]
+fn test_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_harness_for_await_alias_chain("test", "smoke.test.jsx", false);
+}
+
+#[test]
+fn json_run_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_harness_for_await_alias_chain("run", "main.jsx", true);
+}
+
+#[test]
+fn json_test_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_harness_for_await_alias_chain("test", "smoke.test.jsx", true);
+}
+
+#[test]
+fn run_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_harness_for_await_alias_chain("run", "main.tsx", false);
+}
+
+#[test]
+fn test_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_harness_for_await_alias_chain("test", "smoke.test.tsx", false);
+}
+
+#[test]
+fn json_run_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_harness_for_await_alias_chain("run", "main.tsx", true);
+}
+
+#[test]
+fn json_test_supports_for_await_const_alias_chain_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_harness_for_await_alias_chain("test", "smoke.test.tsx", true);
+}
