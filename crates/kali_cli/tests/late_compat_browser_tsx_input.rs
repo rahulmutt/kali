@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_browser_tsx_compatibility_source() -> &'static str {
-    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"][\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"].toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"]; new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"]; new WeakRef(); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"]; globalThis.SharedArrayBuffer; globalThis.Atomics;"
+    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"][\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"].toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"]; new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"]; new WeakRef(); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"]; globalThis.SharedArrayBuffer; globalThis.Atomics; Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis.Deno[\"connect\"]('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis.Deno[\"listen\"]('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis.Deno[\"serve\"]('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
 }
 
 fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
@@ -72,6 +72,13 @@ fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
         "FinalizationRegistry",
         "SharedArrayBuffer",
         "Atomics",
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
         "object-aggregate lowering",
     ] {
         assert!(
@@ -182,6 +189,30 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
         source.contains(r#"globalThis["process"]["exit"]"#),
         "source: {source}"
     );
+    assert!(
+        source.contains("Deno.connect('127.0.0.1', 1)"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["connect"]('127.0.0.1', 1)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains("Deno.listen('127.0.0.1', 0)"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["listen"]('127.0.0.1', 0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains("Deno.serve('127.0.0.1', 0)"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["serve"]('127.0.0.1', 0)"#),
+        "source: {source}"
+    );
 }
 
 fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
@@ -250,6 +281,13 @@ fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
         "FinalizationRegistry",
         "SharedArrayBuffer",
         "Atomics",
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
         "object-aggregate lowering",
         "undefined identifier 'process'",
     ] {
