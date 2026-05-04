@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
+    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -28,11 +28,11 @@ fn late_permission_escalation_source() -> &'static str {
 }
 
 fn late_subprocess_source() -> &'static str {
-    "new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis[\"Deno\"].Command('sh').spawn(); new globalThis[\"Deno\"][\"Command\"]('sh').spawn();"
+    "new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis.Deno[\"Command\"]('sh').spawn(); new globalThis[\"Deno\"].Command('sh').spawn(); new globalThis[\"Deno\"][\"Command\"]('sh').spawn();"
 }
 
 fn late_network_source() -> &'static str {
-    "Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
+    "Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis.Deno[\"connect\"]('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis.Deno[\"listen\"]('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis.Deno[\"serve\"]('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
 }
 
 fn late_object_model_source() -> &'static str {
@@ -359,13 +359,13 @@ fn assert_browser_late_subprocess_rejection(stderr: &str) {
     assert!(stderr.contains("Process.Spawn"), "stderr: {stderr}");
     assert_eq!(
         stderr.matches("Process.Spawn").count(),
-        4,
+        5,
         "stderr: {stderr}"
     );
 }
 
 fn assert_browser_late_subprocess_rejection_json(errors: &[Value]) {
-    assert_eq!(errors.len(), 4, "errors array: {errors:?}");
+    assert_eq!(errors.len(), 5, "errors array: {errors:?}");
     assert!(
         errors.iter().all(|error| error["code"] == "E9007"),
         "unexpected errors: {errors:?}"
@@ -679,6 +679,44 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_subprocess_source_includes_bracketed_forms() {
+    let source = late_subprocess_source();
+    for expected in [
+        r#"new Deno.Command('sh').spawn()"#,
+        r#"new globalThis.Deno.Command('sh').spawn()"#,
+        r#"new globalThis.Deno["Command"]('sh').spawn()"#,
+        r#"new globalThis["Deno"].Command('sh').spawn()"#,
+        r#"new globalThis["Deno"]["Command"]('sh').spawn()"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_network_source_includes_bracketed_forms() {
+    let source = late_network_source();
+    for expected in [
+        r#"Deno.connect('127.0.0.1', 1)"#,
+        r#"globalThis.Deno.connect('127.0.0.1', 1)"#,
+        r#"globalThis.Deno["connect"]('127.0.0.1', 1)"#,
+        r#"globalThis["Deno"].connect('127.0.0.1', 1)"#,
+        r#"globalThis["Deno"]["connect"]('127.0.0.1', 1)"#,
+        r#"Deno.listen('127.0.0.1', 0)"#,
+        r#"globalThis.Deno.listen('127.0.0.1', 0)"#,
+        r#"globalThis.Deno["listen"]('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"].listen('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"]["listen"]('127.0.0.1', 0)"#,
+        r#"Deno.serve('127.0.0.1', 0)"#,
+        r#"globalThis.Deno.serve('127.0.0.1', 0)"#,
+        r#"globalThis.Deno["serve"]('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"].serve('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"]["serve"]('127.0.0.1', 0)"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
