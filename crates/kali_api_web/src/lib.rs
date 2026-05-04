@@ -2364,6 +2364,11 @@ impl ThreadRuntimeTopology {
         }
     }
 
+    /// Alias for the topology snapshot helper with an explicit thread-topology name.
+    pub fn thread_topology_snapshot(&self) -> ThreadRuntimeShutdownReport {
+        self.snapshot()
+    }
+
     /// Produce a stable JSON-ready snapshot of the current topology state.
     pub fn snapshot_value(&self) -> Value {
         self.snapshot().snapshot_value()
