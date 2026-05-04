@@ -43,6 +43,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Progress note: the browser-requested summary-fallback smoke now also covers JSX input on the supported JSON `test` and human `run` / `test` paths, keeping the stdout-authoritative rule aligned across the browser-capable source classes.
 - Progress note: the browser-requested whitespace-only summary fallback smoke now also covers JSX and TSX input on the supported JSON `test` and human `run` / `test` paths, keeping the blank-summary rule pinned across the browser-capable source classes.
 - Progress note: the browser-requested `run` / `test` smoke for the supported `Object.is` numeric-literal slice now also covers TSX input on the browser API surface, including the JSON `run` path, so the browser harness coverage for that bounded object-helper slice stays aligned with the existing JS/TS smoke.
+- Progress note: the browser-requested summary-fallback smoke now also covers invalid `args` / `tests` array item types in JSX and TSX input, keeping the shape-invalid browser summary fallback aligned across the browser-capable source classes.
 
 ### 12.3 Late host APIs
 
