@@ -2698,23 +2698,65 @@ impl TypeContext {
     }
 
     fn member_access_name(expr: &MemberExpression) -> Option<String> {
-        let object_name = match &expr.object {
-            Expression::Identifier(name) => Some(name.clone()),
-            Expression::MemberExpression(member) => Self::member_access_name(member),
-            _ => None,
-        }?;
+        let object_name = Self::member_access_root_name(&expr.object)?;
 
         Some(format!("{}.{}", object_name, expr.property))
     }
 
     fn member_access_name_bracketed(expr: &MemberExpression) -> Option<String> {
-        let object_name = match &expr.object {
-            Expression::Identifier(name) => Some(name.clone()),
-            Expression::MemberExpression(member) => Self::member_access_name_bracketed(member),
-            _ => None,
-        }?;
+        let object_name = Self::member_access_bracketed_root_name(&expr.object)?;
 
         Some(format!("{}[\"{}\"]", object_name, expr.property))
+    }
+
+    fn member_access_bracketed_root_name(object: &Expression) -> Option<String> {
+        match object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) => Self::member_access_name_bracketed(member),
+            Expression::ParenthesizedExpression(expr) => {
+                Self::member_access_bracketed_root_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                Self::member_access_bracketed_root_name(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                Self::member_access_bracketed_root_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::member_access_bracketed_root_name(&expr.expression)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    Self::member_access_bracketed_root_name(object)
+                }
+            },
+            Expression::ChainExpression(expr) => {
+                Self::member_access_bracketed_root_name(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn member_access_root_name(object: &Expression) -> Option<String> {
+        match object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) => Self::member_access_name(member),
+            Expression::ParenthesizedExpression(expr) => {
+                Self::member_access_root_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => Self::member_access_root_name(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                Self::member_access_root_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::member_access_root_name(&expr.expression)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => Self::member_access_root_name(object),
+            },
+            Expression::ChainExpression(expr) => Self::member_access_root_name(&expr.expression),
+            _ => None,
+        }
     }
 
     fn member_object_name(object: &Expression) -> Option<String> {
@@ -2723,6 +2765,14 @@ impl TypeContext {
             Expression::MemberExpression(member) if matches!(&member.object, Expression::Identifier(name) if name == "globalThis") => {
                 Some(member.property.clone())
             }
+            Expression::ParenthesizedExpression(expr) => Self::member_object_name(&expr.expression),
+            Expression::TypeAssertion(expr) => Self::member_object_name(&expr.expression),
+            Expression::SatisfiesExpression(expr) => Self::member_object_name(&expr.expression),
+            Expression::DecoratedExpression(expr) => Self::member_object_name(&expr.expression),
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => Self::member_object_name(object),
+            },
+            Expression::ChainExpression(expr) => Self::member_object_name(&expr.expression),
             _ => None,
         }
     }
