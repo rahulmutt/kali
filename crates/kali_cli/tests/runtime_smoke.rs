@@ -5724,6 +5724,39 @@ fn effects_reports_late_env_materialization_members_in_json_in_js_input() {
 }
 
 #[test]
+fn effects_reports_bracketed_late_env_materialization_members_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Deno[\"env\"][\"toObject\"]; globalThis[\"Deno\"][\"env\"][\"toObject\"];\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("effects")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["dynamicReasons"], json!(["computed-host-access"]));
+    let kinds = json["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Process.EnvRead"), "effects: {kinds:?}");
+}
+
+#[test]
 fn run_rejects_broader_intl_support() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

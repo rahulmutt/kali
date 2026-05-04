@@ -849,6 +849,29 @@ globalThis.Deno.env.toObject;
 }
 
 #[test]
+fn effect_analysis_tracks_bracketed_deno_env_to_object_as_dynamic_env_read() {
+    let source = write_source_fixture_with_extension(
+        r#"
+Deno["env"]["toObject"];
+globalThis["Deno"]["env"]["toObject"];
+"#,
+        "js",
+    );
+
+    let inference = infer_effects_from_roots(
+        std::slice::from_ref(&source),
+        EffectAnalysisContext::new("deno"),
+    )
+    .expect("infer effects");
+
+    assert_eq!(inference.dynamic_reasons, vec!["computed-host-access"]);
+    assert!(inference
+        .effects
+        .iter()
+        .any(|effect| effect.kind == "Process.EnvRead"));
+}
+
+#[test]
 fn effect_analysis_marks_proxy_constructor_and_revocable_calls_as_dynamic() {
     let source = write_source_fixture(
         r#"
