@@ -158,6 +158,30 @@ fn run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_b
             "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
             "3\nok 1",
         ),
+        (
+            "run",
+            "main.jsx",
+            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "3\n3",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "3\nok 1",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "3\n3",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
+            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "3\nok 1",
+        ),
     ] {
         for output_json in [false, true] {
             let dir = tempdir().expect("tempdir");

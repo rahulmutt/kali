@@ -160,6 +160,26 @@ fn run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_wh
             "smoke.test.ts",
             "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
         ),
+        (
+            "run",
+            "main.jsx",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+        ),
     ] {
         for output_json in [false, true] {
             let dir = tempdir().expect("tempdir");
