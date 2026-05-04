@@ -1718,6 +1718,35 @@ fn assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_inp
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_global_this_math_round_identity_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = 1.6; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"].round(value)); console.log(globalThis[\"Math\"][\"round\"](value));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("globalThis.Math.round identity should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_math_round_const_numeric_alias_chain_in_js_input() {
     assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_input(
@@ -1747,6 +1776,38 @@ fn build_source_file_supports_math_round_const_numeric_alias_chain_in_browser_ap
 fn build_source_file_supports_math_round_const_numeric_alias_chain_in_browser_api_surface_in_ts_input(
 ) {
     assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_js_input() {
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_ts_input() {
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
         ApiSurface::Browser,
         "ts",
     );
