@@ -72,6 +72,29 @@ fn doctor_command_parses_without_arguments() {
 }
 
 #[test]
+fn package_audit_command_parses_preview_flag() {
+    let args = Args::parse_from(["kali", "package-audit", "--preview", "lodash"]);
+    match args.command {
+        Some(Commands::PackageAudit {
+            target,
+            preview,
+            api,
+            compat,
+            wasm_threads,
+            sandbox,
+        }) => {
+            assert_eq!(target, vec![String::from("lodash")]);
+            assert!(preview);
+            assert!(api.is_none());
+            assert!(compat.is_empty());
+            assert!(!wasm_threads);
+            assert!(sandbox.is_none());
+        }
+        other => panic!("expected package-audit command, got {other:?}"),
+    }
+}
+
+#[test]
 fn run_command_splits_guest_args_after_double_dash() {
     let args = Args::parse_from(["kali", "run", "--api", "node", "main.ts", "--", "1.2.3"]);
     match args.command {

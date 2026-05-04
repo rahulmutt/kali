@@ -41,6 +41,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
 - Do not add batch, raw-URL, local-path, or project-discovery behavior without spec/schema revisions.
+- Progress note: `package-audit --preview` remains a hidden legacy shim that is rejected before registry lookup, and the CLI parser surface now has a direct regression covering that command shape.
 
 ## Exit gate
 
