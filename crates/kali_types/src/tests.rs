@@ -1897,7 +1897,49 @@ fn test_resolution_rejects_process_env_assignment_as_unavailable_in_node_api_sur
 }
 
 #[test]
-fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() {
+fn test_resolution_allows_bracketed_deno_env_mutation_in_default_standalone_surface() {
+    let mut ctx = TypeContext::with_base_path_and_api_surface(".", "deno");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "env".to_string(),
+                    })),
+                    property: "set".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::String("KALI_FLAG".to_string())),
+                    Expression::Literal(LiteralValue::String("1".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "env".to_string(),
+                    })),
+                    property: "delete".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::String(
+                    "KALI_FLAG".to_string(),
+                ))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_resolution_rejects_bracketed_env_mutation_as_unavailable_in_browser_api_surface() {
     let mut ctx = TypeContext::with_api_surface("browser");
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
@@ -1943,11 +1985,10 @@ fn test_resolution_rejects_env_mutation_as_unavailable_in_browser_api_surface() 
     assert!(result
         .diagnostics
         .iter()
-        .any(|diag| diag.message.contains("Deno.env.set")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("globalThis.Deno.env.delete")));
+        .any(|diag| diag.message.contains(r#"Deno["env"]["set"]"#)));
+    assert!(result.diagnostics.iter().any(|diag| diag
+        .message
+        .contains(r#"globalThis["Deno"]["env"]["delete"]"#)));
     assert!(result
         .diagnostics
         .iter()
