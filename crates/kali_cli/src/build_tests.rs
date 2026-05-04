@@ -4287,6 +4287,38 @@ fn assert_build_source_file_rejects_generator_lowering_in_input(extension: &str)
     );
 }
 
+fn assert_build_source_file_rejects_async_generator_lowering_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "async function* main() { yield 1; }\nmain();\n",
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("async generator lowering should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("generator function lowering")
+                || diagnostic.message.contains("yield expressions")
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
 #[test]
 fn build_source_file_rejects_generator_functions_in_ts_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("ts");
@@ -4305,6 +4337,26 @@ fn build_source_file_rejects_generator_functions_in_jsx_input() {
 #[test]
 fn build_source_file_rejects_generator_functions_in_tsx_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("tsx");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_ts_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_js_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_input("js");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_jsx_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_input("jsx");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_tsx_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_input("tsx");
 }
 
 fn assert_build_source_file_rejects_generator_lowering_in_browser_input(extension: &str) {
@@ -4335,6 +4387,38 @@ fn assert_build_source_file_rejects_generator_lowering_in_browser_input(extensio
     );
 }
 
+fn assert_build_source_file_rejects_async_generator_lowering_in_browser_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "async function* main() { yield 1; }\nmain();\n",
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Browser,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("async generator lowering should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("generator function lowering")
+                || diagnostic.message.contains("yield expressions")
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
 #[test]
 fn build_source_file_rejects_generator_functions_in_browser_ts_input() {
     assert_build_source_file_rejects_generator_lowering_in_browser_input("ts");
@@ -4353,6 +4437,26 @@ fn build_source_file_rejects_generator_functions_in_browser_jsx_input() {
 #[test]
 fn build_source_file_rejects_generator_functions_in_browser_tsx_input() {
     assert_build_source_file_rejects_generator_lowering_in_browser_input("tsx");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_browser_ts_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_browser_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_browser_js_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_browser_input("js");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_browser_jsx_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_browser_input("jsx");
+}
+
+#[test]
+fn build_source_file_rejects_async_generator_functions_in_browser_tsx_input() {
+    assert_build_source_file_rejects_async_generator_lowering_in_browser_input("tsx");
 }
 
 fn assert_build_source_file_supports_for_await_array_iteration_in_input(
