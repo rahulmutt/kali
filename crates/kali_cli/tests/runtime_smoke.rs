@@ -42429,6 +42429,56 @@ fn assert_generator_function_lowering_rejection_in_browser_context(
     );
 }
 
+fn assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+    command: &str,
+    extension: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        let messages = errors
+            .iter()
+            .map(|error| error["message"].as_str().expect("message"))
+            .collect::<Vec<_>>();
+        assert!(
+            messages
+                .iter()
+                .any(|message| message.contains("generator function lowering")
+                    || message.contains("yield expressions")),
+            "messages: {messages:?}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn check_rejects_generator_function_lowering_in_jsx_input() {
     assert_generator_function_lowering_rejection("check", "jsx");
@@ -47232,6 +47282,38 @@ fn run_rejects_generator_function_lowering_in_js_input() {
     assert!(
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
         "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "run", "js", false,
+    );
+}
+
+#[test]
+fn json_run_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "run", "js", true,
+    );
+}
+
+#[test]
+fn test_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "test", "js", false,
+    );
+}
+
+#[test]
+fn json_test_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "test", "js", true,
     );
 }
 
