@@ -9,26 +9,31 @@ fn kali_bin() -> String {
 
 fn browser_bundle_object_from_entries_source() -> &'static str {
     r##"// kali-tree-shake: browserObjectFromEntries
-function browserObjectFromEntries() {
-  const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
-  const fromEntriesKeys = Object.keys(fromEntries);
-  const fromEntriesEntries = Object.entries(fromEntries);
-  const fromEntriesValues = Object.values(fromEntries);
+function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
   if (
-    fromEntriesKeys.length !== 2 ||
-    fromEntriesKeys[0] !== 'b' ||
-    fromEntriesKeys[1] !== 'a' ||
-    fromEntriesEntries.length !== 2 ||
-    fromEntriesEntries[0][0] !== 'b' ||
-    fromEntriesEntries[0][1] !== 1 ||
-    fromEntriesEntries[1][0] !== 'a' ||
-    fromEntriesEntries[1][1] !== 2 ||
-    fromEntriesValues.length !== 2 ||
-    fromEntriesValues[0] !== 1 ||
-    fromEntriesValues[1] !== 2
+    keys.length !== 2 ||
+    keys[0] !== 'b' ||
+    keys[1] !== 'a' ||
+    entries.length !== 2 ||
+    entries[0][0] !== 'b' ||
+    entries[0][1] !== 1 ||
+    entries[1][0] !== 'a' ||
+    entries[1][1] !== 2 ||
+    values.length !== 2 ||
+    values[0] !== 1 ||
+    values[1] !== 2
   ) {
     throw new Error('unexpected Object.fromEntries semantics');
   }
+}
+
+function browserObjectFromEntries() {
+  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
 }
 "##
 }
