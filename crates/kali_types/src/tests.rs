@@ -1491,7 +1491,34 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Deno".to_string(),
                     })),
+                    property: "connect".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
                     property: "listen".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "listen".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "serve".to_string(),
                 },
             ))),
         }),
@@ -1520,14 +1547,17 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 4, "{:?}", result.diagnostics);
+    assert_eq!(result.diagnostics.len(), 7, "{:?}", result.diagnostics);
     assert!(result
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
     for expected in [
         "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
         "globalThis.Deno.listen",
+        "Deno.serve",
         "globalThis.Deno.serve",
         "Deno.Command",
     ] {

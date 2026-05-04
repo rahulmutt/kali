@@ -31,6 +31,10 @@ fn late_subprocess_source() -> &'static str {
     "new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis[\"Deno\"].Command('sh').spawn(); new globalThis[\"Deno\"][\"Command\"]('sh').spawn();"
 }
 
+fn late_network_source() -> &'static str {
+    "Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
+}
+
 fn late_object_model_source() -> &'static str {
     "Intl; globalThis.Intl; globalThis[\"Intl\"]; globalThis.Intl.NumberFormat; globalThis.Intl.DateTimeFormat; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"PluralRules\"]; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Locale\"]; Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis[\"Proxy\"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); Object.hasOwn({}, \"a\"); globalThis.Object.hasOwn({}, \"a\"); globalThis[\"Object\"][\"hasOwn\"]({}, \"a\"); Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty.call({}, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"]({}, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis.Object[\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"]({}, \"a\"); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call({}, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"]({}, \"a\"); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {});"
 }
@@ -373,6 +377,49 @@ fn assert_browser_late_subprocess_rejection_json(errors: &[Value]) {
             .contains("Process.Spawn")),
         "missing Process.Spawn in {errors:?}"
     );
+}
+
+fn assert_browser_late_network_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_network_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
 }
 
 fn assert_browser_late_object_model_rejection(stderr: &str) {
@@ -1106,6 +1153,54 @@ fn check_rejects_late_subprocess_members_in_browser_api_surface_js_input_with_sa
 }
 
 #[test]
+fn check_rejects_late_network_members_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_network_rejection(&stderr);
+}
+
+#[test]
+fn check_rejects_late_network_members_in_browser_api_surface_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "check");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_network_rejection_json(errors);
+}
+
+#[test]
 fn build_rejects_late_permission_escalation_members_in_browser_bundle_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -1255,6 +1350,56 @@ fn check_rejects_late_subprocess_members_in_browser_api_surface_js_input_with_sa
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_browser_late_subprocess_rejection(&stderr);
+}
+
+#[test]
+fn build_rejects_late_network_members_in_browser_bundle_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_network_rejection(&stderr);
+}
+
+#[test]
+fn build_rejects_late_network_members_in_browser_bundle_js_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_network_rejection_json(errors);
 }
 
 #[test]
