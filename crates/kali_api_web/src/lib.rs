@@ -2344,6 +2344,16 @@ impl ThreadRuntimeTopology {
         self.snapshot_value()
     }
 
+    /// Alias for the JSON-ready threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
+    /// Alias for the JSON-ready threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
     /// Produce a stable shutdown/leak report and mark every tracked instance terminated.
     pub fn shutdown(self) -> ThreadRuntimeShutdownReport {
         let report = self.snapshot();
