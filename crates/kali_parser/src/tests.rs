@@ -95,6 +95,49 @@ fn test_parse_for_of_statement() {
 }
 
 #[test]
+fn test_parse_array_expression_with_spread_element() {
+    let tokens = lex("const values = [...items, 1];");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Some(Expression::ArrayExpression(array)) = vd.declarations[0].init.as_ref() else {
+        panic!(
+            "Expected ArrayExpression initializer, got {:?}",
+            vd.declarations[0].init
+        );
+    };
+    assert_eq!(array.elements.len(), 2);
+    match &array.elements[0] {
+        Some(ExpressionOrSpread::Spread(spread)) => match &spread.argument {
+            Expression::Identifier(name) => assert_eq!(name, "items"),
+            other => panic!("Expected spread identifier, got {other:?}"),
+        },
+        other => panic!("Expected spread element, got {other:?}"),
+    }
+    match &array.elements[1] {
+        Some(ExpressionOrSpread::Expression(Expression::Literal(
+            kali_ast::LiteralValue::Number(value),
+        ))) => {
+            assert_eq!(*value, 1.0)
+        }
+        other => panic!("Expected literal expression element, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_side_effect_import_declaration() {
     let tokens = lex("import \"mod\";");
     let mut parser = Parser::new(FileId::new(0), tokens);

@@ -824,7 +824,7 @@ impl HirLowerer {
                 id
             }
             Expression::SpreadElement(expr) => {
-                let id = self.builder.alloc(HirNodeKind::Spread, None);
+                let id = self.builder.alloc_text(HirNodeKind::Spread, None, "spread");
                 push_child!(self, id, self.lower_expression(&expr.argument));
                 id
             }

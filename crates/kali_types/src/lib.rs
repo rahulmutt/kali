@@ -615,13 +615,17 @@ impl TypeContext {
             Expression::ParenthesizedExpression(parenthesized) => {
                 self.is_static_array_iteration_target(&parenthesized.expression)
             }
-            Expression::ArrayExpression(array) => array.elements.iter().all(|element| {
-                matches!(
-                    element,
-                    Some(ExpressionOrSpread::Expression(expr))
-                        if self.is_static_array_iteration_element(expr)
-                )
-            }),
+            Expression::ArrayExpression(array) => {
+                array.elements.iter().all(|element| match element {
+                    Some(ExpressionOrSpread::Expression(expr)) => {
+                        self.is_static_array_iteration_element(expr)
+                    }
+                    Some(ExpressionOrSpread::Spread(spread)) => {
+                        self.is_static_array_iteration_target(&spread.argument)
+                    }
+                    Some(ExpressionOrSpread::Empty) | None => false,
+                })
+            }
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
             Expression::TypeAssertion(expr) => {
                 self.is_static_array_iteration_target(&expr.expression)

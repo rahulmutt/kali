@@ -7,10 +7,10 @@ use kali_ast::{
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
     ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
     MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
-    ParenthesizedExpression, PropertyName, ReturnStatement, SatisfiesExpression, Statement,
-    SwitchCase, SwitchStatement, ThrowStatement, TryStatement, TypeAssertion, UnaryExpression,
-    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, WhileStatement,
-    YieldExpression, AST,
+    ParenthesizedExpression, PropertyName, ReturnStatement, SatisfiesExpression, SpreadElement,
+    Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, TypeAssertion,
+    UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
+    WhileStatement, YieldExpression, AST,
 };
 use kali_common::FileId;
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
@@ -1737,8 +1737,15 @@ impl Parser {
                 let mut elements = Vec::new();
                 if !self.stream.accept(TokenType::RightBracket) {
                     loop {
-                        let element = self.parse_expression();
-                        elements.push(Some(ExpressionOrSpread::Expression(element)));
+                        if self.stream.current_kind() == Some(&TokenType::DotDotDot) {
+                            let _ = self.stream.advance();
+                            let argument = self.parse_expression();
+                            elements
+                                .push(Some(ExpressionOrSpread::Spread(SpreadElement { argument })));
+                        } else {
+                            let element = self.parse_expression();
+                            elements.push(Some(ExpressionOrSpread::Expression(element)));
+                        }
                         if self.stream.accept(TokenType::Comma) {
                             if self.stream.current_kind() == Some(&TokenType::RightBracket) {
                                 let _ = self.stream.accept(TokenType::RightBracket);

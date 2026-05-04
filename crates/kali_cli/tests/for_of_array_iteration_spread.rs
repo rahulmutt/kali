@@ -1,0 +1,75 @@
+use std::{fs, process::Command};
+
+use tempfile::tempdir;
+
+fn kali_bin() -> String {
+    std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+fn assert_for_of_array_iteration_spread(
+    command: &str,
+    filename: &str,
+    source: &str,
+    expected: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains(expected), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_for_of_array_iteration_spread_in_js_input() {
+    assert_for_of_array_iteration_spread(
+        "run",
+        "main.js",
+        "const values = [1, 2]; for (const item of [...values]) { console.log(item); }\n",
+        "1\n2\n",
+    );
+}
+
+#[test]
+fn run_supports_for_of_array_iteration_spread_in_ts_input() {
+    assert_for_of_array_iteration_spread(
+        "run",
+        "main.ts",
+        "const values = [1, 2]; for (const item of [...values]) { console.log(item); }\n",
+        "1\n2\n",
+    );
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_spread_in_js_input() {
+    assert_for_of_array_iteration_spread(
+        "test",
+        "smoke.test.js",
+        "Kali.test('for-of spread', () => { const values = [1, 2]; for (const item of [...values]) { console.log(item); } });\n",
+        "ok 1",
+    );
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_spread_in_ts_input() {
+    assert_for_of_array_iteration_spread(
+        "test",
+        "smoke.test.ts",
+        "Kali.test('for-of spread', () => { const values = [1, 2]; for (const item of [...values]) { console.log(item); } });\n",
+        "ok 1",
+    );
+}

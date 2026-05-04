@@ -3708,14 +3708,7 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let array = self.node(array_id).clone();
-        if !self.is_array_literal(&array)
-            || !array.children.iter().all(|child| {
-                self.resolve_literal_aggregate(*child)
-                    .is_some_and(|resolved| {
-                        matches!(self.node(resolved).kind, LirNodeKind::Literal)
-                    })
-            })
-        {
+        if !self.is_array_literal(&array) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
@@ -3739,9 +3732,24 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
-        let body = node.children.get(2).copied();
+        let mut items = Vec::with_capacity(array.children.len());
         for child in &array.children {
-            let previous_binding = self.bindings.insert(loop_name.clone(), *child);
+            if !self.collect_for_of_array_iteration_items(*child, &mut items) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+        }
+
+        let body = node.children.get(2).copied();
+        for child in items {
+            let previous_binding = self.bindings.insert(loop_name.clone(), child);
             if let Some(body) = body {
                 let _ = self.emit_node(function, body, false);
             }
@@ -3756,6 +3764,48 @@ impl<'a> FunctionEmitter<'a> {
             produced: false,
             shape: ValueShape::Unknown,
         }
+    }
+
+    fn collect_for_of_array_iteration_items(
+        &self,
+        id: LirNodeId,
+        items: &mut Vec<LirNodeId>,
+    ) -> bool {
+        let Some(resolved_id) = self.resolve_literal_aggregate(id) else {
+            return false;
+        };
+
+        let node = self.node(resolved_id);
+        if matches!(node.kind, LirNodeKind::Literal) {
+            items.push(resolved_id);
+            return true;
+        }
+
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("spread")
+            && node.children.len() == 1
+        {
+            let Some(argument_id) = node.children.first().copied() else {
+                return false;
+            };
+            let Some(array_id) = self.resolve_literal_aggregate(argument_id) else {
+                return false;
+            };
+            let array = self.node(array_id).clone();
+            if !self.is_array_literal(&array) {
+                return false;
+            }
+
+            for child in &array.children {
+                if !self.collect_for_of_array_iteration_items(*child, items) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        false
     }
 
     fn for_of_binding_name(&self, node: &LirNode) -> Option<String> {
