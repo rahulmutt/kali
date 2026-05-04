@@ -93,6 +93,16 @@ fn json_build_rejects_non_literal_for_of_iterator_source_in_js_input() {
 }
 
 #[test]
+fn build_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
+    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.jsx", false);
+}
+
+#[test]
+fn json_build_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
+    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.jsx", true);
+}
+
+#[test]
 fn build_rejects_non_literal_for_await_iterator_source_in_ts_input() {
     assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.ts", false);
 }
@@ -100,4 +110,18 @@ fn build_rejects_non_literal_for_await_iterator_source_in_ts_input() {
 #[test]
 fn json_build_rejects_non_literal_for_await_iterator_source_in_ts_input() {
     assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.ts", true);
+}
+
+#[test]
+fn build_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
+    assert_browser_bundle_rejects_non_literal_iterator_source(
+        for_await_source(),
+        "main.tsx",
+        false,
+    );
+}
+
+#[test]
+fn json_build_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
+    assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.tsx", true);
 }
