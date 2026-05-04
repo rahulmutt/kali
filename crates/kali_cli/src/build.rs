@@ -3141,6 +3141,9 @@ fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
                 OptionalChainInner::NonNull { object, .. } => infer_expression_type(object),
             }
         }
+        Expression::ChainExpression(chain_expression) => {
+            infer_expression_type(&chain_expression.expression)
+        }
         Expression::SequenceExpression(sequence) => {
             sequence.expressions.last().and_then(infer_expression_type)
         }
