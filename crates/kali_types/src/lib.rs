@@ -2457,7 +2457,16 @@ impl TypeContext {
 
         if !matches!(
             dotted.as_str(),
-            "Deno.env.toObject" | "globalThis.Deno.env.toObject"
+            "Deno.env.toObject"
+                | "globalThis.Deno.env.toObject"
+                | "Deno[\"env\"].toObject"
+                | "Deno[\"env\"][\"toObject\"]"
+                | "globalThis.Deno[\"env\"].toObject"
+                | "globalThis.Deno[\"env\"][\"toObject\"]"
+                | "globalThis[\"Deno\"].env.toObject"
+                | "globalThis[\"Deno\"].env[\"toObject\"]"
+                | "globalThis[\"Deno\"][\"env\"].toObject"
+                | "globalThis[\"Deno\"][\"env\"][\"toObject\"]"
         ) && !matches!(
             bracketed.as_str(),
             r#"Deno["env"]["toObject"]"# | r#"globalThis["Deno"]["env"]["toObject"]"#
