@@ -1526,6 +1526,60 @@ fn supported_math_tan_member_lowering_is_available_for_exact_zero_literals() {
 }
 
 #[test]
+fn supported_math_sin_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.sin(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
+fn supported_math_cos_member_lowering_is_available_for_exact_zero_literals() {
+    let program = parse_and_lower_lir("const zero = 0; console.log(Math.cos(zero));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn unsupported_math_tan_member_reports_feature_unavailable() {
     let program = parse_and_lower_lir("console.log(Math.tan(1));");
     let mut ctx = CodegenCtx::new(TargetConfig {

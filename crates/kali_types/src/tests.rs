@@ -4549,6 +4549,38 @@ fn test_resolution_supports_math_tan_zero_literal_member_calls() {
 }
 
 #[test]
+fn test_resolution_supports_math_sin_cos_zero_literal_member_calls() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "sin".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(0.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "cos".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(0.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_clz32_non_integer_literal_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
@@ -4589,6 +4621,48 @@ fn test_resolution_rejects_non_zero_literals_in_math_tan_member_calls_as_unavail
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(result.diagnostics[0].message.contains("Math.tan"));
+}
+
+#[test]
+fn test_resolution_rejects_non_zero_literals_in_math_sin_cos_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "sin".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "cos".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.sin")
+            && diag.message.contains("zero numeric literal")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Math.cos")
+            && diag.message.contains("zero numeric literal")));
 }
 
 #[test]
