@@ -25,15 +25,14 @@ fn assert_phase_three_host_apis_rejected(stderr: &str) {
     );
 }
 
-#[test]
-fn check_rejects_phase_three_host_apis_in_js_input() {
+fn assert_phase_three_host_apis_rejected_for_source(source_name: &str, command: &str) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(source_name);
     fs::write(&source_path, phase_three_host_api_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .arg("check")
+        .arg(command)
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -45,30 +44,40 @@ fn check_rejects_phase_three_host_apis_in_js_input() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_phase_three_host_apis_rejected(&stderr);
+    if command == "build" {
+        assert!(
+            !dir.path().join("main.wasm").exists(),
+            "build should not emit an artifact when phase-three host APIs are rejected"
+        );
+    }
+}
+
+#[test]
+fn check_rejects_phase_three_host_apis_in_js_input() {
+    assert_phase_three_host_apis_rejected_for_source("main.js", "check");
+}
+
+#[test]
+fn check_rejects_phase_three_host_apis_in_jsx_input() {
+    assert_phase_three_host_apis_rejected_for_source("main.jsx", "check");
+}
+
+#[test]
+fn check_rejects_phase_three_host_apis_in_tsx_input() {
+    assert_phase_three_host_apis_rejected_for_source("main.tsx", "check");
 }
 
 #[test]
 fn build_rejects_phase_three_host_apis_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(&source_path, phase_three_host_api_source()).expect("write source");
+    assert_phase_three_host_apis_rejected_for_source("main.js", "build");
+}
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("build")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+#[test]
+fn build_rejects_phase_three_host_apis_in_jsx_input() {
+    assert_phase_three_host_apis_rejected_for_source("main.jsx", "build");
+}
 
-    assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert_phase_three_host_apis_rejected(&stderr);
-    assert!(
-        !dir.path().join("main.wasm").exists(),
-        "build should not emit an artifact when phase-three host APIs are rejected"
-    );
+#[test]
+fn build_rejects_phase_three_host_apis_in_tsx_input() {
+    assert_phase_three_host_apis_rejected_for_source("main.tsx", "build");
 }
