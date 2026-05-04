@@ -2401,6 +2401,35 @@ fn assert_build_source_file_supports_math_exp2_zero_identity_in_input(
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const zero = 0; const alias = zero; console.log(globalThis.Math.exp2(alias)); console.log(globalThis.Math[\"exp2\"](alias)); console.log(globalThis[\"Math\"].exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("globalThis.Math exp2 identity build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_build_source_file_supports_math_exp_and_log_const_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -3150,6 +3179,74 @@ fn build_source_file_supports_math_exp2_zero_identity_in_browser_api_surface_in_
 #[test]
 fn build_source_file_supports_math_exp2_zero_identity_in_browser_api_surface_in_tsx_input() {
     assert_build_source_file_supports_math_exp2_zero_identity_in_input(ApiSurface::Browser, "tsx");
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_js_input() {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_ts_input() {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_jsx_input() {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_tsx_input() {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_exp2_zero_identity_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
 }
 
 #[test]
