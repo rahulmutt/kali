@@ -80,6 +80,21 @@ fn assert_browser_requested_spread(
     }
 }
 
+fn assert_browser_requested_spread_matrix(filename: &str, source: &str) {
+    for command in ["run", "test"] {
+        let expect_test_runner = command == "test";
+        for json_output in [false, true] {
+            assert_browser_requested_spread(
+                command,
+                filename,
+                source,
+                json_output,
+                expect_test_runner,
+            );
+        }
+    }
+}
+
 #[test]
 fn run_supports_for_of_spread_in_browser_api_surface_with_harness_js_input() {
     assert_browser_requested_spread("run", "main.js", for_of_spread_run_source(), false, false);
@@ -183,6 +198,16 @@ fn json_test_supports_for_of_spread_in_browser_api_surface_with_harness_ts_input
 }
 
 #[test]
+fn supports_for_of_spread_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_requested_spread_matrix("main.jsx", for_of_spread_run_source());
+}
+
+#[test]
+fn supports_for_of_spread_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_requested_spread_matrix("main.tsx", for_of_spread_run_source());
+}
+
+#[test]
 fn run_supports_for_await_spread_in_browser_api_surface_with_harness_ts_input() {
     assert_browser_requested_spread(
         "run",
@@ -218,4 +243,14 @@ fn json_test_supports_for_await_spread_in_browser_api_surface_with_harness_ts_in
         true,
         true,
     );
+}
+
+#[test]
+fn supports_for_await_spread_in_browser_api_surface_with_harness_jsx_input() {
+    assert_browser_requested_spread_matrix("main.jsx", for_await_spread_run_source());
+}
+
+#[test]
+fn supports_for_await_spread_in_browser_api_surface_with_harness_tsx_input() {
+    assert_browser_requested_spread_matrix("main.tsx", for_await_spread_run_source());
 }
