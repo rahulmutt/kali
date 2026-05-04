@@ -1855,6 +1855,13 @@ fn check_build_and_run_accept_type_assertion_and_satisfies_in_ts_input() {
 }
 
 #[test]
+fn check_build_and_run_accept_wrapped_mutable_update_targets_in_ts_input() {
+    for command in ["check", "build", "run"] {
+        assert_wrapped_mutable_update_targets(command, "main.ts");
+    }
+}
+
+#[test]
 fn json_run_accepts_deno_env_get_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -26345,6 +26352,114 @@ fn assert_json_browser_unary_prefix_semantics(command: &str, filename: &str, tes
     assert_eq!(json["stderr"], "");
 }
 
+fn wrapped_mutable_update_targets_source() -> String {
+    "let value = 1 as number;\n((value as number)) += 2;\nconst prefix = ++(value satisfies number);\nif (value !== 4 || prefix !== 4) {\n  throw new Error(`unexpected wrapped update result ${value} ${prefix}`);\n}\n".to_string()
+}
+
+fn browser_harness_wrapped_mutable_update_targets_source(test_mode: bool) -> String {
+    if test_mode {
+        return r#"Kali.test('wrapped mutable update targets', () => {
+  let value = 1 as number;
+  ((value as number)) += 2;
+  const prefix = ++(value satisfies number);
+  if (value !== 4 || prefix !== 4) {
+    throw new Error(`unexpected wrapped update result ${value} ${prefix}`);
+  }
+});
+"#
+        .to_string();
+    }
+
+    wrapped_mutable_update_targets_source()
+}
+
+fn assert_wrapped_mutable_update_targets(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, wrapped_mutable_update_targets_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "{command} failed: {:?}", output);
+}
+
+fn assert_browser_wrapped_mutable_update_targets(command: &str, filename: &str, test_mode: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_harness_wrapped_mutable_update_targets_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "run failed: {:?}", output);
+}
+
+fn assert_json_browser_wrapped_mutable_update_targets(
+    command: &str,
+    filename: &str,
+    test_mode: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_harness_wrapped_mutable_update_targets_source(test_mode),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
 #[test]
 fn run_supports_unary_prefix_semantics() {
     assert_unary_prefix_semantics("run", "smoke.ts");
@@ -26403,6 +26518,26 @@ fn test_supports_unary_prefix_semantics_with_browser_harness_in_ts_input() {
 #[test]
 fn json_test_supports_unary_prefix_semantics_with_browser_harness_in_ts_input() {
     assert_json_browser_unary_prefix_semantics("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn run_supports_wrapped_mutable_update_targets_with_browser_harness_in_ts_input() {
+    assert_browser_wrapped_mutable_update_targets("run", "main.ts", false);
+}
+
+#[test]
+fn json_run_supports_wrapped_mutable_update_targets_with_browser_harness_in_ts_input() {
+    assert_json_browser_wrapped_mutable_update_targets("run", "main.ts", false);
+}
+
+#[test]
+fn test_supports_wrapped_mutable_update_targets_with_browser_harness_in_ts_input() {
+    assert_browser_wrapped_mutable_update_targets("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn json_test_supports_wrapped_mutable_update_targets_with_browser_harness_in_ts_input() {
+    assert_json_browser_wrapped_mutable_update_targets("test", "smoke.test.ts", true);
 }
 
 #[test]
