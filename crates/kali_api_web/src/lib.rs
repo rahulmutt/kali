@@ -2186,6 +2186,11 @@ impl ThreadRuntimeInstanceSnapshot {
     pub fn thread_topology_snapshot_json_value(&self) -> Value {
         self.snapshot_value()
     }
+
+    /// Alias for the threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot(&self) -> Self {
+        self.clone()
+    }
 }
 
 /// Deterministic shutdown/leak accounting for the runtime-topology model.
@@ -2250,6 +2255,11 @@ impl ThreadRuntimeShutdownReport {
     /// Alias for the JSON-ready threaded-topology snapshot helper.
     pub fn thread_topology_snapshot_json_value(&self) -> Value {
         self.snapshot_value()
+    }
+
+    /// Alias for the threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot(&self) -> Self {
+        self.clone()
     }
 }
 

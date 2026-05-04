@@ -779,6 +779,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
     );
     assert_eq!(snapshot.snapshot_json_value(), snapshot.snapshot_value());
     assert_eq!(snapshot.snapshot_object_value(), snapshot.snapshot_value());
+    assert_eq!(snapshot.thread_topology_snapshot(), snapshot.clone());
     assert_eq!(
         snapshot.thread_topology_snapshot_object_value(),
         snapshot.snapshot_value()
@@ -792,6 +793,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
         snapshot.snapshot_value()
     );
 
+    assert_eq!(report.thread_topology_snapshot(), report.clone());
     assert_eq!(
         report.snapshot_value(),
         serde_json::json!({
@@ -837,6 +839,12 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
     assert_eq!(
         topology.thread_topology_snapshot_json_value(),
         report.snapshot_value()
+    );
+    assert_eq!(
+        topology
+            .thread_topology_snapshot()
+            .thread_topology_snapshot(),
+        topology.thread_topology_snapshot()
     );
 }
 
