@@ -3265,6 +3265,88 @@ fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_
     );
 }
 
+fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const values = Object.keys({}); for (const item of values) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("non-literal iterator sources should remain gated");
+
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("literal array")
+        }),
+        "unexpected diagnostics: {:?}",
+        error
+    );
+}
+
+fn assert_build_source_file_rejects_for_await_non_literal_iterable_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const values = Object.keys({}); for await (const item of values) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("non-literal async iterator sources should remain gated");
+
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("literal array")
+        }),
+        "unexpected diagnostics: {:?}",
+        error
+    );
+}
+
+#[test]
+fn build_source_file_rejects_for_of_non_literal_iterable_in_ts_input() {
+    assert_build_source_file_rejects_for_of_non_literal_iterable_in_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_for_of_non_literal_iterable_in_js_input() {
+    assert_build_source_file_rejects_for_of_non_literal_iterable_in_input("js");
+}
+
+#[test]
+fn build_source_file_rejects_for_await_non_literal_iterable_in_ts_input() {
+    assert_build_source_file_rejects_for_await_non_literal_iterable_in_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_for_await_non_literal_iterable_in_js_input() {
+    assert_build_source_file_rejects_for_await_non_literal_iterable_in_input("js");
+}
+
 fn assert_build_source_file_supports_for_of_array_iteration_with_const_alias_in_input(
     api_surface: ApiSurface,
     extension: &str,

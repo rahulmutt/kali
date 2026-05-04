@@ -6028,6 +6028,88 @@ fn test_resolution_supports_for_of_array_iteration_in_js_input() {
 }
 
 #[test]
+fn test_resolution_rejects_for_of_non_literal_iterable_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: "keys".to_string(),
+            })),
+            args: vec![Expression::ObjectExpression(ObjectExpression {
+                properties: vec![],
+            })],
+        })),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("item".to_string())),
+            })],
+        })),
+        is_await: false,
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0].message.contains("literal array"),
+        "{:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_for_await_non_literal_iterable_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: "keys".to_string(),
+            })),
+            args: vec![Expression::ObjectExpression(ObjectExpression {
+                properties: vec![],
+            })],
+        })),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::Identifier("item".to_string())),
+            })],
+        })),
+        is_await: true,
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0].message.contains("literal array"),
+        "{:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_of_array_iteration_with_parenthesized_binding_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
