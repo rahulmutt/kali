@@ -25,6 +25,16 @@ for await (const item of ([1, (value)] satisfies readonly [1, 2])) {
 "##
 }
 
+fn for_await_parenthesized_const_alias_source() -> &'static str {
+    r##"// kali-tree-shake: forAwaitArrayIterationParenthesizedConstAliasWrapper
+const value = 2;
+const values = ([1, (value)]);
+for await (const item of (values)) {
+  console.log(item);
+}
+"##
+}
+
 fn assert_browser_for_await_array_iteration(output: &str) {
     assert!(output.contains("1"), "output: {output}");
     assert!(output.contains("2"), "output: {output}");
@@ -264,6 +274,50 @@ fn json_test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_
         "test",
         "main.tsx",
         for_await_satisfies_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.js",
+        for_await_parenthesized_const_alias_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.js",
+        for_await_parenthesized_const_alias_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.js",
+        for_await_parenthesized_const_alias_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.js",
+        for_await_parenthesized_const_alias_source(),
         true,
     );
 }
