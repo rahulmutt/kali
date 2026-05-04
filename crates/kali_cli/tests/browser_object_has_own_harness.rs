@@ -111,6 +111,7 @@ fn assert_browser_harness_object_has_own(
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(stdout.contains("browser object hasOwn ok"), "json: {json}");
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(

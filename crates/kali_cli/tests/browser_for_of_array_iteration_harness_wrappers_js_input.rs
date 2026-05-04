@@ -98,6 +98,7 @@ fn assert_browser_harness_for_of_wrapper(
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert_browser_for_of_array_iteration(&stdout);

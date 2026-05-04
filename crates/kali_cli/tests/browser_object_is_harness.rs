@@ -85,6 +85,7 @@ fn assert_browser_harness_object_is(
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(stdout.contains("0\n1\n1\n1\n1"), "json: {json}");
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");
