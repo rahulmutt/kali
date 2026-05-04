@@ -3088,6 +3088,26 @@ fn build_source_file_supports_math_exp2_zero_identity_in_browser_api_surface_in_
 }
 
 #[test]
+fn build_source_file_supports_math_exp2_zero_identity_in_jsx_input() {
+    assert_build_source_file_supports_math_exp2_zero_identity_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_math_exp2_zero_identity_in_tsx_input() {
+    assert_build_source_file_supports_math_exp2_zero_identity_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_supports_math_exp2_zero_identity_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_supports_math_exp2_zero_identity_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_math_exp2_zero_identity_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_supports_math_exp2_zero_identity_in_input(ApiSurface::Browser, "tsx");
+}
+
+#[test]
 fn build_source_file_supports_math_exp_and_log_const_alias_chain_in_js_input() {
     assert_build_source_file_supports_math_exp_and_log_const_alias_chain_in_input(
         ApiSurface::Deno,
