@@ -29,12 +29,15 @@ fn browser_harness_object_from_entries_run_source() -> &'static str {
   }
 }
 
+const wrappedEntries = ([["b", 1], ["a", 2]]);
 const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
 const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
 const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
 const mixedBracketedFromEntries = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
 const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
 assertFromEntriesShape(directFromEntries);
+assertFromEntriesShape(wrappedFromEntries);
 assertFromEntriesShape(dottedFromEntries);
 assertFromEntriesShape(mixedDottedFromEntries);
 assertFromEntriesShape(mixedBracketedFromEntries);
@@ -66,7 +69,9 @@ fn browser_harness_object_from_entries_test_source() -> &'static str {
     }
   }
 
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
   assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));

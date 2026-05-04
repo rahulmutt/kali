@@ -3487,6 +3487,9 @@ const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
 const fromEntriesKeys = Object.keys(fromEntries);
 const fromEntriesEntries = Object.entries(fromEntries);
 const fromEntriesValues = Object.values(fromEntries);
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const wrappedFromEntriesKeys = Object.keys(wrappedFromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3523,7 +3526,10 @@ if (
   fromEntriesEntries[1][1] !== 2 ||
   fromEntriesValues.length !== 2 ||
   fromEntriesValues[0] !== 1 ||
-  fromEntriesValues[1] !== 2
+  fromEntriesValues[1] !== 2 ||
+  wrappedFromEntriesKeys.length !== 2 ||
+  wrappedFromEntriesKeys[0] !== 'b' ||
+  wrappedFromEntriesKeys[1] !== 'a'
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3567,6 +3573,9 @@ const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
 const fromEntriesKeys = Object.keys(fromEntries);
 const fromEntriesEntries = Object.entries(fromEntries);
 const fromEntriesValues = Object.values(fromEntries);
+const wrappedEntries = ([["b", 1], ["a", 2]]);
+const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+const wrappedFromEntriesKeys = Object.keys(wrappedFromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3595,7 +3604,10 @@ if (
   fromEntriesEntries[1][1] !== 2 ||
   fromEntriesValues.length !== 2 ||
   fromEntriesValues[0] !== 1 ||
-  fromEntriesValues[1] !== 2
+  fromEntriesValues[1] !== 2 ||
+  wrappedFromEntriesKeys.length !== 2 ||
+  wrappedFromEntriesKeys[0] !== 'b' ||
+  wrappedFromEntriesKeys[1] !== 'a'
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3742,6 +3754,9 @@ async function enumSmoke(left, right) {
   const fromEntriesKeys = Object.keys(fromEntries);
   const fromEntriesEntries = Object.entries(fromEntries);
   const fromEntriesValues = Object.values(fromEntries);
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
+  const wrappedFromEntries = Object.fromEntries(wrappedEntries);
+  const wrappedFromEntriesKeys = Object.keys(wrappedFromEntries);
   const consumeArray = (items, value) => items[0] + items[1] + value;
   const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
   const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3770,7 +3785,10 @@ async function enumSmoke(left, right) {
     fromEntriesEntries[1][1] !== 2 ||
     fromEntriesValues.length !== 2 ||
     fromEntriesValues[0] !== 1 ||
-    fromEntriesValues[1] !== 2
+    fromEntriesValues[1] !== 2 ||
+    wrappedFromEntriesKeys.length !== 2 ||
+    wrappedFromEntriesKeys[0] !== 'b' ||
+    wrappedFromEntriesKeys[1] !== 'a'
   ) {
     throw new Error('unexpected overwrite ordering');
   }

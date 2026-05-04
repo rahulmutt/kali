@@ -31,7 +31,9 @@ function assertFromEntriesShape(fromEntries) {
 }
 
 function browserObjectFromEntries() {
+  const wrappedEntries = ([["b", 1], ["a", 2]]);
   assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(Object.fromEntries(wrappedEntries));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
