@@ -3536,6 +3536,10 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
         state.thread_topology_snapshot_value()
     );
     assert_eq!(
+        state.thread_topology_snapshot().snapshot_object_value(),
+        state.thread_topology_snapshot_value()
+    );
+    assert_eq!(
         snapshot.thread_topology_snapshot_value(),
         state.thread_topology_snapshot_value()
     );
@@ -3545,6 +3549,10 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
     );
     assert_eq!(
         snapshot.thread_topology_snapshot_object_value(),
+        state.thread_topology_snapshot_value()
+    );
+    assert_eq!(
+        snapshot.snapshot_object_value(),
         state.thread_topology_snapshot_value()
     );
 

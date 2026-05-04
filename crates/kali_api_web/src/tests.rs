@@ -778,6 +778,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
         })
     );
     assert_eq!(snapshot.snapshot_json_value(), snapshot.snapshot_value());
+    assert_eq!(snapshot.snapshot_object_value(), snapshot.snapshot_value());
     assert_eq!(
         snapshot.thread_topology_snapshot_object_value(),
         snapshot.snapshot_value()
@@ -806,6 +807,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
         })
     );
     assert_eq!(report.snapshot_json_value(), report.snapshot_value());
+    assert_eq!(report.snapshot_object_value(), report.snapshot_value());
     assert_eq!(
         report.thread_topology_snapshot_object_value(),
         report.snapshot_value()
@@ -819,6 +821,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
         report.snapshot_value()
     );
     assert_eq!(topology.snapshot_json_value(), report.snapshot_value());
+    assert_eq!(topology.snapshot_object_value(), report.snapshot_value());
     assert_eq!(
         topology.thread_topology_snapshot_object_value(),
         report.snapshot_value()
