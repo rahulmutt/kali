@@ -1984,6 +1984,31 @@ fn assert_build_source_file_supports_math_hypot_perfect_square_literal_in_input(
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_math_hypot_zero_arguments_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, "console.log(Math.hypot());\n").expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.hypot zero-argument build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_math_hypot_perfect_square_literal_in_js_input() {
     assert_build_source_file_supports_math_hypot_perfect_square_literal_in_input(
@@ -2016,6 +2041,26 @@ fn build_source_file_supports_math_hypot_perfect_square_literal_in_browser_api_s
         ApiSurface::Browser,
         "ts",
     );
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_js_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_ts_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Browser, "ts");
 }
 
 fn assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(

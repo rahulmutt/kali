@@ -40275,6 +40275,28 @@ fn check_supports_math_hypot_on_perfect_square_integer_literal_sums_in_js_input(
     assert_eq!(output.status.code(), Some(0));
 }
 
+#[test]
+fn run_supports_math_hypot_zero_arguments_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(Math.hypot());\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+}
+
 fn assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums(filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);

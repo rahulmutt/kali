@@ -107,6 +107,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-requested TSX late-compatibility smoke now also mirrors the mixed-bracket own-property-helper rejection forms for the browser API surface, keeping the representative TSX alias matrix aligned with the browser JS-input late-compatibility helpers.
 - Progress note: `Deno.permissions.query` descriptor objects now also peel transparent parenthesized, type-assertion, `satisfies`, chain, and decorated wrappers, and the JS/TS permission-query smoke now also exercises parenthesized descriptor-object wrappers on the direct check/build/run/test paths, keeping the query-only facade aligned with the existing transparent-wrapper handling.
 
+- Progress note: `Math.hypot()` now also lowers to `0` for the empty-argument identity slice, and the current repository snapshot now covers that slice in codegen, build, and standalone runtime smoke on the JS path.
+
 ### 11.3 Dynamic loading and module semantics
 
 - Preserve literal-string `import()` as linked-graph lowering.
