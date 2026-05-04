@@ -30,7 +30,15 @@ fn process_context_tracks_env_and_output() {
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
     );
     assert_eq!(
+        process.env_to_object(),
+        BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
+    );
+    assert_eq!(
         process.env_snapshot_value(),
+        serde_json::json!({ "HOME": "/tmp/home" })
+    );
+    assert_eq!(
+        process.env_to_json_value(),
         serde_json::json!({ "HOME": "/tmp/home" })
     );
     assert_eq!(process.env_set("EDITOR", "nano"), None);
@@ -42,7 +50,15 @@ fn process_context_tracks_env_and_output() {
         BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
     );
     assert_eq!(
+        process.env_to_object(),
+        BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
+    );
+    assert_eq!(
         process.env_snapshot_value(),
+        serde_json::json!({ "EDITOR": "nano" })
+    );
+    assert_eq!(
+        process.env_to_json_value(),
         serde_json::json!({ "EDITOR": "nano" })
     );
 
@@ -88,10 +104,21 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
             (String::from("HOME"), String::from("/tmp/home")),
         ])
     );
+    assert_eq!(
+        projection.env_to_object(),
+        BTreeMap::from([
+            (String::from("EDITOR"), String::from("nano")),
+            (String::from("HOME"), String::from("/tmp/home")),
+        ])
+    );
     assert!(projection.env_has("HOME"));
     assert!(!projection.env_has("MISSING"));
     assert_eq!(
         projection.env_snapshot_value(),
+        serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
+    );
+    assert_eq!(
+        projection.env_to_json_value(),
         serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
     );
 

@@ -383,9 +383,19 @@ impl RuntimeCtx {
         self.env.clone()
     }
 
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn env_to_object(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the deterministic environment snapshot as a JSON object value.
     pub fn env_snapshot_value(&self) -> serde_json::Value {
         env_snapshot_value(&self.env)
+    }
+
+    /// Alias for the JSON-ready environment snapshot helper.
+    pub fn env_to_json_value(&self) -> serde_json::Value {
+        self.env_snapshot_value()
     }
 
     /// Return the canonical runtime-profile vector for the current execution context.
@@ -3909,9 +3919,19 @@ impl KaliHostState {
         self.env.clone()
     }
 
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn env_to_object(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the deterministic environment snapshot as a JSON object value.
     pub fn env_snapshot_value(&self) -> serde_json::Value {
         env_snapshot_value(&self.env)
+    }
+
+    /// Alias for the JSON-ready environment snapshot helper.
+    pub fn env_to_json_value(&self) -> serde_json::Value {
+        self.env_snapshot_value()
     }
 
     fn schedule_timer(

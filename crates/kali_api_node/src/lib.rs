@@ -127,6 +127,11 @@ impl NodeProcess {
         self.env.clone()
     }
 
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn env_to_object(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the captured environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         Value::Object(
@@ -135,6 +140,11 @@ impl NodeProcess {
                 .map(|(key, value)| (key.clone(), Value::String(value.clone())))
                 .collect(),
         )
+    }
+
+    /// Alias for the JSON-ready environment snapshot helper.
+    pub fn env_to_json_value(&self) -> Value {
+        self.env_snapshot_value()
     }
 
     /// Return the number of captured argv entries.
@@ -578,9 +588,19 @@ impl NodeRuntimeProjection {
         self.process.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn env_to_object(&self) -> BTreeMap<String, String> {
+        self.process.env_to_object()
+    }
+
     /// Return the captured process environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         self.process.env_snapshot_value()
+    }
+
+    /// Alias for the JSON-ready environment snapshot helper.
+    pub fn env_to_json_value(&self) -> Value {
+        self.process.env_to_json_value()
     }
 
     /// Change the working directory for the full Node compatibility projection.
