@@ -60,24 +60,13 @@ fn process_context_tracks_env_and_output() {
     );
     assert_eq!(process.env_set("EDITOR", "nano"), None);
     assert_eq!(process.env_remove("HOME"), Some(String::from("/tmp/home")));
+    assert_eq!(process.env_delete("EDITOR"), Some(String::from("nano")));
     assert_eq!(process.env_get("HOME"), None);
-    assert_eq!(process.env_get("EDITOR"), Some("nano"));
-    assert_eq!(
-        process.env_snapshot(),
-        BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
-    );
-    assert_eq!(
-        process.env_to_object(),
-        BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
-    );
-    assert_eq!(
-        process.env_snapshot_value(),
-        serde_json::json!({ "EDITOR": "nano" })
-    );
-    assert_eq!(
-        process.env_to_json_value(),
-        serde_json::json!({ "EDITOR": "nano" })
-    );
+    assert_eq!(process.env_get("EDITOR"), None);
+    assert_eq!(process.env_snapshot(), BTreeMap::new());
+    assert_eq!(process.env_to_object(), BTreeMap::new());
+    assert_eq!(process.env_snapshot_value(), serde_json::json!({}));
+    assert_eq!(process.env_to_json_value(), serde_json::json!({}));
 
     process.write_stdout("hello");
     process.write_stderr("oops");
@@ -158,21 +147,23 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
     );
     assert_eq!(projection.snapshot_value(), projection.env_snapshot_value());
     assert_eq!(
+        projection.env_delete("HOME"),
+        Some(String::from("/tmp/home"))
+    );
+    assert_eq!(projection.env_has("HOME"), false);
+    assert_eq!(
         projection.env_to_json_value(),
-        serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
+        serde_json::json!({ "EDITOR": "nano" })
     );
 
     projection.chdir("./nested/../other");
     assert_eq!(
         projection.env_snapshot(),
-        BTreeMap::from([
-            (String::from("EDITOR"), String::from("nano")),
-            (String::from("HOME"), String::from("/tmp/home")),
-        ])
+        BTreeMap::from([(String::from("EDITOR"), String::from("nano"))])
     );
     assert_eq!(
         projection.env_snapshot_value(),
-        serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
+        serde_json::json!({ "EDITOR": "nano" })
     );
 }
 

@@ -117,6 +117,11 @@ impl NodeProcess {
         self.env.remove(key)
     }
 
+    /// Alias for the environment removal helper.
+    pub fn env_delete(&mut self, key: &str) -> Option<String> {
+        self.env_remove(key)
+    }
+
     /// Return the captured environment view.
     pub fn env(&self) -> &BTreeMap<String, String> {
         &self.env
@@ -616,6 +621,11 @@ impl NodeRuntimeProjection {
     /// Alias for the deterministic environment snapshot helper.
     pub fn env_to_object(&self) -> BTreeMap<String, String> {
         self.process.env_to_object()
+    }
+
+    /// Alias for the environment removal helper.
+    pub fn env_delete(&mut self, key: &str) -> Option<String> {
+        self.process.env_delete(key)
     }
 
     /// Alias for the deterministic environment snapshot helper with a generic object-value name.
