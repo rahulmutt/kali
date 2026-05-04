@@ -624,11 +624,21 @@ fn browser_harness_uses_html_entrypoint_for_browser_executables() {
     ));
     assert!(browser_harness_uses_html_entrypoint("chromium"));
     assert!(browser_harness_uses_html_entrypoint("chromium-browser"));
+    assert!(browser_harness_uses_html_entrypoint("chromium-for-testing"));
+    assert!(browser_harness_uses_html_entrypoint("chromium for testing"));
     assert!(browser_harness_uses_html_entrypoint(
         "/usr/bin/google-chrome-stable"
     ));
+    assert!(browser_harness_uses_html_entrypoint("google chrome beta"));
     assert!(browser_harness_uses_html_entrypoint("google chrome canary"));
+    assert!(browser_harness_uses_html_entrypoint("google chrome dev"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "google chrome for testing"
+    ));
     assert!(browser_harness_uses_html_entrypoint("google chrome stable"));
+    assert!(browser_harness_uses_html_entrypoint(
+        "google chrome unstable"
+    ));
     assert!(browser_harness_uses_html_entrypoint("google-chrome-stable"));
     assert!(browser_harness_uses_html_entrypoint(
         "google-chrome-headless-shell"
@@ -740,6 +750,20 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         Some(vec!["chromium".to_string(), "--headless".to_string()])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chromium-for-testing"),
+        Some(vec![
+            "chromium-for-testing".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("chromium for testing"),
+        Some(vec![
+            "chromium for testing".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable("/usr/bin/google-chrome-stable"),
         Some(vec![
             "google-chrome-stable".to_string(),
@@ -804,9 +828,37 @@ fn browser_harness_command_parts_for_browser_executables_use_headless_mode() {
         ])
     );
     assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome beta"),
+        Some(vec![
+            "google chrome beta".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
         browser_harness_command_parts_for_browser_executable("google chrome canary"),
         Some(vec![
             "google chrome canary".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome dev"),
+        Some(vec![
+            "google chrome dev".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome for testing"),
+        Some(vec![
+            "google chrome for testing".to_string(),
+            "--headless".to_string()
+        ])
+    );
+    assert_eq!(
+        browser_harness_command_parts_for_browser_executable("google chrome unstable"),
+        Some(vec![
+            "google chrome unstable".to_string(),
             "--headless".to_string()
         ])
     );
