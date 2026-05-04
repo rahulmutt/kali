@@ -1894,6 +1894,71 @@ fn build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_t
     );
 }
 
+fn assert_build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math[\"log2\"](log2Value)); console.log(globalThis.Math[\"log10\"](log10Value));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("globalThis.Math[\"log2\"]/globalThis.Math[\"log10\"] identity build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_js_input(
+) {
+    assert_build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_ts_input(
+) {
+    assert_build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_global_this_math_mixed_bracket_log2_and_log10_identity_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_math_hypot_perfect_square_literal_in_input(
     api_surface: ApiSurface,
     extension: &str,
