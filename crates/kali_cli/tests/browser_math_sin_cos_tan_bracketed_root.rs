@@ -114,6 +114,16 @@ fn build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_ts_inpu
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.js", true);
 }
@@ -121,6 +131,16 @@ fn json_build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_js
 #[test]
 fn json_build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_ts_input() {
     assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_sin_cos_tan_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sin_cos_tan("app.tsx", true);
 }
 
 #[test]
@@ -148,6 +168,30 @@ fn run_and_test_supports_bracketed_global_this_math_sin_cos_tan_zero_identities_
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed sin/cos/tan zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(globalThis[\"Math\"].cos(zero)); console.log(globalThis[\"Math\"].tan(zero)); });\n",
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(globalThis[\"Math\"].cos(zero)); console.log(globalThis[\"Math\"].tan(zero));\n",
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed sin/cos/tan zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(globalThis[\"Math\"].cos(zero)); console.log(globalThis[\"Math\"].tan(zero)); });\n",
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(globalThis[\"Math\"].cos(zero)); console.log(globalThis[\"Math\"].tan(zero));\n",
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed sin/cos/tan zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(globalThis[\"Math\"].cos(zero)); console.log(globalThis[\"Math\"].tan(zero)); });\n",
             "1\n0",
         ),

@@ -99,6 +99,26 @@ fn run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configu
 }
 
 #[test]
+fn run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_sin_cos(
+        "run",
+        "main.jsx",
+        browser_harness_math_sin_cos_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_sin_cos(
+        "run",
+        "main.tsx",
+        browser_harness_math_sin_cos_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_math_sin_cos(
         "test",
@@ -113,6 +133,28 @@ fn test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_config
     assert_browser_harness_math_sin_cos(
         "test",
         "smoke.test.js",
+        browser_harness_math_sin_cos_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_jsx_input()
+{
+    assert_browser_harness_math_sin_cos(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_sin_cos_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_tsx_input()
+{
+    assert_browser_harness_math_sin_cos(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_sin_cos_test_source(),
         false,
     );
@@ -141,6 +183,28 @@ fn json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_co
 }
 
 #[test]
+fn json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_sin_cos(
+        "run",
+        "main.jsx",
+        browser_harness_math_sin_cos_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_sin_cos(
+        "run",
+        "main.tsx",
+        browser_harness_math_sin_cos_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_ts_input(
 ) {
     assert_browser_harness_math_sin_cos(
@@ -157,6 +221,28 @@ fn json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_c
     assert_browser_harness_math_sin_cos(
         "test",
         "smoke.test.js",
+        browser_harness_math_sin_cos_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_sin_cos(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_sin_cos_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_sin_and_cos_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_sin_cos(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_sin_cos_test_source(),
         true,
     );

@@ -110,6 +110,16 @@ fn build_emits_math_sin_cos_tan_zero_identities_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_sin_cos_tan_zero_identities_in_jsx_input() {
+    assert_browser_bundle_math_sin_cos_tan("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_sin_cos_tan_zero_identities_in_tsx_input() {
+    assert_browser_bundle_math_sin_cos_tan("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_math_sin_cos_tan_zero_identities_in_js_input() {
     assert_browser_bundle_math_sin_cos_tan("app.js", true);
 }
@@ -117,4 +127,14 @@ fn json_build_emits_math_sin_cos_tan_zero_identities_in_js_input() {
 #[test]
 fn json_build_emits_math_sin_cos_tan_zero_identities_in_ts_input() {
     assert_browser_bundle_math_sin_cos_tan("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_math_sin_cos_tan_zero_identities_in_jsx_input() {
+    assert_browser_bundle_math_sin_cos_tan("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_sin_cos_tan_zero_identities_in_tsx_input() {
+    assert_browser_bundle_math_sin_cos_tan("app.tsx", true);
 }
