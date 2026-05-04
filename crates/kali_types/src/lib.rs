@@ -695,6 +695,7 @@ impl TypeContext {
                 | Expression::ParenthesizedExpression(_)
                 | Expression::TypeAssertion(_)
                 | Expression::SatisfiesExpression(_)
+                | Expression::DecoratedExpression(_)
         )
     }
 
@@ -706,6 +707,9 @@ impl TypeContext {
             }
             Expression::TypeAssertion(expr) => self.resolve_update_binding_name(&expr.expression),
             Expression::SatisfiesExpression(expr) => {
+                self.resolve_update_binding_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
                 self.resolve_update_binding_name(&expr.expression)
             }
             _ => None,

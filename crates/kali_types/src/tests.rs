@@ -4863,6 +4863,43 @@ fn test_resolution_rejects_compound_assignment_on_non_local_targets_as_unavailab
 }
 
 #[test]
+fn test_resolution_accepts_decorated_wrappers_for_update_targets() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::AddAssign,
+                    left: Expression::DecoratedExpression(DecoratedExpression {
+                        expression: Box::new(Expression::Identifier("value".to_string())),
+                    }),
+                    right: Expression::Literal(LiteralValue::Number(2.0)),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::UpdateExpression(Box::new(UpdateExpression {
+                operator: UpdateOperator::Increment,
+                argument: Expression::DecoratedExpression(DecoratedExpression {
+                    expression: Box::new(Expression::Identifier("value".to_string())),
+                }),
+                prefix: true,
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_reports_non_identity_literals_in_math_asin_acos_atan_member_calls_as_unavailable(
 ) {
     let mut ctx = TypeContext::new();
