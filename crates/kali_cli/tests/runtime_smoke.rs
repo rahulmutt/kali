@@ -41836,6 +41836,134 @@ fn run_supports_for_of_array_iteration_with_const_alias_in_browser_api_surface_w
 }
 
 #[test]
+fn run_supports_for_of_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_of_array_iteration(&stdout);
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_of_array_iteration(&stdout);
+}
+
+#[test]
+fn run_supports_for_of_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
+    assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
+    assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
 fn run_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -41923,6 +42051,161 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
     assert_eq!(json["success"], true);
     assert!(json["errors"].as_array().expect("errors array").is_empty());
     assert_browser_for_of_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_with_const_alias_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const value = 1; const alias = value; for await (const item of [alias]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains('1'), "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
+    assert_browser_for_await_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input_in_json(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(
+        errors.is_empty(),
+        "errors array should be empty: {errors:?}"
+    );
+    assert_browser_for_await_array_iteration_json(json["success"].as_bool().unwrap());
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_await_array_iteration(&stdout);
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_with_spread_of_const_bound_literal_arrays_in_browser_api_surface_with_harness_ts_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_await_array_iteration(&stdout);
 }
 
 #[test]
