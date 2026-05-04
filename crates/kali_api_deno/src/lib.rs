@@ -64,6 +64,11 @@ impl DenoEnv {
         self.values.remove(key)
     }
 
+    /// Alias for the mutable environment removal helper.
+    pub fn delete(&mut self, key: &str) -> Option<String> {
+        self.remove(key)
+    }
+
     /// Return a deterministic snapshot of the visible environment.
     pub fn to_object(&self) -> BTreeMap<String, String> {
         self.values.clone()

@@ -16,9 +16,12 @@ fn env_view_is_deterministic_and_mutable() {
         Some(String::from("/tmp/home"))
     );
     assert_eq!(env.set("EDITOR", "nano"), None);
+    assert_eq!(env.set("TEMP", "tmp"), None);
     assert_eq!(env.get("HOME"), Some("/workspace/home"));
     assert_eq!(env.remove("TERM"), Some(String::from("xterm-256color")));
+    assert_eq!(env.delete("TEMP"), Some(String::from("tmp")));
     assert_eq!(env.get("TERM"), None);
+    assert_eq!(env.get("TEMP"), None);
     assert_eq!(
         env.to_object().get("HOME"),
         Some(&String::from("/workspace/home"))
