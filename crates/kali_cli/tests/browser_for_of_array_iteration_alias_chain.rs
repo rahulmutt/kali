@@ -233,3 +233,23 @@ fn json_run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harnes
 fn json_test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_ts_input() {
     assert_browser_harness_for_of_alias_chain("test", "smoke.test.ts", true);
 }
+
+#[test]
+fn run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_harness_for_of_alias_chain("run", "main.js", false);
+}
+
+#[test]
+fn test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_harness_for_of_alias_chain("test", "smoke.test.js", false);
+}
+
+#[test]
+fn json_run_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_harness_for_of_alias_chain("run", "main.js", true);
+}
+
+#[test]
+fn json_test_supports_for_of_const_alias_chain_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_harness_for_of_alias_chain("test", "smoke.test.js", true);
+}
