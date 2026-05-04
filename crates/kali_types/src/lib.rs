@@ -1957,9 +1957,21 @@ impl TypeContext {
             return;
         }
 
+        if method == "sign" {
+            if expr.args.is_empty() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.sign requires at least one argument in the current phase; use an explicit argument or the later compatibility path",
+                ));
+                return;
+            }
+
+            return;
+        }
+
         if matches!(
             method,
-            "max" | "min" | "abs" | "sign" | "tan" | "asinh" | "acosh" | "atanh"
+            "max" | "min" | "abs" | "tan" | "asinh" | "acosh" | "atanh"
         ) {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(

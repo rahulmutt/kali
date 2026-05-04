@@ -5093,6 +5093,27 @@ fn test_resolution_supports_non_integer_numeric_literals_in_math_trunc_member_ca
 }
 
 #[test]
+fn test_resolution_supports_non_integer_numeric_literals_in_math_sign_member_calls() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "sign".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_api() {
     let mut ctx = TypeContext::new();
     let statements = vec![
