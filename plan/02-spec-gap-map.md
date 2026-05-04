@@ -39,6 +39,8 @@ Remaining goals:
 - Progress note: the mutable-local compound-assignment/update-expression slice now also peels transparent `DecoratedExpression` wrappers around the target, keeping the transparent-wrapper handling aligned with the existing parenthesized/type-assertion/satisfies update-target support.
 - Maintain and simplify conformance dashboards as snapshots of supported/gated semantics rather than progress logs.
 
+- Progress note: browser bundle and browser-harness smoke now also cover the empty-argument `Math.hypot()` identity slice in TS, `.js`, `.jsx`, and `.tsx` input, closing the browser-targeted evidence gap for that supported built-in fold.
+
 ## Runtime, host, and platform expansion
 
 Owners: `specs/09-sandboxing.md`, `specs/10-runtime.md`, `specs/11-standard-apis.md`, `specs/18-schemas.md`, `specs/19-feature-maturity.md`.
