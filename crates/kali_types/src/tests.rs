@@ -13,6 +13,10 @@ use kali_error::_error_codes::{e3, e5};
 use std::fs;
 use tempfile::tempdir;
 
+fn sequence_expression(expressions: Vec<Expression>) -> Expression {
+    Expression::SequenceExpression(Box::new(kali_ast::SequenceExpression { expressions }))
+}
+
 #[test]
 fn test_scope_creation() {
     let scope = Scope::new(ScopeType::Global, None);
@@ -6264,6 +6268,72 @@ fn test_resolution_supports_for_of_array_iteration_in_js_input() {
 }
 
 #[test]
+fn test_resolution_supports_for_of_array_iteration_with_sequence_wrappers_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "let value = 0; for ((0, value) of (0, [(0, 1), (0, 2)])) { console.log(value); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "value".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::Expression(sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::Identifier("value".to_string()),
+            ])),
+            right: sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            sequence_expression(vec![
+                                Expression::Literal(LiteralValue::Number(0.0)),
+                                Expression::Literal(LiteralValue::Number(1.0)),
+                            ]),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            sequence_expression(vec![
+                                Expression::Literal(LiteralValue::Number(0.0)),
+                                Expression::Literal(LiteralValue::Number(2.0)),
+                            ]),
+                        )),
+                    ],
+                }),
+            ]),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("value".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: false,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_for_of_non_literal_iterable_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ForOfStatement(ForOfStatement {
@@ -6992,6 +7062,72 @@ fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
         })),
         is_await: true,
     })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_for_await_of_array_iteration_with_sequence_wrappers_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "let item = 0; for await ((0, item) of (0, [(0, 1), (0, 2)])) { console.log(item); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::Expression(sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::Identifier("item".to_string()),
+            ])),
+            right: sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            sequence_expression(vec![
+                                Expression::Literal(LiteralValue::Number(0.0)),
+                                Expression::Literal(LiteralValue::Number(1.0)),
+                            ]),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            sequence_expression(vec![
+                                Expression::Literal(LiteralValue::Number(0.0)),
+                                Expression::Literal(LiteralValue::Number(2.0)),
+                            ]),
+                        )),
+                    ],
+                }),
+            ]),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);

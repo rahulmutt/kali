@@ -636,6 +636,10 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.is_static_array_iteration_target(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|expression| self.is_static_array_iteration_target(expression)),
             Expression::DecoratedExpression(expr) => {
                 self.is_static_array_iteration_target(&expr.expression)
             }
@@ -663,6 +667,10 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.is_static_array_iteration_element(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|expression| self.is_static_array_iteration_element(expression)),
             Expression::DecoratedExpression(expr) => {
                 self.is_static_array_iteration_element(&expr.expression)
             }
@@ -685,6 +693,10 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.is_simple_for_of_binding_expression(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|expression| self.is_simple_for_of_binding_expression(expression)),
             Expression::DecoratedExpression(expr) => {
                 self.is_simple_for_of_binding_expression(&expr.expression)
             }
