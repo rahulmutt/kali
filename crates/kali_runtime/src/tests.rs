@@ -202,6 +202,7 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
         host_state.env_snapshot_json_value(),
         host_state.env_snapshot_value()
     );
+    assert_eq!(host_state.snapshot(), host_state.thread_topology_snapshot());
     assert_eq!(
         host_state.snapshot_object_value(),
         host_state.thread_topology_snapshot_value()

@@ -3998,6 +3998,11 @@ impl KaliHostState {
     }
 
     /// Return a stable snapshot of the current threaded runtime topology.
+    pub fn snapshot(&self) -> ThreadRuntimeShutdownReport {
+        self.thread_topology_snapshot()
+    }
+
+    /// Return a stable snapshot of the current threaded runtime topology.
     pub fn thread_topology_snapshot(&self) -> ThreadRuntimeShutdownReport {
         self.thread_topology.snapshot()
     }
