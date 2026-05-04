@@ -973,6 +973,20 @@ impl Optimizer {
             }
         }
 
+        if let Some(folded) =
+            self.fold_object_from_entries_call(program, &snapshot, &callee_node, bindings)
+        {
+            let key = format!(
+                "object-from-entries:{}:{}",
+                callee_name,
+                self.call_signature(program, &snapshot)
+            );
+            if tracker.allow(owner, key) {
+                program.nodes[id.0 as usize] = program.nodes[folded.0 as usize].clone();
+                return true;
+            }
+        }
+
         let Some(summary) = plan.functions.get(callee_name) else {
             return false;
         };
@@ -1849,6 +1863,63 @@ impl Optimizer {
         }
     }
 
+    fn fold_object_from_entries_call(
+        &self,
+        program: &mut LirProgram,
+        snapshot: &LirNode,
+        callee_node: &LirNode,
+        bindings: &BindingEnv,
+    ) -> Option<LirNodeId> {
+        let callee_name = self.member_access_name(program, callee_node)?;
+        if !matches!(
+            callee_name.as_str(),
+            "Object.fromEntries" | "globalThis.Object.fromEntries"
+        ) {
+            return None;
+        }
+
+        let entries_id =
+            self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
+        if !self.is_array_literal(program, entries_id) {
+            return None;
+        }
+
+        let entries_node = program.nodes.get(entries_id.0 as usize)?;
+        let mut properties: Vec<(String, usize, LirNodeId)> = Vec::new();
+        let mut key_positions: HashMap<String, usize> = HashMap::new();
+        for (entry_index, entry_id) in entries_node.children.iter().copied().enumerate() {
+            let entry_id = self.resolve_constant_binding(program, entry_id, bindings)?;
+            if !self.is_array_literal(program, entry_id) {
+                return None;
+            }
+
+            let entry_node = program.nodes.get(entry_id.0 as usize)?;
+            if entry_node.children.len() != 2 {
+                return None;
+            }
+
+            let key_id =
+                self.resolve_constant_binding(program, entry_node.children[0], bindings)?;
+            let key = self.constant_property_key(program, key_id)?;
+            let value_id =
+                self.resolve_constant_binding(program, entry_node.children[1], bindings)?;
+
+            if let Some(position) = key_positions.get(&key).copied() {
+                properties[position].2 = value_id;
+                continue;
+            }
+
+            key_positions.insert(key.clone(), properties.len());
+            properties.push((key, entry_index, value_id));
+        }
+
+        let object_properties = properties
+            .into_iter()
+            .map(|(key, _, value)| (key, value))
+            .collect::<Vec<_>>();
+        Some(self.push_object_literal(program, object_properties))
+    }
+
     fn fold_object_enumeration_calls(
         &self,
         program: &mut LirProgram,
@@ -2026,6 +2097,32 @@ impl Optimizer {
             kind: LirNodeKind::Value,
             text: None,
             children: elements,
+        });
+        new_id
+    }
+
+    fn push_object_literal(
+        &self,
+        program: &mut LirProgram,
+        properties: Vec<(String, LirNodeId)>,
+    ) -> LirNodeId {
+        let mut property_nodes = Vec::with_capacity(properties.len());
+        for (key, value) in properties {
+            let key_id = self.clone_string_literal(program, key);
+            let property_id = LirNodeId(program.nodes.len() as u32);
+            program.nodes.push(LirNode {
+                kind: LirNodeKind::Value,
+                text: Some("init".to_string()),
+                children: vec![key_id, value],
+            });
+            property_nodes.push(property_id);
+        }
+
+        let new_id = LirNodeId(program.nodes.len() as u32);
+        program.nodes.push(LirNode {
+            kind: LirNodeKind::Value,
+            text: None,
+            children: property_nodes,
         });
         new_id
     }

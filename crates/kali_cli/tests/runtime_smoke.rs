@@ -24876,10 +24876,68 @@ console.log(values.length);
 "#
 }
 
+fn object_from_entries_enumeration_source() -> &'static str {
+    r#"const obj = Object.fromEntries([["b", 1], ["a", 2]]);
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+if (
+  JSON.stringify(keys) !== '["b","a"]' ||
+  JSON.stringify(entries) !== '[["b",1],["a",2]]' ||
+  JSON.stringify(values) !== '[1,2]'
+) {
+  throw new Error('unexpected fromEntries enumeration');
+}
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#
+}
+
 fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(&source_path, object_enumeration_semantics_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "2\n2\n2\n");
+    assert_eq!(json["stderr"], "");
+}
+
+fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, object_from_entries_enumeration_source()).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -24924,6 +24982,40 @@ fn json_run_supports_object_enumeration_semantics_in_js_input() {
 #[test]
 fn json_test_supports_object_enumeration_semantics_in_js_input() {
     assert_json_object_enumeration_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_run_supports_object_from_entries_enumeration_semantics_in_js_input() {
+    assert_json_object_from_entries_semantics("run", "main.js");
+}
+
+#[test]
+fn json_test_supports_object_from_entries_enumeration_semantics_in_js_input() {
+    assert_json_object_from_entries_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn run_supports_object_from_entries_enumeration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, object_from_entries_enumeration_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n2\n2\n");
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
 }
 
 fn assert_json_object_string_primitive_enumeration_semantics(command: &str, filename: &str) {
