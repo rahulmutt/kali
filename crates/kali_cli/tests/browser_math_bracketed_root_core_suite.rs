@@ -126,6 +126,16 @@ fn build_emits_bracketed_global_this_math_core_suite_in_ts_input() {
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_core_suite_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_core_suite("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_core_suite_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_core_suite("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_core_suite_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_core_suite("app.js", true);
 }
@@ -133,6 +143,16 @@ fn json_build_emits_bracketed_global_this_math_core_suite_in_js_input() {
 #[test]
 fn json_build_emits_bracketed_global_this_math_core_suite_in_ts_input() {
     assert_browser_bundle_bracketed_global_this_math_core_suite("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_core_suite_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_core_suite("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_core_suite_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_core_suite("app.tsx", true);
 }
 
 #[test]
@@ -160,6 +180,30 @@ fn run_and_test_supports_bracketed_global_this_math_core_suite_when_browser_harn
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed math core suite', () => { console.log(globalThis[\"Math\"].max(1, 2, 3)); console.log(globalThis[\"Math\"].min(3, 2, 1)); console.log(globalThis[\"Math\"].abs(3 - 6)); console.log(globalThis[\"Math\"].sign(3 - 6)); console.log(globalThis[\"Math\"].imul(2147483647, 2)); console.log(globalThis[\"Math\"].clz32(1)); });\n",
+            "3\n1\n3\n-1\n-2\n31",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "console.log(globalThis[\"Math\"].max(1, 2, 3));\nconsole.log(globalThis[\"Math\"].min(3, 2, 1));\nconsole.log(globalThis[\"Math\"].abs(3 - 6));\nconsole.log(globalThis[\"Math\"].sign(3 - 6));\nconsole.log(globalThis[\"Math\"].imul(2147483647, 2));\nconsole.log(globalThis[\"Math\"].clz32(1));\n",
+            "3\n1\n3\n-1\n-2\n31",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed math core suite', () => { console.log(globalThis[\"Math\"].max(1, 2, 3)); console.log(globalThis[\"Math\"].min(3, 2, 1)); console.log(globalThis[\"Math\"].abs(3 - 6)); console.log(globalThis[\"Math\"].sign(3 - 6)); console.log(globalThis[\"Math\"].imul(2147483647, 2)); console.log(globalThis[\"Math\"].clz32(1)); });\n",
+            "3\n1\n3\n-1\n-2\n31",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "console.log(globalThis[\"Math\"].max(1, 2, 3));\nconsole.log(globalThis[\"Math\"].min(3, 2, 1));\nconsole.log(globalThis[\"Math\"].abs(3 - 6));\nconsole.log(globalThis[\"Math\"].sign(3 - 6));\nconsole.log(globalThis[\"Math\"].imul(2147483647, 2));\nconsole.log(globalThis[\"Math\"].clz32(1));\n",
+            "3\n1\n3\n-1\n-2\n31",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed math core suite', () => { console.log(globalThis[\"Math\"].max(1, 2, 3)); console.log(globalThis[\"Math\"].min(3, 2, 1)); console.log(globalThis[\"Math\"].abs(3 - 6)); console.log(globalThis[\"Math\"].sign(3 - 6)); console.log(globalThis[\"Math\"].imul(2147483647, 2)); console.log(globalThis[\"Math\"].clz32(1)); });\n",
             "3\n1\n3\n-1\n-2\n31",
         ),
