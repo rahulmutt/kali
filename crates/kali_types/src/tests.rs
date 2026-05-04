@@ -2271,6 +2271,63 @@ Object.prototype.hasOwnProperty.call(alias, "a");
 }
 
 #[test]
+fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::DecoratedExpression(DecoratedExpression {
+                    expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                        ParenthesizedExpression {
+                            expression: Box::new(Expression::MemberExpression(Box::new(
+                                MemberExpression {
+                                    object: Expression::Identifier("Object".to_string()),
+                                    property: "hasOwn".to_string(),
+                                },
+                            ))),
+                        },
+                    ))),
+                }),
+                args: vec![
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::DecoratedExpression(DecoratedExpression {
+                    expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                        ParenthesizedExpression {
+                            expression: Box::new(Expression::MemberExpression(Box::new(
+                                MemberExpression {
+                                    object: Expression::Identifier("Math".to_string()),
+                                    property: "floor".to_string(),
+                                },
+                            ))),
+                        },
+                    ))),
+                }),
+                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_object_is_numeric_literal_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![

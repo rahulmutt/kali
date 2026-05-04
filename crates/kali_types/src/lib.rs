@@ -1338,6 +1338,27 @@ impl TypeContext {
         self.resolve_promise_member_call(expr);
     }
 
+    fn call_member_access_name(expression: &Expression) -> Option<String> {
+        match expression {
+            Expression::MemberExpression(member) => Self::member_access_name(member),
+            Expression::ParenthesizedExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => Self::call_member_access_name(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => Self::call_member_access_name(&expr.expression),
+            Expression::DecoratedExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => Self::call_member_access_name(object),
+            },
+            _ => None,
+        }
+    }
+
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         if self.resolve_late_intl_member(expr) {
             return;
@@ -1368,10 +1389,7 @@ impl TypeContext {
     }
 
     fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
-        let Some(callee_name) = Self::member_access_name(match &expr.callee {
-            Expression::MemberExpression(member) => member,
-            _ => return,
-        }) else {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
             return;
         };
 
@@ -1404,10 +1422,7 @@ impl TypeContext {
     }
 
     fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
-        let Some(callee_name) = Self::member_access_name(match &expr.callee {
-            Expression::MemberExpression(member) => member,
-            _ => return false,
-        }) else {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
             return false;
         };
 
@@ -1447,10 +1462,7 @@ impl TypeContext {
     }
 
     fn resolve_static_object_identity_call(&mut self, expr: &CallExpression) -> bool {
-        let Some(callee_name) = Self::member_access_name(match &expr.callee {
-            Expression::MemberExpression(member) => member,
-            _ => return false,
-        }) else {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
             return false;
         };
 
@@ -1498,10 +1510,7 @@ impl TypeContext {
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {
-        let Some(callee_name) = Self::member_access_name(match &expr.callee {
-            Expression::MemberExpression(member) => member,
-            _ => return,
-        }) else {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
             return;
         };
 
