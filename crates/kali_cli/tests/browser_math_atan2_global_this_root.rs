@@ -66,6 +66,10 @@ fn assert_browser_bundle_global_this_math_atan2(filename: &str, json_output: boo
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -170,6 +174,7 @@ fn assert_browser_harness_global_this_math_atan2(
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("0\n"), "stdout: {stdout}");

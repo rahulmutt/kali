@@ -55,6 +55,10 @@ fn assert_browser_bundle_bracketed_global_this_math_atan2(filename: &str, json_o
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -244,6 +248,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browse
                     "json: {json}"
                 );
                 assert_eq!(json["stderr"], "");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
@@ -290,6 +295,10 @@ fn assert_browser_bundle_bracketed_global_this_math_atan2_wrapper(
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -445,6 +454,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_as_const_wrapper_when_
                     "json: {json}"
                 );
                 assert_eq!(json["stderr"], "");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
@@ -520,6 +530,7 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_satisfies_wrapper_when
                     "json: {json}"
                 );
                 assert_eq!(json["stderr"], "");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
@@ -580,6 +591,10 @@ stderr: {}",
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -727,6 +742,7 @@ stderr: {}",
                     "json: {json}"
                 );
                 assert_eq!(json["stderr"], "");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
@@ -783,6 +799,10 @@ fn assert_browser_bundle_single_quoted_global_this_math_atan2(filename: &str, js
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -928,6 +948,7 @@ fn run_and_test_supports_single_quoted_global_this_math_atan2_zero_slice_when_br
                     "json: {json}"
                 );
                 assert_eq!(json["stderr"], "");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 assert!(stdout.contains(expected_stdout), "stdout: {stdout}");

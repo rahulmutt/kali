@@ -42,6 +42,7 @@ This directory contains only active continuation planning. Completed historical 
 - Progress note: browser-harness smoke now also covers the supported `globalThis.Math.exp` / `globalThis.Math.log` exact-identity slice in TS and `.js` input, and browser build smoke mirrors that root-access slice on the browser API surface.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.exp` / `Math.log` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the direct `globalThis.Math.log2` / `globalThis.Math.log10` root spelling alongside the bracketed-root slice in TS and `.js` input.
+- Progress note: browser-harness/browser-bundle JSON success paths for the `globalThis.Math.atan2` / `globalThis["Math"].atan2` and mixed `globalThis.Math["log2"]` / `globalThis.Math["log10"]` slices now also assert empty `errors` arrays, keeping the deterministic JSON envelope explicit on those smoke paths.
 - Progress note: browser-harness and browser-bundle smoke now also cover the fully bracketed `globalThis["Math"]["exp"]` / `globalThis["Math"]["log"]` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the exact `Math.asinh` / `Math.acosh` / `Math.atanh` identity slice in TS and `.js` input.
 - Progress note: browser-harness and browser-bundle smoke now also cover the bracketed `globalThis["Math"]` root for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice in TS and `.js` input.
