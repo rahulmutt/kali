@@ -53,6 +53,7 @@ fn process_context_tracks_env_and_output() {
         process.snapshot_json_value(),
         serde_json::json!({ "HOME": "/tmp/home" })
     );
+    assert_eq!(process.snapshot_value(), process.env_snapshot_value());
     assert_eq!(
         process.env_to_json_value(),
         serde_json::json!({ "HOME": "/tmp/home" })
@@ -155,6 +156,7 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
         projection.snapshot_json_value(),
         serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
     );
+    assert_eq!(projection.snapshot_value(), projection.env_snapshot_value());
     assert_eq!(
         projection.env_to_json_value(),
         serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })

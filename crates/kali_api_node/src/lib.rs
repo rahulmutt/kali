@@ -162,6 +162,11 @@ impl NodeProcess {
         self.env_snapshot_value()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> Value {
         self.env_snapshot_value()
@@ -636,6 +641,11 @@ impl NodeRuntimeProjection {
     /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
     pub fn snapshot_json_value(&self) -> Value {
         self.process.snapshot_json_value()
+    }
+
+    /// Alias for the deterministic environment snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> Value {
+        self.process.snapshot_value()
     }
 
     /// Alias for the JSON-ready environment snapshot helper.

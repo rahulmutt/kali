@@ -89,6 +89,11 @@ impl DenoEnv {
         self.to_json_value()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> Value {
+        self.to_json_value()
+    }
+
     /// Iterate over the captured key/value pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         self.values
@@ -874,6 +879,11 @@ impl DenoRuntimeProjection {
 
     /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
     pub fn snapshot_json_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
+    /// Alias for the deterministic environment snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> Value {
         self.env_snapshot_value()
     }
 

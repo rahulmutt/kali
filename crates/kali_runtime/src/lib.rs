@@ -406,6 +406,11 @@ impl RuntimeCtx {
         self.env_snapshot_value()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> serde_json::Value {
+        self.env_snapshot_value()
+    }
+
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> serde_json::Value {
         self.env_snapshot_value()
@@ -3950,6 +3955,11 @@ impl KaliHostState {
     /// Alias for the deterministic JSON-ready environment snapshot helper.
     pub fn env_snapshot_json_value(&self) -> serde_json::Value {
         self.env_snapshot_value()
+    }
+
+    /// Alias for the deterministic threaded-topology snapshot helper with a generic value name.
+    pub fn snapshot_value(&self) -> serde_json::Value {
+        self.thread_topology_snapshot_value()
     }
 
     /// Alias for the JSON-ready environment snapshot helper.
