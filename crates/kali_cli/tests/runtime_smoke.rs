@@ -3483,6 +3483,10 @@ fn browser_runtime_object_enumeration_source() -> &'static str {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const fromEntriesKeys = Object.keys(fromEntries);
+const fromEntriesEntries = Object.entries(fromEntries);
+const fromEntriesValues = Object.values(fromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3508,7 +3512,18 @@ if (
   values[0] !== 4 ||
   values[1] !== 2 ||
   values[2] !== 1 ||
-  values[3] !== 3
+  values[3] !== 3 ||
+  fromEntriesKeys.length !== 2 ||
+  fromEntriesKeys[0] !== 'b' ||
+  fromEntriesKeys[1] !== 'a' ||
+  fromEntriesEntries.length !== 2 ||
+  fromEntriesEntries[0][0] !== 'b' ||
+  fromEntriesEntries[0][1] !== 1 ||
+  fromEntriesEntries[1][0] !== 'a' ||
+  fromEntriesEntries[1][1] !== 2 ||
+  fromEntriesValues.length !== 2 ||
+  fromEntriesValues[0] !== 1 ||
+  fromEntriesValues[1] !== 2
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3548,6 +3563,10 @@ fn browser_runtime_object_enumeration_test_source() -> &'static str {
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
 const values = Object.values(obj);
+const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const fromEntriesKeys = Object.keys(fromEntries);
+const fromEntriesEntries = Object.entries(fromEntries);
+const fromEntriesValues = Object.values(fromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3565,7 +3584,18 @@ if (
   entries[1][1] !== 2 ||
   values.length !== 2 ||
   values[0] !== 4 ||
-  values[1] !== 2
+  values[1] !== 2 ||
+  fromEntriesKeys.length !== 2 ||
+  fromEntriesKeys[0] !== 'b' ||
+  fromEntriesKeys[1] !== 'a' ||
+  fromEntriesEntries.length !== 2 ||
+  fromEntriesEntries[0][0] !== 'b' ||
+  fromEntriesEntries[0][1] !== 1 ||
+  fromEntriesEntries[1][0] !== 'a' ||
+  fromEntriesEntries[1][1] !== 2 ||
+  fromEntriesValues.length !== 2 ||
+  fromEntriesValues[0] !== 1 ||
+  fromEntriesValues[1] !== 2
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3708,6 +3738,10 @@ async function enumSmoke(left, right) {
   const keys = Object.keys(obj);
   const entries = Object.entries(obj);
   const values = Object.values(obj);
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+  const fromEntriesKeys = Object.keys(fromEntries);
+  const fromEntriesEntries = Object.entries(fromEntries);
+  const fromEntriesValues = Object.values(fromEntries);
   const consumeArray = (items, value) => items[0] + items[1] + value;
   const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
   const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3725,7 +3759,18 @@ async function enumSmoke(left, right) {
     entries[1][1] !== 2 ||
     values.length !== 2 ||
     values[0] !== 3 ||
-    values[1] !== 2
+    values[1] !== 2 ||
+    fromEntriesKeys.length !== 2 ||
+    fromEntriesKeys[0] !== 'b' ||
+    fromEntriesKeys[1] !== 'a' ||
+    fromEntriesEntries.length !== 2 ||
+    fromEntriesEntries[0][0] !== 'b' ||
+    fromEntriesEntries[0][1] !== 1 ||
+    fromEntriesEntries[1][0] !== 'a' ||
+    fromEntriesEntries[1][1] !== 2 ||
+    fromEntriesValues.length !== 2 ||
+    fromEntriesValues[0] !== 1 ||
+    fromEntriesValues[1] !== 2
   ) {
     throw new Error('unexpected overwrite ordering');
   }

@@ -86,6 +86,34 @@ fn build_object_enumeration_call(builder: &mut LirBuilder, callee_name: &str) ->
     call
 }
 
+fn build_object_from_entries_call(builder: &mut LirBuilder) -> LirNodeId {
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, "fromEntries");
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+
+    let entries = builder.alloc(LirNodeKind::Value);
+    let entry_b = builder.alloc(LirNodeKind::Value);
+    let entry_b_key = literal(builder, "\"b\"");
+    let entry_b_value = literal(builder, "1");
+    builder.node_mut(entry_b).unwrap().children = vec![entry_b_key, entry_b_value];
+
+    let entry_a = builder.alloc(LirNodeKind::Value);
+    let entry_a_key = literal(builder, "\"a\"");
+    let entry_a_value = literal(builder, "2");
+    builder.node_mut(entry_a).unwrap().children = vec![entry_a_key, entry_a_value];
+
+    let entry_b_overwrite = builder.alloc(LirNodeKind::Value);
+    let entry_b_overwrite_key = literal(builder, "\"b\"");
+    let entry_b_overwrite_value = literal(builder, "3");
+    builder.node_mut(entry_b_overwrite).unwrap().children =
+        vec![entry_b_overwrite_key, entry_b_overwrite_value];
+
+    builder.node_mut(entries).unwrap().children = vec![entry_b, entry_a, entry_b_overwrite];
+    builder.node_mut(call).unwrap().children = vec![callee, entries];
+    call
+}
+
 fn build_reflect_own_keys_call(builder: &mut LirBuilder) -> LirNodeId {
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, "ownKeys");
@@ -1294,6 +1322,50 @@ fn release_folds_object_entries_calls_over_literal_object_shapes() {
     assert_eq!(
         entries,
         vec![vec!["\"1\"", "4"], vec!["\"2\"", "2"], vec!["b", "1"]]
+    );
+}
+
+#[test]
+fn release_folds_object_from_entries_calls_over_literal_entry_arrays() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_from_entries_call(&mut builder);
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    assert!(call_node.text.is_none());
+    let entries: Vec<(String, String)> = call_node
+        .children
+        .iter()
+        .map(|entry_id| {
+            let entry_node = &program.nodes[entry_id.0 as usize];
+            let key = program.nodes[entry_node.children[0].0 as usize]
+                .text
+                .as_deref()
+                .unwrap()
+                .to_string();
+            let value = program.nodes[entry_node.children[1].0 as usize]
+                .text
+                .as_deref()
+                .unwrap()
+                .to_string();
+            (key, value)
+        })
+        .collect();
+    assert_eq!(
+        entries,
+        vec![
+            ("\"b\"".to_string(), "3".to_string()),
+            ("\"a\"".to_string(), "2".to_string())
+        ]
     );
 }
 
