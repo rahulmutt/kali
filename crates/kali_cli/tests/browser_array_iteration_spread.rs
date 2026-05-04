@@ -199,3 +199,39 @@ fn json_build_emits_for_await_spread_in_ts_input() {
         "forAwaitArrayIterationSpreadWrapper",
     );
 }
+
+#[test]
+fn build_emits_for_of_spread_in_jsx_and_tsx_input() {
+    for filename in ["app.jsx", "app.tsx"] {
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            false,
+            for_of_spread_source(),
+            "forOfArrayIterationSpreadWrapper",
+        );
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            true,
+            for_of_spread_source(),
+            "forOfArrayIterationSpreadWrapper",
+        );
+    }
+}
+
+#[test]
+fn build_emits_for_await_spread_in_jsx_and_tsx_input() {
+    for filename in ["app.jsx", "app.tsx"] {
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            false,
+            for_await_spread_source(),
+            "forAwaitArrayIterationSpreadWrapper",
+        );
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            true,
+            for_await_spread_source(),
+            "forAwaitArrayIterationSpreadWrapper",
+        );
+    }
+}
