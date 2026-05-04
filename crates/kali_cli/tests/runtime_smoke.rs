@@ -3267,7 +3267,7 @@ fn assert_browser_runtime_rejection_notes(notes: &[Value]) {
         "notes: {notes:?}"
     );
     assert!(
-        notes.iter().any(|note| note.as_str() == Some("browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid")),
+        notes.iter().any(|note| note.as_str() == Some("browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid")),
         "notes: {notes:?}"
     );
     assert!(
@@ -4516,7 +4516,7 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
         "supported browser runtime commands: run, test",
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
         "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
-        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid",
+        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
         "browser runtime host description: real browser host"
     ]));
     assert!(json["errors"].as_array().expect("errors array").is_empty());
@@ -4587,7 +4587,7 @@ fn doctor_emits_human_output_for_browser_harness_override() {
         "stdout: {stdout}"
     );
     assert!(
-        stdout.contains("browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid"),
+        stdout.contains("browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid"),
         "stdout: {stdout}"
     );
     assert!(

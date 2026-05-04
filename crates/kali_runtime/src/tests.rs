@@ -383,7 +383,7 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
     );
     assert_eq!(
         BrowserRuntimeContract::summary_file_fallback_note(),
-        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, or shape-invalid"
+        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid"
     );
     assert_eq!(
         BrowserRuntimeContract::diagnostic_notes(),
