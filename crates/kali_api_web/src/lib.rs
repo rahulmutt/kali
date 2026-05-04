@@ -2224,8 +2224,8 @@ impl ThreadRuntimeTopology {
         }
     }
 
-    /// Produce a stable shutdown/leak report and mark every tracked instance terminated.
-    pub fn shutdown(self) -> ThreadRuntimeShutdownReport {
+    /// Produce a stable snapshot of the current topology state.
+    pub fn snapshot(&self) -> ThreadRuntimeShutdownReport {
         let total_instances = self.instances.len();
         let terminated_instances = self
             .instances
@@ -2239,15 +2239,22 @@ impl ThreadRuntimeTopology {
             .map(|(instance_id, worker)| self.snapshot_instance(*instance_id, worker))
             .collect::<Vec<_>>();
 
-        for worker in self.instances.values() {
-            worker.terminate();
-        }
-
         ThreadRuntimeShutdownReport {
             total_instances,
             terminated_instances,
             live_instances,
         }
+    }
+
+    /// Produce a stable shutdown/leak report and mark every tracked instance terminated.
+    pub fn shutdown(self) -> ThreadRuntimeShutdownReport {
+        let report = self.snapshot();
+
+        for worker in self.instances.values() {
+            worker.terminate();
+        }
+
+        report
     }
 }
 

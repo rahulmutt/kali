@@ -5,7 +5,10 @@ use kali_api_node::{
     NodeAssert, NodeBuffer, NodeChildProcess, NodeCrypto, NodePath, NodeRuntimeProjection, NodeUrl,
     NodeUtil,
 };
-use kali_api_web::{fill_random_values, performance_now, random_uuid, ThreadRuntimeTopology};
+use kali_api_web::{
+    fill_random_values, performance_now, random_uuid, ThreadRuntimeShutdownReport,
+    ThreadRuntimeTopology,
+};
 use kali_error::{
     _error_codes::{e4, e5},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
@@ -3932,6 +3935,11 @@ impl KaliHostState {
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> serde_json::Value {
         self.env_snapshot_value()
+    }
+
+    /// Return a stable snapshot of the current threaded runtime topology.
+    pub fn thread_topology_snapshot(&self) -> ThreadRuntimeShutdownReport {
+        self.thread_topology.snapshot()
     }
 
     fn schedule_timer(

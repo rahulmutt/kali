@@ -3430,6 +3430,19 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
     assert_eq!(state.active_threads, 2);
     assert_eq!(state.thread_topology.total_instances(), 2);
 
+    let snapshot = state.thread_topology_snapshot();
+    assert_eq!(snapshot.total_instances, 2);
+    assert_eq!(snapshot.terminated_instances, 0);
+    assert_eq!(snapshot.live_instances.len(), 2);
+    assert_eq!(
+        snapshot
+            .live_instances
+            .iter()
+            .map(|entry| entry.instance_id)
+            .collect::<Vec<_>>(),
+        vec![first, second]
+    );
+
     let diagnostic = state
         .spawn_thread_instance("https://e.co/v.js")
         .expect_err("thread budget should cap guest thread spawns");

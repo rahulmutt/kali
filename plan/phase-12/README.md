@@ -21,6 +21,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Keep positive thread budgets valid only under the supported threaded profile and target.
 - Preserve no tracing/background GC, AOT-only compilation, deterministic JSON, and resource-budget enforcement.
 - Progress note: the `effects` command now also accepts the `--wasm-threads` threaded-profile slice on `.js` input, including inherited runtime-profile coverage and the JSON effects envelope, so the threaded-profile evidence now spans both runtime and analysis-style host surfaces.
+- Progress note: the runtime host-state and browser-topology models now also expose deterministic thread-topology snapshot helpers alongside the existing shutdown/leak report, giving the later guest-facing threaded-reporting work a stable current-state view without widening the public surface yet.
 
 ### 12.2 Browser runtime contract
 
