@@ -1813,6 +1813,42 @@ fn build_source_file_supports_global_this_math_round_identity_in_browser_api_sur
     );
 }
 
+#[test]
+fn build_source_file_supports_math_round_const_numeric_alias_chain_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_round_const_numeric_alias_chain_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_round_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_browser_api_surface_in_jsx_input()
+{
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_global_this_math_round_identity_in_browser_api_surface_in_tsx_input()
+{
+    assert_build_source_file_supports_global_this_math_round_identity_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_supports_math_log2_and_log10_const_numeric_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
