@@ -149,3 +149,73 @@ fn json_test_supports_for_await_spread_in_browser_api_surface_with_harness_js_in
         true,
     );
 }
+
+#[test]
+fn run_supports_for_of_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread("run", "main.ts", for_of_spread_run_source(), false, false);
+}
+
+#[test]
+fn json_run_supports_for_of_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread("run", "main.ts", for_of_spread_run_source(), true, false);
+}
+
+#[test]
+fn test_supports_for_of_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread(
+        "test",
+        "smoke.test.ts",
+        for_of_spread_test_source(),
+        false,
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_of_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread(
+        "test",
+        "smoke.test.ts",
+        for_of_spread_test_source(),
+        true,
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread(
+        "run",
+        "main.ts",
+        for_await_spread_run_source(),
+        false,
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread("run", "main.ts", for_await_spread_run_source(), true, false);
+}
+
+#[test]
+fn test_supports_for_await_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread(
+        "test",
+        "smoke.test.ts",
+        for_await_spread_test_source(),
+        false,
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_spread(
+        "test",
+        "smoke.test.ts",
+        for_await_spread_test_source(),
+        true,
+        true,
+    );
+}
