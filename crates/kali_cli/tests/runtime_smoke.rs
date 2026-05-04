@@ -61540,7 +61540,7 @@ fn json_build_with_sandbox_accepts_zero_budget_policy_in_js_input_for_library_an
 }
 
 fn phase_three_deno_host_effects_source() -> &'static str {
-    "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n"
+    "Deno.env.set('KALI_CORPUS_FLAG', 'set');\nnew Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nglobalThis.Deno.connect('127.0.0.1', 1);\nglobalThis.Deno[\"connect\"]('127.0.0.1', 1);\nglobalThis[\"Deno\"].connect('127.0.0.1', 1);\nglobalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nglobalThis.Deno.listen('127.0.0.1', 0);\nglobalThis.Deno[\"listen\"]('127.0.0.1', 0);\nglobalThis[\"Deno\"].listen('127.0.0.1', 0);\nglobalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\nglobalThis.Deno.serve('127.0.0.1', 0);\nglobalThis.Deno[\"serve\"]('127.0.0.1', 0);\nglobalThis[\"Deno\"].serve('127.0.0.1', 0);\nglobalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);\n"
 }
 
 fn deno_command_spawn_source() -> &'static str {
