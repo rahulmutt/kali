@@ -157,6 +157,46 @@ fn json_build_emits_for_of_as_const_wrapper_in_ts_input() {
 }
 
 #[test]
+fn build_emits_for_of_as_const_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_of_wrapper(
+        "app.jsx",
+        false,
+        for_of_as_const_source(),
+        "forOfArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_as_const_wrapper_in_jsx_input() {
+    assert_browser_bundle_for_of_wrapper(
+        "app.jsx",
+        true,
+        for_of_as_const_source(),
+        "forOfArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_of_as_const_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_of_wrapper(
+        "app.tsx",
+        false,
+        for_of_as_const_source(),
+        "forOfArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_as_const_wrapper_in_tsx_input() {
+    assert_browser_bundle_for_of_wrapper(
+        "app.tsx",
+        true,
+        for_of_as_const_source(),
+        "forOfArrayIterationAsConstWrapper",
+    );
+}
+
+#[test]
 fn build_emits_for_of_satisfies_wrapper_in_js_input() {
     assert_browser_bundle_for_of_wrapper(
         "app.js",
