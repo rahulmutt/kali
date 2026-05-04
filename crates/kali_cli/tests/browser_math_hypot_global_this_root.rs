@@ -300,3 +300,59 @@ fn test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harnes
         true,
     );
 }
+
+#[test]
+fn run_and_test_supports_global_this_math_hypot_perfect_square_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
+) {
+    for (command, source_name, source) in [
+        (
+            "run",
+            "main.js",
+            browser_harness_global_this_math_hypot_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.js",
+            browser_harness_global_this_math_hypot_test_source(),
+        ),
+        (
+            "run",
+            "main.ts",
+            browser_harness_global_this_math_hypot_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.ts",
+            browser_harness_global_this_math_hypot_test_source(),
+        ),
+        (
+            "run",
+            "main.jsx",
+            browser_harness_global_this_math_hypot_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            browser_harness_global_this_math_hypot_test_source(),
+        ),
+        (
+            "run",
+            "main.tsx",
+            browser_harness_global_this_math_hypot_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
+            browser_harness_global_this_math_hypot_test_source(),
+        ),
+    ] {
+        for json_output in [false, true] {
+            assert_browser_harness_global_this_math_hypot(
+                command,
+                source_name,
+                source,
+                json_output,
+            );
+        }
+    }
+}
