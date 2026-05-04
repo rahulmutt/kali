@@ -69,6 +69,11 @@ impl DenoEnv {
         self.values.clone()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic object-value name.
+    pub fn snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.to_object()
+    }
+
     /// Return the visible environment as a JSON object value.
     pub fn to_json_value(&self) -> Value {
         Value::Object(
@@ -77,6 +82,11 @@ impl DenoEnv {
                 .map(|(key, value)| (key.clone(), Value::String(value.clone())))
                 .collect(),
         )
+    }
+
+    /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.to_json_value()
     }
 
     /// Iterate over the captured key/value pairs.
@@ -847,6 +857,11 @@ impl DenoRuntimeProjection {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic object-value name.
+    pub fn snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the captured environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         self.env.to_json_value()
@@ -854,6 +869,11 @@ impl DenoRuntimeProjection {
 
     /// Alias for the deterministic JSON-ready environment snapshot helper.
     pub fn env_snapshot_json_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
+    /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
+    pub fn snapshot_json_value(&self) -> Value {
         self.env_snapshot_value()
     }
 

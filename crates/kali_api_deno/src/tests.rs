@@ -23,6 +23,17 @@ fn env_view_is_deterministic_and_mutable() {
         env.to_object().get("HOME"),
         Some(&String::from("/workspace/home"))
     );
+    assert_eq!(
+        env.snapshot_object_value().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
+        env.snapshot_json_value()
+            .as_object()
+            .expect("json object")
+            .get("HOME"),
+        Some(&serde_json::Value::String(String::from("/workspace/home")))
+    );
     assert_eq!(env.to_object().get("EDITOR"), Some(&String::from("nano")));
     assert_eq!(env.iter().count(), 2);
 }
@@ -41,8 +52,10 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     );
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+    assert_eq!(env.snapshot_object_value(), snapshot);
 
     let json_snapshot = env.to_json_value();
+    assert_eq!(env.snapshot_json_value(), json_snapshot);
     let json_snapshot = json_snapshot.as_object().expect("json object");
     assert_eq!(
         json_snapshot.get("ALPHA"),
@@ -229,6 +242,10 @@ fn runtime_projection_bundles_baseline_context() {
         projection.env_snapshot_object_value(),
         projection.env_snapshot()
     );
+    assert_eq!(
+        projection.snapshot_object_value(),
+        projection.env_snapshot()
+    );
     projection.env_mut().set("HOME", "/workspace/home");
     projection.env_mut().set("EDITOR", "nano");
     assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
@@ -244,6 +261,10 @@ fn runtime_projection_bundles_baseline_context() {
     let json_snapshot = json_snapshot.as_object().expect("json object");
     assert_eq!(
         projection.env_snapshot_json_value(),
+        serde_json::json!({ "HOME": "/workspace/home", "EDITOR": "nano" })
+    );
+    assert_eq!(
+        projection.snapshot_json_value(),
         serde_json::json!({ "HOME": "/workspace/home", "EDITOR": "nano" })
     );
     assert_eq!(

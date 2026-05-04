@@ -132,6 +132,11 @@ impl NodeProcess {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic object-value name.
+    pub fn snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
     pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
         self.env_snapshot()
@@ -149,6 +154,11 @@ impl NodeProcess {
 
     /// Alias for the deterministic JSON-ready environment snapshot helper.
     pub fn env_snapshot_json_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
+    /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
+    pub fn snapshot_json_value(&self) -> Value {
         self.env_snapshot_value()
     }
 
@@ -603,6 +613,11 @@ impl NodeRuntimeProjection {
         self.process.env_to_object()
     }
 
+    /// Alias for the deterministic environment snapshot helper with a generic object-value name.
+    pub fn snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.process.snapshot_object_value()
+    }
+
     /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
     pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
         self.process.env_snapshot_object_value()
@@ -616,6 +631,11 @@ impl NodeRuntimeProjection {
     /// Alias for the deterministic JSON-ready environment snapshot helper.
     pub fn env_snapshot_json_value(&self) -> Value {
         self.process.env_snapshot_json_value()
+    }
+
+    /// Alias for the deterministic JSON-ready environment snapshot helper with a generic value name.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.process.snapshot_json_value()
     }
 
     /// Alias for the JSON-ready environment snapshot helper.
