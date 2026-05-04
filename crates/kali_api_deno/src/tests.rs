@@ -9,7 +9,8 @@ fn env_view_is_deterministic_and_mutable() {
     ]));
 
     assert_eq!(env.get("HOME"), Some("/tmp/home"));
-    assert_eq!(env.get("MISSING"), None);
+    assert!(env.has("HOME"));
+    assert!(!env.has("MISSING"));
     assert_eq!(
         env.set("HOME", "/workspace/home"),
         Some(String::from("/tmp/home"))
@@ -214,6 +215,8 @@ fn runtime_projection_bundles_baseline_context() {
         &[String::from("kali"), String::from("run")]
     );
     assert_eq!(projection.env().get("HOME"), Some("/tmp/home"));
+    assert!(projection.env_has("HOME"));
+    assert!(!projection.env_has("MISSING"));
     assert_eq!(
         projection.env_snapshot().get("HOME"),
         Some(&String::from("/tmp/home"))

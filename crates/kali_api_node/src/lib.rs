@@ -102,6 +102,11 @@ impl NodeProcess {
         self.env.get(key).map(String::as_str)
     }
 
+    /// Check whether a host environment variable is present in the process view.
+    pub fn env_has(&self, key: &str) -> bool {
+        self.env.contains_key(key)
+    }
+
     /// Set or replace an environment variable in the process view.
     pub fn env_set(&mut self, key: impl Into<String>, value: impl Into<String>) -> Option<String> {
         self.env.insert(key.into(), value.into())
@@ -561,6 +566,11 @@ impl NodeRuntimeProjection {
 
     pub fn process_mut(&mut self) -> &mut NodeProcess {
         &mut self.process
+    }
+
+    /// Check whether a captured process environment variable is present.
+    pub fn env_has(&self, key: &str) -> bool {
+        self.process.env_has(key)
     }
 
     /// Return a deterministic snapshot of the captured process environment.

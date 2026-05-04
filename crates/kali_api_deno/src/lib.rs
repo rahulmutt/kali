@@ -49,6 +49,11 @@ impl DenoEnv {
         self.values.get(key).map(String::as_str)
     }
 
+    /// Check whether an environment variable is present in the captured view.
+    pub fn has(&self, key: &str) -> bool {
+        self.values.contains_key(key)
+    }
+
     /// Set or replace an environment variable in the captured view.
     pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) -> Option<String> {
         self.values.insert(key.into(), value.into())
@@ -815,6 +820,11 @@ impl DenoRuntimeProjection {
 
     pub fn env(&self) -> &DenoEnv {
         &self.env
+    }
+
+    /// Check whether a captured environment variable is present.
+    pub fn env_has(&self, key: &str) -> bool {
+        self.env.has(key)
     }
 
     /// Mutable access to the captured environment view.
