@@ -941,11 +941,17 @@ fn browser_late_env_mutation_source_includes_bracketed_forms() {
     let source = late_env_mutation_source();
     for expected in [
         r#"Deno["env"].set"#,
+        r#"Deno["env"].delete"#,
         r#"globalThis.Deno["env"].set"#,
+        r#"globalThis.Deno["env"].delete"#,
         r#"globalThis.Deno["env"]["set"]"#,
+        r#"globalThis.Deno["env"]["delete"]"#,
         r#"globalThis["Deno"].env["set"]"#,
+        r#"globalThis["Deno"].env["delete"]"#,
         r#"globalThis["Deno"]["env"].set"#,
+        r#"globalThis["Deno"]["env"].delete"#,
         r#"globalThis["Deno"]["env"]["set"]"#,
+        r#"globalThis["Deno"]["env"]["delete"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
