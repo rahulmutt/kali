@@ -2124,6 +2124,45 @@ pub struct ThreadRuntimeInstanceSnapshot {
     pub was_terminated: bool,
 }
 
+impl ThreadRuntimeInstanceSnapshot {
+    /// Return the instance snapshot as a JSON-ready value.
+    pub fn snapshot_value(&self) -> Value {
+        Value::Object(
+            [
+                (
+                    "instanceId".to_string(),
+                    Value::from(self.instance_id as u64),
+                ),
+                (
+                    "scriptUrl".to_string(),
+                    Value::String(self.script_url.clone()),
+                ),
+                (
+                    "postedMessages".to_string(),
+                    Value::Array(self.posted_messages.clone()),
+                ),
+                (
+                    "postedSharedBuffers".to_string(),
+                    Value::Array(
+                        self.posted_shared_buffers
+                            .iter()
+                            .map(|buffer| {
+                                Value::Array(buffer.iter().map(|byte| Value::from(*byte)).collect())
+                            })
+                            .collect(),
+                    ),
+                ),
+                (
+                    "wasTerminated".to_string(),
+                    Value::Bool(self.was_terminated),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        )
+    }
+}
+
 /// Deterministic shutdown/leak accounting for the runtime-topology model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ThreadRuntimeShutdownReport {
@@ -2153,47 +2192,7 @@ impl ThreadRuntimeShutdownReport {
                     Value::Array(
                         self.live_instances
                             .iter()
-                            .map(|snapshot| {
-                                Value::Object(
-                                    [
-                                        (
-                                            "instanceId".to_string(),
-                                            Value::from(snapshot.instance_id as u64),
-                                        ),
-                                        (
-                                            "scriptUrl".to_string(),
-                                            Value::String(snapshot.script_url.clone()),
-                                        ),
-                                        (
-                                            "postedMessages".to_string(),
-                                            Value::Array(snapshot.posted_messages.clone()),
-                                        ),
-                                        (
-                                            "postedSharedBuffers".to_string(),
-                                            Value::Array(
-                                                snapshot
-                                                    .posted_shared_buffers
-                                                    .iter()
-                                                    .map(|buffer| {
-                                                        Value::Array(
-                                                            buffer
-                                                                .iter()
-                                                                .map(|byte| Value::from(*byte))
-                                                                .collect(),
-                                                        )
-                                                    })
-                                                    .collect(),
-                                            ),
-                                        ),
-                                        (
-                                            "wasTerminated".to_string(),
-                                            Value::Bool(snapshot.was_terminated),
-                                        ),
-                                    ]
-                                    .into_iter()
-                                    .collect(),
-                                )
-                            })
+                            .map(ThreadRuntimeInstanceSnapshot::snapshot_value)
                             .collect(),
                     ),
                 ),

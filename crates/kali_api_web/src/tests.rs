@@ -767,6 +767,16 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
     );
     assert_eq!(snapshot.posted_shared_buffers, vec![vec![1, 2, 3]]);
     assert!(!snapshot.was_terminated);
+    assert_eq!(
+        snapshot.snapshot_value(),
+        serde_json::json!({
+            "instanceId": live,
+            "scriptUrl": "https://example.com/live-worker.js",
+            "postedMessages": ["hello"],
+            "postedSharedBuffers": [[1, 2, 3]],
+            "wasTerminated": false
+        })
+    );
 
     assert_eq!(
         report.snapshot_value(),

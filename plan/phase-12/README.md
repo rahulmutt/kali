@@ -22,7 +22,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Preserve no tracing/background GC, AOT-only compilation, deterministic JSON, and resource-budget enforcement.
 - Progress note: the `effects` command now also accepts the `--wasm-threads` threaded-profile slice on `.js` input, including inherited runtime-profile coverage and the JSON effects envelope, so the threaded-profile evidence now spans both runtime and analysis-style host surfaces.
 - Progress note: the runtime host-state and browser-topology models now also expose deterministic thread-topology snapshot helpers alongside the existing shutdown/leak report, giving the later guest-facing threaded-reporting work a stable current-state view without widening the public surface yet.
-- Progress note: those threaded-topology snapshots now also have JSON-ready value helpers on the host-state and browser-topology sides, keeping the future machine-contract plumbing aligned with the existing deterministic report shape.
+- Progress note: those threaded-topology snapshots now also have JSON-ready value helpers on the host-state, browser-topology, and per-instance snapshot sides, keeping the future machine-contract plumbing aligned with the existing deterministic report shape.
 
 ### 12.2 Browser runtime contract
 
