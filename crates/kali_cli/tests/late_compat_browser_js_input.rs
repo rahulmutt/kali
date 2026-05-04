@@ -206,6 +206,7 @@ fn assert_browser_late_env_materialization_rejection(stderr: &str) {
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"].toObject"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
@@ -233,6 +234,7 @@ fn assert_browser_late_env_materialization_rejection_json(errors: &[Value]) {
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"].toObject"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
         "environment snapshot materialization API",
@@ -798,6 +800,7 @@ fn browser_late_env_materialization_source_includes_bracketed_forms() {
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"].toObject"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
         r#"globalThis["Deno"]["env"]["toObject"]"#,
         r#"globalThis["Deno"].env.toObject"#,
     ] {
