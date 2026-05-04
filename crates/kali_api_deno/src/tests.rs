@@ -225,6 +225,10 @@ fn runtime_projection_bundles_baseline_context() {
         projection.env_to_object().get("HOME"),
         Some(&String::from("/tmp/home"))
     );
+    assert_eq!(
+        projection.env_snapshot_object_value(),
+        projection.env_snapshot()
+    );
     projection.env_mut().set("HOME", "/workspace/home");
     projection.env_mut().set("EDITOR", "nano");
     assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
@@ -279,6 +283,7 @@ fn runtime_projection_new_defaults_to_open_permissions_and_empty_views() {
     assert!(projection.args().as_slice().is_empty());
     assert!(projection.env().to_object().is_empty());
     assert!(projection.env_to_object().is_empty());
+    assert!(projection.env_snapshot_object_value().is_empty());
     assert_eq!(
         projection.permissions().query(DenoPermissionKind::Read),
         Ok(DenoPermissionStatus::Granted)

@@ -391,6 +391,11 @@ impl RuntimeCtx {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
+    pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the deterministic environment snapshot as a JSON object value.
     pub fn env_snapshot_value(&self) -> serde_json::Value {
         env_snapshot_value(&self.env)
@@ -3929,6 +3934,11 @@ impl KaliHostState {
 
     /// Alias for the deterministic environment snapshot helper.
     pub fn env_to_object(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
+    /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
+    pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
         self.env_snapshot()
     }
 

@@ -34,6 +34,10 @@ fn process_context_tracks_env_and_output() {
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
     );
     assert_eq!(
+        process.env_snapshot_object_value(),
+        BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
+    );
+    assert_eq!(
         process.env_snapshot_value(),
         serde_json::json!({ "HOME": "/tmp/home" })
     );
@@ -110,6 +114,13 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
     );
     assert_eq!(
         projection.env_to_object(),
+        BTreeMap::from([
+            (String::from("EDITOR"), String::from("nano")),
+            (String::from("HOME"), String::from("/tmp/home")),
+        ])
+    );
+    assert_eq!(
+        projection.env_snapshot_object_value(),
         BTreeMap::from([
             (String::from("EDITOR"), String::from("nano")),
             (String::from("HOME"), String::from("/tmp/home")),

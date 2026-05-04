@@ -132,6 +132,11 @@ impl NodeProcess {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
+    pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the captured environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         Value::Object(
@@ -596,6 +601,11 @@ impl NodeRuntimeProjection {
     /// Alias for the deterministic environment snapshot helper.
     pub fn env_to_object(&self) -> BTreeMap<String, String> {
         self.process.env_to_object()
+    }
+
+    /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
+    pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.process.env_snapshot_object_value()
     }
 
     /// Return the captured process environment as a JSON object value.

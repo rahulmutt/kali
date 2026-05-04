@@ -842,6 +842,11 @@ impl DenoRuntimeProjection {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
+    pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Return the captured environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         self.env.to_json_value()

@@ -51,3 +51,4 @@ Future phases must preserve:
 - Deterministic machine contracts.
 - Public availability discipline from `specs/19-feature-maturity.md`.
 - Proof-backed claim discipline from `proofs/BOUNDARY.md`.
+- The deterministic environment snapshot helper family now also carries an explicit `env_snapshot_object_value` alias alongside the existing object/json snapshot helpers in the Deno, Node, and runtime projections.
