@@ -25038,6 +25038,7 @@ fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     }
     assert_eq!(json["stdout"], "2\n2\n2\n");
     assert_eq!(json["stderr"], "");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
@@ -25078,6 +25079,7 @@ fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
     }
     assert_eq!(json["stdout"], "2\n2\n2\n");
     assert_eq!(json["stderr"], "");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
