@@ -4022,6 +4022,102 @@ fn test_resolution_supports_math_atan2_zero_numerator_and_non_negative_denominat
 }
 
 #[test]
+fn test_resolution_traverses_extra_math_atan2_arguments_after_the_supported_slice() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "zero".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "one".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "atan2".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("zero".to_string()),
+                    Expression::Identifier("one".to_string()),
+                    Expression::Identifier("missing".to_string()),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)),
+        "expected the trailing argument to be resolved: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected unsupported-feature diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_traverses_extra_math_tan_arguments_after_the_supported_slice() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "zero".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "tan".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("zero".to_string()),
+                    Expression::Identifier("missing".to_string()),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e3::UNDEFINED_IDENTIFIER as u32)),
+        "expected the trailing argument to be resolved: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        !result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected unsupported-feature diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_expm1_and_log1p_exact_identity_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![

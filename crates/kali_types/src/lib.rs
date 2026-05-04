@@ -1697,12 +1697,53 @@ impl TypeContext {
             };
 
             if y == 0.0 && x.is_finite() && x >= 0.0 {
+                for arg in expr.args.iter().skip(2) {
+                    self.resolve_expression(arg);
+                }
                 return;
             }
 
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 atan2_message,
+            ));
+            return;
+        }
+
+        if method == "sin" || method == "cos" || method == "tan" {
+            let Some(argument) = expr.args.first() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                    ),
+                ));
+                return;
+            };
+
+            let Some(value) = self.resolve_static_numeric_literal_value(argument) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                    ),
+                ));
+                return;
+            };
+
+            if value == 0.0 {
+                self.resolve_expression(argument);
+                for arg in expr.args.iter().skip(1) {
+                    self.resolve_expression(arg);
+                }
+                return;
+            }
+
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
+                ),
             ));
             return;
         }
@@ -1751,42 +1792,6 @@ impl TypeContext {
                 .resolve_math_hyperbolic_zero_constant_value(method, argument)
                 .is_some()
             {
-                return;
-            }
-
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                format!(
-                    "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
-                ),
-            ));
-            return;
-        }
-
-        if method == "atan2" {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "Math.atan2 is unavailable in the current phase; use a supported Math builtin or the later compatibility path",
-            ));
-            return;
-        }
-
-        if method == "sin" || method == "cos" || method == "tan" {
-            let Some(value) = expr
-                .args
-                .first()
-                .and_then(|arg| self.resolve_static_numeric_literal_value(arg))
-            else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    format!(
-                        "Math.{method} is unavailable unless the argument is a statically-known zero numeric literal in the current phase; use an explicit constant or the later compatibility path"
-                    ),
-                ));
-                return;
-            };
-
-            if value == 0.0 {
                 return;
             }
 
@@ -1973,10 +1978,7 @@ impl TypeContext {
             return;
         }
 
-        if matches!(
-            method,
-            "max" | "min" | "abs" | "tan" | "asinh" | "acosh" | "atanh"
-        ) {
+        if matches!(method, "max" | "min" | "abs" | "asinh" | "acosh" | "atanh") {
             if expr.args.is_empty() {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
