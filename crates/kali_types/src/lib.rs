@@ -632,6 +632,9 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.is_static_array_iteration_target(&expr.expression)
             }
+            Expression::DecoratedExpression(expr) => {
+                self.is_static_array_iteration_target(&expr.expression)
+            }
             _ => false,
         }
     }
@@ -656,6 +659,9 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 self.is_static_array_iteration_element(&expr.expression)
             }
+            Expression::DecoratedExpression(expr) => {
+                self.is_static_array_iteration_element(&expr.expression)
+            }
             _ => false,
         }
     }
@@ -673,6 +679,9 @@ impl TypeContext {
                 self.is_simple_for_of_binding_expression(&expr.expression)
             }
             Expression::ChainExpression(expr) => {
+                self.is_simple_for_of_binding_expression(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
                 self.is_simple_for_of_binding_expression(&expr.expression)
             }
             _ => false,
