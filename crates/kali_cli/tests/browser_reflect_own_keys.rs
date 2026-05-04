@@ -346,8 +346,28 @@ fn run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured(
 }
 
 #[test]
+fn run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("run", "main.jsx");
+}
+
+#[test]
+fn run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("run", "main.tsx");
+}
+
+#[test]
 fn test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
     assert_browser_requested_reflect_own_keys("test", "smoke.test.ts");
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("test", "smoke.test.jsx");
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_reflect_own_keys("test", "smoke.test.tsx");
 }
 
 #[test]
@@ -366,8 +386,28 @@ fn run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherit
 }
 
 #[test]
+fn run_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.jsx", false);
+}
+
+#[test]
+fn run_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.tsx", false);
+}
+
+#[test]
 fn test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
     assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.ts", false);
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.jsx", false);
+}
+
+#[test]
+fn test_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.tsx", false);
 }
 
 #[test]
@@ -386,8 +426,28 @@ fn json_run_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_in
 }
 
 #[test]
+fn json_run_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.jsx", true);
+}
+
+#[test]
+fn json_run_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("run", "main.tsx", true);
+}
+
+#[test]
 fn json_test_supports_reflect_own_keys_in_ts_input_when_browser_api_surface_is_inherited() {
     assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.ts", true);
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_jsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.jsx", true);
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_tsx_input_when_browser_api_surface_is_inherited() {
+    assert_inherited_browser_api_surface_reflect_own_keys("test", "smoke.test.tsx", true);
 }
 
 #[test]
@@ -406,8 +466,28 @@ fn json_run_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_config
 }
 
 #[test]
+fn json_run_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("run", "main.jsx");
+}
+
+#[test]
+fn json_run_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("run", "main.tsx");
+}
+
+#[test]
 fn json_test_supports_reflect_own_keys_in_ts_input_when_browser_harness_is_configured() {
     assert_json_browser_requested_reflect_own_keys("test", "smoke.test.ts");
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("test", "smoke.test.jsx");
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured() {
+    assert_json_browser_requested_reflect_own_keys("test", "smoke.test.tsx");
 }
 
 #[test]
@@ -421,6 +501,16 @@ fn build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input() {
 }
 
 #[test]
+fn build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input() {
+    assert_browser_bundle_reflect_own_keys("app.jsx", false);
+}
+
+#[test]
+fn build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input() {
+    assert_browser_bundle_reflect_own_keys("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input() {
     assert_browser_bundle_reflect_own_keys("app.js", true);
 }
@@ -428,4 +518,14 @@ fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_js_input() {
 #[test]
 fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_ts_input() {
     assert_browser_bundle_reflect_own_keys("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_jsx_input() {
+    assert_browser_bundle_reflect_own_keys("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_browser_bundle_reflect_own_keys_semantics_in_tsx_input() {
+    assert_browser_bundle_reflect_own_keys("app.tsx", true);
 }
