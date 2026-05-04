@@ -2354,6 +2354,13 @@ impl TypeContext {
             && matches!(expr.property.as_str(), "cwd" | "chdir" | "exit")
         {
             Some(format!("globalThis[\"Deno\"].{}", expr.property))
+        } else if object_name == "process"
+            && matches!(expr.property.as_str(), "pid" | "cwd" | "chdir" | "exit")
+        {
+            Some(format!(
+                "globalThis[\"process\"].{}, globalThis.process[\"{}\"]",
+                expr.property, expr.property
+            ))
         } else {
             None
         };
