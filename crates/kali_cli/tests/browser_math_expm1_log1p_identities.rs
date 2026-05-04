@@ -146,3 +146,25 @@ fn test_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_
         true,
     );
 }
+
+#[test]
+fn run_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_json_ts_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "run",
+        "main.ts",
+        browser_harness_math_expm1_log1p_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_json_ts_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_expm1_log1p_test_source(),
+        true,
+    );
+}
