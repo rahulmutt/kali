@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_browser_tsx_compatibility_source() -> &'static str {
-    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); new WeakSet(); new WeakRef(); new FinalizationRegistry(() => {}); globalThis.SharedArrayBuffer; globalThis.Atomics;"
+    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"][\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"].toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); new WeakSet(); new WeakRef(); new FinalizationRegistry(() => {}); globalThis.SharedArrayBuffer; globalThis.Atomics;"
 }
 
 fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
@@ -27,6 +27,10 @@ fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
         "Deno.permissions.request",
         "Deno.permissions.revoke",
         "Deno.env.toObject",
+        r#"Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"].toObject"#,
         "Deno.env.set",
         "Deno.env.delete",
         r#"globalThis["Deno"]["env"]["set"]"#,
@@ -82,6 +86,22 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"Deno["env"]["toObject"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["env"]["toObject"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis.Deno["env"]["toObject"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["env"].toObject"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["Deno"]["permissions"]["request"]"#),
         "source: {source}"
     );
@@ -120,6 +140,10 @@ fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
         "Deno.permissions.request",
         "Deno.permissions.revoke",
         "Deno.env.toObject",
+        r#"Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"].toObject"#,
         "Deno.env.set",
         "Deno.env.delete",
         r#"globalThis["Deno"]["env"]["set"]"#,
