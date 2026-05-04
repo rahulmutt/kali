@@ -7138,6 +7138,52 @@ fn collect_library_exports_preserves_unknown_signature_for_mixed_conditional_bin
 }
 
 #[test]
+fn collect_direct_bundle_calls_from_statements_peels_transparent_call_wrappers() {
+    let candidate_names = ["helper".to_string(), "sequence_helper".to_string()]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+
+    let statements = vec![
+        Statement::ReturnStatement(kali_ast::ReturnStatement {
+            argument: Some(Expression::CallExpression(Box::new(
+                kali_ast::CallExpression {
+                    callee: Expression::ParenthesizedExpression(Box::new(
+                        kali_ast::ParenthesizedExpression {
+                            expression: Box::new(Expression::Identifier("helper".to_string())),
+                        },
+                    )),
+                    args: vec![],
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(kali_ast::ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(
+                kali_ast::CallExpression {
+                    callee: Expression::SequenceExpression(Box::new(
+                        kali_ast::SequenceExpression {
+                            expressions: vec![
+                                Expression::Identifier("ignored".to_string()),
+                                Expression::Identifier("sequence_helper".to_string()),
+                            ],
+                        },
+                    )),
+                    args: vec![],
+                },
+            ))),
+        }),
+    ];
+
+    let calls = collect_direct_bundle_calls_from_statements(&statements, &candidate_names);
+
+    assert_eq!(
+        calls,
+        ["helper".to_string(), "sequence_helper".to_string()]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>()
+    );
+}
+
+#[test]
 fn build_capi_result_round_trips_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "capi",

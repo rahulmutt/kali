@@ -2937,23 +2937,111 @@ fn collect_direct_bundle_calls_from_expression(
         | Expression::TemplateLiteral(_)
         | Expression::TaggedTemplateExpression(_)
         | Expression::UpdateExpression(_)
-        | Expression::AssignmentExpression(_)
-        | Expression::LogicalExpression(_)
-        | Expression::ConditionalExpression(_)
-        | Expression::SequenceExpression(_)
-        | Expression::ParenthesizedExpression(_)
-        | Expression::YieldExpression(_)
-        | Expression::AwaitExpression(_)
-        | Expression::OptionalChainExpression(_)
-        | Expression::ChainExpression(_)
         | Expression::SpreadElement(_)
         | Expression::RestElement(_)
         | Expression::ImportExpression(_)
-        | Expression::DecoratedExpression(_)
         | Expression::JsxElement(_)
-        | Expression::JsxFragment(_)
-        | Expression::TypeAssertion(_)
-        | Expression::SatisfiesExpression(_) => {}
+        | Expression::JsxFragment(_) => {}
+        Expression::ParenthesizedExpression(parenthesized) => {
+            collect_direct_bundle_calls_from_expression(
+                &parenthesized.expression,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::TypeAssertion(type_assertion) => {
+            collect_direct_bundle_calls_from_expression(
+                &type_assertion.expression,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::SatisfiesExpression(satisfies_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &satisfies_expression.expression,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::AwaitExpression(await_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &await_expression.argument,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::YieldExpression(yield_expression) => {
+            if let Some(argument) = &yield_expression.argument {
+                collect_direct_bundle_calls_from_expression(argument, candidate_names, calls);
+            }
+        }
+        Expression::OptionalChainExpression(optional_chain) => {
+            match optional_chain.inner.as_ref() {
+                kali_ast::OptionalChainInner::NonNull { object, .. } => {
+                    collect_direct_bundle_calls_from_expression(object, candidate_names, calls);
+                }
+            }
+        }
+        Expression::ChainExpression(chain_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &chain_expression.expression,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::DecoratedExpression(decorated_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &decorated_expression.expression,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::SequenceExpression(sequence_expression) => {
+            if let Some(expression) = sequence_expression.expressions.last() {
+                collect_direct_bundle_calls_from_expression(expression, candidate_names, calls);
+            }
+        }
+        Expression::ConditionalExpression(conditional_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &conditional_expression.test,
+                candidate_names,
+                calls,
+            );
+            collect_direct_bundle_calls_from_expression(
+                conditional_expression.consequent.as_ref(),
+                candidate_names,
+                calls,
+            );
+            collect_direct_bundle_calls_from_expression(
+                conditional_expression.alternate.as_ref(),
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::LogicalExpression(logical_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &logical_expression.left,
+                candidate_names,
+                calls,
+            );
+            collect_direct_bundle_calls_from_expression(
+                &logical_expression.right,
+                candidate_names,
+                calls,
+            );
+        }
+        Expression::AssignmentExpression(assignment_expression) => {
+            collect_direct_bundle_calls_from_expression(
+                &assignment_expression.left,
+                candidate_names,
+                calls,
+            );
+            collect_direct_bundle_calls_from_expression(
+                &assignment_expression.right,
+                candidate_names,
+                calls,
+            );
+        }
     }
 }
 
