@@ -78,6 +78,10 @@ fn assert_browser_bundle_global_this_math_hypot_empty_identity(filename: &str, j
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
