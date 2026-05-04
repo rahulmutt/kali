@@ -807,6 +807,108 @@ fn standalone_surface_supports_deno_exit_aliases_in_js_input() {
 }
 
 #[test]
+fn test_supports_deno_chdir_aliases_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let nested_dir = dir.path().join("nested");
+    fs::create_dir(&nested_dir).expect("create nested dir");
+    let source_path = dir.path().join("smoke.test.js");
+    let nested = serde_json::to_string(&nested_dir.to_string_lossy()).expect("encode nested path");
+    fs::write(
+        &source_path,
+        format!(
+            r#"Kali.test('chdir aliases', () => {{
+  const nested = {nested};
+  Deno.chdir(nested);
+  Deno[\"chdir\"](nested);
+  globalThis.Deno.chdir(nested);
+  globalThis.Deno[\"chdir\"](nested);
+  globalThis[\"Deno\"].chdir(nested);
+  globalThis[\"Deno\"][\"chdir\"](nested);
+  const direct = Deno.cwd();
+  const bracketed = Deno[\"cwd\"]();
+  const mixed = globalThis.Deno[\"cwd\"]();
+  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
+    throw new Error('expected cwd aliases to agree after chdir');
+  }}
+}});
+"#
+        ),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success(), "test failed: {:?}", output);
+}
+
+#[test]
+fn json_test_supports_deno_chdir_aliases_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let nested_dir = dir.path().join("nested");
+    fs::create_dir(&nested_dir).expect("create nested dir");
+    let source_path = dir.path().join("smoke.test.js");
+    let nested = serde_json::to_string(&nested_dir.to_string_lossy()).expect("encode nested path");
+    fs::write(
+        &source_path,
+        format!(
+            r#"Kali.test('chdir aliases', () => {{
+  const nested = {nested};
+  Deno.chdir(nested);
+  Deno[\"chdir\"](nested);
+  globalThis.Deno.chdir(nested);
+  globalThis.Deno[\"chdir\"](nested);
+  globalThis[\"Deno\"].chdir(nested);
+  globalThis[\"Deno\"][\"chdir\"](nested);
+  const direct = Deno.cwd();
+  const bracketed = Deno[\"cwd\"]();
+  const mixed = globalThis.Deno[\"cwd\"]();
+  const inherited = globalThis[\"Deno\"][\"cwd\"]();
+  if (!(direct === nested && bracketed === nested && mixed === nested && inherited === nested)) {{
+    throw new Error('expected cwd aliases to agree after chdir');
+  }}
+}});
+"#
+        ),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["skipped"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stdout"], "");
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn json_check_accepts_deno_env_get_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
