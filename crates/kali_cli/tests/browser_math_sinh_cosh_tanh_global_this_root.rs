@@ -223,6 +223,26 @@ fn json_build_emits_global_this_math_sinh_cosh_tanh_zero_identities_in_ts_input(
 }
 
 #[test]
+fn build_emits_global_this_math_sinh_cosh_tanh_zero_identities_in_jsx_input() {
+    assert_browser_bundle_global_this_math_sinh_cosh_tanh("app.jsx", false);
+}
+
+#[test]
+fn build_emits_global_this_math_sinh_cosh_tanh_zero_identities_in_tsx_input() {
+    assert_browser_bundle_global_this_math_sinh_cosh_tanh("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_global_this_math_sinh_cosh_tanh_zero_identities_in_jsx_input() {
+    assert_browser_bundle_global_this_math_sinh_cosh_tanh("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_sinh_cosh_tanh_zero_identities_in_tsx_input() {
+    assert_browser_bundle_global_this_math_sinh_cosh_tanh("app.tsx", true);
+}
+
+#[test]
 fn run_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_ts_input(
 ) {
     assert_browser_harness_global_this_math_sinh_cosh_tanh(
@@ -294,6 +314,94 @@ fn test_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_ha
     assert_browser_harness_global_this_math_sinh_cosh_tanh(
         "test",
         "smoke.test.ts",
+        browser_harness_global_this_math_sinh_cosh_tanh_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "run",
+        "main.jsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "run",
+        "main.tsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "run",
+        "main.jsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "run",
+        "main.tsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_global_this_math_sinh_cosh_tanh_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_global_this_math_sinh_cosh_tanh(
+        "test",
+        "smoke.test.tsx",
         browser_harness_global_this_math_sinh_cosh_tanh_test_source(),
         true,
     );
