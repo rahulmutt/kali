@@ -33,6 +33,8 @@ function assertFromEntriesShape(fromEntries) {
 function browserObjectFromEntries() {
   assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
+  assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
 }
 "##

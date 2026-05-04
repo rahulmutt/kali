@@ -24983,9 +24983,13 @@ fn object_from_entries_enumeration_source() -> &'static str {
 
 const obj = Object.fromEntries([["b", 1], ["a", 2]]);
 const dotted = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
+const mixedDotted = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
+const mixedBracketed = globalThis["Object"].fromEntries([["b", 1], ["a", 2]]);
 const bracketed = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]);
 assertFromEntriesShape(obj);
 assertFromEntriesShape(dotted);
+assertFromEntriesShape(mixedDotted);
+assertFromEntriesShape(mixedBracketed);
 assertFromEntriesShape(bracketed);
 const keys = Object.keys(obj);
 const entries = Object.entries(obj);
