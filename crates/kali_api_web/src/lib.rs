@@ -2211,6 +2211,16 @@ impl ThreadRuntimeShutdownReport {
     pub fn snapshot_json_value(&self) -> Value {
         self.snapshot_value()
     }
+
+    /// Alias for the JSON-ready threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
+    /// Alias for the JSON-ready threaded-topology snapshot helper.
+    pub fn thread_topology_snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
 }
 
 impl ThreadRuntimeTopology {
