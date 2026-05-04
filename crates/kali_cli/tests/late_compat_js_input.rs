@@ -284,7 +284,7 @@ fn late_js_compatibility_source_includes_bracketed_intl_forms() {
 
 #[test]
 fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms() {
-    let source = late_js_compatibility_source_with_mixed_process_forms();
+    let source = late_js_compatibility_source();
     for expected in [
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
