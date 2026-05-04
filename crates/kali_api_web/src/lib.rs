@@ -2191,6 +2191,11 @@ impl ThreadRuntimeInstanceSnapshot {
     pub fn thread_topology_snapshot(&self) -> Self {
         self.clone()
     }
+
+    /// Alias for the threaded-topology snapshot helper.
+    pub fn snapshot(&self) -> Self {
+        self.clone()
+    }
 }
 
 /// Deterministic shutdown/leak accounting for the runtime-topology model.
@@ -2259,6 +2264,11 @@ impl ThreadRuntimeShutdownReport {
 
     /// Alias for the threaded-topology snapshot helper.
     pub fn thread_topology_snapshot(&self) -> Self {
+        self.clone()
+    }
+
+    /// Alias for the threaded-topology snapshot helper.
+    pub fn snapshot(&self) -> Self {
         self.clone()
     }
 }
