@@ -82,6 +82,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-harness and browser-bundle smoke now also cover the `globalThis.Math.atan2` / `globalThis.Math["atan2"]` zero slice in TS and `.js` input, complementing the existing bracketed-root coverage.
 - Progress note: the same browser-harness/browser-bundle atan2 slice now also covers the mixed root/bracket spellings `globalThis.Math["atan2"]` and `globalThis["Math"].atan2` in TS and `.js` input, keeping the browser API-surface coverage aligned across dot and bracket roots.
 - Progress note: browser-harness/browser-bundle Math.atan2 smoke now also covers the single-quoted bracketed `globalThis['Math']['atan2']` spelling in TS and `.js` input.
+- Progress note: browser-harness `run` / `test` and JSON-output smoke now also cover the `Math.atan2` zero slice in TSX input on the browser API surface, keeping the browser-requested source-class matrix aligned with the existing TS and `.js` coverage.
 - Progress note: browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke for the `Math.atan2` zero slice now also covers JSX and TSX input.
 - Progress note: browser bundle smoke for the bracketed `globalThis["Math"].round` / `globalThis["Math"]["round"]` identity slice now also covers `.jsx` and `.tsx` inputs, keeping the round evidence aligned with the broader browser build matrix.
 
