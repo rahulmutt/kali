@@ -155,6 +155,10 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
         json_snapshot.get("BETA"),
         Some(&serde_json::Value::String(String::from("2")))
     );
+    assert_eq!(
+        runtime.env_snapshot_json_value(),
+        runtime.env_snapshot_value()
+    );
     assert_eq!(runtime.env_to_json_value(), runtime.env_snapshot_value());
 
     runtime.env.insert(String::from("GAMMA"), String::from("3"));
@@ -185,6 +189,10 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
     assert_eq!(
         host_json_snapshot.get("BETA"),
         Some(&serde_json::Value::String(String::from("2")))
+    );
+    assert_eq!(
+        host_state.env_snapshot_json_value(),
+        host_state.env_snapshot_value()
     );
     assert_eq!(
         host_state.env_to_json_value(),

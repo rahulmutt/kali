@@ -142,6 +142,11 @@ impl NodeProcess {
         )
     }
 
+    /// Alias for the deterministic JSON-ready environment snapshot helper.
+    pub fn env_snapshot_json_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> Value {
         self.env_snapshot_value()
@@ -596,6 +601,11 @@ impl NodeRuntimeProjection {
     /// Return the captured process environment as a JSON object value.
     pub fn env_snapshot_value(&self) -> Value {
         self.process.env_snapshot_value()
+    }
+
+    /// Alias for the deterministic JSON-ready environment snapshot helper.
+    pub fn env_snapshot_json_value(&self) -> Value {
+        self.process.env_snapshot_json_value()
     }
 
     /// Alias for the JSON-ready environment snapshot helper.

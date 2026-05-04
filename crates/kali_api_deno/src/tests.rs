@@ -239,6 +239,10 @@ fn runtime_projection_bundles_baseline_context() {
     let json_snapshot = projection.env_snapshot_value();
     let json_snapshot = json_snapshot.as_object().expect("json object");
     assert_eq!(
+        projection.env_snapshot_json_value(),
+        serde_json::json!({ "HOME": "/workspace/home", "EDITOR": "nano" })
+    );
+    assert_eq!(
         projection.env_to_json_value(),
         serde_json::json!({ "HOME": "/workspace/home", "EDITOR": "nano" })
     );

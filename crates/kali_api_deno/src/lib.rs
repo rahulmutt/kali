@@ -847,6 +847,11 @@ impl DenoRuntimeProjection {
         self.env.to_json_value()
     }
 
+    /// Alias for the deterministic JSON-ready environment snapshot helper.
+    pub fn env_snapshot_json_value(&self) -> Value {
+        self.env_snapshot_value()
+    }
+
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> Value {
         self.env_snapshot_value()
