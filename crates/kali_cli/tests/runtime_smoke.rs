@@ -40853,6 +40853,7 @@ fn check_supports_promise_all_settled_in_browser_api_surface_in_js_input() {
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -40898,6 +40899,7 @@ fn check_supports_promise_all_settled_in_inherited_browser_api_surface_in_js_inp
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -40937,6 +40939,7 @@ fn check_supports_bracketed_promise_all_settled_in_browser_api_surface_in_js_inp
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -40986,6 +40989,7 @@ fn check_supports_bracketed_promise_all_settled_in_inherited_browser_api_surface
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -41430,6 +41434,7 @@ fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -41484,6 +41489,7 @@ fn run_supports_promise_all_settled_in_inherited_browser_api_surface_with_harnes
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
@@ -41532,6 +41538,7 @@ fn run_supports_bracketed_promise_all_settled_in_browser_api_surface_with_harnes
                 assert_eq!(json["schemaVersion"], 1);
                 assert_eq!(json["command"], command);
                 assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 assert!(!stderr.contains("E5506"), "stderr: {stderr}");
