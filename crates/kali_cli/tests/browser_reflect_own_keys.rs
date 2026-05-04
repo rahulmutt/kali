@@ -164,6 +164,7 @@ fn assert_json_browser_requested_reflect_own_keys(command: &str, filename: &str)
         assert_eq!(json["stdout"], "");
     }
     assert_eq!(json["stderr"], "");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 fn assert_inherited_browser_api_surface_reflect_own_keys(
