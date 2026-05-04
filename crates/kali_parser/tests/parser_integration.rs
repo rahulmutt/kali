@@ -739,6 +739,93 @@ mod member_expressions {
     }
 
     #[test]
+    fn test_parse_fully_bracketed_deno_env_member_expressions() {
+        let output =
+            parse(r#"globalThis["Deno"]["env"]["set"]; globalThis["Deno"]["env"]["delete"];"#);
+        assert_eq!(output.statements.len(), 2);
+
+        for (statement, expected_property) in output.statements.iter().zip(["set", "delete"]) {
+            match statement {
+                kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property, expected_property);
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(inner) => {
+                                assert_eq!(inner.property, "env");
+                                match &inner.object {
+                                    kali_ast::Expression::MemberExpression(root) => {
+                                        assert_eq!(root.property, "Deno");
+                                        match &root.object {
+                                            kali_ast::Expression::Identifier(name) => {
+                                                assert_eq!(name, "globalThis");
+                                            }
+                                            other => panic!(
+                                                "Expected globalThis identifier, got {other:?}"
+                                            ),
+                                        }
+                                    }
+                                    other => panic!(
+                                        "Expected nested Deno MemberExpression, got {other:?}"
+                                    ),
+                                }
+                            }
+                            other => panic!("Expected nested env MemberExpression, got {other:?}"),
+                        }
+                    }
+                    other => panic!("Expected MemberExpression, got {other:?}"),
+                },
+                other => panic!("Expected ExpressionStatement, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_fully_bracketed_process_env_assignment_expression() {
+        let output = parse(r#"globalThis["process"]["env"]["KALI_PARSER_ENV"] = "1";"#);
+        assert_eq!(output.statements.len(), 1);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+
+        match &output.statements[0] {
+            kali_ast::Statement::ExpressionStatement(es) => match es.expression.as_ref() {
+                kali_ast::Expression::AssignmentExpression(assignment) => match &assignment.left {
+                    kali_ast::Expression::MemberExpression(me) => {
+                        assert_eq!(me.property, "KALI_PARSER_ENV");
+                        match &me.object {
+                            kali_ast::Expression::MemberExpression(inner) => {
+                                assert_eq!(inner.property, "env");
+                                match &inner.object {
+                                    kali_ast::Expression::MemberExpression(root) => {
+                                        assert_eq!(root.property, "process");
+                                        match &root.object {
+                                            kali_ast::Expression::Identifier(name) => {
+                                                assert_eq!(name, "globalThis");
+                                            }
+                                            other => panic!(
+                                                "Expected globalThis identifier, got {other:?}"
+                                            ),
+                                        }
+                                    }
+                                    other => panic!(
+                                        "Expected nested process MemberExpression, got {other:?}"
+                                    ),
+                                }
+                            }
+                            other => panic!("Expected nested env MemberExpression, got {other:?}"),
+                        }
+                    }
+                    other => panic!("Expected MemberExpression on assignment left, got {other:?}"),
+                },
+                other => panic!("Expected AssignmentExpression, got {other:?}"),
+            },
+            other => panic!("Expected ExpressionStatement, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn test_parse_bracketed_string_literal_permissions_query_member_expression() {
         let output = parse(
             "Deno[\"permissions\"][\"query\"]; globalThis[\"Deno\"][\"permissions\"][\"query\"];",
