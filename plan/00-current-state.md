@@ -51,6 +51,6 @@ Future phases must preserve:
 - Deterministic machine contracts.
 - Public availability discipline from `specs/19-feature-maturity.md`.
 - Proof-backed claim discipline from `proofs/BOUNDARY.md`.
-- The deterministic environment snapshot helper family now also carries an explicit `env_snapshot_object_value` alias alongside the existing object/json snapshot helpers in the Deno, Node, and runtime projections, and the threaded-topology helper family now also carries explicit `thread_topology_snapshot_object_value` aliases alongside the existing value/json helpers in the runtime and browser snapshot/report projections.
+- The deterministic environment snapshot helper family now also carries an explicit `env_snapshot_object_value` alias alongside the existing object/json snapshot helpers in the Deno, Node, and runtime projections, and the threaded-topology helper family now also carries explicit `thread_topology_snapshot_object_value` aliases alongside the existing value/json helpers in the runtime and browser snapshot/report projections; the runtime host-state also now mirrors that thread-topology snapshot naming with plain `snapshot_object_value` / `snapshot_json_value` aliases.
 
 - Runtime built-in math evidence now also includes browser bundle and browser-harness coverage for the empty-argument `Math.hypot()` identity slice in TS, `.js`, `.jsx`, and `.tsx` input.
