@@ -5740,13 +5740,18 @@ fn check_rejects_late_env_materialization_members_in_js_input() {
     for expected in [
         "E5506",
         "Deno.env.toObject",
+        "Deno.env[\"toObject\"]",
         "globalThis.Deno.env.toObject",
+        "globalThis.Deno.env[\"toObject\"]",
         r#"Deno["env"].toObject"#,
         r#"globalThis.Deno["env"].toObject"#,
         r#"globalThis.Deno["env"]["toObject"]"#,
         r#"globalThis["Deno"].env.toObject"#,
         r#"globalThis["Deno"].env["toObject"]"#,
         r#"globalThis["Deno"]["env"].toObject"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"globalThis.Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"].env["toObject"]"#,
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
     ] {
@@ -5779,9 +5784,12 @@ fn check_rejects_late_env_materialization_members_in_json_in_js_input() {
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     for expected in [
         "Deno.env.toObject",
+        "Deno.env[\"toObject\"]",
         "globalThis.Deno.env.toObject",
+        "globalThis.Deno.env[\"toObject\"]",
         "Deno[\"env\"][\"toObject\"]",
         "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
+        r#"globalThis["Deno"].env["toObject"]"#,
     ] {
         assert!(
             errors.iter().any(|error| error["message"]

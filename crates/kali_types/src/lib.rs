@@ -2473,7 +2473,9 @@ impl TypeContext {
         if !matches!(
             dotted.as_str(),
             "Deno.env.toObject"
+                | "Deno.env[\"toObject\"]"
                 | "globalThis.Deno.env.toObject"
+                | "globalThis.Deno.env[\"toObject\"]"
                 | "Deno[\"env\"].toObject"
                 | "Deno[\"env\"][\"toObject\"]"
                 | "globalThis.Deno[\"env\"].toObject"
@@ -2484,7 +2486,9 @@ impl TypeContext {
                 | "globalThis[\"Deno\"][\"env\"][\"toObject\"]"
         ) && !matches!(
             bracketed.as_str(),
-            r#"Deno["env"]["toObject"]"# | r#"globalThis["Deno"]["env"]["toObject"]"#
+            r#"Deno["env"]["toObject"]"#
+                | r#"globalThis["Deno"]["env"]["toObject"]"#
+                | r#"globalThis.Deno["env"]["toObject"]"#
         ) {
             return false;
         }
@@ -2492,18 +2496,22 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "environment snapshot materialization API '{}' (aka {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) is unavailable until the later env-object materialization and object-aggregate lowering path is enabled",
+                "environment snapshot materialization API '{}' (aka {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) is unavailable until the later env-object materialization and object-aggregate lowering path is enabled",
                 dotted,
                 bracketed,
+                "Deno.env[\"toObject\"]",
                 "Deno[\"env\"].toObject",
                 "Deno[\"env\"][\"toObject\"]",
+                "globalThis.Deno.env[\"toObject\"]",
                 "globalThis.Deno[\"env\"].toObject",
                 "globalThis.Deno[\"env\"][\"toObject\"]",
                 "globalThis[\"Deno\"].env.toObject",
                 "globalThis[\"Deno\"].env[\"toObject\"]",
                 "globalThis[\"Deno\"][\"env\"].toObject",
                 "globalThis[\"Deno\"][\"env\"][\"toObject\"]",
+                "globalThis[\"Deno\"].env[\"toObject\"]",
                 "globalThis.Deno[\"env\"][\"toObject\"]",
+                "globalThis[\"Deno\"].env[\"toObject\"]",
             ),
         ));
         true
