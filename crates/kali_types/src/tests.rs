@@ -1812,21 +1812,23 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
         .diagnostics
         .iter()
         .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("Deno.env.toObject")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains("globalThis.Deno.env.toObject")));
-    assert!(result
-        .diagnostics
-        .iter()
-        .any(|diag| diag.message.contains(r#"Deno["env"]["toObject"]"#)));
-    assert!(result.diagnostics.iter().any(|diag| diag
-        .message
-        .contains(r#"globalThis["Deno"]["env"]["toObject"]"#)));
+    for expected in [
+        "Deno.env.toObject",
+        "globalThis.Deno.env.toObject",
+        r#"Deno["env"]["toObject"]"#,
+        r#"globalThis["Deno"]["env"]["toObject"]"#,
+        r#"Deno["env"].toObject"#,
+        r#"globalThis.Deno["env"].toObject"#,
+        r#"globalThis["Deno"].env["toObject"]"#,
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing alias in diagnostics: {expected}"
+        );
+    }
     assert!(result
         .diagnostics
         .iter()
