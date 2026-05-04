@@ -2277,28 +2277,46 @@ impl TypeContext {
     }
 
     fn resolve_permissions_query_descriptor_name(&self, expr: &Expression) -> Option<String> {
-        let Expression::ObjectExpression(ObjectExpression { properties }) = expr else {
-            return None;
-        };
-
-        for property in properties {
-            if !matches!(property.kind, ObjectPropertyKind::Init) {
-                continue;
+        match expr {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_permissions_query_descriptor_name(&expr.expression)
             }
-
-            let key_name = match &property.key {
-                PropertyName::Identifier(name) | PropertyName::String(name) => name.as_str(),
-                PropertyName::Number(_) => continue,
-            };
-
-            if key_name != "name" {
-                continue;
+            Expression::TypeAssertion(expr) => {
+                self.resolve_permissions_query_descriptor_name(&expr.expression)
             }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_permissions_query_descriptor_name(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_permissions_query_descriptor_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_permissions_query_descriptor_name(&expr.expression)
+            }
+            Expression::ObjectExpression(ObjectExpression { properties }) => {
+                for property in properties {
+                    if !matches!(property.kind, ObjectPropertyKind::Init) {
+                        continue;
+                    }
 
-            return self.resolve_static_string_expression(&property.value);
+                    let key_name = match &property.key {
+                        PropertyName::Identifier(name) | PropertyName::String(name) => {
+                            name.as_str()
+                        }
+                        PropertyName::Number(_) => continue,
+                    };
+
+                    if key_name != "name" {
+                        continue;
+                    }
+
+                    return self.resolve_static_string_expression(&property.value);
+                }
+
+                None
+            }
+            _ => None,
         }
-
-        None
     }
 
     fn resolve_threaded_runtime_member(&mut self, expr: &MemberExpression) {

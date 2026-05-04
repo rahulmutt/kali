@@ -2597,8 +2597,65 @@ fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_help
 }
 
 #[test]
+fn test_resolution_accepts_transparent_wrappers_around_permission_query_descriptors() {
+    let mut ctx = TypeContext::new();
+    let wrapped_descriptor = Expression::DecoratedExpression(DecoratedExpression {
+        expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+            ParenthesizedExpression {
+                expression: Box::new(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("name".to_string()),
+                        value: Expression::Literal(LiteralValue::String("env".to_string())),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            },
+        ))),
+    });
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "permissions".to_string(),
+                })),
+                property: "query".to_string(),
+            })),
+            args: vec![wrapped_descriptor],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
 fn test_resolution_rejects_unsupported_permission_query_descriptors() {
     let mut ctx = TypeContext::new();
+    let wrapped_ffi_descriptor =
+        Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
+            expression: Box::new(Expression::ObjectExpression(ObjectExpression {
+                properties: vec![ObjectProperty {
+                    key: PropertyName::Identifier("name".to_string()),
+                    value: Expression::Literal(LiteralValue::String("ffi".to_string())),
+                    kind: ObjectPropertyKind::Init,
+                }],
+            })),
+        }));
+    let wrapped_sys_descriptor = Expression::DecoratedExpression(DecoratedExpression {
+        expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+            ParenthesizedExpression {
+                expression: Box::new(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::String("name".to_string()),
+                        value: Expression::Literal(LiteralValue::String("sys".to_string())),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            },
+        ))),
+    });
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
@@ -2651,19 +2708,28 @@ fn test_resolution_rejects_unsupported_permission_query_descriptors() {
                     })),
                     property: "query".to_string(),
                 })),
-                args: vec![Expression::ObjectExpression(ObjectExpression {
-                    properties: vec![ObjectProperty {
-                        key: PropertyName::String("name".to_string()),
-                        value: Expression::Literal(LiteralValue::String("sys".to_string())),
-                        kind: ObjectPropertyKind::Init,
-                    }],
-                })],
+                args: vec![wrapped_ffi_descriptor],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Deno".to_string(),
+                        })),
+                        property: "permissions".to_string(),
+                    })),
+                    property: "query".to_string(),
+                })),
+                args: vec![wrapped_sys_descriptor],
             }))),
         }),
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 2);
+    assert_eq!(result.diagnostics.len(), 3);
     assert!(result
         .diagnostics
         .iter()

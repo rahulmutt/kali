@@ -134,7 +134,7 @@ Implementation simplification:
   - `Deno.permissions.query(...)` is the only **stable callable path** in the facade
   - `Deno.permissions.request(...)` / `revoke(...)` remain **recognized-but-unavailable compatibility members** and therefore fail with the canonical availability path (`E5506`) instead of disappearing as ordinary missing properties; the same applies to statically-known string-literal bracketed property forms such as `Deno.permissions["request"](...)` and `globalThis["Deno"]["permissions"]["revoke"](...)`
   - this compatibility-visible rejection is intentional simplification, not a hidden Phase-2/3 promise: unless a future sandbox model explicitly reopens interactive escalation, these members stay documented as unavailable rather than silently graduating into a roadmap lane
-- accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, but each descriptor still projects only the capability slice that actually exists for the active phase/API surface
+- accepted `query(...)` descriptor names follow the shared **Deno-compatible permission descriptor subset (schema v1)** from [SPEC.md](../SPEC.md); in Phase 1 that effectively means the `read` / `write` / `net` / `env` subset, but each descriptor still projects only the capability slice that actually exists for the active phase/API surface. Transparent parenthesized, type-assertion, `satisfies`, chain, and decorated wrappers around that descriptor object are treated equivalently so wrapper noise does not change the query-only contract
 
 Phase-1 descriptor projection shorthand:
 
