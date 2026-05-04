@@ -36,7 +36,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
-- Current regression coverage also asserts empty `errors` arrays on successful browser/runtime JSON paths for the promise-allSettled and browser for-of smoke slices, and now also on the Deno env-set / env-delete executable build JSON smoke slices, keeping the success-envelope shape explicit without narrowing extension posture.
+- Current regression coverage also asserts empty `errors` arrays on successful browser/runtime JSON paths for the promise-allSettled and browser for-of smoke slices, and now also on the Deno env-set / env-delete executable build JSON smoke slices, keeping the success-envelope shape explicit without narrowing extension posture. The executable-build JSON smoke now also pins that empty-errors success envelope for the Deno env-set / env-delete slice itself, so the Phase-15 schema hardening stays aligned with the supported env-mutation build path.
 
 ## Exit gate
 

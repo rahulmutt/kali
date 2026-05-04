@@ -1834,6 +1834,47 @@ fn json_build_accepts_deno_env_get_in_js_input() {
     );
     assert!(payload["sizeBytes"].as_u64().expect("size bytes") > 0);
     assert!(payload["sourceHash"].as_str().is_some());
+    assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
+}
+
+#[test]
+fn json_build_accepts_deno_env_set_and_delete_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Deno.env.set('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); Deno.env.delete('KALI_ENV_SET_DELETE_SMOKE'); Deno[\"env\"][\"set\"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); Deno[\"env\"][\"delete\"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis.Deno[\"env\"][\"set\"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis.Deno[\"env\"][\"delete\"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_SET_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis.Deno[\"env\"].delete('KALI_ENV_SET_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_DELETE_SMOKE', 'hello-environment'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_SET_DELETE_SMOKE');\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    let payload = json["payload"].as_object().expect("build payload object");
+    assert_eq!(payload["artifactKind"], "executable");
+    assert_eq!(payload["buildMode"], "fast");
+    assert!(
+        PathBuf::from(payload["outputPath"].as_str().expect("output path")).exists(),
+        "expected build artifact"
+    );
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
