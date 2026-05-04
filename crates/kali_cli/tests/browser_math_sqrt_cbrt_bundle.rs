@@ -121,3 +121,23 @@ fn json_build_emits_math_sqrt_and_cbrt_zero_identities_in_js_input() {
 fn json_build_emits_math_sqrt_and_cbrt_zero_identities_in_ts_input() {
     assert_browser_bundle_math_sqrt_cbrt("app.ts", true);
 }
+
+#[test]
+fn build_emits_math_sqrt_and_cbrt_zero_identities_in_jsx_input() {
+    assert_browser_bundle_math_sqrt_cbrt("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_sqrt_and_cbrt_zero_identities_in_tsx_input() {
+    assert_browser_bundle_math_sqrt_cbrt("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_math_sqrt_and_cbrt_zero_identities_in_jsx_input() {
+    assert_browser_bundle_math_sqrt_cbrt("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_sqrt_and_cbrt_zero_identities_in_tsx_input() {
+    assert_browser_bundle_math_sqrt_cbrt("app.tsx", true);
+}
