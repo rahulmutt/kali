@@ -115,6 +115,16 @@ fn build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
     assert_browser_bundle_math_floor_trunc_ceil_alias("app.js", true);
 }
@@ -122,4 +132,14 @@ fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_js_input() {
 #[test]
 fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_ts_input() {
     assert_browser_bundle_math_floor_trunc_ceil_alias("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_floor_trunc_ceil_alias("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_floor_trunc_ceil_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_floor_trunc_ceil_alias("app.tsx", true);
 }
