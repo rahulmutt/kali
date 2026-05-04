@@ -2167,6 +2167,11 @@ impl ThreadRuntimeInstanceSnapshot {
         self.snapshot_value()
     }
 
+    /// Alias for the JSON-ready instance snapshot helper with an explicit object-value name.
+    pub fn thread_topology_snapshot_object_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
     /// Alias for the JSON-ready threaded-topology snapshot helper.
     pub fn thread_topology_snapshot_value(&self) -> Value {
         self.snapshot_value()
@@ -2219,6 +2224,11 @@ impl ThreadRuntimeShutdownReport {
 
     /// Alias for the JSON-ready shutdown/leak report helper.
     pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
+    /// Alias for the JSON-ready shutdown/leak report helper with an explicit object-value name.
+    pub fn thread_topology_snapshot_object_value(&self) -> Value {
         self.snapshot_value()
     }
 
@@ -2351,6 +2361,11 @@ impl ThreadRuntimeTopology {
 
     /// Alias for the JSON-ready topology snapshot helper.
     pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
+    /// Alias for the JSON-ready topology snapshot helper with an explicit object-value name.
+    pub fn thread_topology_snapshot_object_value(&self) -> Value {
         self.snapshot_value()
     }
 

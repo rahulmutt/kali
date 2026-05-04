@@ -3962,6 +3962,11 @@ impl KaliHostState {
         self.thread_topology_snapshot_value()
     }
 
+    /// Alias for the JSON-ready threaded-topology snapshot helper with an explicit object-value name.
+    pub fn thread_topology_snapshot_object_value(&self) -> serde_json::Value {
+        self.thread_topology_snapshot_value()
+    }
+
     /// Return a stable snapshot of the current threaded runtime topology.
     pub fn thread_topology_snapshot(&self) -> ThreadRuntimeShutdownReport {
         self.thread_topology.snapshot()
