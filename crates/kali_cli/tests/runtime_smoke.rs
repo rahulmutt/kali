@@ -44091,6 +44091,240 @@ fn test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browse
 }
 
 #[test]
+fn run_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }",
+    )
+    .expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success());
+        assert_eq!(output.status.code(), Some(0));
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "run");
+            assert_eq!(json["success"], true);
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+            assert_eq!(json["payload"]["hostContract"], "browser-requested");
+            assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+            assert!(
+                json["stdout"].as_str().expect("stdout").contains('1')
+                    && json["stdout"].as_str().expect("stdout").contains('2'),
+                "json: {json}"
+            );
+            assert_eq!(json["stderr"], "");
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert_browser_for_of_array_iteration(&stdout);
+        }
+    }
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_of_array_iteration(&stdout);
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for await (const item of ([1, (value)] as const)) { console.log(item); }",
+    )
+    .expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success());
+        assert_eq!(output.status.code(), Some(0));
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "run");
+            assert_eq!(json["success"], true);
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+            assert_eq!(json["payload"]["hostContract"], "browser-requested");
+            assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+            assert!(
+                json["stdout"].as_str().expect("stdout").contains('1')
+                    && json["stdout"].as_str().expect("stdout").contains('2'),
+                "json: {json}"
+            );
+            assert_eq!(json["stderr"], "");
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert_browser_for_await_array_iteration(&stdout);
+        }
+    }
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for await (const item of ([1, (value)] as const)) { console.log(item); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_await_array_iteration(&stdout);
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for await (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }",
+    )
+    .expect("write source");
+
+    for output_json in [false, true] {
+        let mut output = Command::new(kali_bin());
+        output
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if output_json {
+            output.arg("--output").arg("json");
+        }
+        let output = output
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(output.status.success());
+        assert_eq!(output.status.code(), Some(0));
+        if output_json {
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "run");
+            assert_eq!(json["success"], true);
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+            assert_eq!(json["payload"]["hostContract"], "browser-requested");
+            assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+            assert!(
+                json["stdout"].as_str().expect("stdout").contains('1')
+                    && json["stdout"].as_str().expect("stdout").contains('2'),
+                "json: {json}"
+            );
+            assert_eq!(json["stderr"], "");
+        } else {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert_browser_for_await_array_iteration(&stdout);
+        }
+    }
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "const value = 2; for await (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_browser_for_await_array_iteration(&stdout);
+}
+
+#[test]
 fn run_supports_for_await_array_iteration_lowering_with_parenthesized_const_alias_in_browser_api_surface_with_harness_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -45036,6 +45270,10 @@ where
             }));
         }
     }
+}
+
+fn assert_browser_for_await_array_iteration(output: &str) {
+    assert_browser_for_of_array_iteration(output);
 }
 
 fn assert_browser_for_await_array_iteration_json(success: bool) {
