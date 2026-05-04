@@ -2135,6 +2135,75 @@ pub struct ThreadRuntimeShutdownReport {
     pub live_instances: Vec<ThreadRuntimeInstanceSnapshot>,
 }
 
+impl ThreadRuntimeShutdownReport {
+    /// Return the shutdown/leak report as a JSON-ready value.
+    pub fn snapshot_value(&self) -> Value {
+        Value::Object(
+            [
+                (
+                    "totalInstances".to_string(),
+                    Value::from(self.total_instances as u64),
+                ),
+                (
+                    "terminatedInstances".to_string(),
+                    Value::from(self.terminated_instances as u64),
+                ),
+                (
+                    "liveInstances".to_string(),
+                    Value::Array(
+                        self.live_instances
+                            .iter()
+                            .map(|snapshot| {
+                                Value::Object(
+                                    [
+                                        (
+                                            "instanceId".to_string(),
+                                            Value::from(snapshot.instance_id as u64),
+                                        ),
+                                        (
+                                            "scriptUrl".to_string(),
+                                            Value::String(snapshot.script_url.clone()),
+                                        ),
+                                        (
+                                            "postedMessages".to_string(),
+                                            Value::Array(snapshot.posted_messages.clone()),
+                                        ),
+                                        (
+                                            "postedSharedBuffers".to_string(),
+                                            Value::Array(
+                                                snapshot
+                                                    .posted_shared_buffers
+                                                    .iter()
+                                                    .map(|buffer| {
+                                                        Value::Array(
+                                                            buffer
+                                                                .iter()
+                                                                .map(|byte| Value::from(*byte))
+                                                                .collect(),
+                                                        )
+                                                    })
+                                                    .collect(),
+                                            ),
+                                        ),
+                                        (
+                                            "wasTerminated".to_string(),
+                                            Value::Bool(snapshot.was_terminated),
+                                        ),
+                                    ]
+                                    .into_iter()
+                                    .collect(),
+                                )
+                            })
+                            .collect(),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        )
+    }
+}
+
 impl ThreadRuntimeTopology {
     /// Create an empty runtime-topology model.
     pub fn new() -> Self {
@@ -2244,6 +2313,11 @@ impl ThreadRuntimeTopology {
             terminated_instances,
             live_instances,
         }
+    }
+
+    /// Produce a stable JSON-ready snapshot of the current topology state.
+    pub fn snapshot_value(&self) -> Value {
+        self.snapshot().snapshot_value()
     }
 
     /// Produce a stable shutdown/leak report and mark every tracked instance terminated.

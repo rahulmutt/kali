@@ -3942,6 +3942,11 @@ impl KaliHostState {
         self.thread_topology.snapshot()
     }
 
+    /// Return a stable JSON-ready snapshot of the current threaded runtime topology.
+    pub fn thread_topology_snapshot_value(&self) -> serde_json::Value {
+        self.thread_topology.snapshot_value()
+    }
+
     fn schedule_timer(
         &mut self,
         callback_id: i32,
