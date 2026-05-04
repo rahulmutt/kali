@@ -27,6 +27,10 @@ fn env_view_is_deterministic_and_mutable() {
         Some(&String::from("/workspace/home"))
     );
     assert_eq!(
+        env.env_to_object().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
         env.snapshot().get("HOME"),
         Some(&String::from("/workspace/home"))
     );
@@ -40,6 +44,13 @@ fn env_view_is_deterministic_and_mutable() {
     );
     assert_eq!(
         env.env_snapshot_value()
+            .as_object()
+            .expect("json object")
+            .get("HOME"),
+        Some(&serde_json::Value::String(String::from("/workspace/home")))
+    );
+    assert_eq!(
+        env.env_to_json_value()
             .as_object()
             .expect("json object")
             .get("HOME"),
@@ -72,10 +83,12 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
     assert_eq!(env.snapshot(), snapshot);
+    assert_eq!(env.env_to_object(), snapshot);
     assert_eq!(env.env_snapshot_object_value(), snapshot);
     assert_eq!(env.snapshot_object_value(), snapshot);
 
     let json_snapshot = env.to_json_value();
+    assert_eq!(env.env_to_json_value(), json_snapshot);
     assert_eq!(env.env_snapshot_value(), json_snapshot);
     assert_eq!(env.env_snapshot_json_value(), json_snapshot);
     assert_eq!(env.snapshot_json_value(), json_snapshot);
