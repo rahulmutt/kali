@@ -218,6 +218,94 @@ fn test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is
     );
 }
 
+#[test]
+fn run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_run_source(),
+        "1\n1",
+    );
+}
+
+#[test]
+fn run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "run",
+        "main.tsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_run_source(),
+        "1\n1",
+    );
+}
+
+#[test]
+fn test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_test_source(),
+        "1\n1\nok 1",
+    );
+}
+
+#[test]
+fn test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_test_source(),
+        "1\n1\nok 1",
+    );
+}
+
+#[test]
+fn run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_run_source(),
+        "1\n1",
+    );
+}
+
+#[test]
+fn run_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "run",
+        "main.tsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_run_source(),
+        "1\n1",
+    );
+}
+
+#[test]
+fn test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_jsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_test_source(),
+        "1\n1\nok 1",
+    );
+}
+
+#[test]
+fn test_supports_math_pow_zero_exponent_non_integer_base_when_browser_harness_is_configured_in_json_tsx_input(
+) {
+    assert_browser_harness_math_pow_zero_exponent_non_integer_base(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_pow_zero_exponent_non_integer_base_test_source(),
+        "1\n1\nok 1",
+    );
+}
+
 fn browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_integer_base_source(
 ) -> &'static str {
     r##"// kali-tree-shake: bracketedGlobalThisMathPowZeroExponentNonIntegerBase
