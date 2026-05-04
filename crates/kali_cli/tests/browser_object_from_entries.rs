@@ -137,6 +137,16 @@ fn build_emits_object_from_entries_semantics_in_ts_input() {
 }
 
 #[test]
+fn build_emits_object_from_entries_semantics_in_jsx_input() {
+    assert_browser_bundle_object_from_entries("app.jsx", false);
+}
+
+#[test]
+fn build_emits_object_from_entries_semantics_in_tsx_input() {
+    assert_browser_bundle_object_from_entries("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_object_from_entries_semantics_in_js_input() {
     assert_browser_bundle_object_from_entries("app.js", true);
 }
@@ -144,4 +154,14 @@ fn json_build_emits_object_from_entries_semantics_in_js_input() {
 #[test]
 fn json_build_emits_object_from_entries_semantics_in_ts_input() {
     assert_browser_bundle_object_from_entries("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_object_from_entries_semantics_in_jsx_input() {
+    assert_browser_bundle_object_from_entries("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_object_from_entries_semantics_in_tsx_input() {
+    assert_browser_bundle_object_from_entries("app.tsx", true);
 }
