@@ -27,6 +27,10 @@ fn env_view_is_deterministic_and_mutable() {
         Some(&String::from("/workspace/home"))
     );
     assert_eq!(
+        env.snapshot().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
         env.env_snapshot_object_value().get("HOME"),
         Some(&String::from("/workspace/home"))
     );
@@ -67,6 +71,7 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     );
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+    assert_eq!(env.snapshot(), snapshot);
     assert_eq!(env.env_snapshot_object_value(), snapshot);
     assert_eq!(env.snapshot_object_value(), snapshot);
 
@@ -254,6 +259,10 @@ fn runtime_projection_bundles_baseline_context() {
         Some(&String::from("/tmp/home"))
     );
     assert_eq!(
+        projection.env.snapshot().get("HOME"),
+        Some(&String::from("/tmp/home"))
+    );
+    assert_eq!(
         projection.env_to_object().get("HOME"),
         Some(&String::from("/tmp/home"))
     );
@@ -270,6 +279,10 @@ fn runtime_projection_bundles_baseline_context() {
     assert_eq!(projection.env().get("HOME"), Some("/workspace/home"));
     assert_eq!(
         projection.env_snapshot().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
+        projection.env.snapshot().get("HOME"),
         Some(&String::from("/workspace/home"))
     );
     assert_eq!(
@@ -323,6 +336,7 @@ fn runtime_projection_new_defaults_to_open_permissions_and_empty_views() {
 
     assert!(projection.args().as_slice().is_empty());
     assert!(projection.env().to_object().is_empty());
+    assert!(projection.env.snapshot().is_empty());
     assert!(projection.env_to_object().is_empty());
     assert!(projection.env_snapshot_object_value().is_empty());
     assert_eq!(

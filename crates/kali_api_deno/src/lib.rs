@@ -75,6 +75,11 @@ impl DenoEnv {
     }
 
     /// Alias for the deterministic environment snapshot helper.
+    pub fn snapshot(&self) -> BTreeMap<String, String> {
+        self.to_object()
+    }
+
+    /// Alias for the deterministic environment snapshot helper.
     pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
         self.to_object()
     }
@@ -870,6 +875,11 @@ impl DenoRuntimeProjection {
     /// Return a deterministic snapshot of the captured environment view.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.env.to_object()
+    }
+
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn snapshot(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
     }
 
     /// Alias for the deterministic environment snapshot helper.

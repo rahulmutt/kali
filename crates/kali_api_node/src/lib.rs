@@ -133,6 +133,11 @@ impl NodeProcess {
     }
 
     /// Alias for the deterministic environment snapshot helper.
+    pub fn snapshot(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
+    /// Alias for the deterministic environment snapshot helper.
     pub fn env_to_object(&self) -> BTreeMap<String, String> {
         self.env_snapshot()
     }
@@ -616,6 +621,11 @@ impl NodeRuntimeProjection {
     /// Return a deterministic snapshot of the captured process environment.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.process.env_snapshot()
+    }
+
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn snapshot(&self) -> BTreeMap<String, String> {
+        self.process.snapshot()
     }
 
     /// Alias for the deterministic environment snapshot helper.
