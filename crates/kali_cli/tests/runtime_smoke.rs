@@ -1002,6 +1002,7 @@ fn json_check_build_run_and_test_accept_deno_env_set_in_js_input() {
                 let payload = json["payload"].as_object().expect("build payload object");
                 assert_eq!(payload["artifactKind"], "executable");
                 assert_eq!(payload["buildMode"], "fast");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
                 let output_path =
                     PathBuf::from(payload["outputPath"].as_str().expect("output path"));
                 assert_eq!(output_path, source_path.with_extension("wasm"));
@@ -1182,6 +1183,7 @@ fn json_check_build_run_and_test_accept_deno_env_delete_in_js_input() {
                 let payload = json["payload"].as_object().expect("build payload object");
                 assert_eq!(payload["artifactKind"], "executable");
                 assert_eq!(payload["buildMode"], "fast");
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
                 let output_path =
                     PathBuf::from(payload["outputPath"].as_str().expect("output path"));
                 assert_eq!(output_path, source_path.with_extension("wasm"));
