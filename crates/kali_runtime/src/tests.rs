@@ -3465,6 +3465,10 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
             ]
         })
     );
+    assert_eq!(
+        state.thread_topology_snapshot_json_value(),
+        state.thread_topology_snapshot_value()
+    );
 
     let diagnostic = state
         .spawn_thread_instance("https://e.co/v.js")

@@ -2161,6 +2161,11 @@ impl ThreadRuntimeInstanceSnapshot {
             .collect(),
         )
     }
+
+    /// Alias for the JSON-ready instance snapshot helper.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
 }
 
 /// Deterministic shutdown/leak accounting for the runtime-topology model.
@@ -2200,6 +2205,11 @@ impl ThreadRuntimeShutdownReport {
             .into_iter()
             .collect(),
         )
+    }
+
+    /// Alias for the JSON-ready shutdown/leak report helper.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
     }
 }
 
@@ -2317,6 +2327,11 @@ impl ThreadRuntimeTopology {
     /// Produce a stable JSON-ready snapshot of the current topology state.
     pub fn snapshot_value(&self) -> Value {
         self.snapshot().snapshot_value()
+    }
+
+    /// Alias for the JSON-ready topology snapshot helper.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
     }
 
     /// Produce a stable shutdown/leak report and mark every tracked instance terminated.

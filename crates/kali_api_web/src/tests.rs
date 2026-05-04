@@ -777,6 +777,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
             "wasTerminated": false
         })
     );
+    assert_eq!(snapshot.snapshot_json_value(), snapshot.snapshot_value());
 
     assert_eq!(
         report.snapshot_value(),
@@ -792,6 +793,8 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
             }]
         })
     );
+    assert_eq!(report.snapshot_json_value(), report.snapshot_value());
+    assert_eq!(topology.snapshot_json_value(), report.snapshot_value());
 }
 
 #[test]
