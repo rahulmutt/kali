@@ -75,11 +75,9 @@ fn assert_browser_bundle_math_pow_zero_exponent_non_integer_base(
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.mathPowZeroExponentNonIntegerBase();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -289,11 +287,9 @@ fn assert_browser_bundle_bracketed_global_this_math_pow_zero_exponent_non_intege
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathPowZeroExponentNonIntegerBase();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 

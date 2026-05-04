@@ -87,11 +87,9 @@ fn assert_browser_bundle_object_is(filename: &str, json_output: bool, source: &'
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.browserObjectIs();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 

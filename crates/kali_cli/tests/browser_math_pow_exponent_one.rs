@@ -70,11 +70,9 @@ fn assert_browser_bundle_math_pow_exponent_one_identity(filename: &str, json_out
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.mathPowExponentOneIdentity();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -479,11 +477,9 @@ fn build_emits_math_pow_base_one_identity_in_js_input() {
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.mathPowBaseOneIdentity();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 

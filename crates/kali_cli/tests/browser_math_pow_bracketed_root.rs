@@ -72,11 +72,9 @@ fn assert_browser_bundle_bracketed_global_this_math_pow(filename: &str, json_out
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathPowAliasChain();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -275,11 +273,9 @@ fn assert_browser_bundle_bracketed_global_this_math_pow_member(filename: &str, j
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathPowMemberChain();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 

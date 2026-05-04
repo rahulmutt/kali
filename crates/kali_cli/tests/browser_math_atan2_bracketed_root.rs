@@ -72,11 +72,9 @@ fn assert_browser_bundle_bracketed_global_this_math_atan2(filename: &str, json_o
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2ZeroSlice();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -599,11 +597,9 @@ stderr: {}",
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathAtan2BracketedMethod();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -804,11 +800,9 @@ fn assert_browser_bundle_single_quoted_global_this_math_atan2(filename: &str, js
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.singleQuotedGlobalThisMathAtan2ZeroSlice();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 

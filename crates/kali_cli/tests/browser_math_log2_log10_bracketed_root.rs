@@ -80,11 +80,9 @@ fn assert_browser_bundle_bracketed_global_this_math_log2_log10(filename: &str, j
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        &format!(
-            r#"const mod = await import(bundleJs.href);
+        r#"const mod = await import(bundleJs.href);
 await mod.bracketedGlobalThisMathLog2Log10Identities();
-"#
-        ),
+"#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
