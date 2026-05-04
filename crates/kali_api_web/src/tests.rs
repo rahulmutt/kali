@@ -826,6 +826,7 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
         topology.thread_topology_snapshot().snapshot_value(),
         report.snapshot_value()
     );
+    assert_eq!(topology.snapshot_value(), report.snapshot_value());
     assert_eq!(topology.snapshot_json_value(), report.snapshot_value());
     assert_eq!(topology.snapshot_object_value(), report.snapshot_value());
     assert_eq!(
