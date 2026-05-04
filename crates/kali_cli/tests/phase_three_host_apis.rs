@@ -7,11 +7,11 @@ fn kali_bin() -> String {
 }
 
 fn phase_three_host_api_source() -> &'static str {
-    "new Deno.Command('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\n"
+    "new Deno.Command('sh').spawn();\nnew globalThis[\"Deno\"][\"Command\"]('sh').spawn();\nDeno.connect('127.0.0.1', 1);\nglobalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1);\nDeno.listen('127.0.0.1', 0);\nglobalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0);\nDeno.serve('127.0.0.1', 0);\nglobalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);\n"
 }
 
 fn phase_three_subprocess_source() -> &'static str {
-    "new Deno.Command('sh').spawn();\n"
+    "new Deno.Command('sh').spawn();\nnew globalThis[\"Deno\"][\"Command\"]('sh').spawn();\n"
 }
 
 fn phase_three_network_source() -> &'static str {
