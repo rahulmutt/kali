@@ -105,7 +105,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-targeted `check` / `build --bundle` rejection coverage now also pins the late object-model globals and revocable-call slice on the browser API surface in `.js` input, keeping the browser-specific E5506 lane aligned with the existing default standalone gate.
 
 - Progress note: browser-requested TSX late-compatibility smoke now also mirrors the mixed-bracket own-property-helper rejection forms for the browser API surface, keeping the representative TSX alias matrix aligned with the browser JS-input late-compatibility helpers.
-- Progress note: `Deno.permissions.query` descriptor objects now also peel transparent parenthesized, type-assertion, `satisfies`, chain, and decorated wrappers, keeping the query-only facade aligned with the existing transparent-wrapper handling.
+- Progress note: `Deno.permissions.query` descriptor objects now also peel transparent parenthesized, type-assertion, `satisfies`, chain, and decorated wrappers, and the JS/TS permission-query smoke now also exercises parenthesized descriptor-object wrappers on the direct check/build/run/test paths, keeping the query-only facade aligned with the existing transparent-wrapper handling.
 
 ### 11.3 Dynamic loading and module semantics
 

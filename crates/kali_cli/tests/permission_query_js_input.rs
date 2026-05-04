@@ -12,7 +12,7 @@ fn unsupported_permission_query_source() -> &'static str {
 }
 
 fn supported_permission_query_const_binding_source() -> &'static str {
-    "const read_descriptor = \"read\";\nconst write_descriptor = \"write\";\nconst env_descriptor = \"env\";\nconst net_descriptor = \"net\";\nDeno.permissions.query({ name: read_descriptor });\nDeno.permissions[\"query\"]({ name: read_descriptor });\nDeno.permissions.query({ name: write_descriptor });\nDeno.permissions[\"query\"]({ name: write_descriptor });\nDeno.permissions.query({ name: env_descriptor });\nDeno.permissions[\"query\"]({ name: env_descriptor });\nDeno.permissions.query({ name: net_descriptor });\nDeno.permissions[\"query\"]({ name: net_descriptor });\nglobalThis.Deno.permissions.query({ name: read_descriptor });\nglobalThis.Deno.permissions[\"query\"]({ name: read_descriptor });\nglobalThis.Deno.permissions.query({ name: write_descriptor });\nglobalThis.Deno.permissions[\"query\"]({ name: write_descriptor });\nglobalThis.Deno.permissions.query({ name: env_descriptor });\nglobalThis.Deno.permissions[\"query\"]({ name: env_descriptor });\nglobalThis.Deno.permissions.query({ name: net_descriptor });\nglobalThis.Deno.permissions[\"query\"]({ name: net_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: read_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: read_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: write_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: write_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: env_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: env_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query({ name: net_descriptor });\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: net_descriptor });"
+    "const read_descriptor = \"read\";\nconst write_descriptor = \"write\";\nconst env_descriptor = \"env\";\nconst net_descriptor = \"net\";\nDeno.permissions.query(({ name: read_descriptor }));\nDeno.permissions[\"query\"]({ name: read_descriptor });\nDeno.permissions.query(({ name: write_descriptor }));\nDeno.permissions[\"query\"]({ name: write_descriptor });\nDeno.permissions.query(({ name: env_descriptor }));\nDeno.permissions[\"query\"]({ name: env_descriptor });\nDeno.permissions.query(({ name: net_descriptor }));\nDeno.permissions[\"query\"]({ name: net_descriptor });\nglobalThis.Deno.permissions.query(({ name: read_descriptor }));\nglobalThis.Deno.permissions[\"query\"]({ name: read_descriptor });\nglobalThis.Deno.permissions.query(({ name: write_descriptor }));\nglobalThis.Deno.permissions[\"query\"]({ name: write_descriptor });\nglobalThis.Deno.permissions.query(({ name: env_descriptor }));\nglobalThis.Deno.permissions[\"query\"]({ name: env_descriptor });\nglobalThis.Deno.permissions.query(({ name: net_descriptor }));\nglobalThis.Deno.permissions[\"query\"]({ name: net_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query(({ name: read_descriptor }));\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: read_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query(({ name: write_descriptor }));\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: write_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query(({ name: env_descriptor }));\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: env_descriptor });\nglobalThis[\"Deno\"][\"permissions\"].query(({ name: net_descriptor }));\nglobalThis[\"Deno\"][\"permissions\"][\"query\"]({ name: net_descriptor });"
 }
 
 fn supported_permission_query_runtime_source() -> String {
@@ -28,21 +28,21 @@ const read_descriptor = "read";
 const write_descriptor = "write";
 const env_descriptor = "env";
 const net_descriptor = "net";
-await Deno.permissions.query({ name: read_descriptor });
-await Deno.permissions.query({ name: write_descriptor });
-await Deno.permissions.query({ name: env_descriptor });
-await Deno.permissions.query({ name: net_descriptor });
+await Deno.permissions.query(({ name: read_descriptor }));
+await Deno.permissions.query(({ name: write_descriptor }));
+await Deno.permissions.query(({ name: env_descriptor }));
+await Deno.permissions.query(({ name: net_descriptor }));
 await Deno.permissions["query"]({ name: read_descriptor });
 await Deno.permissions["query"]({ name: write_descriptor });
 await Deno.permissions["query"]({ name: env_descriptor });
 await Deno.permissions["query"]({ name: net_descriptor });
-await globalThis["Deno"]["permissions"].query({ name: read_descriptor });
+await globalThis["Deno"]["permissions"].query(({ name: read_descriptor }));
 await globalThis["Deno"]["permissions"]["query"]({ name: read_descriptor });
-await globalThis["Deno"]["permissions"].query({ name: write_descriptor });
+await globalThis["Deno"]["permissions"].query(({ name: write_descriptor }));
 await globalThis["Deno"]["permissions"]["query"]({ name: write_descriptor });
-await globalThis["Deno"]["permissions"].query({ name: env_descriptor });
+await globalThis["Deno"]["permissions"].query(({ name: env_descriptor }));
 await globalThis["Deno"]["permissions"]["query"]({ name: env_descriptor });
-await globalThis["Deno"]["permissions"].query({ name: net_descriptor });
+await globalThis["Deno"]["permissions"].query(({ name: net_descriptor }));
 await globalThis["Deno"]["permissions"]["query"]({ name: net_descriptor });
 }
 Kali.test('permission query const bindings', () => main());
