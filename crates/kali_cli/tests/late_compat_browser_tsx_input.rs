@@ -41,24 +41,28 @@ fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"]["pid"]"#,
         "process.cwd",
         "globalThis.process.cwd",
         r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"]["cwd"]"#,
         "process.chdir",
         "globalThis.process.chdir",
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"]["chdir"]"#,
         "process.exit",
         "globalThis.process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"]["exit"]"#,
         "Proxy.revocable",
         "WeakMap",
         "WeakRef",
@@ -117,6 +121,22 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
         source.contains(r#"globalThis["Deno"]["env"]["delete"]"#),
         "source: {source}"
     );
+    assert!(
+        source.contains(r#"globalThis["process"]["pid"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["cwd"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["chdir"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["exit"]"#),
+        "source: {source}"
+    );
 }
 
 fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
@@ -154,24 +174,28 @@ fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"]["pid"]"#,
         "process.cwd",
         "globalThis.process.cwd",
         r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"]["cwd"]"#,
         "process.chdir",
         "globalThis.process.chdir",
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"]["chdir"]"#,
         "process.exit",
         "globalThis.process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"]["exit"]"#,
         "Proxy.revocable",
         "WeakMap",
         "WeakRef",

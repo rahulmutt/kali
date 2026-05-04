@@ -107,22 +107,26 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"]["pid"]"#,
         "globalThis.process.cwd",
         r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"]["cwd"]"#,
         "process.chdir",
         "globalThis.process.chdir",
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"]["chdir"]"#,
         "process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"]["exit"]"#,
     ] {
         assert!(
             stderr.contains(expected),
@@ -159,22 +163,26 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"]["pid"]"#,
         "globalThis.process.cwd",
         r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"]["cwd"]"#,
         "process.chdir",
         "globalThis.process.chdir",
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"]["chdir"]"#,
         "process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"]["exit"]"#,
         "undefined identifier 'process'",
     ] {
         assert!(
@@ -703,21 +711,41 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"globalThis["process"]["pid"]"#,
         r#"process["pid"]"#,
         r#"globalThis.process["pid"]"#,
+        r#"globalThis["process"]["pid"]"#,
         r#"globalThis["process"].cwd"#,
         r#"globalThis["process"]["cwd"]"#,
         r#"process["cwd"]"#,
         r#"globalThis.process["cwd"]"#,
+        r#"globalThis["process"]["cwd"]"#,
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
+        r#"globalThis["process"]["chdir"]"#,
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis["process"]["exit"]"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+    assert!(
+        source.contains(r#"globalThis["process"]["pid"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["cwd"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["chdir"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["exit"]"#),
+        "source: {source}"
+    );
 }
 
 #[test]
