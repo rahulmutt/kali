@@ -130,6 +130,16 @@ fn build_emits_global_this_math_bracketed_exp_log_identity_literals_in_ts_input(
 }
 
 #[test]
+fn build_emits_global_this_math_bracketed_exp_log_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_bracketed_exp_log("app.jsx", false);
+}
+
+#[test]
+fn build_emits_global_this_math_bracketed_exp_log_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_bracketed_exp_log("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_global_this_math_bracketed_exp_log_identity_literals_in_js_input() {
     assert_browser_bundle_global_this_math_bracketed_exp_log("app.js", true);
 }
@@ -140,7 +150,17 @@ fn json_build_emits_global_this_math_bracketed_exp_log_identity_literals_in_ts_i
 }
 
 #[test]
-fn run_and_test_supports_global_this_math_bracketed_exp_log_identities_when_browser_harness_is_configured_in_js_and_ts_input(
+fn json_build_emits_global_this_math_bracketed_exp_log_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_bracketed_exp_log("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_bracketed_exp_log_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_bracketed_exp_log("app.tsx", true);
+}
+
+#[test]
+fn run_and_test_supports_global_this_math_bracketed_exp_log_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
         (
@@ -164,6 +184,30 @@ fn run_and_test_supports_global_this_math_bracketed_exp_log_identities_when_brow
         (
             "test",
             "smoke.test.ts",
+            browser_harness_global_this_math_bracketed_exp_log_test_source(),
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.jsx",
+            browser_harness_global_this_math_bracketed_exp_log_run_source(),
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            browser_harness_global_this_math_bracketed_exp_log_test_source(),
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.tsx",
+            browser_harness_global_this_math_bracketed_exp_log_run_source(),
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             browser_harness_global_this_math_bracketed_exp_log_test_source(),
             "1\n0",
         ),
