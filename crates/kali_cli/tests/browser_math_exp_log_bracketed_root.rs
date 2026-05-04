@@ -114,6 +114,16 @@ fn build_emits_bracketed_global_this_math_exp_log_identity_literals_in_ts_input(
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_exp_log_identity_literals_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_exp_log("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_exp_log_identity_literals_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_exp_log("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_exp_log_identity_literals_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_exp_log("app.js", true);
 }
@@ -121,6 +131,16 @@ fn json_build_emits_bracketed_global_this_math_exp_log_identity_literals_in_js_i
 #[test]
 fn json_build_emits_bracketed_global_this_math_exp_log_identity_literals_in_ts_input() {
     assert_browser_bundle_bracketed_global_this_math_exp_log("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_exp_log_identity_literals_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_exp_log("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_exp_log_identity_literals_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_exp_log("app.tsx", true);
 }
 
 #[test]
