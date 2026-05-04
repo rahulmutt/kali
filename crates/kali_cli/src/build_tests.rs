@@ -2054,6 +2054,16 @@ fn build_source_file_supports_math_hypot_zero_arguments_in_ts_input() {
 }
 
 #[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_jsx_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_tsx_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
 fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_js_input() {
     assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Browser, "js");
 }
@@ -2061,6 +2071,22 @@ fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_i
 #[test]
 fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_ts_input() {
     assert_build_source_file_supports_math_hypot_zero_arguments_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_hypot_zero_arguments_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_supports_math_hypot_zero_arguments_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
 }
 
 fn assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(
