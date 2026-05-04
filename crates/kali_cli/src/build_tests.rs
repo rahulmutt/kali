@@ -6351,6 +6351,55 @@ fn collect_library_exports_infers_default_function_expression_exports_through_op
 }
 
 #[test]
+fn collect_library_exports_infers_function_binding_signatures_through_satisfies_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = (input) => 1; export { main as alias };",
+    )
+    .expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "main".to_string(),
+                init: Some(Expression::SatisfiesExpression(Box::new(
+                    kali_ast::SatisfiesExpression {
+                        type_name: "unknown".to_string(),
+                        expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                            kali_ast::ArrowFunctionExpression {
+                                params: vec![kali_ast::FunctionParam {
+                                    name: "input".to_string(),
+                                }],
+                                body: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                                is_async: false,
+                                returnType: None,
+                            },
+                        ))),
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "alias");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_default_function_expression_exports_through_conditional_wrapper()
 {
     let dir = tempdir().expect("tempdir");
