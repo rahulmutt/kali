@@ -36900,6 +36900,92 @@ fn json_run_supports_object_is_unary_plus_wrapped_numeric_literals_in_js_input()
 }
 
 #[test]
+fn run_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "console.log(Object.is(-0, 0));\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+    assert!(stdout.contains("1"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "console.log(Object.is(-0, 0));\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["stdout"], "0\n1\n");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.tsx");
+    fs::write(
+        &source_path,
+        "Kali.test('browser object.is', () => { console.log(Object.is(-0, 0)); console.log(globalThis[\"Object\"][\"is\"](1, 1)); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0"), "stdout: {stdout}");
+    assert!(stdout.contains("1"), "stdout: {stdout}");
+}
+
+#[test]
 fn check_supports_promise_all_settled_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
