@@ -30,9 +30,14 @@ fn assert_browser_for_await_array_iteration(output: &str) {
     assert!(output.contains("2"), "output: {output}");
 }
 
-fn assert_browser_harness_for_await_wrapper(command: &str, source: &str, json_output: bool) {
+fn assert_browser_harness_for_await_wrapper(
+    command: &str,
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(filename);
     fs::write(&source_path, source).expect("write source");
 
     let mut cli = Command::new(kali_bin());
@@ -92,47 +97,120 @@ fn assert_browser_harness_for_await_wrapper(command: &str, source: &str, json_ou
 #[test]
 fn run_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("run", for_await_as_const_source(), false);
+    assert_browser_harness_for_await_wrapper("run", "main.js", for_await_as_const_source(), false);
 }
 
 #[test]
 fn test_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("test", for_await_as_const_source(), false);
+    assert_browser_harness_for_await_wrapper("test", "main.js", for_await_as_const_source(), false);
 }
 
 #[test]
 fn json_run_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("run", for_await_as_const_source(), true);
+    assert_browser_harness_for_await_wrapper("run", "main.js", for_await_as_const_source(), true);
 }
 
 #[test]
 fn json_test_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("test", for_await_as_const_source(), true);
+    assert_browser_harness_for_await_wrapper("test", "main.js", for_await_as_const_source(), true);
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper("run", "main.tsx", for_await_as_const_source(), false);
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.tsx",
+        for_await_as_const_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper("run", "main.tsx", for_await_as_const_source(), true);
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper("test", "main.tsx", for_await_as_const_source(), true);
 }
 
 #[test]
 fn run_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("run", for_await_satisfies_source(), false);
+    assert_browser_harness_for_await_wrapper("run", "main.js", for_await_satisfies_source(), false);
 }
 
 #[test]
 fn test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("test", for_await_satisfies_source(), false);
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.js",
+        for_await_satisfies_source(),
+        false,
+    );
 }
 
 #[test]
 fn json_run_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("run", for_await_satisfies_source(), true);
+    assert_browser_harness_for_await_wrapper("run", "main.js", for_await_satisfies_source(), true);
 }
 
 #[test]
 fn json_test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_await_wrapper("test", for_await_satisfies_source(), true);
+    assert_browser_harness_for_await_wrapper("test", "main.js", for_await_satisfies_source(), true);
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.tsx",
+        for_await_satisfies_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.tsx",
+        for_await_satisfies_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper("run", "main.tsx", for_await_satisfies_source(), true);
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_satisfies_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.tsx",
+        for_await_satisfies_source(),
+        true,
+    );
 }
