@@ -3453,6 +3453,40 @@ fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_
     );
 }
 
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_jsx_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_tsx_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
@@ -4677,6 +4711,40 @@ fn build_source_file_supports_for_await_array_iteration_with_parenthesized_bindi
     assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
         ApiSurface::Deno,
         "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_jsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_tsx_input() {
+    assert_build_source_file_supports_for_await_array_iteration_with_parenthesized_binding_in_input(
+        ApiSurface::Deno,
+        "tsx",
     );
 }
 
