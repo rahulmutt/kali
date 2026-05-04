@@ -47564,6 +47564,301 @@ fn build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_js_
 }
 
 #[test]
+fn build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.jsx");
+    let chunk_path = dir.path().join("lazy.jsx");
+    fs::write(
+        &source_path,
+        "const name = \"lazy.jsx\"; const lazy = import(`./${name}`);\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.jsx");
+}
+
+#[test]
+fn build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.tsx");
+    let chunk_path = dir.path().join("lazy.tsx");
+    fs::write(
+        &source_path,
+        "const name = \"lazy.tsx\"; const lazy = import(`./${name}`);\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.tsx");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    let chunk_path = dir.path().join("lazy.js");
+    fs::write(
+        &source_path,
+        "const name = \"lazy.js\"; const lazy = import(`./${name}`);\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.js");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.jsx");
+    let chunk_path = dir.path().join("lazy.jsx");
+    fs::write(
+        &source_path,
+        "const name = \"lazy.jsx\"; const lazy = import(`./${name}`);\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.jsx");
+}
+
+#[test]
+fn json_build_emits_browser_bundle_chunks_for_template_literal_dynamic_imports_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.tsx");
+    let chunk_path = dir.path().join("lazy.tsx");
+    fs::write(
+        &source_path,
+        "const name = \"lazy.tsx\"; const lazy = import(`./${name}`);\nfunction greet(name) { return name; }",
+    )
+    .expect("write source");
+    fs::write(&chunk_path, "export function lazyValue() { return 7; }")
+        .expect("write chunk source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg("--output")
+        .arg("json")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let chunk_root = bundle_dir.join("chunks");
+    assert!(chunk_root.exists(), "missing {}", chunk_root.display());
+
+    let envelope = parse_json_stdout(&output);
+    let payload = envelope["payload"]
+        .as_object()
+        .expect("build payload object");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    let kinds: Vec<_> = artifacts
+        .iter()
+        .map(|artifact| artifact["kind"].as_str().expect("artifact kind"))
+        .collect();
+    assert!(kinds.contains(&"chunk-wasm"), "artifacts: {artifacts:?}");
+    assert!(kinds.contains(&"chunk-js"), "artifacts: {artifacts:?}");
+    assert!(
+        kinds.contains(&"chunk-source-map"),
+        "artifacts: {artifacts:?}"
+    );
+    assert!(
+        kinds.contains(&"chunk-meta-json"),
+        "artifacts: {artifacts:?}"
+    );
+
+    assert_browser_bundle_dynamic_import_loader(&bundle_dir, "./lazy.tsx");
+}
+
+#[test]
 fn browser_bundle_js_exposes_runtime_dynamic_import_loader() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
