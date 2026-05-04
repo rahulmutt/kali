@@ -53,6 +53,7 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 
 - Progress note: browser and standalone late-process-control smoke now also pin the bracketed `globalThis["process"].{pid,cwd,chdir,exit}` and `globalThis.process["pid"|"cwd"|"chdir"|"exit"]` spellings in JS-input regression helpers, keeping the process-control alias matrix aligned with the existing dotted forms.
 - Progress note: the JS-input late-compatibility helpers now also pin the mixed-bracket `globalThis.Deno["permissions"]["request"]` / `globalThis.Deno["permissions"]["revoke"]` permission-escalation spellings so the compatibility gate coverage stays aligned with the browser and runtime smoke matrices.
+- Progress note: the browser-requested TSX late-compatibility smoke now also mirrors the bracketed `globalThis["Deno"]["permissions"]["request"]` / `globalThis["Deno"]["permissions"]["revoke"]` alias family, keeping the browser TSX permission-escalation matrix aligned with the JS-input helper coverage.
 
 ### 12.4 Late object/runtime APIs
 

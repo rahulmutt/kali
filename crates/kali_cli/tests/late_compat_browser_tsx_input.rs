@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn late_browser_tsx_compatibility_source() -> &'static str {
-    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.env.toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); process.pid; process.cwd; process.chdir; process.exit; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); new WeakSet(); new WeakRef(); new FinalizationRegistry(() => {}); globalThis.SharedArrayBuffer; globalThis.Atomics;"
+    "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); process.pid; process.cwd; process.chdir; process.exit; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); new WeakSet(); new WeakRef(); new FinalizationRegistry(() => {}); globalThis.SharedArrayBuffer; globalThis.Atomics;"
 }
 
 fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
@@ -57,6 +57,14 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
     );
     assert!(
         source.contains(r#"globalThis["Object"].prototype["hasOwnProperty"].call"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["permissions"]["request"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Deno"]["permissions"]["revoke"]"#),
         "source: {source}"
     );
 }
