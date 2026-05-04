@@ -2021,6 +2021,43 @@ fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_u
 }
 
 #[test]
+fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_only() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, " \n\t\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser whitespace\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["zeta".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser whitespace".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
 fn browser_requested_runtime_summary_uses_stdout_metadata_when_summary_file_has_invalid_labels() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let wasm = compile_wat(
@@ -2297,6 +2334,65 @@ export async function loadWithImports(importObject) {
     assert_eq!(
         outcome.registered_tests,
         vec!["browser unreadable".to_string()]
+    );
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":0"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_bundle_runtime_summary_falls_back_to_stdout_when_summary_file_is_whitespace_only() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let bundle_root = tempdir.path().join("browser-app");
+    fs::create_dir_all(&bundle_root).expect("create bundle root");
+
+    fs::write(
+        bundle_root.join("browser-app.wasm"),
+        compile_wat(
+            r#"
+                (module
+                    (func (export "_start")))
+            "#,
+        ),
+    )
+    .expect("write bundle wasm");
+    fs::write(
+        bundle_root.join("browser-app.js"),
+        r#"
+const wasmUrl = new URL('./browser-app.wasm', import.meta.url);
+
+export async function loadWithImports(importObject) {
+  const response = await fetch(wasmUrl);
+  const bytes = await response.arrayBuffer();
+  const { instance } = await WebAssembly.instantiate(bytes, importObject);
+  return instance;
+}
+"#,
+    )
+    .expect("write bundle js");
+
+    let command = r#"node -e 'const fs = require("fs"); const summary = process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE; fs.writeFileSync(summary, " \n\t\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser whitespace\"],\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#;
+    let outcome = browser_bundle_runtime_execute_checked(
+        Some(command),
+        &bundle_root,
+        &["zeta".to_string()],
+        false,
+        true,
+    )
+    .expect("execute browser bundle runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 0);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(
+        outcome.registered_tests,
+        vec!["browser whitespace".to_string()]
     );
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
