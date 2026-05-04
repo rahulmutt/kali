@@ -135,6 +135,16 @@ fn build_emits_math_pow_alias_chain_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_pow_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_pow_alias("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_pow_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_pow_alias("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_math_pow_alias_chain_in_js_input() {
     assert_browser_bundle_math_pow_alias("app.js", true);
 }
@@ -142,6 +152,16 @@ fn json_build_emits_math_pow_alias_chain_in_js_input() {
 #[test]
 fn json_build_emits_math_pow_alias_chain_in_ts_input() {
     assert_browser_bundle_math_pow_alias("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_pow_alias("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_pow_alias("app.tsx", true);
 }
 
 #[test]
@@ -165,6 +185,26 @@ fn build_emits_global_this_math_pow_alias_chain_in_ts_input() {
 }
 
 #[test]
+fn build_emits_global_this_math_pow_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.jsx",
+        false,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn build_emits_global_this_math_pow_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.tsx",
+        false,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
 fn json_build_emits_global_this_math_pow_alias_chain_in_js_input() {
     assert_browser_bundle_math_pow_alias_with_source(
         "app.js",
@@ -178,6 +218,26 @@ fn json_build_emits_global_this_math_pow_alias_chain_in_js_input() {
 fn json_build_emits_global_this_math_pow_alias_chain_in_ts_input() {
     assert_browser_bundle_math_pow_alias_with_source(
         "app.ts",
+        true,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn json_build_emits_global_this_math_pow_alias_chain_in_jsx_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.jsx",
+        true,
+        browser_bundle_global_this_math_pow_alias_source(),
+        "globalThisMathPowAliasChain",
+    );
+}
+
+#[test]
+fn json_build_emits_global_this_math_pow_alias_chain_in_tsx_input() {
+    assert_browser_bundle_math_pow_alias_with_source(
+        "app.tsx",
         true,
         browser_bundle_global_this_math_pow_alias_source(),
         "globalThisMathPowAliasChain",
