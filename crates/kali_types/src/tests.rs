@@ -2355,6 +2355,20 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 ))),
             }],
         }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "infinity".to_string(),
+                init: Some(Expression::Identifier("Infinity".to_string())),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "nan".to_string(),
+                init: Some(Expression::Identifier("NaN".to_string())),
+            }],
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
@@ -2376,6 +2390,30 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 args: vec![
                     Expression::Identifier("text".to_string()),
                     Expression::Literal(LiteralValue::String("hello".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("infinity".to_string()),
+                    Expression::Identifier("Infinity".to_string()),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("nan".to_string()),
+                    Expression::Identifier("NaN".to_string()),
                 ],
             }))),
         }),

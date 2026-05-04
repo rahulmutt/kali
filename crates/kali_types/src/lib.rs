@@ -1167,7 +1167,11 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
             }
-            Expression::Identifier(name) => self.resolve_static_object_identity_binding(name),
+            Expression::Identifier(name) => match name.as_str() {
+                "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
+                "NaN" => Some(StaticObjectIdentityValue::Number(f64::NAN)),
+                _ => self.resolve_static_object_identity_binding(name),
+            },
             _ => None,
         }
     }

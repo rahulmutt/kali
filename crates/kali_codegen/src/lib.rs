@@ -2750,6 +2750,8 @@ impl<'a> FunctionEmitter<'a> {
                 Some("true") => Some(StaticObjectIdentityValue::Boolean(true)),
                 Some("false") => Some(StaticObjectIdentityValue::Boolean(false)),
                 Some("null") => Some(StaticObjectIdentityValue::Null),
+                Some("Infinity") => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
+                Some("NaN") => Some(StaticObjectIdentityValue::Number(f64::NAN)),
                 Some(text) => parse_numeric_literal_value(text)
                     .map(StaticObjectIdentityValue::Number)
                     .or_else(|| {
@@ -2764,7 +2766,11 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some(bound) = self.bindings.get(text).copied() {
                     return self.resolve_static_object_identity_value(bound);
                 }
-                parse_numeric_literal_value(text).map(StaticObjectIdentityValue::Number)
+                match text {
+                    "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
+                    "NaN" => Some(StaticObjectIdentityValue::Number(f64::NAN)),
+                    _ => parse_numeric_literal_value(text).map(StaticObjectIdentityValue::Number),
+                }
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
                 None | Some("") | Some("+") => {

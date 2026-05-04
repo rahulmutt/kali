@@ -36661,6 +36661,58 @@ fn json_run_supports_object_is_numeric_literals_in_js_input() {
 }
 
 #[test]
+fn run_supports_object_is_infinity_and_nan_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Object.is(Infinity, Infinity));\nconsole.log(Object.is(NaN, NaN));\nconsole.log(Object.is(-Infinity, -Infinity));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "1\n1\n1", "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_object_is_infinity_and_nan_literals_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Object.is(Infinity, Infinity));\nconsole.log(Object.is(NaN, NaN));\nconsole.log(Object.is(-Infinity, -Infinity));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["stdout"], "1\n1\n1\n");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn run_supports_object_is_unary_plus_wrapped_numeric_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
