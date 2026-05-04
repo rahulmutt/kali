@@ -411,6 +411,16 @@ impl RuntimeCtx {
         self.env_snapshot_value()
     }
 
+    /// Alias for the JSON-ready environment snapshot helper with an explicit object-value name.
+    pub fn snapshot_object_value(&self) -> serde_json::Value {
+        self.env_snapshot_value()
+    }
+
+    /// Alias for the JSON-ready environment snapshot helper.
+    pub fn snapshot_json_value(&self) -> serde_json::Value {
+        self.env_snapshot_value()
+    }
+
     /// Alias for the JSON-ready environment snapshot helper.
     pub fn env_to_json_value(&self) -> serde_json::Value {
         self.env_snapshot_value()
