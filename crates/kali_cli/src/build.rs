@@ -88,12 +88,14 @@ pub fn check_source_file(
     api_surface: ApiSurface,
     runtime_profiles: &[String],
     compat_eval: bool,
+    sandbox_policy_attached: bool,
 ) -> Result<(), Vec<Diagnostic>> {
     let _analysis = analyze_source_file(
         source_path.as_ref(),
         api_surface,
         runtime_profiles,
         compat_eval,
+        sandbox_policy_attached,
     )?;
     Ok(())
 }
@@ -199,6 +201,7 @@ pub fn compile_source_file_with_cache_state(
         runtime_profiles,
         compat_eval,
         false,
+        false,
         coverage,
     )
 }
@@ -223,6 +226,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data(
         runtime_profiles,
         compat_eval,
         false,
+        false,
         coverage,
     )
 }
@@ -236,6 +240,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     compat_eval: bool,
+    sandbox_policy_attached: bool,
     validate_ir: bool,
     coverage: bool,
 ) -> Result<CompileOutput, Vec<Diagnostic>> {
@@ -289,6 +294,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
             profile_data.as_ref(),
             &runtime_profiles,
             compat_eval,
+            sandbox_policy_attached,
             validate_ir,
             coverage,
         )?;
@@ -312,6 +318,7 @@ pub fn compile_source_file_with_cache_state_and_profile_data_and_validation(
             profile_data.as_ref(),
             &runtime_profiles,
             compat_eval,
+            sandbox_policy_attached,
             validate_ir,
             coverage,
         )?;
@@ -360,6 +367,7 @@ pub fn compile_source_file_with_specialization_cap(
         runtime_profiles,
         compat_eval,
         false,
+        false,
         coverage,
     )
 }
@@ -383,6 +391,7 @@ pub fn compile_source_file_with_specialization_cap_and_validation(
         None,
         runtime_profiles,
         compat_eval,
+        false,
         validate_ir,
         coverage,
     )
@@ -408,6 +417,7 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data(
         runtime_profiles,
         compat_eval,
         false,
+        false,
         coverage,
     )
 }
@@ -421,6 +431,7 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data_and_validati
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     compat_eval: bool,
+    sandbox_policy_attached: bool,
     validate_ir: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -432,6 +443,7 @@ pub fn compile_source_file_with_specialization_cap_and_profile_data_and_validati
         profile_data,
         runtime_profiles,
         compat_eval,
+        sandbox_policy_attached,
         validate_ir,
         coverage,
     )
@@ -447,6 +459,7 @@ fn compile_source_file_uncached(
     profile_data: Option<&ProfileData>,
     runtime_profiles: &[String],
     compat_eval: bool,
+    sandbox_policy_attached: bool,
     validate_ir: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
@@ -455,6 +468,7 @@ fn compile_source_file_uncached(
         api_surface,
         runtime_profiles,
         compat_eval,
+        sandbox_policy_attached,
     )?;
     let mut hir_lowerer = HirLowerer::new();
     let hir = hir_lowerer.lower_statements(&analyzed.statements);
@@ -595,6 +609,7 @@ fn analyze_source_file(
     api_surface: ApiSurface,
     runtime_profiles: &[String],
     compat_eval: bool,
+    sandbox_policy_attached: bool,
 ) -> Result<AnalyzedSource, Vec<Diagnostic>> {
     let source = read_compiler_source_file(source_path)?;
 
@@ -644,6 +659,7 @@ fn analyze_source_file(
             api_surface.to_string(),
             runtime_profiles.to_vec(),
         );
+        resolver.set_sandbox_policy_attached(sandbox_policy_attached);
         let resolved = resolver.resolve_statements_in_file(source_path, &parsed.statements);
         diagnostics.extend(resolved.diagnostics);
         if has_errors(&diagnostics) {

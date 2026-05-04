@@ -131,6 +131,7 @@ pub struct TypeContext {
     base_path: Option<PathBuf>,
     api_surface: String,
     runtime_profiles: Vec<String>,
+    sandbox_policy_attached: bool,
     in_generator_function: bool,
 }
 
@@ -153,6 +154,7 @@ impl TypeContext {
             base_path: None,
             api_surface: "deno".to_string(),
             runtime_profiles: Vec::new(),
+            sandbox_policy_attached: false,
             in_generator_function: false,
         }
     }
@@ -212,6 +214,10 @@ impl TypeContext {
 
     pub fn set_runtime_profiles(&mut self, runtime_profiles: Vec<String>) {
         self.runtime_profiles = runtime_profiles;
+    }
+
+    pub fn set_sandbox_policy_attached(&mut self, sandbox_policy_attached: bool) {
+        self.sandbox_policy_attached = sandbox_policy_attached;
     }
 
     fn has_threaded_runtime_profile(&self) -> bool {
@@ -1335,6 +1341,12 @@ impl TypeContext {
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
+        if self.resolve_late_subprocess_member(expr) {
+            return;
+        }
+        if self.resolve_late_network_member(expr) {
+            return;
+        }
         self.resolve_late_permission_escalation_member(expr);
     }
 
@@ -2325,6 +2337,60 @@ impl TypeContext {
                 Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
             ),
         ));
+    }
+
+    fn resolve_late_subprocess_member(&mut self, expr: &MemberExpression) -> bool {
+        if self.sandbox_policy_attached {
+            return false;
+        }
+
+        let Some(object_name) = Self::member_object_name(&expr.object) else {
+            return false;
+        };
+
+        if object_name != "Deno" || expr.property != "Command" {
+            return false;
+        }
+
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "subprocess spawning API '{}' (aka {}) is unavailable until the later subprocess compatibility path is enabled",
+                dotted, bracketed
+            ),
+        ));
+        true
+    }
+
+    fn resolve_late_network_member(&mut self, expr: &MemberExpression) -> bool {
+        if self.sandbox_policy_attached {
+            return false;
+        }
+
+        let Some(object_name) = Self::member_object_name(&expr.object) else {
+            return false;
+        };
+
+        if object_name != "Deno"
+            || !matches!(expr.property.as_str(), "connect" | "listen" | "serve")
+        {
+            return false;
+        }
+
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "socket/listener networking API '{}' (aka {}) is unavailable until the later network compatibility path is enabled",
+                dotted, bracketed
+            ),
+        ));
+        true
     }
 
     fn resolve_late_permission_escalation_member(&mut self, expr: &MemberExpression) -> bool {

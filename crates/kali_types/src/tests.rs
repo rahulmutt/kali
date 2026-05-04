@@ -1473,6 +1473,76 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::Identifier("Deno".to_string()),
+                    property: "connect".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "listen".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "serve".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::NewExpression(Box::new(
+                kali_ast::NewExpression {
+                    callee: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("Deno".to_string()),
+                        property: "Command".to_string(),
+                    })),
+                    args: vec![Expression::Literal(LiteralValue::String("sh".to_string()))],
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 4, "{:?}", result.diagnostics);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "Deno.connect",
+        "globalThis.Deno.listen",
+        "globalThis.Deno.serve",
+        "Deno.Command",
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_allows_process_pid_query_in_node_api_surface() {
     let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
     let statements = vec![

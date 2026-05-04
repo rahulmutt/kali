@@ -518,6 +518,7 @@ fn check_command(
             effective_api,
             &effective_runtime_profiles,
             compat_eval,
+            policy.is_some(),
         ) {
             Ok(()) => {
                 successful_files.push(PathBuf::from(&file));
@@ -1481,6 +1482,7 @@ fn build_executable_artifact(
             profile_data,
             runtime_profiles,
             compat_eval,
+            policy.is_some(),
             validate_ir,
             false,
         )?;
@@ -1562,6 +1564,7 @@ fn build_library_artifact(
             profile_data,
             runtime_profiles,
             compat_eval,
+            policy.is_some(),
             validate_ir,
             false,
         )?;
@@ -1670,6 +1673,7 @@ fn build_capi_artifact(
             profile_data,
             runtime_profiles,
             compat_eval,
+            policy.is_some(),
             validate_ir,
             false,
         )?;
@@ -1863,6 +1867,7 @@ fn build_component_artifact(
             profile_data,
             runtime_profiles,
             compat_eval,
+            policy.is_some(),
             validate_ir,
             false,
         )?;
@@ -2084,6 +2089,7 @@ fn write_browser_bundle_files(
             profile_data,
             runtime_profiles,
             compat_eval,
+            policy.is_some(),
             validate_ir,
             false,
         )?;
