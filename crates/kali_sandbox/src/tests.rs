@@ -853,7 +853,11 @@ fn effect_analysis_tracks_bracketed_deno_env_to_object_as_dynamic_env_read() {
     let source = write_source_fixture_with_extension(
         r#"
 Deno["env"]["toObject"];
+Deno["env"].toObject;
 globalThis["Deno"]["env"]["toObject"];
+globalThis.Deno["env"].toObject;
+globalThis["Deno"].env.toObject;
+globalThis["Deno"].env["toObject"];
 "#,
         "js",
     );
