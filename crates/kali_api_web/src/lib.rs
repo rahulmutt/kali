@@ -2501,6 +2501,39 @@ impl IndexedDb {
             .cloned()
             .collect()
     }
+
+    /// Return a deterministic snapshot of all object stores and their entries.
+    pub fn snapshot(&self) -> BTreeMap<String, BTreeMap<String, Value>> {
+        self.stores
+            .lock()
+            .expect("indexeddb mutex poisoned")
+            .clone()
+    }
+
+    /// Return the snapshot as a JSON object value.
+    pub fn snapshot_value(&self) -> Value {
+        Value::Object(
+            self.snapshot()
+                .into_iter()
+                .map(|(store, entries)| {
+                    (
+                        store,
+                        Value::Object(entries.into_iter().collect::<serde_json::Map<_, _>>()),
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    /// Alias for the JSON-ready snapshot helper.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
+
+    /// Alias for the JSON-ready snapshot helper with an explicit object-value name.
+    pub fn snapshot_object_value(&self) -> Value {
+        self.snapshot_value()
+    }
 }
 
 impl EventTarget {
