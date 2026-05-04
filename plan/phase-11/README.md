@@ -50,6 +50,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: `Object.is` now also accepts the static primitive-literal slice on the supported `check` / `build` / `run` / `test` paths, including const alias chains and transparent wrapper forms for numeric, string, boolean, and null literals, plus unary-plus-wrapped numeric literals and the `Infinity` / `NaN` literal constants, and the browser bundle / browser-harness smoke now mirrors that slice in TS and `.js` input; build smoke now also covers the same numeric-literal slice in JSX and TSX input on both the Deno and browser surfaces, browser bundle smoke now also covers that same slice in JSX and TSX input, and browser-harness smoke now also covers that same slice in JSX and TSX input. The browser bundle and browser-harness smoke now also pin the unary-plus-wrapped numeric literal slice directly in the browser Object.is bundle/harness cases.
 - Progress note: browser bundle smoke now also covers the mixed `globalThis.Object.prototype["hasOwnProperty"]["call"]` spelling for the supported `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice in TS and `.js` input, and now also mirrors the `globalThis["Object"].prototype["hasOwnProperty"]["call"]` spelling and the fully bracketed `globalThis["Object"]["prototype"].hasOwnProperty["call"]` spelling in that same browser bundle slice.
 
+- Progress note: browser build smoke now also covers the `for await...of` `as const` and `satisfies` wrapper slices on the browser API surface in `.js`, `.jsx`, and `.tsx` input.
+
 ### 11.2 Missing expression and built-in semantics
 
 - Promote nullish coalescing `??` and currently unsupported `Math` members only with runtime/checker/codegen coverage.

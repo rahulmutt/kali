@@ -3286,9 +3286,10 @@ fn assert_build_source_file_supports_for_await_array_iteration_with_parenthesize
 
 fn assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
     api_surface: ApiSurface,
+    extension: &str,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         "const value = 2; for await (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }\n",
@@ -3314,9 +3315,10 @@ fn assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wr
 
 fn assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
     api_surface: ApiSurface,
+    extension: &str,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         "const value = 2; for await (const item of ([1, (value)] as const)) { console.log(item); }\n",
@@ -3564,6 +3566,16 @@ fn build_source_file_supports_for_await_array_iteration_with_const_string_alias_
 fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_ts_input() {
     assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
         ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
+        ApiSurface::Browser,
+        "js",
     );
 }
 
@@ -3572,6 +3584,25 @@ fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_i
 ) {
     assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
         ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
@@ -3579,6 +3610,16 @@ fn build_source_file_supports_for_await_array_iteration_with_satisfies_wrapper_i
 fn build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_ts_input() {
     assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
         ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
+        ApiSurface::Browser,
+        "js",
     );
 }
 
@@ -3587,6 +3628,25 @@ fn build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in
 ) {
     assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
         ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_await_array_iteration_with_as_const_wrapper_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
