@@ -165,6 +165,16 @@ fn build_emits_math_pow_zero_exponent_non_integer_base_in_ts_input() {
 }
 
 #[test]
+fn build_emits_math_pow_zero_exponent_non_integer_base_in_jsx_input() {
+    assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.jsx", false);
+}
+
+#[test]
+fn build_emits_math_pow_zero_exponent_non_integer_base_in_tsx_input() {
+    assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_math_pow_zero_exponent_non_integer_base_in_js_input() {
     assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.js", true);
 }
@@ -172,6 +182,16 @@ fn json_build_emits_math_pow_zero_exponent_non_integer_base_in_js_input() {
 #[test]
 fn json_build_emits_math_pow_zero_exponent_non_integer_base_in_ts_input() {
     assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_zero_exponent_non_integer_base_in_jsx_input() {
+    assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_math_pow_zero_exponent_non_integer_base_in_tsx_input() {
+    assert_browser_bundle_math_pow_zero_exponent_non_integer_base("app.tsx", true);
 }
 
 #[test]
