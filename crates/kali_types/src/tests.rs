@@ -5,8 +5,9 @@ use kali_ast::{
     ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
     ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
     ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    SatisfiesExpression, TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression,
-    UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
+    SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion,
+    UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
+    YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -5448,6 +5449,104 @@ fn test_resolution_allows_static_dynamic_import_targets_in_js_files() {
             source: Expression::Literal(LiteralValue::String("./lazy.js".to_string())),
         }))),
     })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_allows_template_literal_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(dir.path().join("lazy.ts"), "export const lazy = 7;").unwrap();
+    fs::write(
+        &source_path,
+        "const name = \"lazy.ts\"; import(`./${name}`);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "name".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "lazy.ts".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::TemplateLiteral(TemplateLiteral {
+                    quasis: vec![
+                        TemplateElement {
+                            value: "./".to_string(),
+                            tail: false,
+                        },
+                        TemplateElement {
+                            value: "".to_string(),
+                            tail: true,
+                        },
+                    ],
+                    expressions: vec![Expression::Identifier("name".to_string())],
+                }),
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_allows_template_literal_dynamic_import_targets_in_js_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
+    fs::write(
+        &source_path,
+        "const name = \"lazy.js\"; import(`./${name}`);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "name".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "lazy.js".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::TemplateLiteral(TemplateLiteral {
+                    quasis: vec![
+                        TemplateElement {
+                            value: "./".to_string(),
+                            tail: false,
+                        },
+                        TemplateElement {
+                            value: "".to_string(),
+                            tail: true,
+                        },
+                    ],
+                    expressions: vec![Expression::Identifier("name".to_string())],
+                }),
+            }))),
+        }),
+    ];
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);

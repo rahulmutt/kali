@@ -23583,6 +23583,46 @@ Kali.test('literal dynamic import', () => {});
 }
 
 #[test]
+fn test_supports_template_literal_dynamic_import_targets_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        dir.path().join("lazy.ts"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const name = "lazy.ts";
+  await import(`./${name}`);
+  console.log("main loaded");
+}
+main();
+Kali.test('template literal dynamic import', () => {});
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("main loaded"), "stdout: {stdout}");
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn json_test_supports_literal_string_dynamic_import_targets_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -23599,6 +23639,62 @@ fn json_test_supports_literal_string_dynamic_import_targets_in_js_input() {
 }
 main();
 Kali.test('literal dynamic import', () => {});
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stderr"], "");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("main loaded"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_test_supports_template_literal_dynamic_import_targets_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        dir.path().join("lazy.js"),
+        "console.log('lazy loaded'); export const value = 7;",
+    )
+    .expect("write lazy chunk");
+    fs::write(
+        &source_path,
+        r#"async function main() {
+  const name = "lazy.js";
+  await import(`./${name}`);
+  console.log("main loaded");
+}
+main();
+Kali.test('template literal dynamic import', () => {});
 "#,
     )
     .expect("write source");
