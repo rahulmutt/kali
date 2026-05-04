@@ -137,10 +137,30 @@ fn json_run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_
 }
 
 #[test]
+fn json_run_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_exp2(
+        "run",
+        "main.ts",
+        browser_harness_math_exp2_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_math_exp2(
         "test",
         "smoke.test.js",
+        browser_harness_math_exp2_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_exp2_zero_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_exp2(
+        "test",
+        "smoke.test.ts",
         browser_harness_math_exp2_test_source(),
         true,
     );
