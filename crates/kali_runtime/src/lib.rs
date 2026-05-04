@@ -391,6 +391,11 @@ impl RuntimeCtx {
         self.env_snapshot()
     }
 
+    /// Alias for the deterministic environment snapshot helper.
+    pub fn snapshot(&self) -> BTreeMap<String, String> {
+        self.env_snapshot()
+    }
+
     /// Alias for the deterministic environment snapshot helper with an explicit object-value name.
     pub fn env_snapshot_object_value(&self) -> BTreeMap<String, String> {
         self.env_snapshot()

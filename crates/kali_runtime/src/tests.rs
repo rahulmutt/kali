@@ -144,6 +144,7 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
     assert_eq!(runtime.env_to_object(), snapshot);
+    assert_eq!(runtime.snapshot(), snapshot);
     assert_eq!(runtime.env_snapshot_object_value(), snapshot);
 
     let json_snapshot = runtime.env_snapshot_value();
