@@ -106,6 +106,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 
 - Progress note: browser-requested TSX late-compatibility smoke now also mirrors the mixed-bracket own-property-helper rejection forms for the browser API surface, keeping the representative TSX alias matrix aligned with the browser JS-input late-compatibility helpers.
 - Progress note: `Deno.permissions.query` descriptor objects now also peel transparent parenthesized, type-assertion, `satisfies`, chain, and decorated wrappers, and the JS/TS permission-query smoke now also exercises parenthesized descriptor-object wrappers on the direct check/build/run/test paths, keeping the query-only facade aligned with the existing transparent-wrapper handling.
+- Progress note: the same permission-query descriptor-object smoke now also covers `.jsx` and `.tsx` inputs on the direct check/build/run/test paths, keeping the source-class matrix aligned with the same wrapper handling and canonical `E5506` gate for unsupported descriptors.
 
 - Progress note: `Math.hypot()` now also lowers to `0` for the empty-argument identity slice, and the current repository snapshot now covers that slice in codegen, build, standalone runtime smoke on the JS path, plus browser bundle and browser-harness smoke in TS, `.js`, `.jsx`, and `.tsx` input.
 
