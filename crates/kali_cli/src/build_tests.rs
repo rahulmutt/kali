@@ -3318,9 +3318,10 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_c
 
 fn assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
     api_surface: ApiSurface,
+    extension: &str,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         "const value = 2; for (const item of ([1, (value)] satisfies readonly [1, 2])) { console.log(item); }\n",
@@ -3346,9 +3347,10 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapp
 
 fn assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
     api_surface: ApiSurface,
+    extension: &str,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
         "const value = 2; for (const item of ([1, (value)] as const)) { console.log(item); }\n",
@@ -3628,6 +3630,16 @@ fn build_source_file_supports_for_of_array_iteration_with_parenthesized_const_al
 fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_ts_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
         ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
+        ApiSurface::Browser,
+        "js",
     );
 }
 
@@ -3636,6 +3648,7 @@ fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_b
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
         ApiSurface::Browser,
+        "ts",
     );
 }
 
@@ -3643,6 +3656,16 @@ fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_b
 fn build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_ts_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
         ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
+        ApiSurface::Browser,
+        "js",
     );
 }
 
@@ -3651,6 +3674,7 @@ fn build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_br
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_as_const_wrapper_in_input(
         ApiSurface::Browser,
+        "ts",
     );
 }
 
