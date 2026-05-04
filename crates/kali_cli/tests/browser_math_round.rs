@@ -54,6 +54,16 @@ fn run_supports_math_round_when_browser_harness_is_configured_in_js_input() {
 }
 
 #[test]
+fn run_supports_math_round_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_round("run", "main.jsx", browser_harness_math_round_run_source());
+}
+
+#[test]
+fn run_supports_math_round_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_round("run", "main.tsx", browser_harness_math_round_run_source());
+}
+
+#[test]
 fn test_supports_math_round_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_math_round(
         "test",
@@ -67,6 +77,24 @@ fn test_supports_math_round_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_math_round(
         "test",
         "smoke.test.js",
+        browser_harness_math_round_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_math_round_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_round(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_round_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_math_round_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_round(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_round_test_source(),
     );
 }

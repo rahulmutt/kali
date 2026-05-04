@@ -188,6 +188,16 @@ fn build_emits_global_this_math_round_identity_literals_in_ts_input() {
 }
 
 #[test]
+fn build_emits_global_this_math_round_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_round("app.jsx", false);
+}
+
+#[test]
+fn build_emits_global_this_math_round_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_round("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_global_this_math_round_identity_literals_in_js_input() {
     assert_browser_bundle_global_this_math_round("app.js", true);
 }
@@ -195,6 +205,16 @@ fn json_build_emits_global_this_math_round_identity_literals_in_js_input() {
 #[test]
 fn json_build_emits_global_this_math_round_identity_literals_in_ts_input() {
     assert_browser_bundle_global_this_math_round("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_round_identity_literals_in_jsx_input() {
+    assert_browser_bundle_global_this_math_round("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_global_this_math_round_identity_literals_in_tsx_input() {
+    assert_browser_bundle_global_this_math_round("app.tsx", true);
 }
 
 #[test]
@@ -219,6 +239,26 @@ fn run_and_test_supports_global_this_math_round_identity_when_browser_harness_is
         (
             "test",
             "smoke.test.ts",
+            browser_harness_global_this_math_round_test_source(),
+        ),
+        (
+            "run",
+            "main.jsx",
+            browser_harness_global_this_math_round_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            browser_harness_global_this_math_round_test_source(),
+        ),
+        (
+            "run",
+            "main.tsx",
+            browser_harness_global_this_math_round_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             browser_harness_global_this_math_round_test_source(),
         ),
     ] {
