@@ -119,6 +119,54 @@ fn json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_b
 }
 
 #[test]
+fn run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_of_wrapper("run", "main.ts", for_of_as_const_source(), false);
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_of_wrapper("test", "main.ts", for_of_as_const_source(), false);
+}
+
+#[test]
+fn json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_of_wrapper("run", "main.ts", for_of_as_const_source(), true);
+}
+
+#[test]
+fn json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_of_wrapper("test", "main.ts", for_of_as_const_source(), true);
+}
+
+#[test]
+fn run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_of_wrapper("run", "main.jsx", for_of_as_const_source(), false);
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_of_wrapper("test", "main.jsx", for_of_as_const_source(), false);
+}
+
+#[test]
+fn json_run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_of_wrapper("run", "main.jsx", for_of_as_const_source(), true);
+}
+
+#[test]
+fn json_test_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_of_wrapper("test", "main.jsx", for_of_as_const_source(), true);
+}
+
+#[test]
 fn run_supports_for_of_array_iteration_lowering_with_as_const_wrapper_in_browser_api_surface_with_harness_tsx_input(
 ) {
     assert_browser_harness_for_of_wrapper("run", "main.tsx", for_of_as_const_source(), false);
