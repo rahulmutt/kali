@@ -2330,11 +2330,27 @@ impl TypeContext {
             return;
         }
 
+        let dotted = Self::member_access_name(expr)
+            .unwrap_or_else(|| format!("{}.{}", object_name, expr.property));
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+        let extra_alias = if object_name == "Deno"
+            && matches!(expr.property.as_str(), "cwd" | "chdir" | "exit")
+        {
+            Some(format!("globalThis[\"Deno\"].{}", expr.property))
+        } else {
+            None
+        };
+
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "late host-control API '{}' is unavailable until the later host-control compatibility path is enabled",
-                Self::member_access_name(expr).unwrap_or_else(|| format!("{}.{}", object_name, expr.property))
+                "late host-control API '{}' (aka {}{}) is unavailable until the later host-control compatibility path is enabled",
+                dotted,
+                bracketed,
+                extra_alias
+                    .as_deref()
+                    .map(|alias| format!(", {alias}"))
+                    .unwrap_or_default()
             ),
         ));
     }
