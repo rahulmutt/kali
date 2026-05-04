@@ -94,6 +94,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-harness/browser-bundle smoke now also covers the `globalThis.Math.exp2` zero-identity slice in JSX and TSX input, extending the existing TS and `.js` coverage for that supported browser-requested slice; the bracketed `globalThis["Math"].exp2` spelling follows the same browser-bundle smoke path.
 - Progress note: browser-targeted `check` / `build --bundle` rejection coverage now also pins the late object-model globals and revocable-call slice on the browser API surface in `.js` input, keeping the browser-specific E5506 lane aligned with the existing default standalone gate.
 
+- Progress note: browser-requested TSX late-compatibility smoke now also mirrors the mixed-bracket own-property-helper rejection forms for the browser API surface, keeping the representative TSX alias matrix aligned with the browser JS-input late-compatibility helpers.
+
 ### 11.3 Dynamic loading and module semantics
 
 - Preserve literal-string `import()` as linked-graph lowering.
