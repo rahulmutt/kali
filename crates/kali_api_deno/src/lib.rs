@@ -80,6 +80,11 @@ impl DenoEnv {
     }
 
     /// Alias for the deterministic environment snapshot helper.
+    pub fn env_snapshot(&self) -> BTreeMap<String, String> {
+        self.to_object()
+    }
+
+    /// Alias for the deterministic environment snapshot helper.
     pub fn snapshot(&self) -> BTreeMap<String, String> {
         self.to_object()
     }

@@ -31,6 +31,10 @@ fn env_view_is_deterministic_and_mutable() {
         Some(&String::from("/workspace/home"))
     );
     assert_eq!(
+        env.env_snapshot().get("HOME"),
+        Some(&String::from("/workspace/home"))
+    );
+    assert_eq!(
         env.snapshot().get("HOME"),
         Some(&String::from("/workspace/home"))
     );
@@ -82,6 +86,7 @@ fn env_view_snapshot_is_sorted_and_detached_from_later_mutations() {
     );
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
+    assert_eq!(env.env_snapshot(), snapshot);
     assert_eq!(env.snapshot(), snapshot);
     assert_eq!(env.env_to_object(), snapshot);
     assert_eq!(env.env_snapshot_object_value(), snapshot);
