@@ -114,6 +114,16 @@ fn build_emits_bracketed_global_this_math_atan2_zero_slice_in_ts_input() {
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_atan2_zero_slice_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_atan2("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_atan2_zero_slice_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_atan2("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_atan2("app.js", true);
 }
@@ -124,7 +134,17 @@ fn json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_ts_input() {
 }
 
 #[test]
-fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_and_ts_input(
+fn json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_atan2("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_atan2_zero_slice_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_atan2("app.tsx", true);
+}
+
+#[test]
+fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
         (
@@ -148,6 +168,30 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browse
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "0\nok 1",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "0",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "0\nok 1",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "0",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
             "0\nok 1",
         ),
