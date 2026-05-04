@@ -7,8 +7,8 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_harness_object_from_entries_run_source() -> &'static str {
-    r##"function assertFromEntriesShape(fromEntries) {
+fn browser_harness_object_from_entries_run_source(include_ts_as_const: bool) -> String {
+    let source = r##"function assertFromEntriesShape(fromEntries) {
   const keys = Object.keys(fromEntries);
   const entries = Object.entries(fromEntries);
   const values = Object.values(fromEntries);
@@ -30,7 +30,7 @@ fn browser_harness_object_from_entries_run_source() -> &'static str {
 }
 
 const wrappedEntries = ([["b", 1], ["a", 2]]);
-const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+  __TS_ONLY__const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
 const wrappedFromEntries = Object.fromEntries(wrappedEntries);
 const dottedFromEntries = globalThis.Object.fromEntries([["b", 1], ["a", 2]]);
 const mixedDottedFromEntries = globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]);
@@ -43,11 +43,20 @@ assertFromEntriesShape(mixedDottedFromEntries);
 assertFromEntriesShape(mixedBracketedFromEntries);
 assertFromEntriesShape(bracketedFromEntries);
 console.log('browser object fromEntries ok');
-"##
+"##;
+
+    source.replace(
+        "  __TS_ONLY__",
+        if include_ts_as_const {
+            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  const wrappedFromEntriesConst = Object.fromEntries(wrappedEntriesConst);\n  assertFromEntriesShape(wrappedFromEntriesConst);\n"
+        } else {
+            ""
+        },
+    )
 }
 
-fn browser_harness_object_from_entries_test_source() -> &'static str {
-    r##"Kali.test('object fromEntries ordering', () => {
+fn browser_harness_object_from_entries_test_source(include_ts_as_const: bool) -> String {
+    let source = r##"Kali.test('object fromEntries ordering', () => {
   function assertFromEntriesShape(fromEntries) {
     const keys = Object.keys(fromEntries);
     const entries = Object.entries(fromEntries);
@@ -70,7 +79,7 @@ fn browser_harness_object_from_entries_test_source() -> &'static str {
   }
 
   const wrappedEntries = ([["b", 1], ["a", 2]]);
-  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
+  __TS_ONLY__  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(Object.fromEntries(wrappedEntries));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
@@ -78,18 +87,27 @@ fn browser_harness_object_from_entries_test_source() -> &'static str {
   assertFromEntriesShape(globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2]]));
   console.log('browser object fromEntries ok');
 });
-"##
+"##;
+
+    source.replace(
+        "  __TS_ONLY__",
+        if include_ts_as_const {
+            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  assertFromEntriesShape(Object.fromEntries(wrappedEntriesConst));\n"
+        } else {
+            ""
+        },
+    )
 }
 
 fn assert_browser_harness_object_from_entries(
     command: &str,
     filename: &str,
-    source: &str,
+    source: impl AsRef<str>,
     json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut output = Command::new(kali_bin());
     output
@@ -156,7 +174,7 @@ fn run_supports_object_from_entries_when_browser_harness_is_configured_in_js_inp
     assert_browser_harness_object_from_entries(
         "run",
         "main.js",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(false),
         false,
     );
 }
@@ -166,7 +184,7 @@ fn run_supports_object_from_entries_when_browser_harness_is_configured_in_ts_inp
     assert_browser_harness_object_from_entries(
         "run",
         "main.ts",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(true),
         false,
     );
 }
@@ -176,7 +194,7 @@ fn run_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_in
     assert_browser_harness_object_from_entries(
         "run",
         "main.jsx",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(false),
         false,
     );
 }
@@ -186,7 +204,7 @@ fn run_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_in
     assert_browser_harness_object_from_entries(
         "run",
         "main.tsx",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(true),
         false,
     );
 }
@@ -196,7 +214,7 @@ fn test_supports_object_from_entries_when_browser_harness_is_configured_in_js_in
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.js",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(false),
         false,
     );
 }
@@ -206,7 +224,7 @@ fn test_supports_object_from_entries_when_browser_harness_is_configured_in_ts_in
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.ts",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(true),
         false,
     );
 }
@@ -216,7 +234,7 @@ fn test_supports_object_from_entries_when_browser_harness_is_configured_in_jsx_i
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.jsx",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(false),
         false,
     );
 }
@@ -226,7 +244,7 @@ fn test_supports_object_from_entries_when_browser_harness_is_configured_in_tsx_i
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.tsx",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(true),
         false,
     );
 }
@@ -236,7 +254,7 @@ fn json_run_supports_object_from_entries_when_browser_harness_is_configured_in_j
     assert_browser_harness_object_from_entries(
         "run",
         "main.js",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(false),
         true,
     );
 }
@@ -246,7 +264,7 @@ fn json_run_supports_object_from_entries_when_browser_harness_is_configured_in_t
     assert_browser_harness_object_from_entries(
         "run",
         "main.ts",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(true),
         true,
     );
 }
@@ -256,7 +274,7 @@ fn json_run_supports_object_from_entries_when_browser_harness_is_configured_in_j
     assert_browser_harness_object_from_entries(
         "run",
         "main.jsx",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(false),
         true,
     );
 }
@@ -266,7 +284,7 @@ fn json_run_supports_object_from_entries_when_browser_harness_is_configured_in_t
     assert_browser_harness_object_from_entries(
         "run",
         "main.tsx",
-        browser_harness_object_from_entries_run_source(),
+        browser_harness_object_from_entries_run_source(true),
         true,
     );
 }
@@ -276,7 +294,7 @@ fn json_test_supports_object_from_entries_when_browser_harness_is_configured_in_
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.js",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(false),
         true,
     );
 }
@@ -286,7 +304,7 @@ fn json_test_supports_object_from_entries_when_browser_harness_is_configured_in_
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.ts",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(true),
         true,
     );
 }
@@ -296,7 +314,7 @@ fn json_test_supports_object_from_entries_when_browser_harness_is_configured_in_
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.jsx",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(false),
         true,
     );
 }
@@ -306,7 +324,7 @@ fn json_test_supports_object_from_entries_when_browser_harness_is_configured_in_
     assert_browser_harness_object_from_entries(
         "test",
         "smoke.test.tsx",
-        browser_harness_object_from_entries_test_source(),
+        browser_harness_object_from_entries_test_source(true),
         true,
     );
 }
