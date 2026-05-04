@@ -5464,7 +5464,7 @@ fn build_source_file_rejects_mixed_bracket_dot_permission_escalation_in_jsx_inpu
 }
 
 #[test]
-fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
+fn build_source_file_supports_deno_env_to_object_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
     fs::write(
@@ -5473,7 +5473,7 @@ fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         ApiSurface::Deno,
@@ -5483,35 +5483,16 @@ fn build_source_file_rejects_deno_env_to_object_in_ts_input() {
         None,
         None,
     )
-    .expect_err("env materialization APIs should fail");
+    .expect("env materialization APIs should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("environment snapshot materialization API")
-            && diagnostic.message.contains("object-aggregate lowering")
-            && (diagnostic.message.contains("Deno.env.toObject")
-                || diagnostic.message.contains("globalThis.Deno.env.toObject")
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env.toObject"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis.Deno.env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
 }
 
 #[test]
-fn build_source_file_rejects_deno_env_to_object_in_js_input() {
+fn build_source_file_supports_deno_env_to_object_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
@@ -5520,7 +5501,7 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         ApiSurface::Deno,
@@ -5530,35 +5511,16 @@ fn build_source_file_rejects_deno_env_to_object_in_js_input() {
         None,
         None,
     )
-    .expect_err("env materialization APIs should fail");
+    .expect("env materialization APIs should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("environment snapshot materialization API")
-            && diagnostic.message.contains("object-aggregate lowering")
-            && (diagnostic.message.contains("Deno.env.toObject")
-                || diagnostic.message.contains("globalThis.Deno.env.toObject")
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env.toObject"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis.Deno.env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
 }
 
 #[test]
-fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
+fn build_source_file_supports_deno_env_to_object_in_jsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.jsx");
     fs::write(
@@ -5567,7 +5529,7 @@ fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         ApiSurface::Deno,
@@ -5577,35 +5539,16 @@ fn build_source_file_rejects_deno_env_to_object_in_jsx_input() {
         None,
         None,
     )
-    .expect_err("env materialization APIs should fail");
+    .expect("env materialization APIs should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("environment snapshot materialization API")
-            && diagnostic.message.contains("object-aggregate lowering")
-            && (diagnostic.message.contains("Deno.env.toObject")
-                || diagnostic.message.contains("globalThis.Deno.env.toObject")
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env.toObject"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis.Deno.env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
 }
 
 #[test]
-fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
+fn build_source_file_supports_deno_env_to_object_in_tsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.tsx");
     fs::write(
@@ -5614,7 +5557,7 @@ fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
     )
     .expect("write source");
 
-    let error = build_source_file(
+    let output = build_source_file(
         &source_path,
         BuildMode::Fast,
         ApiSurface::Deno,
@@ -5624,31 +5567,12 @@ fn build_source_file_rejects_deno_env_to_object_in_tsx_input() {
         None,
         None,
     )
-    .expect_err("env materialization APIs should fail");
+    .expect("env materialization APIs should succeed");
 
-    assert!(error.iter().any(|diagnostic| diagnostic.code
-        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-    assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("environment snapshot materialization API")
-            && diagnostic.message.contains("object-aggregate lowering")
-            && (diagnostic.message.contains("Deno.env.toObject")
-                || diagnostic.message.contains("globalThis.Deno.env.toObject")
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env.toObject"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis.Deno.env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"].env["toObject"]"#)
-                || diagnostic
-                    .message
-                    .contains(r#"globalThis["Deno"]["env"]["toObject"]"#))),
-        "unexpected diagnostics: {error:?}"
-    );
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
 }
 
 #[test]

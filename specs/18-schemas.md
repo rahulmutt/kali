@@ -650,7 +650,7 @@ Rules:
 - Phase 1-2 stable machine-readable contracts are limited to these built-in names.
 - Later user-defined/algebraic effects, if exposed, must use the reserved `Custom.<name>` namespace.
 - Coarse policy keys may match a namespace prefix. In schema v1, `effects.random` matches any `Random.*` built-in effect, and `effects.console` matches any `Console.*` built-in effect.
-- existing host APIs should map onto these names before the spec adds new built-in effect families: for example `Deno.stat*` / `Deno.readDir*` map to `FileSystem.Read`, `Deno.env.get` maps to `Process.EnvRead`, and query-only `Deno.permissions` observation remains effect-free rather than adding a new `Permissions.Query` effect; `Deno.env.toObject` follows the same effect family once the later object-materialization packet lands
+- existing host APIs should map onto these names before the spec adds new built-in effect families: for example `Deno.stat*` / `Deno.readDir*` map to `FileSystem.Read`, `Deno.env.get` maps to `Process.EnvRead`, and query-only `Deno.permissions` observation remains effect-free rather than adding a new `Permissions.Query` effect; `Deno.env.toObject` also maps to `Process.EnvRead` on the default standalone Deno surface
 - New built-in effect names must be added here before they appear in diagnostics, effect reports, or policy examples elsewhere in the spec set.
 - Adding a new stable built-in effect name that can appear in machine-readable output is a schema-contract change and should be accompanied by a schema-version review.
 

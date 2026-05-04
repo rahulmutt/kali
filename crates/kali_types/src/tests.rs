@@ -1747,7 +1747,7 @@ fn test_resolution_allows_deno_exit_termination_in_default_standalone_surface() 
 }
 
 #[test]
-fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
+fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::ExpressionStatement(ExpressionStatement {
@@ -1807,32 +1807,7 @@ fn test_resolution_rejects_env_snapshot_materialization_as_unavailable() {
     ];
 
     let result = ctx.resolve_statements(&statements);
-    assert_eq!(result.diagnostics.len(), 4);
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
-    for expected in [
-        "Deno.env.toObject",
-        "globalThis.Deno.env.toObject",
-        r#"Deno["env"]["toObject"]"#,
-        r#"globalThis["Deno"]["env"]["toObject"]"#,
-        r#"Deno["env"].toObject"#,
-        r#"globalThis.Deno["env"].toObject"#,
-        r#"globalThis["Deno"].env["toObject"]"#,
-    ] {
-        assert!(
-            result
-                .diagnostics
-                .iter()
-                .any(|diag| diag.message.contains(expected)),
-            "missing alias in diagnostics: {expected}"
-        );
-    }
-    assert!(result
-        .diagnostics
-        .iter()
-        .all(|diag| diag.message.contains("object-aggregate lowering")));
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 #[test]

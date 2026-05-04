@@ -2512,6 +2512,10 @@ impl TypeContext {
     }
 
     fn resolve_late_env_object_member(&mut self, expr: &MemberExpression) -> bool {
+        if self.api_surface == "deno" {
+            return false;
+        }
+
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
 
