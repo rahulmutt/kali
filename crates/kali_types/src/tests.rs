@@ -1830,15 +1830,18 @@ fn test_resolution_supports_env_snapshot_materialization_on_default_surface() {
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::MemberExpression(Box::new(
                 kali_ast::MemberExpression {
-                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
-                        object: Expression::MemberExpression(Box::new(
-                            kali_ast::MemberExpression {
-                                object: Expression::Identifier("globalThis".to_string()),
-                                property: "Deno".to_string(),
-                            },
-                        )),
-                        property: "env".to_string(),
-                    })),
+                    object: sequence_expression(vec![
+                        Expression::Literal(LiteralValue::Number(0.0)),
+                        Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                            object: Expression::MemberExpression(Box::new(
+                                kali_ast::MemberExpression {
+                                    object: Expression::Identifier("globalThis".to_string()),
+                                    property: "Deno".to_string(),
+                                },
+                            )),
+                            property: "env".to_string(),
+                        })),
+                    ]),
                     property: "toObject".to_string(),
                 },
             ))),
@@ -1927,15 +1930,19 @@ fn test_member_access_bracketed_name_for_env_snapshot_materialization() {
             },
         ))),
     });
+    let sequence_wrapped_object = sequence_expression(vec![
+        Expression::Literal(LiteralValue::Number(0.0)),
+        wrapped_object,
+    ]);
 
     assert_eq!(
-        TypeContext::member_object_name(&wrapped_object).as_deref(),
+        TypeContext::member_object_name(&sequence_wrapped_object).as_deref(),
         Some("Deno")
     );
 
     let wrapped_expr = kali_ast::MemberExpression {
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
-            object: wrapped_object,
+            object: sequence_wrapped_object,
             property: "env".to_string(),
         })),
         property: "toObject".to_string(),
