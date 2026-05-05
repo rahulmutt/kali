@@ -25,8 +25,10 @@ function browserObjectEntriesIteration() {
   const alias = values;
   const entries = Object.entries(alias);
   const globalEntries = globalThis.Object.entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedEntries);
   console.log('browser object entries iteration ok');
 }
 
@@ -52,8 +54,10 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   const alias = values;
   const entries = Object.entries(alias);
   const globalEntries = globalThis.Object.entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedEntries);
   console.log('browser object entries iteration ok');
 });
 "##

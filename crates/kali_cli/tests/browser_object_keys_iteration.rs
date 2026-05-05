@@ -60,7 +60,12 @@ function browserGlobalObjectKeysIteration() {
   for (const key of globalThis.Object.keys(alias)) {
     keys.push(key);
   }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(bracketed);
 }
 "##
 }

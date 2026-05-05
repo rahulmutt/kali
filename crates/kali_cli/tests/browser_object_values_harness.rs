@@ -63,7 +63,12 @@ function browserGlobalObjectValuesIteration() {
   for (const value of globalThis.Object.values(alias)) {
     collected.push(value);
   }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
   assertObjectValuesIteration(collected);
+  assertObjectValuesIteration(bracketed);
   console.log('browser object values iteration ok');
 }
 
@@ -85,7 +90,12 @@ fn browser_harness_global_object_values_test_source() -> &'static str {
   for (const value of globalThis.Object.values(alias)) {
     collected.push(value);
   }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
   assertObjectValuesIteration(collected);
+  assertObjectValuesIteration(bracketed);
   console.log('browser object values iteration ok');
 });
 "##

@@ -22,7 +22,12 @@ function browserGlobalObjectValuesIteration() {
   for (const value of globalThis.Object.values(alias)) {
     seen.push(value);
   }
+  const bracketed = [];
+  for (const value of globalThis["Object"]["values"](alias)) {
+    bracketed.push(value);
+  }
   assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(bracketed);
 }
 "##
 }

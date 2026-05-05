@@ -101,7 +101,12 @@ function browserGlobalObjectKeysIteration() {
   for (const key of globalThis.Object.keys(alias)) {
     keys.push(key);
   }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(bracketed);
   console.log('browser object keys iteration ok');
 }
 
@@ -123,7 +128,12 @@ fn browser_harness_global_object_keys_test_source() -> &'static str {
   for (const key of globalThis.Object.keys(alias)) {
     keys.push(key);
   }
+  const bracketed = [];
+  for (const key of globalThis["Object"]["keys"](alias)) {
+    bracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(bracketed);
   console.log('browser object keys iteration ok');
 });
 "##

@@ -69,7 +69,9 @@ function browserGlobalObjectEntriesIteration() {
   const values = { "b": 1, "a": 2 };
   const alias = values;
   const entries = globalThis.Object.entries(alias);
+  const bracketed = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(bracketed);
 }
 "##
 }
