@@ -99,6 +99,16 @@ fn assert_browser_bundle_cjs_source_class(filename: &str, inherited: bool) {
 }
 
 #[test]
+fn build_emits_browser_bundle_cjs_artifacts_in_js_input() {
+    assert_browser_bundle_cjs_source_class("app.js", false);
+}
+
+#[test]
+fn build_emits_browser_bundle_cjs_artifacts_in_ts_input() {
+    assert_browser_bundle_cjs_source_class("app.ts", false);
+}
+
+#[test]
 fn build_emits_browser_bundle_cjs_artifacts_in_jsx_input() {
     assert_browser_bundle_cjs_source_class("app.jsx", false);
 }
@@ -106,6 +116,16 @@ fn build_emits_browser_bundle_cjs_artifacts_in_jsx_input() {
 #[test]
 fn build_emits_browser_bundle_cjs_artifacts_in_tsx_input() {
     assert_browser_bundle_cjs_source_class("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_inherited_browser_bundle_cjs_artifacts_in_js_input() {
+    assert_browser_bundle_cjs_source_class("app.js", true);
+}
+
+#[test]
+fn json_build_emits_inherited_browser_bundle_cjs_artifacts_in_ts_input() {
+    assert_browser_bundle_cjs_source_class("app.ts", true);
 }
 
 #[test]
