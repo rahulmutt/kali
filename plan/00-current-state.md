@@ -6,6 +6,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 
 - `cargo run -q -p kali_cli --bin kali -- --help` exposes the current public command set.
 - The workspace contains implementation crates for CLI, frontend, AST/HIR/MIR/LIR, codegen, runtime, sandbox/effects, package management, optimization, host APIs, embedding/C ABI, and bindings.
+- The browser bundle CJS smoke now also covers JSX and TSX input on both the explicit and inherited browser API-surface builds, with deterministic JSON output.
 - The proof tree exists under `proofs/`, and `proofs/BOUNDARY.md` states that Kali is proof-backed for the published boundary.
 - Canonical availability and current-state nuance remain in `specs/19-feature-maturity.md`.
 
