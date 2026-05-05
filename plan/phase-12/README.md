@@ -60,6 +60,8 @@ Expand host/runtime capability only where Kali can mediate, test, and describe i
 - Progress note: the browser-requested TSX late-compatibility smoke now also mirrors the bracketed `globalThis["Deno"]["permissions"]["request"]` / `globalThis["Deno"]["permissions"]["revoke"]` alias family, keeping the browser TSX permission-escalation matrix aligned with the JS-input helper coverage.
 - Progress note: the direct phase-three host-API rejection smoke now also exercises bracketed `Deno.Command` / `Deno.connect` / `Deno.listen` / `Deno.serve` spellings on the canonical `E5506` gate.
 
+- Progress note: browser late-compatibility host-API helpers now also pin the fully bracketed `globalThis["Deno"]["connect"]` / `globalThis["Deno"]["listen"]` / `globalThis["Deno"]["serve"]` spellings, keeping the canonical E5506 network gate aligned across the bracketed-alias matrix.
+
 ### 12.4 Late object/runtime APIs
 
 - Triage `Proxy`, own-property helpers, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, and `Atomics` against no-GC/no-JIT and optimization constraints.

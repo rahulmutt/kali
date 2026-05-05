@@ -1578,6 +1578,67 @@ fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() 
 }
 
 #[test]
+fn test_resolution_reports_bracketed_late_network_aliases_as_unavailable_in_browser_api_surface() {
+    let mut ctx = TypeContext::with_api_surface("browser");
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "connect".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "listen".to_string(),
+                },
+            ))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::MemberExpression(Box::new(
+                kali_ast::MemberExpression {
+                    object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Deno".to_string(),
+                    })),
+                    property: "serve".to_string(),
+                },
+            ))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 3, "{:?}", result.diagnostics);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        r#"globalThis["Deno"]["connect"]"#,
+        r#"globalThis["Deno"]["listen"]"#,
+        r#"globalThis["Deno"]["serve"]"#,
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_allows_process_pid_query_in_node_api_surface() {
     let mut ctx = TypeContext::with_base_path_and_api_surface(".", "node");
     let statements = vec![
