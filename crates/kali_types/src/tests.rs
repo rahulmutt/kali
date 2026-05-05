@@ -7650,9 +7650,219 @@ fn test_resolution_supports_for_await_of_array_iteration_with_sequence_wrappers_
 }
 
 #[test]
+fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "let item = 0; for await ((item) of [1, 2]) { console.log(item); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::Expression(Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("item".to_string())),
+                    },
+                ))),
+            })),
+            right: Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    1.0,
+                                ))),
+                            }),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    2.0,
+                                ))),
+                            }),
+                        )),
+                    ],
+                })),
+            }),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_jsx_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        "let item = 0; for await ((item) of [1, 2]) { console.log(item); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::Expression(Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("item".to_string())),
+                    },
+                ))),
+            })),
+            right: Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    1.0,
+                                ))),
+                            }),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    2.0,
+                                ))),
+                            }),
+                        )),
+                    ],
+                })),
+            }),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_ts_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "let item = 0; for await ((item) of [1, 2]) { console.log(item); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::Expression(Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("item".to_string())),
+                    },
+                ))),
+            })),
+            right: Expression::DecoratedExpression(DecoratedExpression {
+                expression: Box::new(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    1.0,
+                                ))),
+                            }),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::DecoratedExpression(DecoratedExpression {
+                                expression: Box::new(Expression::Literal(LiteralValue::Number(
+                                    2.0,
+                                ))),
+                            }),
+                        )),
+                    ],
+                })),
+            }),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers_in_tsx_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
         "let item = 0; for await ((item) of [1, 2]) { console.log(item); }",
