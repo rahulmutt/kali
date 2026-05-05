@@ -3567,6 +3567,8 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
         state.thread_topology_snapshot().snapshot_object_value(),
         state.thread_topology_snapshot_value()
     );
+    assert_eq!(state.snapshot(), state.thread_topology_snapshot());
+    assert_eq!(snapshot.snapshot(), state.thread_topology_snapshot());
     assert_eq!(
         snapshot.thread_topology_snapshot_value(),
         state.thread_topology_snapshot_value()
