@@ -25056,6 +25056,76 @@ console.log(values.length);
 "#
 }
 
+fn browser_runtime_object_from_entries_satisfies_source() -> &'static str {
+    r#"function assertFromEntriesShape(fromEntries) {
+  const keys = Object.keys(fromEntries);
+  const entries = Object.entries(fromEntries);
+  const values = Object.values(fromEntries);
+  if (
+    JSON.stringify(keys) !== '["b","a"]' ||
+    JSON.stringify(entries) !== '[["b",1],["a",2]]' ||
+    JSON.stringify(values) !== '[1,2]'
+  ) {
+    throw new Error('unexpected fromEntries enumeration');
+  }
+}
+
+const wrappedEntries = ([["b", 1], ["a", 2]] satisfies unknown);
+const obj = Object.fromEntries(wrappedEntries);
+const dotted = globalThis.Object.fromEntries(wrappedEntries);
+const mixedDotted = globalThis.Object["fromEntries"](wrappedEntries);
+const mixedBracketed = globalThis["Object"].fromEntries(wrappedEntries);
+const bracketed = globalThis["Object"]["fromEntries"](wrappedEntries);
+assertFromEntriesShape(obj);
+assertFromEntriesShape(dotted);
+assertFromEntriesShape(mixedDotted);
+assertFromEntriesShape(mixedBracketed);
+assertFromEntriesShape(bracketed);
+const keys = Object.keys(obj);
+const entries = Object.entries(obj);
+const values = Object.values(obj);
+console.log(keys.length);
+console.log(entries.length);
+console.log(values.length);
+"#
+}
+
+fn browser_runtime_object_from_entries_satisfies_test_source() -> &'static str {
+    r#"Kali.test('browser object.fromEntries satisfies', () => {
+  function assertFromEntriesShape(fromEntries) {
+    const keys = Object.keys(fromEntries);
+    const entries = Object.entries(fromEntries);
+    const values = Object.values(fromEntries);
+    if (
+      JSON.stringify(keys) !== '["b","a"]' ||
+      JSON.stringify(entries) !== '[["b",1],["a",2]]' ||
+      JSON.stringify(values) !== '[1,2]'
+    ) {
+      throw new Error('unexpected fromEntries enumeration');
+    }
+  }
+
+  const wrappedEntries = ([["b", 1], ["a", 2]] satisfies unknown);
+  const obj = Object.fromEntries(wrappedEntries);
+  const dotted = globalThis.Object.fromEntries(wrappedEntries);
+  const mixedDotted = globalThis.Object["fromEntries"](wrappedEntries);
+  const mixedBracketed = globalThis["Object"].fromEntries(wrappedEntries);
+  const bracketed = globalThis["Object"]["fromEntries"](wrappedEntries);
+  assertFromEntriesShape(obj);
+  assertFromEntriesShape(dotted);
+  assertFromEntriesShape(mixedDotted);
+  assertFromEntriesShape(mixedBracketed);
+  assertFromEntriesShape(bracketed);
+  const keys = Object.keys(obj);
+  const entries = Object.entries(obj);
+  const values = Object.values(obj);
+  console.log(keys.length);
+  console.log(entries.length);
+  console.log(values.length);
+});
+"#
+}
+
 fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -25180,6 +25250,68 @@ fn run_supports_object_from_entries_enumeration_semantics_in_js_input() {
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n2\n2\n");
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
+
+#[test]
+fn run_supports_object_from_entries_enumeration_semantics_with_satisfies_wrapper_in_ts_input_when_browser_harness_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        browser_runtime_object_from_entries_satisfies_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n2\n2\n");
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
+
+#[test]
+fn test_supports_object_from_entries_enumeration_semantics_with_satisfies_wrapper_in_ts_input_when_browser_harness_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        browser_runtime_object_from_entries_satisfies_test_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
 }
 
 fn assert_json_object_string_primitive_enumeration_semantics(command: &str, filename: &str) {

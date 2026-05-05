@@ -114,6 +114,8 @@ Close high-value language gaps by either implementing faithful semantics or pres
 
 - Progress note: the supported browser bundle math smoke now also asserts empty `errors` arrays on JSON success paths for the `Math.sin` / `Math.cos` / `Math.tan` zero-identity slice and the `Math.sqrt` / `Math.cbrt` literal slice, keeping the deterministic JSON envelope explicit on those supported browser bundle regressions.
 
+- Progress note: browser-requested run/test browser-harness coverage now also accepts the `Object.fromEntries` entry-array `satisfies` wrapper in TS input, keeping the object-enumeration evidence aligned with the existing browser-harness object-model wrappers.
+
 ### 11.3 Dynamic loading and module semantics
 
 - Preserve literal-string `import()` as linked-graph lowering.
