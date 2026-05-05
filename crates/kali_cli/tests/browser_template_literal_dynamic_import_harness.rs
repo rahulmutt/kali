@@ -225,3 +225,107 @@ fn json_test_supports_template_literal_dynamic_import_targets_in_browser_api_sur
         true,
     );
 }
+
+#[test]
+fn run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.ts",
+        "lazy.ts",
+        &template_literal_dynamic_import_run_source("lazy.ts"),
+        false,
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.ts",
+        "lazy.ts",
+        &template_literal_dynamic_import_run_source("lazy.ts"),
+        true,
+        false,
+    );
+}
+
+#[test]
+fn run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.tsx",
+        "lazy.tsx",
+        &template_literal_dynamic_import_run_source("lazy.tsx"),
+        false,
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.tsx",
+        "lazy.tsx",
+        &template_literal_dynamic_import_run_source("lazy.tsx"),
+        true,
+        false,
+    );
+}
+
+#[test]
+fn test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.js",
+        "lazy.js",
+        &template_literal_dynamic_import_test_source("lazy.js"),
+        false,
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.js",
+        "lazy.js",
+        &template_literal_dynamic_import_test_source("lazy.js"),
+        true,
+        true,
+    );
+}
+
+#[test]
+fn test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.jsx",
+        "lazy.jsx",
+        &template_literal_dynamic_import_test_source("lazy.jsx"),
+        false,
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.jsx",
+        "lazy.jsx",
+        &template_literal_dynamic_import_test_source("lazy.jsx"),
+        true,
+        true,
+    );
+}
