@@ -3869,6 +3869,32 @@ fn browser_corpus_js_entrypoints_with_browser_replacement_maps_remain_checkable_
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let check_json = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "check",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            check_json.status.success(),
+            "browser JS entrypoint package {package} should resolve its browser branch for check on js input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check_json.stdout),
+            String::from_utf8_lossy(&check_json.stderr)
+        );
+        let check_envelope = parse_json_stdout(&check_json);
+        assert_eq!(check_envelope["schemaVersion"], 1);
+        assert_eq!(check_envelope["command"], "check");
+        assert_eq!(check_envelope["success"], true);
+        assert_eq!(check_envelope["exitCode"], 0);
+        assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+        assert_eq!(check_envelope["payload"]["errorCount"], 0);
+        assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
         let build = run_kali(
             dir.path(),
             [
@@ -3885,6 +3911,35 @@ fn browser_corpus_js_entrypoints_with_browser_replacement_maps_remain_checkable_
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
+
+        let build_json = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build_json.status.success(),
+            "browser JS entrypoint package {package} should be deployable-through-host via bundle on js input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build_json.stdout),
+            String::from_utf8_lossy(&build_json.stderr)
+        );
+        let build_envelope = parse_json_stdout(&build_json);
+        assert_eq!(build_envelope["schemaVersion"], 1);
+        assert_eq!(build_envelope["command"], "build");
+        assert_eq!(build_envelope["success"], true);
+        assert_eq!(build_envelope["exitCode"], 0);
+        let payload = build_envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
     }
 }
 
@@ -3945,6 +4000,32 @@ fn browser_corpus_js_entrypoints_with_minimized_cjs_esm_interop_remain_checkable
             String::from_utf8_lossy(&check.stderr)
         );
 
+        let check_json = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "check",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            check_json.status.success(),
+            "browser mixed-format package {package} should resolve its browser branch for check on js input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&check_json.stdout),
+            String::from_utf8_lossy(&check_json.stderr)
+        );
+        let check_envelope = parse_json_stdout(&check_json);
+        assert_eq!(check_envelope["schemaVersion"], 1);
+        assert_eq!(check_envelope["command"], "check");
+        assert_eq!(check_envelope["success"], true);
+        assert_eq!(check_envelope["exitCode"], 0);
+        assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+        assert_eq!(check_envelope["payload"]["errorCount"], 0);
+        assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
         let build = run_kali(
             dir.path(),
             [
@@ -3961,6 +4042,35 @@ fn browser_corpus_js_entrypoints_with_minimized_cjs_esm_interop_remain_checkable
             String::from_utf8_lossy(&build.stdout),
             String::from_utf8_lossy(&build.stderr)
         );
+
+        let build_json = run_kali(
+            dir.path(),
+            [
+                "--output",
+                "json",
+                "build",
+                "--bundle",
+                "--api",
+                "browser",
+                source_path.to_str().unwrap(),
+            ],
+        );
+        assert!(
+            build_json.status.success(),
+            "browser mixed-format package {package} should be deployable-through-host via bundle on js input with json output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&build_json.stdout),
+            String::from_utf8_lossy(&build_json.stderr)
+        );
+        let build_envelope = parse_json_stdout(&build_json);
+        assert_eq!(build_envelope["schemaVersion"], 1);
+        assert_eq!(build_envelope["command"], "build");
+        assert_eq!(build_envelope["success"], true);
+        assert_eq!(build_envelope["exitCode"], 0);
+        let payload = build_envelope["payload"]
+            .as_object()
+            .expect("build payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
     }
 }
 

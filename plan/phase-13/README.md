@@ -36,6 +36,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 - Expand browser-targeted `check` / `build --bundle` and browser-harness package evidence by package shape.
 - Keep deployable-through-host, executable-through-browser-harness, and standalone runtime claims separate.
 - Reject packages whose browser path depends on unavailable host/native/binary behavior.
+- Progress note: the browser JS-entrypoint package corpus now also pins `--output json` success envelopes for both `check` and `build --bundle` on the browser surface, including the browser replacement-map and minimized CJS/ESM interop slices, so the deployable-through-host lane stays deterministic across human and JSON output.
 
 ### 13.4 Registry-analysis boundaries
 
