@@ -117,6 +117,16 @@ fn build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_ts_i
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sinh_cosh_tanh("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sinh_cosh_tanh("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_sinh_cosh_tanh("app.js", true);
 }
@@ -127,7 +137,17 @@ fn json_build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in
 }
 
 #[test]
-fn run_and_test_supports_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_js_and_ts_input(
+fn json_build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sinh_cosh_tanh("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_sinh_cosh_tanh("app.tsx", true);
+}
+
+#[test]
+fn run_and_test_supports_bracketed_global_this_math_sinh_cosh_tanh_zero_identities_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
         (
@@ -151,6 +171,30 @@ fn run_and_test_supports_bracketed_global_this_math_sinh_cosh_tanh_zero_identiti
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed sinh/cosh/tanh zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sinh(zero)); console.log(globalThis[\"Math\"].cosh(zero)); console.log(globalThis[\"Math\"].tanh(zero)); });\n",
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].sinh(zero)); console.log(globalThis[\"Math\"].cosh(zero)); console.log(globalThis[\"Math\"].tanh(zero));\n",
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed sinh/cosh/tanh zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sinh(zero)); console.log(globalThis[\"Math\"].cosh(zero)); console.log(globalThis[\"Math\"].tanh(zero)); });\n",
+            "1\n0",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const zero = 0; console.log(globalThis[\"Math\"].sinh(zero)); console.log(globalThis[\"Math\"].cosh(zero)); console.log(globalThis[\"Math\"].tanh(zero));\n",
+            "1\n0",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed sinh/cosh/tanh zero identities', () => { const zero = 0; console.log(globalThis[\"Math\"].sinh(zero)); console.log(globalThis[\"Math\"].cosh(zero)); console.log(globalThis[\"Math\"].tanh(zero)); });\n",
             "1\n0",
         ),
