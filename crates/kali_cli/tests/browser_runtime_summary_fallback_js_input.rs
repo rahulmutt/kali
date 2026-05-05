@@ -319,6 +319,46 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browse
     assert_eq!(json["stderr"], "");
 }
 
+#[test]
+fn json_run_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("empty-summary.js");
+    write_js_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, ""); process.stdout.write("browser empty summary\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser empty summary"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
 #[cfg(unix)]
 #[test]
 fn json_test_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_browser_harness_is_configured_in_js_input(
