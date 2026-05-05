@@ -271,7 +271,9 @@ fn runtime_projection_bundles_baseline_context() {
     );
     assert_eq!(projection.env().get("HOME"), Some("/tmp/home"));
     assert!(projection.env_has("HOME"));
+    assert!(projection.has("HOME"));
     assert!(!projection.env_has("MISSING"));
+    assert!(!projection.has("MISSING"));
     assert_eq!(
         projection.env_snapshot().get("HOME"),
         Some(&String::from("/tmp/home"))
@@ -356,6 +358,7 @@ fn runtime_projection_new_defaults_to_open_permissions_and_empty_views() {
     assert!(projection.env().to_object().is_empty());
     assert!(projection.env.snapshot().is_empty());
     assert!(projection.env_to_object().is_empty());
+    assert!(!projection.has("MISSING"));
     assert!(projection.env_snapshot_object_value().is_empty());
     assert_eq!(
         projection.permissions().query(DenoPermissionKind::Read),

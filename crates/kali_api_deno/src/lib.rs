@@ -882,6 +882,11 @@ impl DenoRuntimeProjection {
         self.env.has(key)
     }
 
+    /// Alias for the environment presence check helper.
+    pub fn has(&self, key: &str) -> bool {
+        self.env_has(key)
+    }
+
     /// Mutable access to the captured environment view.
     pub fn env_mut(&mut self) -> &mut DenoEnv {
         &mut self.env
