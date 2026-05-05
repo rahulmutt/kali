@@ -40,6 +40,17 @@ main();
 "#
 }
 
+fn object_values_source() -> &'static str {
+    r#"function main() {
+  let values = { a: 1 };
+  for (const value of Object.values(values)) {
+    console.log(value);
+  }
+}
+main();
+"#
+}
+
 fn assert_browser_iterator_source_rejects(
     source: &str,
     filename: &str,
@@ -245,8 +256,18 @@ fn build_rejects_non_literal_object_keys_iterator_source_in_js_input() {
 }
 
 #[test]
+fn build_rejects_non_literal_object_values_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_values_source(), "main.js", false, "build", true);
+}
+
+#[test]
 fn json_build_rejects_non_literal_object_keys_iterator_source_in_js_input() {
     assert_browser_iterator_source_rejects(object_keys_source(), "main.js", true, "build", true);
+}
+
+#[test]
+fn json_build_rejects_non_literal_object_values_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_values_source(), "main.js", true, "build", true);
 }
 
 #[test]
@@ -285,8 +306,24 @@ fn check_rejects_non_literal_object_keys_iterator_source_in_js_input() {
 }
 
 #[test]
+fn check_rejects_non_literal_object_values_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(
+        object_values_source(),
+        "main.js",
+        false,
+        "check",
+        false,
+    );
+}
+
+#[test]
 fn json_check_rejects_non_literal_object_keys_iterator_source_in_js_input() {
     assert_browser_iterator_source_rejects(object_keys_source(), "main.js", true, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_object_values_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_values_source(), "main.js", true, "check", false);
 }
 
 #[test]

@@ -65,6 +65,26 @@ function browserGlobalObjectKeysIteration() {
 "##
 }
 
+fn browser_bundle_object_values_iteration_source() -> &'static str {
+    r##"// kali-tree-shake: browserObjectValuesIteration
+function assertObjectValuesIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+}
+
+function browserObjectValuesIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const seen = [];
+  for (const value of Object.values(alias)) {
+    seen.push(value);
+  }
+  assertObjectValuesIteration(seen);
+}
+"##
+}
+
 fn assert_browser_bundle_object_keys_iteration(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -415,6 +435,132 @@ fn build_emits_global_object_keys_iteration_semantics_in_ts_jsx_tsx_input() {
             false,
             r#"const mod = await import(bundleJs.href);
 await mod.browserGlobalObjectKeysIteration();
+"#,
+        );
+        fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+        let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+            std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+                .ok()
+                .as_deref(),
+        );
+        let harness_executable = harness_command.remove(0);
+        let output = Command::new(&harness_executable)
+            .current_dir(&bundle_dir)
+            .args(&harness_command)
+            .arg(&harness_path)
+            .output()
+            .expect("run browser bundle harness");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn build_emits_object_values_iteration_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        browser_bundle_object_values_iteration_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+await mod.browserObjectValuesIteration();
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+            .ok()
+            .as_deref(),
+    );
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn build_emits_object_values_iteration_semantics_in_ts_jsx_tsx_input() {
+    for filename in ["app.ts", "app.jsx", "app.tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(filename);
+        fs::write(
+            &source_path,
+            browser_bundle_object_values_iteration_source(),
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--bundle")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let bundle_dir = dir.path().join("app");
+        let harness_path = bundle_dir
+            .parent()
+            .expect("bundle root parent")
+            .join("browser-bundle-smoke.mjs");
+        let harness = kali_runtime::browser_bundle_harness_script(
+            "app",
+            false,
+            r#"const mod = await import(bundleJs.href);
+await mod.browserObjectValuesIteration();
 "#,
         );
         fs::write(&harness_path, harness).expect("write browser bundle harness");

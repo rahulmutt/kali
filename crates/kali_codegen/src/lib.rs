@@ -3722,11 +3722,11 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let body = node.children.get(2).copied();
-        if self.is_object_keys_call(&array) {
+        if let Some(collect_values) = self.is_object_enumeration_call(&array) {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3737,7 +3737,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3747,10 +3747,11 @@ impl<'a> FunctionEmitter<'a> {
             };
             let object = self.node(object_id).clone();
             let mut items = Vec::with_capacity(object.children.len());
-            if !self.collect_object_keys_iteration_items(&object, &mut items) {
+            if !self.collect_object_enumeration_iteration_items(&object, collect_values, &mut items)
+            {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice with string literal keys; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice with string literal keys; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3827,34 +3828,50 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_object_keys_call(&self, node: &LirNode) -> bool {
+    fn is_object_enumeration_call(&self, node: &LirNode) -> Option<bool> {
         if node.kind != LirNodeKind::Call {
-            return false;
+            return None;
         }
 
         let Some(callee) = node.children.first().copied() else {
-            return false;
+            return None;
         };
         let callee_node = self.node(callee);
-        if callee_node.text.as_deref() != Some("keys") {
-            return false;
-        }
+        let collect_values = match callee_node.text.as_deref() {
+            Some(text)
+                if text == "keys"
+                    || text.ends_with(".keys")
+                    || text == "Object.keys"
+                    || text == "globalThis.Object.keys" =>
+            {
+                false
+            }
+            Some(text)
+                if text == "values"
+                    || text.ends_with(".values")
+                    || text == "Object.values"
+                    || text == "globalThis.Object.values" =>
+            {
+                true
+            }
+            _ => return None,
+        };
 
         let Some(object) = callee_node.children.first().copied() else {
-            return false;
+            return None;
         };
-        matches!(
-            self.node(object).text.as_deref(),
-            Some("Object")
-                | Some("globalThis.Object")
-                | Some(r#"globalThis["Object"]"#)
-                | Some(r#"globalThis['Object']"#)
-        )
+        let object_text = self.node(object).text.as_deref().unwrap_or_default();
+        if object_text.contains("Object") {
+            Some(collect_values)
+        } else {
+            None
+        }
     }
 
-    fn collect_object_keys_iteration_items(
+    fn collect_object_enumeration_iteration_items(
         &self,
         node: &LirNode,
+        collect_values: bool,
         items: &mut Vec<LirNodeId>,
     ) -> bool {
         if !self.is_object_literal(node) {
@@ -3878,7 +3895,11 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             }
 
-            items.push(key);
+            items.push(if collect_values {
+                property.children[1]
+            } else {
+                key
+            });
         }
 
         true

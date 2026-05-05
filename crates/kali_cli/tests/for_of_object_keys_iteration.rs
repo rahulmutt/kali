@@ -86,6 +86,34 @@ fn global_object_keys_iteration_test_source() -> &'static str {
 "#
 }
 
+fn object_values_iteration_run_source() -> &'static str {
+    r#"const values = { "b": 1, "a": 2 };
+const alias = values;
+const seen = [];
+for (const value of Object.values(alias)) {
+  seen.push(value);
+}
+if (seen.length !== 2 || seen[0] !== 1 || seen[1] !== 2) {
+  throw new Error('unexpected Object.values iteration semantics');
+}
+"#
+}
+
+fn object_values_iteration_test_source() -> &'static str {
+    r#"Kali.test('object values iteration', () => {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const seen = [];
+  for (const value of Object.values(alias)) {
+    seen.push(value);
+  }
+  if (seen.length !== 2 || seen[0] !== 1 || seen[1] !== 2) {
+    throw new Error('unexpected Object.values iteration semantics');
+  }
+});
+"#
+}
+
 fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -191,4 +219,32 @@ fn test_supports_global_object_keys_iteration_in_ts_jsx_tsx_input() {
     for filename in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
         assert_object_keys_iteration("test", filename, global_object_keys_iteration_test_source());
     }
+}
+
+#[test]
+fn run_supports_object_values_iteration_in_js_input() {
+    assert_object_keys_iteration("run", "main.js", object_values_iteration_run_source());
+}
+
+#[test]
+fn run_supports_object_values_iteration_in_ts_input() {
+    assert_object_keys_iteration("run", "main.ts", object_values_iteration_run_source());
+}
+
+#[test]
+fn test_supports_object_values_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.js",
+        object_values_iteration_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_values_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.ts",
+        object_values_iteration_test_source(),
+    );
 }

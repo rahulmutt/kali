@@ -656,9 +656,13 @@ impl TypeContext {
         if !matches!(
             callee_name.as_str(),
             "Object.keys"
+                | "Object.values"
                 | "globalThis.Object.keys"
+                | "globalThis.Object.values"
                 | r#"globalThis["Object"].keys"#
+                | r#"globalThis["Object"].values"#
                 | r#"globalThis['Object'].keys"#
+                | r#"globalThis['Object'].values"#
         ) {
             return false;
         }
