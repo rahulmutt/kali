@@ -7022,6 +7022,69 @@ fn test_resolution_supports_for_of_array_iteration_with_spread_of_const_bound_li
 }
 
 #[test]
+fn test_resolution_supports_for_of_array_iteration_with_decorated_spread_targets_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "values".to_string(),
+                init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(1.0)),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(2.0)),
+                        )),
+                    ],
+                })),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "item".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+                elements: vec![Some(kali_ast::ExpressionOrSpread::Spread(
+                    kali_ast::SpreadElement {
+                        argument: Expression::DecoratedExpression(DecoratedExpression {
+                            expression: Box::new(Expression::Identifier("values".to_string())),
+                        }),
+                    },
+                ))],
+            }),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: false,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_await_of_array_iteration_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
@@ -7183,6 +7246,70 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
                         )),
                     ],
                 })),
+            }),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("item".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_targets_in_js_input()
+{
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "values".to_string(),
+                init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(1.0)),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(2.0)),
+                        )),
+                    ],
+                })),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "item".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+                elements: vec![Some(kali_ast::ExpressionOrSpread::Spread(
+                    kali_ast::SpreadElement {
+                        argument: Expression::DecoratedExpression(DecoratedExpression {
+                            expression: Box::new(Expression::Identifier("values".to_string())),
+                        }),
+                    },
+                ))],
             }),
             body: Box::new(Statement::BlockStatement(BlockStatement {
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
