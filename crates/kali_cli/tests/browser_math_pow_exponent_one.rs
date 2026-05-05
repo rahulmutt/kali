@@ -589,6 +589,72 @@ fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configur
 }
 
 #[test]
+fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.ts",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.tsx",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.ts",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.jsx",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "run",
+        "main.tsx",
+        browser_harness_math_pow_base_one_identity_run_source(),
+        "1\n1\n1",
+        true,
+    );
+}
+
+#[test]
 fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_math_pow_base_one_identity(
         "test",
@@ -600,10 +666,76 @@ fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_i
 }
 
 #[test]
+fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\nok 1",
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\nok 1",
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\nok 1",
+        false,
+    );
+}
+
+#[test]
 fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_math_pow_base_one_identity(
         "test",
         "smoke.test.js",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_pow_base_one_identity_test_source(),
+        "1\n1\n1\n",
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_math_pow_base_one_identity(
+        "test",
+        "smoke.test.tsx",
         browser_harness_math_pow_base_one_identity_test_source(),
         "1\n1\n1\n",
         true,
