@@ -79,6 +79,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: the bundle reachability collector now also peels transparent parenthesized, sequence, await, optional-chain, chain, satisfies, type-assertion, decorated, conditional, logical, and assignment wrappers around direct call roots, keeping tree-shaken bundle discovery aligned with the supported transparent-wrapper behavior.
 
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now mirrors the existing `Math.pow` alias-chain slice in TS, `.js`, `.jsx`, and `.tsx` input, and also covers the fully bracketed `globalThis["Math"]["pow"]` member-access slice in TS, `.js`, `.jsx`, and `.tsx` input.
+- Progress note: the bracketed `globalThis["Math"]["pow"]` alias-chain slice now has explicit browser-harness run/test and browser-bundle build coverage in JSX and TSX input, keeping that source-class matrix aligned with the existing TS and `.js` coverage.
 - Browser-harness/browser-bundle smoke now also covers the `globalThis.Math.sinh` / `globalThis.Math.cosh` / `globalThis.Math.tanh` zero-identity slice in TS and `.js` input, complementing the existing `globalThis["Math"]` root coverage.
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now also covers the `Math.exp` / `Math.log` identity slice in TS and `.js` input.
 - Browser-harness/browser-bundle bracketed `globalThis["Math"]` root smoke now also covers the `Math.sinh` / `Math.cosh` / `Math.tanh` zero-identity slice in TS and `.js` input.
