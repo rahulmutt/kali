@@ -67,6 +67,10 @@ fn assert_browser_bundle_global_this_math_exp2(filename: &str, json_output: bool
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -163,6 +167,7 @@ fn assert_browser_harness_global_this_math_exp2(
             assert_eq!(json["payload"]["passed"], 1);
             assert_eq!(json["payload"]["failed"], 0);
         }
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
         assert!(
             json["stdout"]
                 .as_str()
