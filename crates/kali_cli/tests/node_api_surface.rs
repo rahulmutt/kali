@@ -286,6 +286,56 @@ fn node_api_surface_accepts_threaded_runtime_globals_with_wasm_threads_in_js_inp
                 _ => unreachable!("unexpected command"),
             }
         }
+
+        for command in ["run", "test"] {
+            let input_path = if command == "test" {
+                &test_path
+            } else {
+                &source_path
+            };
+
+            let mut cli_command = Command::new(kali_bin());
+            cli_command
+                .current_dir(dir.path())
+                .arg("--output")
+                .arg("json")
+                .arg(command);
+            if !inherited {
+                cli_command.args(["--api", "node", "--wasm-threads"]);
+            }
+            cli_command.arg(input_path);
+
+            let output = cli_command.output().expect("run kali");
+            assert!(
+                output.status.success(),
+                "{command} should accept threaded globals on the Node surface in JSON output (inherited={inherited})\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], true);
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+            assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+            assert!(
+                json["stdout"]
+                    .as_str()
+                    .expect("stdout")
+                    .contains("threaded globals ok"),
+                "json: {json}"
+            );
+            match command {
+                "run" => assert_eq!(json["payload"]["exitCode"], 0),
+                "test" => {
+                    assert_eq!(json["payload"]["failed"], 0);
+                    assert_eq!(json["payload"]["passed"], 1);
+                    assert_eq!(json["payload"]["total"], 1);
+                }
+                _ => unreachable!("unexpected command"),
+            }
+        }
     }
 }
 
