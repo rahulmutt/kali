@@ -417,6 +417,37 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_null_args_and_te
 }
 
 #[test]
+fn run_falls_back_to_stdout_when_browser_summary_file_has_null_args_and_tests_when_browser_harness_is_configured_in_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("null-summary.tsx");
+    write_tsx_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":null,\"tests\":null,\"testsFailed\":0,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("browser null summary\n");'"#,
+        )
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("browser null summary"), "stdout: {stdout}");
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
+
+#[test]
 fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_numeric_tests_failed_value_when_browser_harness_is_configured_in_tsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
