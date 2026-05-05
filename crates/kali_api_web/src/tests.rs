@@ -484,6 +484,36 @@ fn navigator_baseline_exposes_stable_metadata() {
 }
 
 #[test]
+fn navigator_snapshot_helpers_expose_deterministic_object_and_json_views() {
+    let navigator = navigator();
+    let snapshot = navigator.snapshot();
+    assert_eq!(
+        snapshot.get("userAgent"),
+        Some(&Value::String(String::from("Kali/1.0 (Web)")))
+    );
+    assert_eq!(
+        snapshot.get("language"),
+        Some(&Value::String(String::from("en-US")))
+    );
+    assert_eq!(
+        snapshot.get("languages"),
+        Some(&Value::Array(vec![Value::String(String::from("en-US"))]))
+    );
+    assert_eq!(snapshot.get("online"), Some(&Value::Bool(true)));
+    assert_eq!(navigator.snapshot_object_value(), snapshot);
+
+    let json_snapshot = navigator.snapshot_value();
+    assert_eq!(navigator.snapshot_json_value(), json_snapshot);
+    assert_eq!(json_snapshot["userAgent"], "Kali/1.0 (Web)");
+    assert_eq!(json_snapshot["language"], "en-US");
+    assert_eq!(
+        json_snapshot["languages"],
+        Value::Array(vec![Value::String(String::from("en-US"))])
+    );
+    assert_eq!(json_snapshot["online"], true);
+}
+
+#[test]
 fn url_parser_can_parse_and_resolve() {
     let parsed = parse_url("https://example.com/path").expect("url");
     assert_eq!(parsed.as_str(), "https://example.com/path");
