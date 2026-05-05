@@ -68,6 +68,26 @@ fn test_type_annotation_resolution_accepts_known_names() {
 }
 
 #[test]
+fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
+    let ctx = TypeContext::new();
+    let call = CallExpression {
+        callee: Expression::MemberExpression(Box::new(MemberExpression {
+            object: Expression::Identifier("Object".to_string()),
+            property: "entries".to_string(),
+        })),
+        args: vec![Expression::ObjectExpression(ObjectExpression {
+            properties: vec![ObjectProperty {
+                key: PropertyName::String("b".to_string()),
+                value: Expression::Literal(LiteralValue::Number(1.0)),
+                kind: ObjectPropertyKind::Init,
+            }],
+        })],
+    };
+
+    assert!(ctx.is_static_object_enumeration_iteration_target(&call));
+}
+
+#[test]
 fn test_resolution_accepts_type_assertion_and_satisfies_with_known_type_names() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -6510,6 +6530,60 @@ fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
     assert!(result.diagnostics[0]
         .message
         .contains("generator function lowering is unavailable"));
+}
+
+#[test]
+fn test_resolution_supports_for_of_object_entries_iteration() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for (const entry of Object.entries({ \"b\": 1, \"a\": 2 })) { console.log(entry[0]); console.log(entry[1]); }",
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "entry".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: "entries".to_string(),
+            })),
+            args: vec![Expression::ObjectExpression(ObjectExpression {
+                properties: vec![ObjectProperty {
+                    key: PropertyName::String("b".to_string()),
+                    value: Expression::Literal(LiteralValue::Number(1.0)),
+                    kind: ObjectPropertyKind::Init,
+                }],
+            })],
+        })),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("entry".to_string())],
+                }))),
+            })],
+        })),
+        is_await: false,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }
 
 #[test]

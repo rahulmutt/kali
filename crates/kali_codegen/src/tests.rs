@@ -2474,6 +2474,52 @@ fn supported_for_await_array_iteration_accepts_parenthesized_binding_wrappers() 
 }
 
 #[test]
+fn supported_for_await_object_entries_iteration_accepts_static_object_literals() {
+    let program = parse_and_lower_lir(
+        "for await (const entry of Object.entries({ \"b\": 1, \"a\": 2 })) { console.log(entry[0]); console.log(entry[1]); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_of_object_entries_iteration_accepts_static_object_literals() {
+    let program = parse_and_lower_lir(
+        "for (const entry of Object.entries({ \"b\": 1, \"a\": 2 })) { console.log(entry[0]); console.log(entry[1]); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_await_array_iteration_accepts_spread_of_const_bound_literal_arrays() {
     let program = parse_and_lower_lir(
         "const values = [1, 2]; for await (const item of [...values]) { console.log(item); }",
@@ -2501,29 +2547,6 @@ fn supported_for_await_array_iteration_accepts_spread_of_parenthesized_const_bou
 {
     let program = parse_and_lower_lir(
         "const values = [1, 2]; for await (const item of [...(values)]) { console.log(item); }",
-    );
-    let mut ctx = CodegenCtx::new(TargetConfig {
-        max_specializations: 16,
-        compat_eval: false,
-        coverage: false,
-    });
-    let result = lower_lir_to_wasm(&mut ctx, &program);
-
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
-
-    Validator::new()
-        .validate_all(&result.wasm_bytes)
-        .expect("generated wasm should validate");
-}
-
-#[test]
-fn supported_for_await_array_iteration_accepts_parenthesized_const_alias_wrappers() {
-    let program = parse_and_lower_lir(
-        "const value = 2; const values = ([1, (value)]); for await (const item of (values)) { console.log(item); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

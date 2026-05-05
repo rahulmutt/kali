@@ -644,12 +644,14 @@ impl TypeContext {
                 })
             }
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
-            Expression::CallExpression(call) => self.is_static_object_keys_iteration_target(call),
+            Expression::CallExpression(call) => {
+                self.is_static_object_enumeration_iteration_target(call)
+            }
             _ => false,
         }
     }
 
-    fn is_static_object_keys_iteration_target(&self, call: &CallExpression) -> bool {
+    fn is_static_object_enumeration_iteration_target(&self, call: &CallExpression) -> bool {
         let Some(callee_name) = Self::call_member_access_name(&call.callee) else {
             return false;
         };
@@ -657,12 +659,22 @@ impl TypeContext {
             callee_name.as_str(),
             "Object.keys"
                 | "Object.values"
+                | "Object.entries"
+                | "Object[\"entries\"]"
+                | "Object['entries']"
                 | "globalThis.Object.keys"
                 | "globalThis.Object.values"
+                | "globalThis.Object.entries"
+                | "globalThis.Object[\"entries\"]"
+                | "globalThis.Object['entries']"
                 | r#"globalThis["Object"].keys"#
                 | r#"globalThis["Object"].values"#
+                | r#"globalThis["Object"].entries"#
+                | r#"globalThis["Object"]["entries"]"#
                 | r#"globalThis['Object'].keys"#
                 | r#"globalThis['Object'].values"#
+                | r#"globalThis['Object'].entries"#
+                | r#"globalThis['Object']['entries']"#
         ) {
             return false;
         }

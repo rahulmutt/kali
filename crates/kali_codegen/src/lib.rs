@@ -130,6 +130,13 @@ enum ValueShape {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ObjectEnumerationMode {
+    Keys,
+    Values,
+    Entries,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct EmittedValue {
     produced: bool,
     shape: ValueShape,
@@ -167,6 +174,7 @@ impl StringPool {
 struct FunctionEmitter<'a> {
     program: &'a LirProgram,
     node_lookup: &'a [LirNode],
+    scratch_nodes: Vec<LirNode>,
     functions: &'a BTreeMap<String, u32>,
     env_set_import_index: Option<u32>,
     env_delete_import_index: Option<u32>,
@@ -210,6 +218,7 @@ impl<'a> FunctionEmitter<'a> {
         Self {
             program,
             node_lookup: &program.nodes,
+            scratch_nodes: Vec::new(),
             functions,
             env_set_import_index,
             env_delete_import_index,
@@ -227,7 +236,27 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn node(&self, id: LirNodeId) -> &LirNode {
-        &self.node_lookup[id.0 as usize]
+        let index = id.0 as usize;
+        if index < self.node_lookup.len() {
+            &self.node_lookup[index]
+        } else {
+            &self.scratch_nodes[index - self.node_lookup.len()]
+        }
+    }
+
+    fn alloc_scratch_node(
+        &mut self,
+        kind: LirNodeKind,
+        text: Option<String>,
+        children: Vec<LirNodeId>,
+    ) -> LirNodeId {
+        let id = LirNodeId((self.node_lookup.len() + self.scratch_nodes.len()) as u32);
+        self.scratch_nodes.push(LirNode {
+            kind,
+            text,
+            children,
+        });
+        id
     }
 
     fn push_placeholder_fallback_diagnostic(&mut self, kind: &str, name: &str) {
@@ -3722,11 +3751,11 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let body = node.children.get(2).copied();
-        if let Some(collect_values) = self.is_object_enumeration_call(&array) {
+        if let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3737,7 +3766,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3747,11 +3776,14 @@ impl<'a> FunctionEmitter<'a> {
             };
             let object = self.node(object_id).clone();
             let mut items = Vec::with_capacity(object.children.len());
-            if !self.collect_object_enumeration_iteration_items(&object, collect_values, &mut items)
-            {
+            if !self.collect_object_enumeration_iteration_items(
+                &object,
+                object_enumeration_mode,
+                &mut items,
+            ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) or Object.values(...) slice with string literal keys; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice with string literal keys; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -3828,7 +3860,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn is_object_enumeration_call(&self, node: &LirNode) -> Option<bool> {
+    fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -3837,14 +3869,14 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         };
         let callee_node = self.node(callee);
-        let collect_values = match callee_node.text.as_deref() {
+        let mode = match callee_node.text.as_deref() {
             Some(text)
                 if text == "keys"
                     || text.ends_with(".keys")
                     || text == "Object.keys"
                     || text == "globalThis.Object.keys" =>
             {
-                false
+                ObjectEnumerationMode::Keys
             }
             Some(text)
                 if text == "values"
@@ -3852,7 +3884,15 @@ impl<'a> FunctionEmitter<'a> {
                     || text == "Object.values"
                     || text == "globalThis.Object.values" =>
             {
-                true
+                ObjectEnumerationMode::Values
+            }
+            Some(text)
+                if text == "entries"
+                    || text.ends_with(".entries")
+                    || text == "Object.entries"
+                    || text == "globalThis.Object.entries" =>
+            {
+                ObjectEnumerationMode::Entries
             }
             _ => return None,
         };
@@ -3862,16 +3902,16 @@ impl<'a> FunctionEmitter<'a> {
         };
         let object_text = self.node(object).text.as_deref().unwrap_or_default();
         if object_text.contains("Object") {
-            Some(collect_values)
+            Some(mode)
         } else {
             None
         }
     }
 
     fn collect_object_enumeration_iteration_items(
-        &self,
+        &mut self,
         node: &LirNode,
-        collect_values: bool,
+        mode: ObjectEnumerationMode,
         items: &mut Vec<LirNodeId>,
     ) -> bool {
         if !self.is_object_literal(node) {
@@ -3886,20 +3926,22 @@ impl<'a> FunctionEmitter<'a> {
 
             let key = property.children[0];
             let key_node = self.node(key);
-            let Some(text) = key_node.text.as_deref() else {
-                return false;
-            };
-            let is_quoted_string = text.starts_with('"') && text.ends_with('"')
-                || text.starts_with('\'') && text.ends_with('\'');
-            if key_node.kind != LirNodeKind::Literal || !is_quoted_string {
+            if key_node.kind != LirNodeKind::Literal || key_node.text.is_none() {
                 return false;
             }
 
-            items.push(if collect_values {
-                property.children[1]
-            } else {
-                key
-            });
+            match mode {
+                ObjectEnumerationMode::Keys => items.push(key),
+                ObjectEnumerationMode::Values => items.push(property.children[1]),
+                ObjectEnumerationMode::Entries => {
+                    let pair = self.alloc_scratch_node(
+                        LirNodeKind::Value,
+                        None,
+                        vec![key, property.children[1]],
+                    );
+                    items.push(pair);
+                }
+            }
         }
 
         true
