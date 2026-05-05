@@ -52,6 +52,10 @@ fn assert_browser_bundle_math_log2_log10(filename: &str, json_output: bool) {
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
     }
 
     let bundle_dir = dir.path().join("app");
@@ -168,6 +172,7 @@ fn assert_browser_harness_math_log2_log10(
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.matches("3\n").count() >= 2, "stdout: {stdout}");
