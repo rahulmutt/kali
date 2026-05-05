@@ -30402,6 +30402,47 @@ fn build_emits_bounded_signature_for_default_async_function_declaration_in_all_i
 }
 
 #[test]
+fn build_rejects_default_async_function_expression_in_all_input_classes() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("math.{extension}"));
+        fs::write(&source_path, "export default async (input) => 1;").expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--lib")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            errors.iter().any(|error| {
+                error["code"] == "E5511"
+                    && error["message"].as_str().is_some_and(|message| {
+                        message.contains("no statically known export surface")
+                    })
+            }),
+            "errors for {extension}: {errors:?}"
+        );
+    }
+}
+
+#[test]
 fn build_emits_conservative_unknown_signature_for_mixed_exported_function_binding_in_jsx_and_tsx_input(
 ) {
     for extension in ["jsx", "tsx"] {
