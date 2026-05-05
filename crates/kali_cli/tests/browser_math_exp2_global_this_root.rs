@@ -71,6 +71,7 @@ fn assert_browser_bundle_global_this_math_exp2(filename: &str, json_output: bool
             .as_array()
             .expect("errors array")
             .is_empty());
+        assert_eq!(envelope["warnings"], Value::Array(vec![]));
     }
 
     let bundle_dir = dir.path().join("app");
@@ -168,6 +169,7 @@ fn assert_browser_harness_global_this_math_exp2(
             assert_eq!(json["payload"]["failed"], 0);
         }
         assert!(json["errors"].as_array().expect("errors array").is_empty());
+        assert_eq!(json["warnings"], Value::Array(vec![]));
         assert!(
             json["stdout"]
                 .as_str()
