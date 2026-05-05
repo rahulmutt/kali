@@ -1743,6 +1743,8 @@ fn emitted_cli_envelopes_preserve_stdout_and_stderr_strings() {
     validate_envelope_value(&value).expect("constructed envelope should validate");
 
     let object = value.as_object().expect("envelope object");
+    assert_eq!(object["errors"], json!([]));
+    assert_eq!(object["warnings"], json!([]));
     assert_eq!(object["stdout"], json!("stdout text"));
     assert_eq!(object["stderr"], json!("stderr text"));
     assert_eq!(object["exitCode"], json!(1));
