@@ -696,6 +696,9 @@ impl TypeContext {
                 self.resolve_static_numeric_literal_value(expression)
                     .is_some()
                     || self.resolve_static_string_expression(expression).is_some()
+                    || self
+                        .resolve_static_object_identity_literal_value(expression)
+                        .is_some()
             }
             _ => false,
         }
