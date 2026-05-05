@@ -10,6 +10,8 @@ fn kali_bin() -> String {
 fn reflect_own_keys_source() -> &'static str {
     r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
 const keys = globalThis.Reflect.ownKeys(obj);
+const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 if (
   keys.length !== 4 ||
@@ -17,6 +19,16 @@ if (
   keys[1] !== '2' ||
   keys[2] !== 'b' ||
   keys[3] !== 'a' ||
+  mixedRootKeys.length !== 4 ||
+  mixedRootKeys[0] !== '1' ||
+  mixedRootKeys[1] !== '2' ||
+  mixedRootKeys[2] !== 'b' ||
+  mixedRootKeys[3] !== 'a' ||
+  mixedBracketedKeys.length !== 4 ||
+  mixedBracketedKeys[0] !== '1' ||
+  mixedBracketedKeys[1] !== '2' ||
+  mixedBracketedKeys[2] !== 'b' ||
+  mixedBracketedKeys[3] !== 'a' ||
   bracketedKeys.length !== 4 ||
   bracketedKeys[0] !== '1' ||
   bracketedKeys[1] !== '2' ||
@@ -33,6 +45,8 @@ fn reflect_own_keys_test_source() -> &'static str {
     r#"Kali.test('reflect ownKeys', () => {
   const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
   const keys = globalThis.Reflect.ownKeys(obj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   if (
     keys.length !== 4 ||
@@ -40,6 +54,16 @@ fn reflect_own_keys_test_source() -> &'static str {
     keys[1] !== '2' ||
     keys[2] !== 'b' ||
     keys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
     bracketedKeys.length !== 4 ||
     bracketedKeys[0] !== '1' ||
     bracketedKeys[1] !== '2' ||
@@ -57,6 +81,8 @@ fn browser_bundle_reflect_own_keys_source() -> &'static str {
 async function reflectOwnKeysSmoke(left, right) {
   const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
   const keys = Reflect.ownKeys(obj);
+  const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   if (
     keys.length !== 4 ||
@@ -64,6 +90,16 @@ async function reflectOwnKeysSmoke(left, right) {
     keys[1] !== '2' ||
     keys[2] !== 'b' ||
     keys[3] !== 'a' ||
+    mixedRootKeys.length !== 4 ||
+    mixedRootKeys[0] !== '1' ||
+    mixedRootKeys[1] !== '2' ||
+    mixedRootKeys[2] !== 'b' ||
+    mixedRootKeys[3] !== 'a' ||
+    mixedBracketedKeys.length !== 4 ||
+    mixedBracketedKeys[0] !== '1' ||
+    mixedBracketedKeys[1] !== '2' ||
+    mixedBracketedKeys[2] !== 'b' ||
+    mixedBracketedKeys[3] !== 'a' ||
     bracketedKeys.length !== 4 ||
     bracketedKeys[0] !== '1' ||
     bracketedKeys[1] !== '2' ||
