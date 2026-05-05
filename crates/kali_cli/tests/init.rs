@@ -33,11 +33,8 @@ fn init_reports_application_scaffold_in_json() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "init");
     assert_eq!(json["success"], true);
-    assert!(json["errors"].as_array().expect("errors array").is_empty());
-    assert!(json["warnings"]
-        .as_array()
-        .expect("warnings array")
-        .is_empty());
+    assert_eq!(json["errors"], serde_json::json!([]));
+    assert_eq!(json["warnings"], serde_json::json!([]));
 
     let payload = &json["payload"];
     assert_eq!(payload["root"], serde_json::json!(dir.path()));
@@ -77,6 +74,8 @@ fn init_reports_library_scaffold_in_json() {
     let json = parse_json_stdout(&output);
     assert_eq!(json["command"], "init");
     assert_eq!(json["success"], true);
+    assert_eq!(json["errors"], serde_json::json!([]));
+    assert_eq!(json["warnings"], serde_json::json!([]));
 
     let payload = &json["payload"];
     assert_eq!(payload["root"], serde_json::json!(dir.path()));
