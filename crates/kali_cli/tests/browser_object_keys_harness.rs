@@ -49,6 +49,46 @@ fn browser_harness_object_keys_test_source() -> &'static str {
 "##
 }
 
+fn browser_harness_object_keys_const_bound_run_source() -> &'static str {
+    r##"function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserObjectKeysConstBoundIteration() {
+  const values = { "b": 1, "a": 2 };
+  const keys = [];
+  for (const key of Object.keys(values)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserObjectKeysConstBoundIteration();
+"##
+}
+
+fn browser_harness_object_keys_const_bound_test_source() -> &'static str {
+    r##"Kali.test('const-bound object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const keys = [];
+  for (const key of Object.keys(values)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"##
+}
+
 fn browser_harness_object_keys_direct_run_source() -> &'static str {
     r##"function assertObjectKeysIteration(keys) {
   if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
@@ -553,6 +593,24 @@ fn json_test_supports_direct_object_keys_iteration_when_browser_harness_is_confi
         browser_harness_object_keys_direct_test_source(),
         true,
     );
+}
+
+#[test]
+fn run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured_in_js_ts_jsx_tsx_input(
+) {
+    for command in ["run", "test"] {
+        let expect_test_runner = command == "test";
+        for json_output in [false, true] {
+            for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+                let source = if expect_test_runner {
+                    browser_harness_object_keys_const_bound_test_source()
+                } else {
+                    browser_harness_object_keys_const_bound_run_source()
+                };
+                assert_browser_harness_object_keys(command, filename, source, json_output);
+            }
+        }
+    }
 }
 
 #[test]
