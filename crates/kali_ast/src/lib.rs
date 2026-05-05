@@ -945,6 +945,8 @@ pub enum AssignmentOperator {
     ModuloAssign,
     ExponentAssign,
     NullishAssign,
+    AndAssign,
+    OrAssign,
 }
 
 /// Logical expression

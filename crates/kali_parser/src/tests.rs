@@ -328,7 +328,7 @@ fn test_parse_nullish_coalescing_expression() {
 
 #[test]
 fn test_parse_compound_assignment_expression() {
-    let tokens = lex("value += 1; value **= 2; value %= 3;");
+    let tokens = lex("value += 1; value **= 2; value %= 3; value &&= 4; value ||= 5;");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
@@ -337,7 +337,7 @@ fn test_parse_compound_assignment_expression() {
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert_eq!(output.statements.len(), 3);
+    assert_eq!(output.statements.len(), 5);
 
     let Statement::ExpressionStatement(first) = &output.statements[0] else {
         panic!(
@@ -379,6 +379,34 @@ fn test_parse_compound_assignment_expression() {
     assert!(matches!(
         third_assign.operator,
         AssignmentOperator::ModuloAssign
+    ));
+
+    let Statement::ExpressionStatement(fourth) = &output.statements[3] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[3]
+        );
+    };
+    let Expression::AssignmentExpression(fourth_assign) = fourth.expression.as_ref() else {
+        panic!("Expected AssignmentExpression, got {:?}", fourth.expression);
+    };
+    assert!(matches!(
+        fourth_assign.operator,
+        AssignmentOperator::AndAssign
+    ));
+
+    let Statement::ExpressionStatement(fifth) = &output.statements[4] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[4]
+        );
+    };
+    let Expression::AssignmentExpression(fifth_assign) = fifth.expression.as_ref() else {
+        panic!("Expected AssignmentExpression, got {:?}", fifth.expression);
+    };
+    assert!(matches!(
+        fifth_assign.operator,
+        AssignmentOperator::OrAssign
     ));
 }
 

@@ -977,6 +977,8 @@ impl Parser {
             TokenType::PercentEq => Some(AssignmentOperator::ModuloAssign),
             TokenType::StarStarEq => Some(AssignmentOperator::ExponentAssign),
             TokenType::NullCoalesceEq => Some(AssignmentOperator::NullishAssign),
+            TokenType::AndAndEq => Some(AssignmentOperator::AndAssign),
+            TokenType::OrOrEq => Some(AssignmentOperator::OrAssign),
             _ => None,
         }
     }

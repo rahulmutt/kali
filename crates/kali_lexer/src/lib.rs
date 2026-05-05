@@ -32,7 +32,9 @@ pub enum TokenType {
     PercentEq,
     StarStarEq,
     AndAnd,
+    AndAndEq,
     OrOr,
+    OrOrEq,
     QuestionDot,
     NullCoalesceEq,
     Arrow,
@@ -440,7 +442,13 @@ impl Lexer {
 
     fn lex_punct(&mut self, initial: char) -> Option<Token> {
         let (kind, lexeme, len) = match initial {
+            '&' if self.nth(1) == Some('&') && self.nth(2) == Some('=') => {
+                (TokenType::AndAndEq, "&&=".to_string(), 3)
+            }
             '&' if self.nth(1) == Some('&') => (TokenType::AndAnd, "&&".to_string(), 2),
+            '|' if self.nth(1) == Some('|') && self.nth(2) == Some('=') => {
+                (TokenType::OrOrEq, "||=".to_string(), 3)
+            }
             '|' if self.nth(1) == Some('|') => (TokenType::OrOr, "||".to_string(), 2),
             '=' if self.nth(1) == Some('=') && self.nth(2) == Some('=') => {
                 (TokenType::EqEqEq, "===".to_string(), 3)

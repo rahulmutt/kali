@@ -907,7 +907,10 @@ impl<'a> FunctionEmitter<'a> {
         left: LirNodeId,
         right: LirNodeId,
     ) -> bool {
-        if !matches!(op, "=" | "??=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**=") {
+        if !matches!(
+            op,
+            "=" | "??=" | "&&=" | "||=" | "+=" | "-=" | "*=" | "/=" | "%=" | "**="
+        ) {
             return false;
         }
 
@@ -1020,6 +1023,35 @@ impl<'a> FunctionEmitter<'a> {
                 }
                 function.instruction(&Instruction::Else);
                 function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::End);
+                function.instruction(&Instruction::LocalSet(index));
+                function.instruction(&Instruction::LocalGet(index));
+                true
+            }
+            "&&=" | "||=" => {
+                let temp_local = self.locals.len() as u32;
+                function.instruction(&Instruction::LocalGet(index));
+                function.instruction(&Instruction::LocalSet(temp_local));
+                function.instruction(&Instruction::LocalGet(temp_local));
+                function.instruction(&Instruction::I64Eqz);
+                function.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+                if op == "&&=" {
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                } else {
+                    let rhs = self.emit_node(function, right, true);
+                    if !rhs.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                }
+                function.instruction(&Instruction::Else);
+                if op == "&&=" {
+                    let rhs = self.emit_node(function, right, true);
+                    if !rhs.produced {
+                        function.instruction(&Instruction::I64Const(0));
+                    }
+                } else {
+                    function.instruction(&Instruction::LocalGet(temp_local));
+                }
                 function.instruction(&Instruction::End);
                 function.instruction(&Instruction::LocalSet(index));
                 function.instruction(&Instruction::LocalGet(index));

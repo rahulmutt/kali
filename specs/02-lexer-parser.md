@@ -56,7 +56,7 @@ struct Token {
   - Generators and async generators
   - Arrow function expressions, including async arrow forms and optional return type annotations
   - `for-in`, `for-of`, `for-await-of`
-  - Optional chaining (`?.`), nullish coalescing (`??`), and the corresponding nullish assignment form (`??=`)
+  - Optional chaining (`?.`), nullish coalescing (`??`), and the corresponding assignment forms (`??=`, `&&=`, `||=`)
   - Dynamic `import()` *(parsed in Phase 1; semantic support stays phase-gated — literal-string `import()` is a Phase 3 lowering path, while non-literal `import(expr)` remains a later compatibility boundary)*
   - `eval` *(parsed in Phase 1; semantic/runtime support is phase-gated and tied to the later `eval` compatibility path)*
   - All operator precedences and associativities

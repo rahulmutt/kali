@@ -1121,6 +1121,8 @@ fn assignment_op_text(op: &AssignmentOperator) -> &'static str {
         AssignmentOperator::ModuloAssign => "%=",
         AssignmentOperator::ExponentAssign => "**=",
         AssignmentOperator::NullishAssign => "??=",
+        AssignmentOperator::AndAssign => "&&=",
+        AssignmentOperator::OrAssign => "||=",
     }
 }
 

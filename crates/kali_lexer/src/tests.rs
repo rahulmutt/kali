@@ -60,7 +60,7 @@ fn test_lexer_plus() {
 
 #[test]
 fn test_lexer_compound_assignment_tokens() {
-    let lexer = Lexer::new(FileId::new(0), "+= -= *= /= %= **=".to_string());
+    let lexer = Lexer::new(FileId::new(0), "+= -= *= /= %= **= &&= ||=".to_string());
     let result = lexer.lex_all();
     let kinds: Vec<_> = result.tokens.iter().map(|token| token.kind).collect();
     assert_eq!(
@@ -72,6 +72,8 @@ fn test_lexer_compound_assignment_tokens() {
             TokenType::SlashEq,
             TokenType::PercentEq,
             TokenType::StarStarEq,
+            TokenType::AndAndEq,
+            TokenType::OrOrEq,
             TokenType::Eof,
         ]
     );
