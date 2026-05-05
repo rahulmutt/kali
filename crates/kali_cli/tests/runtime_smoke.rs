@@ -44408,6 +44408,62 @@ fn json_run_supports_spread_of_object_entries_in_for_await_array_iteration_in_js
     assert_eq!(json["success"], true);
 }
 
+fn assert_run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input(
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "for await (const value of [...Object.values(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(value); } for await (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command.current_dir(dir.path());
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    command.arg("run").arg(&source_path);
+
+    let output = command.output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = stdout.lines().filter(|line| !line.is_empty()).collect();
+        assert_eq!(
+            lines,
+            ["3", "2", "zed", "alpha", "zed", "3", "alpha", "2"],
+            "stdout: {stdout}"
+        );
+    }
+}
+
+#[test]
+fn run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input() {
+    assert_run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input(
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input() {
+    assert_run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input(true);
+}
+
 #[test]
 fn check_supports_for_await_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
