@@ -398,6 +398,16 @@ fn build_emits_global_object_entries_iteration_semantics_in_ts_input() {
 }
 
 #[test]
+fn build_emits_global_object_entries_iteration_semantics_in_jsx_input() {
+    assert_browser_bundle_global_object_entries_iteration("app.jsx", false);
+}
+
+#[test]
+fn build_emits_global_object_entries_iteration_semantics_in_tsx_input() {
+    assert_browser_bundle_global_object_entries_iteration("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_global_object_entries_iteration_semantics_in_js_input() {
     assert_browser_bundle_global_object_entries_iteration("app.js", true);
 }
@@ -405,4 +415,14 @@ fn json_build_emits_global_object_entries_iteration_semantics_in_js_input() {
 #[test]
 fn json_build_emits_global_object_entries_iteration_semantics_in_ts_input() {
     assert_browser_bundle_global_object_entries_iteration("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_global_object_entries_iteration_semantics_in_jsx_input() {
+    assert_browser_bundle_global_object_entries_iteration("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_global_object_entries_iteration_semantics_in_tsx_input() {
+    assert_browser_bundle_global_object_entries_iteration("app.tsx", true);
 }
