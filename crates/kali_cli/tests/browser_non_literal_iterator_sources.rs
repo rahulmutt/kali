@@ -385,3 +385,33 @@ fn check_rejects_non_literal_object_keys_iterator_source_under_inherited_browser
         }
     }
 }
+
+#[test]
+fn build_rejects_non_literal_object_values_iterator_source_under_inherited_browser_config() {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                object_values_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_non_literal_object_values_iterator_source_under_inherited_browser_config() {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                object_values_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
+}
