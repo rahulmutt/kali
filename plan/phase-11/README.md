@@ -120,6 +120,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser-harness JSON success paths for the shared `Math.sqrt` / `Math.cbrt` literal slice now also assert empty `errors` arrays, keeping the deterministic success envelope explicit for that supported builtin slice.
 
 - Progress note: browser-requested run/test browser-harness coverage now also accepts the `Object.fromEntries` entry-array `satisfies` wrapper in TS input, keeping the object-enumeration evidence aligned with the existing browser-harness object-model wrappers.
+- Progress note: `Object.entries(...)` over static object literals with string-literal keys now also passes in standalone `run` / `test`, browser-harness `run` / `test`, and browser-bundle smoke in JS and TS input, including the `globalThis.Object.entries(...)` alias spelling on the browser-bundle path, keeping the object-enumeration slice aligned with the existing `Object.keys(...)` / `Object.values(...)` and `Object.fromEntries(...)` coverage.
 - Progress note: `Math.hypot()` empty-argument identity now also has direct `kali_types` resolution coverage for both bare `Math.hypot()` and `globalThis.Math.hypot()` spellings, keeping the zero-argument identity slice pinned at the resolver edge as well as the runtime smoke edge.
 
 ### 11.3 Dynamic loading and module semantics
