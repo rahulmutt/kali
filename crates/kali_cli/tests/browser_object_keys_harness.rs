@@ -49,6 +49,48 @@ fn browser_harness_object_keys_test_source() -> &'static str {
 "##
 }
 
+fn browser_harness_global_object_keys_run_source() -> &'static str {
+    r##"function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserGlobalObjectKeysIteration() {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserGlobalObjectKeysIteration();
+"##
+}
+
+fn browser_harness_global_object_keys_test_source() -> &'static str {
+    r##"Kali.test('global object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"##
+}
+
 fn assert_browser_harness_object_keys(
     command: &str,
     filename: &str,
@@ -275,6 +317,47 @@ fn json_test_supports_object_keys_iteration_when_browser_harness_is_configured_i
         "test",
         "smoke.test.tsx",
         browser_harness_object_keys_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.js",
+        browser_harness_global_object_keys_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.js",
+        browser_harness_global_object_keys_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.js",
+        browser_harness_global_object_keys_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.js",
+        browser_harness_global_object_keys_test_source(),
         true,
     );
 }

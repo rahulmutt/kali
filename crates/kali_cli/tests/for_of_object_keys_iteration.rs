@@ -34,6 +34,34 @@ fn object_keys_iteration_test_source() -> &'static str {
 "#
 }
 
+fn global_object_keys_iteration_run_source() -> &'static str {
+    r#"const values = { "b": 1, "a": 2 };
+const alias = values;
+const keys = [];
+for (const key of globalThis.Object.keys(alias)) {
+  keys.push(key);
+}
+if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+  throw new Error('unexpected Object.keys iteration semantics');
+}
+"#
+}
+
+fn global_object_keys_iteration_test_source() -> &'static str {
+    r#"Kali.test('object keys iteration', () => {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of globalThis.Object.keys(alias)) {
+    keys.push(key);
+  }
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+});
+"#
+}
+
 fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -83,4 +111,18 @@ fn test_supports_object_keys_iteration_in_js_input() {
 #[test]
 fn test_supports_object_keys_iteration_in_ts_input() {
     assert_object_keys_iteration("test", "smoke.test.ts", object_keys_iteration_test_source());
+}
+
+#[test]
+fn run_supports_global_object_keys_iteration_in_js_input() {
+    assert_object_keys_iteration("run", "main.js", global_object_keys_iteration_run_source());
+}
+
+#[test]
+fn test_supports_global_object_keys_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.js",
+        global_object_keys_iteration_test_source(),
+    );
 }
