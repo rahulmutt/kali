@@ -29,6 +29,17 @@ main();
 "#
 }
 
+fn object_keys_source() -> &'static str {
+    r#"function main() {
+  let values = { a: 1 };
+  for (const key of Object.keys(values)) {
+    console.log(key);
+  }
+}
+main();
+"#
+}
+
 fn assert_browser_iterator_source_rejects(
     source: &str,
     filename: &str,
@@ -164,4 +175,84 @@ fn check_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
 #[test]
 fn json_check_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
     assert_browser_iterator_source_rejects(for_await_source(), "main.tsx", true, "check", false);
+}
+
+#[test]
+fn build_rejects_non_literal_object_keys_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.js", false, "build", true);
+}
+
+#[test]
+fn json_build_rejects_non_literal_object_keys_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.js", true, "build", true);
+}
+
+#[test]
+fn build_rejects_non_literal_object_keys_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.ts", false, "build", true);
+}
+
+#[test]
+fn json_build_rejects_non_literal_object_keys_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.ts", true, "build", true);
+}
+
+#[test]
+fn build_rejects_non_literal_object_keys_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.jsx", false, "build", true);
+}
+
+#[test]
+fn json_build_rejects_non_literal_object_keys_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.jsx", true, "build", true);
+}
+
+#[test]
+fn build_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.tsx", false, "build", true);
+}
+
+#[test]
+fn json_build_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.tsx", true, "build", true);
+}
+
+#[test]
+fn check_rejects_non_literal_object_keys_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.js", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_object_keys_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.js", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_object_keys_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.ts", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_object_keys_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.ts", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_object_keys_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.jsx", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_object_keys_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.jsx", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.tsx", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(object_keys_source(), "main.tsx", true, "check", false);
 }
