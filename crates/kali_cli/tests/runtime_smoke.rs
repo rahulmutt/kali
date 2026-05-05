@@ -30343,6 +30343,122 @@ fn build_emits_conservative_unknown_signature_for_default_export_function_declar
 }
 
 #[test]
+fn build_emits_conservative_unknown_signature_for_mixed_exported_function_binding_in_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("math.{extension}"));
+        fs::write(
+            &source_path,
+            "export function main(input) { return true ? 1 : input; }",
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--lib")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], true);
+        let payload = json["payload"].as_object().expect("build payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "(input) => unknown"
+            }),
+            "exports for {extension}: {exports:?}"
+        );
+
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+        )
+        .expect("parse metadata json");
+        assert_eq!(metadata["artifactKind"], "lib");
+        let exports = metadata["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "(input) => unknown"
+            }),
+            "exports for {extension}: {exports:?}"
+        );
+    }
+}
+
+#[test]
+fn build_emits_conservative_unknown_signature_for_default_export_function_declaration_in_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("math.{extension}"));
+        fs::write(
+            &source_path,
+            "export default function main(input) { return true ? 1 : input; }",
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--lib")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], true);
+        let payload = json["payload"].as_object().expect("build payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "(input) => unknown"
+            }),
+            "exports for {extension}: {exports:?}"
+        );
+
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+        )
+        .expect("parse metadata json");
+        assert_eq!(metadata["artifactKind"], "lib");
+        let exports = metadata["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "(input) => unknown"
+            }),
+            "exports for {extension}: {exports:?}"
+        );
+    }
+}
+
+#[test]
 fn json_build_rejects_library_sources_without_static_exports_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.js");
