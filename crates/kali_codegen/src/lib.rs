@@ -4128,7 +4128,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn collect_for_of_array_iteration_items(
-        &self,
+        &mut self,
         id: LirNodeId,
         items: &mut Vec<LirNodeId>,
     ) -> bool {
@@ -4153,14 +4153,32 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             };
             let array = self.node(array_id).clone();
-            if !self.is_array_literal(&array) {
-                return false;
+            if self.is_array_literal(&array) {
+                for child in &array.children {
+                    if !self.collect_for_of_array_iteration_items(*child, items) {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
-            for child in &array.children {
-                if !self.collect_for_of_array_iteration_items(*child, items) {
-                    return false;
-                }
+            let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) else {
+                return false;
+            };
+            let Some(object_arg) = array.children.get(1).copied() else {
+                return false;
+            };
+            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
+                return false;
+            };
+            let object = self.node(object_id).clone();
+            if !self.collect_object_enumeration_iteration_items(
+                &object,
+                object_enumeration_mode,
+                items,
+            ) {
+                return false;
             }
 
             return true;

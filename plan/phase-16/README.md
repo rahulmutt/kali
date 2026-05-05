@@ -19,7 +19,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 ### 16.1 Generators and iterator protocol
 
 - Implement generator and async-generator lowering only with state-machine, `yield` / `yield*`, async interaction, error, and finalization coverage.
-- Expand `for...of` and `for await...of` toward full iterator/async-iterator protocol semantics beyond bounded static slices.
+- Expand `for...of` and `for await...of` toward full iterator/async-iterator protocol semantics beyond bounded static slices, including spread of supported `Object.keys(...)` / `Object.values(...)` / `Object.entries(...)` slices where that remains shape-safe.
 - Keep unavailable forms on canonical `E5506` gates with TS/JS/JSX/TSX and JSON-output regressions where applicable.
 
 ### 16.2 Expression, built-in, and object semantics

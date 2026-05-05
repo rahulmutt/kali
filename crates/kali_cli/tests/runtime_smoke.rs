@@ -44203,6 +44203,35 @@ fn build_supports_for_of_array_iteration_lowering_in_js_input_in_json() {
 }
 
 #[test]
+fn run_supports_spread_of_object_enumeration_in_for_of_array_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); }",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let z = stdout.find("zed").expect("expected zed output");
+    let a = stdout.find("alpha").expect("expected alpha output");
+    assert!(z < a, "stdout: {stdout}");
+}
+
+#[test]
 fn check_supports_for_await_array_iteration_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

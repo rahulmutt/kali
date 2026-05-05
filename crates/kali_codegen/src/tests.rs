@@ -236,6 +236,31 @@ fn for_of_object_entries_lowers_for_static_object_from_entries_operands() {
 }
 
 #[test]
+fn for_of_spread_of_object_enumeration_lowers_for_static_object_from_entries_operands() {
+    let program = parse_and_lower_lir(
+        "for (const key of [...Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const"), "{printed}");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn object_is_lowers_for_unary_plus_wrapped_numeric_literals() {
     let program = parse_and_lower_lir("console.log(Object.is(+1, 1));");
     let mut ctx = CodegenCtx::new(TargetConfig {
