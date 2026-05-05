@@ -27464,6 +27464,33 @@ fn test_supports_math_imul_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn test_supports_math_imul_builtin_omitted_operands_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.imul());\nconsole.log(Math.imul(7));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\n0\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_supports_math_clz32_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -27639,6 +27666,47 @@ fn json_test_supports_math_imul_builtin_semantics_in_js_input() {
     assert_eq!(json["stderr"], "");
     assert!(
         json["stdout"].as_str().expect("stdout").contains("-2\n"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_test_supports_math_imul_builtin_omitted_operands_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.imul());\nconsole.log(Math.imul(7));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert_eq!(json["stderr"], "");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0\n0"),
         "json: {json}"
     );
 }
@@ -29377,6 +29445,33 @@ fn run_supports_math_imul_builtin_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_math_imul_builtin_omitted_operands_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.imul());\nconsole.log(Math.imul(7));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\n0"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_math_clz32_builtin_semantics_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -29486,6 +29581,44 @@ fn json_run_supports_math_imul_builtin_semantics_in_js_input() {
     assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     assert!(
         json["stdout"].as_str().expect("stdout").contains("-2"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn json_run_supports_math_imul_builtin_omitted_operands_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Math.imul());\nconsole.log(Math.imul(7));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+    assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    assert!(
+        json["stdout"].as_str().expect("stdout").contains("0\n0"),
         "json: {json}"
     );
 }
