@@ -29,23 +29,27 @@ main();
 "#
 }
 
-fn assert_browser_bundle_rejects_non_literal_iterator_source(
+fn assert_browser_iterator_source_rejects(
     source: &str,
     filename: &str,
     json_output: bool,
+    command: &str,
+    bundle: bool,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(&source_path, source).expect("write source");
 
-    let mut command = Command::new(kali_bin());
+    let mut cmd = Command::new(kali_bin());
     if json_output {
-        command.arg("--output").arg("json");
+        cmd.arg("--output").arg("json");
     }
-    let output = command
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
+    cmd.current_dir(dir.path());
+    cmd.arg(command);
+    if bundle {
+        cmd.arg("--bundle");
+    }
+    let output = cmd
         .arg("--api")
         .arg("browser")
         .arg(&source_path)
@@ -58,7 +62,7 @@ fn assert_browser_bundle_rejects_non_literal_iterator_source(
     if json_output {
         let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
         assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "build");
+        assert_eq!(json["command"], if bundle { "build" } else { "check" });
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
         let errors = json["errors"].as_array().expect("errors array");
@@ -84,44 +88,80 @@ fn assert_browser_bundle_rejects_non_literal_iterator_source(
 
 #[test]
 fn build_rejects_non_literal_for_of_iterator_source_in_js_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.js", false);
+    assert_browser_iterator_source_rejects(for_of_source(), "main.js", false, "build", true);
 }
 
 #[test]
 fn json_build_rejects_non_literal_for_of_iterator_source_in_js_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.js", true);
+    assert_browser_iterator_source_rejects(for_of_source(), "main.js", true, "build", true);
 }
 
 #[test]
 fn build_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.jsx", false);
+    assert_browser_iterator_source_rejects(for_of_source(), "main.jsx", false, "build", true);
 }
 
 #[test]
 fn json_build_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_of_source(), "main.jsx", true);
+    assert_browser_iterator_source_rejects(for_of_source(), "main.jsx", true, "build", true);
 }
 
 #[test]
 fn build_rejects_non_literal_for_await_iterator_source_in_ts_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.ts", false);
+    assert_browser_iterator_source_rejects(for_await_source(), "main.ts", false, "build", true);
 }
 
 #[test]
 fn json_build_rejects_non_literal_for_await_iterator_source_in_ts_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.ts", true);
+    assert_browser_iterator_source_rejects(for_await_source(), "main.ts", true, "build", true);
 }
 
 #[test]
 fn build_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(
-        for_await_source(),
-        "main.tsx",
-        false,
-    );
+    assert_browser_iterator_source_rejects(for_await_source(), "main.tsx", false, "build", true);
 }
 
 #[test]
 fn json_build_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
-    assert_browser_bundle_rejects_non_literal_iterator_source(for_await_source(), "main.tsx", true);
+    assert_browser_iterator_source_rejects(for_await_source(), "main.tsx", true, "build", true);
+}
+
+#[test]
+fn check_rejects_non_literal_for_of_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(for_of_source(), "main.js", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_for_of_iterator_source_in_js_input() {
+    assert_browser_iterator_source_rejects(for_of_source(), "main.js", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(for_of_source(), "main.jsx", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_for_of_iterator_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(for_of_source(), "main.jsx", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_for_await_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(for_await_source(), "main.ts", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_for_await_iterator_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(for_await_source(), "main.ts", true, "check", false);
+}
+
+#[test]
+fn check_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(for_await_source(), "main.tsx", false, "check", false);
+}
+
+#[test]
+fn json_check_rejects_non_literal_for_await_iterator_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(for_await_source(), "main.tsx", true, "check", false);
 }
