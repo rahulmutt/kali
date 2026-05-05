@@ -24,7 +24,9 @@ fn process_context_tracks_env_and_output() {
     assert_eq!(process.pid(), std::process::id());
     assert_eq!(process.env_get("HOME"), Some("/tmp/home"));
     assert!(process.env_has("HOME"));
+    assert!(process.has("HOME"));
     assert!(!process.env_has("MISSING"));
+    assert!(!process.has("MISSING"));
     assert_eq!(
         process.env_snapshot(),
         BTreeMap::from([(String::from("HOME"), String::from("/tmp/home"))])
@@ -144,7 +146,9 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
         ])
     );
     assert!(projection.env_has("HOME"));
+    assert!(projection.has("HOME"));
     assert!(!projection.env_has("MISSING"));
+    assert!(!projection.has("MISSING"));
     assert_eq!(
         projection.env_snapshot_value(),
         serde_json::json!({ "EDITOR": "nano", "HOME": "/tmp/home" })
