@@ -47,6 +47,32 @@ fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
 }
 
 #[test]
+fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_run_text_output() {
+    let value = emit_envelope_value(
+        "run",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        Some("stdout text".to_string()),
+        Some("stderr text".to_string()),
+        0,
+    );
+
+    validate_envelope_value(&value).expect("constructed envelope should validate");
+
+    let object = value.as_object().expect("envelope object");
+    assert_eq!(object["command"], json!("run"));
+    assert_eq!(object["success"], json!(true));
+    assert_eq!(object["errors"], json!([]));
+    assert_eq!(object["warnings"], json!([]));
+    assert_eq!(object["payload"], json!({"result": "ok"}));
+    assert_eq!(object["stdout"], json!("stdout text"));
+    assert_eq!(object["stderr"], json!("stderr text"));
+    assert_eq!(object["exitCode"], json!(0));
+}
+
+#[test]
 fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "browserHarness": {
