@@ -16,9 +16,13 @@ for (const item of (0, [(0, 1), (0, 2)])) {
 "##
 }
 
-fn assert_browser_harness_for_of_sequence_wrapper(command: &str, json_output: bool) {
+fn assert_browser_harness_for_of_sequence_wrapper(
+    command: &str,
+    filename: &str,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(filename);
     fs::write(&source_path, for_of_sequence_source()).expect("write source");
 
     let mut cli = Command::new(kali_bin());
@@ -74,23 +78,39 @@ fn assert_browser_harness_for_of_sequence_wrapper(command: &str, json_output: bo
 #[test]
 fn run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper("run", false);
+    assert_browser_harness_for_of_sequence_wrapper("run", "main.js", false);
 }
 
 #[test]
 fn test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper("test", false);
+    assert_browser_harness_for_of_sequence_wrapper("test", "main.js", false);
 }
 
 #[test]
 fn json_run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper("run", true);
+    assert_browser_harness_for_of_sequence_wrapper("run", "main.js", true);
 }
 
 #[test]
 fn json_test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper("test", true);
+    assert_browser_harness_for_of_sequence_wrapper("test", "main.js", true);
+}
+
+#[test]
+fn supports_for_of_array_iteration_sequence_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        let filename = format!("main.{extension}");
+        for (command, json_output) in [
+            ("run", false),
+            ("test", false),
+            ("run", true),
+            ("test", true),
+        ] {
+            assert_browser_harness_for_of_sequence_wrapper(command, &filename, json_output);
+        }
+    }
 }
