@@ -381,6 +381,16 @@ impl RuntimeCtx {
             .unwrap_or(self.max_threads)
     }
 
+    /// Return whether the captured environment contains a key.
+    pub fn env_has(&self, key: &str) -> bool {
+        self.env.contains_key(key)
+    }
+
+    /// Alias for the environment-presence helper.
+    pub fn has(&self, key: &str) -> bool {
+        self.env_has(key)
+    }
+
     /// Return the deterministic environment snapshot captured for this execution context.
     pub fn env_snapshot(&self) -> BTreeMap<String, String> {
         self.env.clone()
@@ -3945,6 +3955,16 @@ impl KaliHostState {
     /// Return the host process identifier preserved in the runtime store state.
     pub fn process_id(&self) -> u32 {
         self.process_id
+    }
+
+    /// Return whether the preserved environment contains a key.
+    pub fn env_has(&self, key: &str) -> bool {
+        self.env.contains_key(key)
+    }
+
+    /// Alias for the environment-presence helper.
+    pub fn has(&self, key: &str) -> bool {
+        self.env_has(key)
     }
 
     /// Return the deterministic environment snapshot preserved in the runtime store state.

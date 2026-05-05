@@ -141,6 +141,9 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
         snapshot_keys,
         vec![String::from("ALPHA"), String::from("BETA")]
     );
+    assert!(runtime.env_has("ALPHA"));
+    assert!(runtime.has("BETA"));
+    assert!(!runtime.env_has("GAMMA"));
     assert_eq!(snapshot.get("ALPHA"), Some(&String::from("1")));
     assert_eq!(snapshot.get("BETA"), Some(&String::from("2")));
     assert_eq!(runtime.env_to_object(), snapshot);
@@ -186,6 +189,9 @@ fn runtime_context_exposes_deterministic_env_snapshots() {
         host_snapshot.keys().cloned().collect::<Vec<_>>(),
         vec![String::from("ALPHA"), String::from("BETA")]
     );
+    assert!(host_state.env_has("ALPHA"));
+    assert!(host_state.has("BETA"));
+    assert!(!host_state.env_has("GAMMA"));
     assert_eq!(host_state.env_to_object(), host_snapshot);
     assert_eq!(host_state.env_snapshot_object_value(), host_snapshot);
 
