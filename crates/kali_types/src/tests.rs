@@ -3832,6 +3832,51 @@ fn test_resolution_supports_math_hypot_member_calls_with_const_numeric_alias_cha
 }
 
 #[test]
+fn test_resolution_supports_math_hypot_member_calls_with_empty_argument_list() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "hypot".to_string(),
+            })),
+            args: vec![],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_global_this_math_hypot_member_calls_with_empty_argument_list() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("globalThis".to_string()),
+                    property: "Math".to_string(),
+                })),
+                property: "hypot".to_string(),
+            })),
+            args: vec![],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_unsupported_math_cbrt_member_calls_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
