@@ -32,12 +32,18 @@ export async function forAwaitArrayIterationSpreadWrapper() {
 fn object_enumeration_spread_source() -> &'static str {
     r##"// kali-tree-shake: objectEnumerationSpreadWrapper
 export async function objectEnumerationSpreadWrapper() {
+  for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
   for (const key of [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(key);
   }
   for (const entry of [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(entry[0]);
     console.log(entry[1]);
+  }
+  for await (const value of [...Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
   }
   for await (const key of [...Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(key);
@@ -231,7 +237,7 @@ await mod.{harness_function}();
     let lines: Vec<&str> = stdout.lines().collect();
     assert_eq!(
         lines,
-        ["b", "a", "b", "3", "a", "2", "c", "d", "c", "6", "d", "5"]
+        ["3", "2", "b", "a", "b", "3", "a", "2", "6", "5", "c", "d", "c", "6", "d", "5",]
     );
 }
 
