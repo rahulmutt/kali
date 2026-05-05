@@ -1046,6 +1046,10 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_string_expression(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(|expression| self.resolve_static_string_expression(expression)),
             Expression::TemplateLiteral(template) => {
                 let mut rendered = String::new();
                 for (idx, quasi) in template.quasis.iter().enumerate() {
@@ -1147,6 +1151,11 @@ impl TypeContext {
             }
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => {
+                expr.expressions.last().and_then(|expression| {
+                    self.resolve_static_object_identity_literal_value(expression)
+                })
             }
             Expression::Identifier(name) => match name.as_str() {
                 "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
@@ -2047,6 +2056,10 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(|expression| self.resolve_static_numeric_literal_value(expression)),
             Expression::Identifier(name) => self.resolve_static_numeric_binding(name),
             _ => None,
         }

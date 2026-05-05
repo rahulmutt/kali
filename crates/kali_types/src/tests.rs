@@ -2660,6 +2660,54 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
 }
 
 #[test]
+fn test_resolution_accepts_object_is_with_sequence_wrapped_static_primitive_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "flag".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Boolean(true))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "text".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "hello".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    sequence_expression(vec![
+                        Expression::Literal(LiteralValue::Boolean(false)),
+                        Expression::Identifier("flag".to_string()),
+                    ]),
+                    sequence_expression(vec![
+                        Expression::Literal(LiteralValue::String("ignored".to_string())),
+                        Expression::Identifier("text".to_string()),
+                    ]),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_helpers() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -3557,6 +3605,30 @@ fn test_resolution_supports_math_round_member_calls_through_optional_chain_wrapp
                     }),
                 },
             ))],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_math_round_member_calls_through_sequence_wrappers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Math".to_string()),
+                property: "round".to_string(),
+            })),
+            args: vec![sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::Literal(LiteralValue::Number(1.6)),
+            ])],
         }))),
     })];
 
@@ -5894,6 +5966,31 @@ fn test_resolution_allows_parenthesized_dynamic_import_targets_in_js_files() {
             }))),
         }),
     ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_allows_sequence_wrapped_dynamic_import_targets_in_js_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
+    fs::write(&source_path, "import((0, \"./lazy.js\"));").unwrap();
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+            source: sequence_expression(vec![
+                Expression::Literal(LiteralValue::Number(0.0)),
+                Expression::Literal(LiteralValue::String("./lazy.js".to_string())),
+            ]),
+        }))),
+    })];
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
