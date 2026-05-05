@@ -596,6 +596,46 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_is_unreadable_when_b
 }
 
 #[test]
+fn json_run_falls_back_to_stdout_when_browser_summary_file_is_missing_when_browser_harness_is_configured_in_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("missing-summary.tsx");
+    write_tsx_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'process.stdout.write("browser missing summary\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("browser missing summary"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn json_run_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_tsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
