@@ -55,6 +55,7 @@ pub struct Scope {
     static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
+    pub static_reference_values: IndexMap<String, String>,
     pub static_object_keys: IndexMap<String, bool>,
 }
 
@@ -70,6 +71,7 @@ impl Scope {
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             static_objects: IndexMap::new(),
+            static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),
         }
     }
@@ -103,6 +105,7 @@ enum StaticObjectIdentityValue {
     Number(f64),
     String(String),
     Null,
+    Reference(String),
 }
 
 impl StaticObjectIdentityValue {
@@ -116,6 +119,7 @@ impl StaticObjectIdentityValue {
                     || (left == right
                         && (left != &0.0 || left.is_sign_positive() == right.is_sign_positive()))
             }
+            (Self::Reference(left), Self::Reference(right)) => left == right,
             _ => false,
         }
     }
@@ -799,6 +803,18 @@ impl TypeContext {
                             scope.static_objects.insert(declarator.id.clone(), true);
                         }
                     }
+                    if self.resolve_static_object_model_target(init)
+                        || self.is_static_array_iteration_target(init)
+                    {
+                        let root = self
+                            .resolve_static_reference_root(init)
+                            .unwrap_or_else(|| declarator.id.clone());
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .static_reference_values
+                                .insert(declarator.id.clone(), root);
+                        }
+                    }
                     if self.resolve_static_object_keys_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_object_keys.insert(declarator.id.clone(), true);
@@ -1158,6 +1174,38 @@ impl TypeContext {
         self.global_scope.static_identity_values.get(name).cloned()
     }
 
+    fn resolve_static_object_identity_reference_name(
+        &self,
+        expression: &Expression,
+    ) -> Option<String> {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => {
+                expr.expressions.last().and_then(|expression| {
+                    self.resolve_static_object_identity_reference_name(expression)
+                })
+            }
+            Expression::Identifier(name) => self
+                .resolve_static_reference_binding_name(name)
+                .or_else(|| Some(name.clone())),
+            _ => None,
+        }
+    }
+
     fn resolve_static_object_identity_literal_value(
         &self,
         expression: &Expression,
@@ -1211,7 +1259,12 @@ impl TypeContext {
             Expression::Identifier(name) => match name.as_str() {
                 "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
                 "NaN" => Some(StaticObjectIdentityValue::Number(f64::NAN)),
-                _ => self.resolve_static_object_identity_binding(name),
+                _ => self
+                    .resolve_static_object_identity_binding(name)
+                    .or_else(|| {
+                        self.resolve_static_reference_binding_name(name)
+                            .map(StaticObjectIdentityValue::Reference)
+                    }),
             },
             _ => None,
         }
@@ -1257,6 +1310,52 @@ impl TypeContext {
         }
 
         self.global_scope.static_objects.contains_key(name)
+    }
+
+    fn resolve_static_reference_binding_name(&self, name: &str) -> Option<String> {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if let Some(root) = scope.static_reference_values.get(name) {
+                return Some(root.clone());
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_reference_values.get(name).cloned()
+    }
+
+    fn resolve_static_reference_root(&self, expression: &Expression) -> Option<String> {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_reference_root(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => self.resolve_static_reference_root(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_reference_root(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_reference_root(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_reference_root(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(|expression| self.resolve_static_reference_root(expression)),
+            Expression::Identifier(name) => self
+                .resolve_static_reference_binding_name(name)
+                .or_else(|| {
+                    self.resolve_static_object_binding_name(name)
+                        .then(|| name.clone())
+                })
+                .or_else(|| {
+                    self.resolve_static_array_binding_name(name)
+                        .then(|| name.clone())
+                }),
+            _ => None,
+        }
     }
 
     fn resolve_static_object_keys_binding_name(&self, name: &str) -> bool {
@@ -1660,6 +1759,19 @@ impl TypeContext {
             ));
             return true;
         };
+
+        let left_reference = self.resolve_static_object_identity_reference_name(left);
+        let right_reference = self.resolve_static_object_identity_reference_name(right);
+        if let (Some(left_reference), Some(right_reference)) = (left_reference, right_reference) {
+            if left_reference == right_reference {
+                self.resolve_expression(left);
+                self.resolve_expression(right);
+                for arg in expr.args.iter().skip(2) {
+                    self.resolve_expression(arg);
+                }
+                return true;
+            }
+        }
 
         let Some(left_value) = self.resolve_static_object_identity_literal_value(left) else {
             self.diagnostics.push(Diagnostic::error(

@@ -2713,6 +2713,64 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
 }
 
 #[test]
+fn test_resolution_accepts_object_is_with_same_static_reference() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("object".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::Identifier("object".to_string()),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("object".to_string()),
+                    Expression::Identifier("object".to_string()),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_object_is_with_sequence_wrapped_static_primitive_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![

@@ -1401,10 +1401,30 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
 
+            if let (Some(left_ref), Some(right_ref)) = (
+                self.resolve_literal_aggregate(*left),
+                self.resolve_literal_aggregate(*right),
+            ) {
+                if left_ref == right_ref {
+                    for arg in args {
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+
+                    function.instruction(&Instruction::I64Const(1));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Boolean,
+                    };
+                }
+            }
+
             let Some(left_value) = self.resolve_static_object_identity_value(*left) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is is unavailable unless both arguments are statically-known primitive literals or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -1415,7 +1435,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(right_value) = self.resolve_static_object_identity_value(*right) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is is unavailable unless both arguments are statically-known primitive literals or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -2074,8 +2094,8 @@ impl<'a> FunctionEmitter<'a> {
                 };
 
                 function.instruction(&Instruction::I64Const(folded));
-                for arg in args.iter().skip(2) {
-                    let _ = self.emit_node(function, *arg, true);
+                for arg in args.iter().skip(2).copied() {
+                    let _ = self.emit_node(function, arg, true);
                     function.instruction(&Instruction::Drop);
                 }
                 return EmittedValue {
