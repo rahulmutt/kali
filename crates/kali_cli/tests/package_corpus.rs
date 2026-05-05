@@ -9106,6 +9106,58 @@ console.log(codingAgent());
 }
 
 #[test]
+fn json_browser_runtime_corpus_pi_coding_agent_style_package_remains_executable_on_the_browser_surface_in_tsx_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write pi-coding-agent browser runtime source");
+
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        run.status.success(),
+        "pi-coding-agent corpus package content should be executable on the browser surface in TSX input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let run_json = parse_json_stdout(&run);
+    assert_eq!(run_json["command"], "run");
+    assert_eq!(run_json["success"], true);
+    assert_eq!(run_json["exitCode"], 0);
+    assert_eq!(run_json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(run_json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        run_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .lines()
+            .all(|line| line == "0"),
+        "json: {run_json}"
+    );
+}
+
+#[test]
 fn json_browser_runtime_corpus_pi_coding_agent_style_package_remains_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -9139,6 +9191,63 @@ Kali.test('pi-coding-agent browser runtime package', () => { 1 + 1; });
     assert!(
         test.status.success(),
         "pi-coding-agent corpus package content should be testable on the browser surface in JS input with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_json = parse_json_stdout(&test);
+    assert_eq!(test_json["command"], "test");
+    assert_eq!(test_json["success"], true);
+    assert_eq!(test_json["exitCode"], 0);
+    assert_eq!(test_json["payload"]["passed"], 1);
+    assert_eq!(test_json["payload"]["total"], 1);
+    assert_eq!(test_json["payload"]["failed"], 0);
+    assert_eq!(test_json["payload"]["skipped"], 0);
+    assert_eq!(test_json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(test_json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        test_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .lines()
+            .all(|line| line == "0"),
+        "json: {test_json}"
+    );
+}
+
+#[test]
+fn json_browser_runtime_corpus_pi_coding_agent_style_package_remains_testable_on_the_browser_surface_in_tsx_input_when_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.test.tsx");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+Kali.test('pi-coding-agent browser runtime package', () => { 1 + 1; });
+"#,
+    )
+    .expect("write pi-coding-agent browser runtime test source");
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        test.status.success(),
+        "pi-coding-agent corpus package content should be testable on the browser surface in TSX input with json output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&test.stdout),
         String::from_utf8_lossy(&test.stderr)
     );
@@ -9213,7 +9322,7 @@ console.log(codingAgent());
 }
 
 #[test]
-fn browser_runtime_corpus_pi_coding_agent_style_package_remains_testable_on_the_browser_surface_in_js_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+fn browser_runtime_corpus_pi_coding_agent_style_package_remains_executable_on_the_browser_surface_in_tsx_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
     write_manifest(dir.path(), Some("browser"));
@@ -9222,7 +9331,57 @@ fn browser_runtime_corpus_pi_coding_agent_style_package_remains_testable_on_the_
         .join("node_modules/@mariozechner/pi-coding-agent");
     write_pi_coding_agent_style_package(&package_dir);
     write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
-    let source_path = dir.path().join("main.test.js");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        r#"import codingAgent from '@mariozechner/pi-coding-agent';
+console.log(codingAgent());
+"#,
+    )
+    .expect("write pi-coding-agent browser runtime source");
+
+    let run = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(source_path.to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        run.status.success(),
+        "pi-coding-agent corpus package content should be executable on the browser surface in TSX input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&run.stdout),
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let run_json = parse_json_stdout(&run);
+    assert_eq!(run_json["command"], "run");
+    assert_eq!(run_json["success"], true);
+    assert_eq!(run_json["exitCode"], 0);
+    assert_eq!(run_json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(run_json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        run_json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .lines()
+            .all(|line| line == "0"),
+        "json: {run_json}"
+    );
+}
+
+#[test]
+fn browser_runtime_corpus_pi_coding_agent_style_package_remains_testable_on_the_browser_surface_in_tsx_input_when_the_browser_api_surface_is_inherited_and_a_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), Some("browser"));
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+    write_types_stub_package(dir.path(), "@mariozechner/pi-coding-agent");
+    let source_path = dir.path().join("main.test.tsx");
     fs::write(
         &source_path,
         r#"import codingAgent from '@mariozechner/pi-coding-agent';
@@ -9243,7 +9402,7 @@ Kali.test('pi-coding-agent browser runtime package', () => { 1 + 1; });
         .expect("run kali");
     assert!(
         test.status.success(),
-        "pi-coding-agent corpus package content should be testable on the browser surface in JS input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
+        "pi-coding-agent corpus package content should be testable on the browser surface in TSX input when the browser api surface is inherited with json output\nstdout: {}\nstderr: {}",
         String::from_utf8_lossy(&test.stdout),
         String::from_utf8_lossy(&test.stderr)
     );
