@@ -3581,6 +3581,31 @@ fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extensi
     );
 }
 
+fn assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let values = { a: 1 }; for (const key of Object.keys(values)) { console.log(key); }\n",
+    )
+    .expect("write source");
+
+    let error = check_source_file(&source_path, api_surface, &[], false, false)
+        .expect_err("non-literal Object.keys iterator sources should remain gated");
+
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("literal array")
+        }),
+        "unexpected diagnostics: {:?}",
+        error
+    );
+}
+
 fn assert_build_source_file_supports_for_await_array_iteration_with_sequence_wrappers_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -3683,6 +3708,38 @@ fn build_source_file_rejects_for_of_non_literal_iterable_in_ts_input() {
 #[test]
 fn build_source_file_rejects_for_of_non_literal_iterable_in_js_input() {
     assert_build_source_file_rejects_for_of_non_literal_iterable_in_input("js");
+}
+
+#[test]
+fn check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_browser_js_input() {
+    assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_browser_ts_input() {
+    assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_browser_jsx_input() {
+    assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_browser_tsx_input() {
+    assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
 }
 
 #[test]
