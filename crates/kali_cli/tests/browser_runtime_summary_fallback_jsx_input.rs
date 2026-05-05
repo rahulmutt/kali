@@ -375,6 +375,42 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_args_whe
 }
 
 #[test]
+fn json_test_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_array_items_when_browser_harness_is_configured_in_jsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("invalid-tests-array-items.test.jsx");
+    write_jsx_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"stdout\"],\"tests\":[1],\"testsFailed\":4,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser invalid tests array items\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    let json = assert_browser_summary_json(&output);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 0);
+    assert_eq!(json["payload"]["failed"], 8);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("\"testsFailed\":8"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn run_falls_back_to_stdout_when_browser_summary_file_has_invalid_tests_array_items_when_browser_harness_is_configured_in_jsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
