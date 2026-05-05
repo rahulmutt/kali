@@ -14,7 +14,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 The checked-in repository already includes:
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
-- Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, metadata, and deterministic sidecars.
+- Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, metadata, deterministic sidecars, and browser-bundle integer-like `Object.keys` / `Object.values` iteration coverage.
 - Execution/reporting lanes: `run`, `test`, `test --coverage`, public source-graph effects, package effects, package audit, JSON envelopes, and schema-v1 payload validation.
 - Host/API slices: default standalone Deno-oriented APIs, browser-targeted `check` / `build --bundle`, browser-harness-assisted execution where configured, and documented Node-compatible analysis/build/runtime slices.
 - Package evidence: registry/raw-URL/install flows, package-corpus probes by context/rung, registry-analysis commands, and negative evidence for unsupported native/binary/bootstrap-heavy or published-bin-entrypoint cases.

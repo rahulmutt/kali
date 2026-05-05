@@ -1318,7 +1318,12 @@ impl TypeContext {
                         ObjectPropertyKind::Init
                             | ObjectPropertyKind::Get
                             | ObjectPropertyKind::Set
-                    ) && matches!(property.key, PropertyName::String(_))
+                    ) && matches!(
+                        property.key,
+                        PropertyName::Identifier(_)
+                            | PropertyName::Number(_)
+                            | PropertyName::String(_)
+                    )
                 })
             }
             Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
