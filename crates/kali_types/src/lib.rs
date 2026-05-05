@@ -1301,6 +1301,7 @@ impl TypeContext {
                         )
                 })
             }
+            Expression::CallExpression(call) => self.resolve_static_object_from_entries_call(call),
             Expression::Identifier(name) => self.resolve_static_object_binding_name(name),
             _ => false,
         }
@@ -1338,7 +1339,91 @@ impl TypeContext {
                     )
                 })
             }
+            Expression::CallExpression(call) => self.resolve_static_object_from_entries_call(call),
             Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
+            _ => false,
+        }
+    }
+
+    fn resolve_static_object_from_entries_call(&self, call: &CallExpression) -> bool {
+        let Some(callee_name) = Self::call_member_access_name(&call.callee) else {
+            return false;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "Object.fromEntries"
+                | "globalThis.Object.fromEntries"
+                | r#"globalThis["Object"].fromEntries"#
+                | r#"globalThis["Object"]["fromEntries"]"#
+                | r#"globalThis['Object'].fromEntries"#
+                | r#"globalThis['Object']['fromEntries']"#
+                | r#"Object["fromEntries"]"#
+                | r#"Object['fromEntries']"#
+                | r#"globalThis.Object["fromEntries"]"#
+                | r#"globalThis.Object['fromEntries']"#
+        ) {
+            return false;
+        }
+
+        let Some(entries) = call.args.first() else {
+            return false;
+        };
+        if call.args.len() != 1 {
+            return false;
+        }
+
+        self.resolve_static_from_entries_entries(entries)
+    }
+
+    fn resolve_static_from_entries_entries(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_from_entries_entries(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_from_entries_entries(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_from_entries_entries(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_from_entries_entries(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_from_entries_entries(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|expression| self.resolve_static_from_entries_entries(expression)),
+            Expression::ArrayExpression(entries) => entries.elements.iter().all(|entry| {
+                let Some(ExpressionOrSpread::Expression(Expression::ArrayExpression(pair))) = entry
+                else {
+                    return false;
+                };
+
+                if pair.elements.len() != 2 {
+                    return false;
+                }
+
+                let Some(ExpressionOrSpread::Expression(key)) =
+                    pair.elements.first().and_then(|element| element.as_ref())
+                else {
+                    return false;
+                };
+                let Some(ExpressionOrSpread::Expression(value)) =
+                    pair.elements.get(1).and_then(|element| element.as_ref())
+                else {
+                    return false;
+                };
+
+                self.resolve_static_object_identity_literal_value(key)
+                    .is_some()
+                    && self
+                        .resolve_static_object_identity_literal_value(value)
+                        .is_some()
+            }),
             _ => false,
         }
     }

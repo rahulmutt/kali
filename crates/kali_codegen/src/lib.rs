@@ -1309,6 +1309,40 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_object_has_own_call(node, &callee_node) {
+            let Some(object_id) = node.children.get(1).copied() else {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(key_id) = node.children.get(2).copied() else {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(key) = self.render_static_value(key_id) else {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(has_own) = self.static_object_has_own(object_id, &key) else {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            function.instruction(&Instruction::I64Const(if has_own { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if self.is_object_identity_object(&callee_node) && callee_node.text.as_deref() == Some("is")
         {
             let mut args = node.children.iter().skip(1);
@@ -3858,6 +3892,81 @@ impl<'a> FunctionEmitter<'a> {
             produced: false,
             shape: ValueShape::Unknown,
         }
+    }
+
+    fn is_object_has_own_call(&self, node: &LirNode, callee_node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let receiver_text = callee_node
+            .children
+            .first()
+            .and_then(|receiver| self.node(*receiver).text.as_deref())
+            .unwrap_or_default();
+        match callee_node.text.as_deref() {
+            Some(text) if text == "hasOwn" || text.ends_with(".hasOwn") => true,
+            Some("call") if receiver_text.contains("hasOwnProperty") => true,
+            _ => false,
+        }
+    }
+
+    fn is_object_from_entries_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        let _receiver_text = callee_node
+            .children
+            .first()
+            .and_then(|receiver| self.node(*receiver).text.as_deref())
+            .unwrap_or_default();
+        match callee_node.text.as_deref() {
+            Some(text) if text == "fromEntries" || text.ends_with(".fromEntries") => true,
+            _ => false,
+        }
+    }
+
+    fn static_object_has_own(&self, object_id: LirNodeId, key: &str) -> Option<bool> {
+        let object_id = self.resolve_literal_aggregate(object_id)?;
+        let object = self.node(object_id);
+        if self.is_object_literal(object) {
+            return Some(self.object_literal_field(object, key).is_some());
+        }
+
+        if self.is_object_from_entries_call(object) {
+            return self.static_object_from_entries_has_key(object, key);
+        }
+
+        None
+    }
+
+    fn static_object_from_entries_has_key(&self, call: &LirNode, key: &str) -> Option<bool> {
+        let entries_id = call.children.get(1).copied()?;
+        let entries_id = self.resolve_literal_aggregate(entries_id)?;
+        let entries_node = self.node(entries_id);
+        if !self.is_array_literal(entries_node) {
+            return None;
+        }
+
+        for entry_id in &entries_node.children {
+            let entry_id = self.resolve_literal_aggregate(*entry_id)?;
+            let entry_node = self.node(entry_id);
+            if !self.is_array_literal(entry_node) || entry_node.children.len() != 2 {
+                return None;
+            }
+
+            let rendered_key = self.render_static_value(entry_node.children[0])?;
+            if rendered_key == key {
+                return Some(true);
+            }
+        }
+
+        Some(false)
     }
 
     fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {

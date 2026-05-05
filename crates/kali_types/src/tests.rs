@@ -2424,6 +2424,32 @@ fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_inp
 }
 
 #[test]
+fn test_resolution_supports_object_has_own_on_object_from_entries_results_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+Object.hasOwn(fromEntries, "a");
+Object.prototype.hasOwnProperty.call(fromEntries, "b");
+Object.hasOwn(Object.fromEntries([["c", 3], ["d", 4]]), "c");
+Object.prototype.hasOwnProperty.call(Object.fromEntries([["e", 5], ["f", 6]]), "e");
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpers() {
     let mut ctx = TypeContext::new();
     let statements = vec![
