@@ -49,6 +49,44 @@ fn browser_harness_object_keys_test_source() -> &'static str {
 "##
 }
 
+fn browser_harness_object_keys_direct_run_source() -> &'static str {
+    r##"function assertObjectKeysIteration(keys) {
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys iteration semantics');
+  }
+}
+
+function browserDirectObjectKeysIteration() {
+  const keys = [];
+  for (const key of Object.keys({ "b": 1, "a": 2 })) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+}
+
+browserDirectObjectKeysIteration();
+"##
+}
+
+fn browser_harness_object_keys_direct_test_source() -> &'static str {
+    r##"Kali.test('object keys iteration', () => {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+      throw new Error('unexpected Object.keys iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for (const key of Object.keys({ "b": 1, "a": 2 })) {
+    keys.push(key);
+  }
+  assertObjectKeysIteration(keys);
+  console.log('browser object keys iteration ok');
+});
+"##
+}
+
 fn browser_harness_global_object_keys_run_source() -> &'static str {
     r##"function assertObjectKeysIteration(keys) {
   if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
@@ -317,6 +355,172 @@ fn json_test_supports_object_keys_iteration_when_browser_harness_is_configured_i
         "test",
         "smoke.test.tsx",
         browser_harness_object_keys_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.js",
+        browser_harness_object_keys_direct_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.ts",
+        browser_harness_object_keys_direct_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.jsx",
+        browser_harness_object_keys_direct_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.tsx",
+        browser_harness_object_keys_direct_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.js",
+        browser_harness_object_keys_direct_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.ts",
+        browser_harness_object_keys_direct_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_keys_direct_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_object_keys_direct_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.js",
+        browser_harness_object_keys_direct_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_object_keys(
+        "run",
+        "main.ts",
+        browser_harness_object_keys_direct_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input()
+{
+    assert_browser_harness_object_keys(
+        "run",
+        "main.jsx",
+        browser_harness_object_keys_direct_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input()
+{
+    assert_browser_harness_object_keys(
+        "run",
+        "main.tsx",
+        browser_harness_object_keys_direct_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.js",
+        browser_harness_object_keys_direct_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_ts_input()
+{
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.ts",
+        browser_harness_object_keys_direct_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_jsx_input()
+{
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_keys_direct_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured_in_tsx_input()
+{
+    assert_browser_harness_object_keys(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_object_keys_direct_test_source(),
         true,
     );
 }
