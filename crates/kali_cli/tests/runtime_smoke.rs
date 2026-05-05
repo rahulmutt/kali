@@ -39278,6 +39278,82 @@ fn run_and_test_supports_math_atan2_zero_slice_when_browser_harness_is_configure
 }
 
 #[test]
+fn run_and_test_supports_math_atan2_trailing_argument_evaluation_when_browser_harness_is_configured_in_js_input(
+) {
+    for (command, source_name, source, expected_stdout) in [
+        (
+            "run",
+            "main.js",
+            "const bump = () => { console.log(\"bump\"); return 2; }; console.log(Math.atan2(0, 1, bump()));\n",
+            "0",
+        ),
+        (
+            "test",
+            "smoke.test.js",
+            "Kali.test('atan2 trailing argument evaluation', () => { const bump = () => { console.log(\"bump\"); return 2; }; console.log(Math.atan2(0, 1, bump())); });\n",
+            "0\nok 1",
+        ),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, source).expect("write source");
+
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            let output = output
+                .arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg("--max-threads")
+                .arg("0")
+                .arg("--max-spawned-processes")
+                .arg("0")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert_eq!(json["payload"]["hostContract"], "browser-requested");
+                assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+                if command == "run" {
+                    assert_eq!(json["exitCode"], 0);
+                    assert_eq!(json["payload"]["exitCode"], 0);
+                } else {
+                    assert_eq!(json["payload"]["total"], 1);
+                    assert_eq!(json["payload"]["passed"], 1);
+                    assert_eq!(json["payload"]["failed"], 0);
+                }
+                assert!(
+                    json["stdout"].as_str().expect("stdout").contains("bump"),
+                    "json: {json}"
+                );
+                assert_eq!(json["stderr"], "");
+            } else {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                assert!(stdout.contains("bump"), "stdout: {stdout}");
+                assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
+            }
+        }
+    }
+}
+
+#[test]
 fn run_and_test_supports_math_pow_positive_integer_exponent_alias_chain_when_browser_harness_is_configured_in_ts_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
@@ -39492,6 +39568,33 @@ fn json_check_supports_math_atan2_zero_numerator_and_non_negative_denominator_li
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "check");
     assert_eq!(json["success"], true);
+}
+
+#[test]
+fn run_supports_math_atan2_trailing_argument_evaluation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const bump = () => { console.log(\"bump\"); return 2; }; console.log(Math.atan2(0, 1, bump()));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("bump"), "stdout: {stdout}");
+    assert!(stdout.contains('0'), "stdout: {stdout}");
 }
 
 #[test]

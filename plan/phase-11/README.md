@@ -110,7 +110,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: the same permission-query descriptor-object smoke now also covers `.jsx` and `.tsx` inputs on the direct check/build/run/test paths, keeping the source-class matrix aligned with the same wrapper handling and canonical `E5506` gate for unsupported descriptors.
 
 - Progress note: `Math.hypot()` now also lowers to `0` for the empty-argument identity slice, and the current repository snapshot now covers that slice in codegen, build, standalone runtime smoke on the JS path, standalone `run --output json` smoke on the JS path, plus browser bundle and browser-harness smoke in TS, `.js`, `.jsx`, and `.tsx` input; the browser-targeted JSON smoke for that slice now also asserts empty `errors` arrays, and direct build smoke now also covers the empty-argument slice in JSX and TSX input on both the Deno and browser surfaces.
-- Progress note: the trigonometric zero-identity slices now also traverse trailing arguments after the supported `Math.atan2` and `Math.tan` cases, so unresolved trailing operands still surface during resolution instead of being skipped silently.
+- Progress note: the trigonometric zero-identity slices now also traverse trailing arguments after the supported `Math.atan2` and `Math.tan` cases, so unresolved trailing operands still surface during resolution instead of being skipped silently. The standalone runtime smoke now also exercises the supported `Math.atan2` trailing-argument path, and browser-harness run/test JS-input smoke now also keeps that trailing-argument side effect visible in the browser-requested path via an observable side-effect marker.
 
 ### 11.3 Dynamic loading and module semantics
 
