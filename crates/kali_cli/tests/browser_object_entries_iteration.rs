@@ -25,7 +25,13 @@ function browserObjectEntriesIteration() {
   const values = { "b": 1, "a": 2 };
   const alias = values;
   const entries = Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const bracketedEntries = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
 }
 "##
 }
@@ -46,7 +52,13 @@ function assertObjectEntriesIteration(entries) {
 
 function browserDirectObjectEntriesIteration() {
   const entries = Object.entries({ "b": 1, "a": 2 });
+  const mixedEntries = globalThis.Object["entries"]({ "b": 1, "a": 2 });
+  const mixedBracketedEntries = globalThis["Object"].entries({ "b": 1, "a": 2 });
+  const bracketedEntries = globalThis["Object"]["entries"]({ "b": 1, "a": 2 });
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
 }
 "##
 }
@@ -69,8 +81,12 @@ function browserGlobalObjectEntriesIteration() {
   const values = { "b": 1, "a": 2 };
   const alias = values;
   const entries = globalThis.Object.entries(alias);
+  const mixedEntries = globalThis.Object["entries"](alias);
+  const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const bracketed = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketed);
 }
 "##

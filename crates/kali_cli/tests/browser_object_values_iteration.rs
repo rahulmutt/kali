@@ -22,11 +22,21 @@ function browserGlobalObjectValuesIteration() {
   for (const value of globalThis.Object.values(alias)) {
     seen.push(value);
   }
+  const mixed = [];
+  for (const value of globalThis.Object["values"](alias)) {
+    mixed.push(value);
+  }
+  const mixedBracketed = [];
+  for (const value of globalThis["Object"].values(alias)) {
+    mixedBracketed.push(value);
+  }
   const bracketed = [];
   for (const value of globalThis["Object"]["values"](alias)) {
     bracketed.push(value);
   }
   assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(mixed);
+  assertObjectValuesIteration(mixedBracketed);
   assertObjectValuesIteration(bracketed);
 }
 "##
