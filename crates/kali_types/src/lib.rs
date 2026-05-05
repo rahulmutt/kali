@@ -2187,10 +2187,9 @@ impl TypeContext {
 
         if method == "imul" {
             if expr.args.len() < 2 {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
-                ));
+                for arg in &expr.args {
+                    self.resolve_expression(arg);
+                }
                 return;
             }
 

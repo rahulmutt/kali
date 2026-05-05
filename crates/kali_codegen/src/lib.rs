@@ -1593,25 +1593,27 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(import_index) = self.math_imul_import_index(&callee_node) {
             let mut args = node.children.iter().skip(1);
             let Some(left) = args.next() else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
+                function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
+                    produced: true,
+                    shape: ValueShape::Scalar,
                 };
             };
             let Some(right) = args.next() else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.imul requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
+                let produced = self.emit_node(function, *left, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                for arg in args {
+                    let produced = self.emit_node(function, *arg, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+                function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
+                    produced: true,
+                    shape: ValueShape::Scalar,
                 };
             };
 
