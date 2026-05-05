@@ -4273,6 +4273,24 @@ fn build_source_file_supports_for_of_array_iteration_with_parenthesized_const_al
 }
 
 #[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_parenthesized_const_alias_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
 fn build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_ts_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_satisfies_wrapper_in_input(
         ApiSurface::Deno,
