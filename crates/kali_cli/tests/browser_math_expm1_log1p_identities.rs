@@ -168,3 +168,47 @@ fn test_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_
         true,
     );
 }
+
+#[test]
+fn json_run_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "run",
+        "main.jsx",
+        browser_harness_math_expm1_log1p_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "run",
+        "main.tsx",
+        browser_harness_math_expm1_log1p_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_math_expm1_log1p_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_expm1_and_log1p_identity_literals_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_math_expm1_log1p(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_math_expm1_log1p_test_source(),
+        true,
+    );
+}
