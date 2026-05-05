@@ -48,7 +48,7 @@ console.log('browser object fromEntries ok');
     source.replace(
         "  __TS_ONLY__",
         if include_ts_as_const {
-            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  const wrappedFromEntriesConst = Object.fromEntries(wrappedEntriesConst);\n  assertFromEntriesShape(wrappedFromEntriesConst);\n"
+            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  const wrappedFromEntriesConst = Object.fromEntries(wrappedEntriesConst);\n  assertFromEntriesShape(wrappedFromEntriesConst);\n  const wrappedEntriesSatisfies = ([[\"b\", 1], [\"a\", 2]] satisfies unknown);\n  const wrappedFromEntriesSatisfies = Object.fromEntries(wrappedEntriesSatisfies);\n  assertFromEntriesShape(wrappedFromEntriesSatisfies);\n"
         } else {
             ""
         },
@@ -92,7 +92,7 @@ fn browser_harness_object_from_entries_test_source(include_ts_as_const: bool) ->
     source.replace(
         "  __TS_ONLY__",
         if include_ts_as_const {
-            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  assertFromEntriesShape(Object.fromEntries(wrappedEntriesConst));\n"
+            "  const wrappedEntriesConst = ([[\"b\", 1], [\"a\", 2]] as const);\n  assertFromEntriesShape(Object.fromEntries(wrappedEntriesConst));\n  const wrappedEntriesSatisfies = ([[\"b\", 1], [\"a\", 2]] satisfies unknown);\n  assertFromEntriesShape(Object.fromEntries(wrappedEntriesSatisfies));\n"
         } else {
             ""
         },

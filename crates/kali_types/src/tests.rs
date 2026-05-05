@@ -2251,6 +2251,91 @@ Object.prototype.hasOwnProperty.call(alias, "a");
 }
 
 #[test]
+fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "type EntryShape = unknown; const wrappedEntries = ([['b', 1], ['a', 2]] satisfies EntryShape); const fromEntries = Object.fromEntries(wrappedEntries);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "EntryShape".to_string(),
+            type_params: vec![],
+            type_annotation: "unknown".to_string(),
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "wrappedEntries".to_string(),
+                init: Some(Expression::SatisfiesExpression(Box::new(
+                    SatisfiesExpression {
+                        type_name: "EntryShape".to_string(),
+                        expression: Box::new(Expression::ArrayExpression(
+                            kali_ast::ArrayExpression {
+                                elements: vec![
+                                    Some(kali_ast::ExpressionOrSpread::Expression(
+                                        Expression::ArrayExpression(kali_ast::ArrayExpression {
+                                            elements: vec![
+                                                Some(kali_ast::ExpressionOrSpread::Expression(
+                                                    Expression::Literal(LiteralValue::String(
+                                                        "b".to_string(),
+                                                    )),
+                                                )),
+                                                Some(kali_ast::ExpressionOrSpread::Expression(
+                                                    Expression::Literal(LiteralValue::Number(1.0)),
+                                                )),
+                                            ],
+                                        }),
+                                    )),
+                                    Some(kali_ast::ExpressionOrSpread::Expression(
+                                        Expression::ArrayExpression(kali_ast::ArrayExpression {
+                                            elements: vec![
+                                                Some(kali_ast::ExpressionOrSpread::Expression(
+                                                    Expression::Literal(LiteralValue::String(
+                                                        "a".to_string(),
+                                                    )),
+                                                )),
+                                                Some(kali_ast::ExpressionOrSpread::Expression(
+                                                    Expression::Literal(LiteralValue::Number(2.0)),
+                                                )),
+                                            ],
+                                        }),
+                                    )),
+                                ],
+                            },
+                        )),
+                    },
+                ))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "fromEntries".to_string(),
+                init: Some(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "fromEntries".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("wrappedEntries".to_string())],
+                }))),
+            }],
+        }),
+    ];
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpers() {
     let mut ctx = TypeContext::new();
     let statements = vec![
