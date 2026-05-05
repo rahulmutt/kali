@@ -436,3 +436,125 @@ fn test_supports_object_entries_from_entries_iteration_in_ts_input() {
         object_entries_from_entries_iteration_test_source(),
     );
 }
+
+#[test]
+fn run_supports_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, object_keys_iteration_run_source());
+    }
+}
+
+#[test]
+fn test_supports_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration("test", filename, object_keys_iteration_test_source());
+    }
+}
+
+#[test]
+fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, object_keys_iteration_direct_run_source());
+    }
+}
+
+#[test]
+fn test_supports_direct_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration("test", filename, object_keys_iteration_direct_test_source());
+    }
+}
+
+#[test]
+fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, global_object_keys_iteration_run_source());
+    }
+}
+
+#[test]
+fn test_supports_global_object_keys_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration("test", filename, global_object_keys_iteration_test_source());
+    }
+}
+
+#[test]
+fn run_supports_object_values_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, object_values_iteration_run_source());
+    }
+}
+
+#[test]
+fn test_supports_object_values_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration("test", filename, object_values_iteration_test_source());
+    }
+}
+
+#[test]
+fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration(
+            "run",
+            filename,
+            object_keys_from_entries_iteration_run_source(),
+        );
+    }
+}
+
+#[test]
+fn test_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration(
+            "test",
+            filename,
+            object_keys_from_entries_iteration_test_source(),
+        );
+    }
+}
+
+#[test]
+fn run_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration(
+            "run",
+            filename,
+            object_values_from_entries_iteration_run_source(),
+        );
+    }
+}
+
+#[test]
+fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration(
+            "test",
+            filename,
+            object_values_from_entries_iteration_test_source(),
+        );
+    }
+}
+
+#[test]
+fn run_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_object_keys_iteration(
+            "run",
+            filename,
+            object_entries_from_entries_iteration_run_source(),
+        );
+    }
+}
+
+#[test]
+fn test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration(
+            "test",
+            filename,
+            object_entries_from_entries_iteration_test_source(),
+        );
+    }
+}
