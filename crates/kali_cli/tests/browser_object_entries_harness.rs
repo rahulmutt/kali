@@ -146,6 +146,26 @@ fn run_supports_object_entries_iteration_when_browser_harness_is_configured_in_t
 }
 
 #[test]
+fn run_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.jsx",
+        browser_harness_object_entries_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.tsx",
+        browser_harness_object_entries_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_object_entries(
         "test",
@@ -160,6 +180,26 @@ fn test_supports_object_entries_iteration_when_browser_harness_is_configured_in_
     assert_browser_harness_object_entries(
         "test",
         "smoke.test.ts",
+        browser_harness_object_entries_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_entries_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.tsx",
         browser_harness_object_entries_test_source(),
         false,
     );
@@ -186,6 +226,26 @@ fn json_run_supports_object_entries_iteration_when_browser_harness_is_configured
 }
 
 #[test]
+fn json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.jsx",
+        browser_harness_object_entries_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.tsx",
+        browser_harness_object_entries_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_object_entries(
         "test",
@@ -200,6 +260,26 @@ fn json_test_supports_object_entries_iteration_when_browser_harness_is_configure
     assert_browser_harness_object_entries(
         "test",
         "smoke.test.ts",
+        browser_harness_object_entries_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_object_entries_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.tsx",
         browser_harness_object_entries_test_source(),
         true,
     );
