@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_object_has_own_run_source() -> &'static str {
-    r#"const object = { a: 1, "b": 2 };
+    r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
 const wrapped = (0, alias);
 if (
@@ -34,7 +34,7 @@ console.log('browser object hasOwn ok');
 
 fn browser_harness_object_has_own_test_source() -> &'static str {
     r#"Kali.test('object hasOwn primitive literals', () => {
-  const object = { a: 1, "b": 2 };
+  const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
   const wrapped = (0, alias);
   if (

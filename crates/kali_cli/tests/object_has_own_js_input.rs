@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn object_has_own_source() -> &'static str {
-    r#"const object = { a: 1, "b": 2 };
+    r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
 const wrapped = (0, alias);
 if (!Object.hasOwn(wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {

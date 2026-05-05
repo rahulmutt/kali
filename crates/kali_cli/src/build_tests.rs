@@ -1303,7 +1303,7 @@ fn assert_build_source_file_supports_object_has_own_call_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"Object.hasOwn({}, "a"); globalThis.Object.hasOwn({}, "a"); globalThis["Object"]["hasOwn"]({}, "a"); Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a");"#,
+        r#"const object = Object.fromEntries([["a", 1], ["b", 2]]); Object.hasOwn(object, "a"); globalThis.Object.hasOwn(object, "a"); globalThis["Object"]["hasOwn"](object, "a"); Object.prototype.hasOwnProperty.call(object, "a"); globalThis.Object.prototype.hasOwnProperty.call(object, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](object, "a");"#,
     )
     .expect("write source");
 
