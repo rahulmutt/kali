@@ -15,6 +15,14 @@ fn late_browser_tsx_compatibility_source() -> &'static str {
     "Intl; Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); Deno.env.toObject(); Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"][\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"][\"env\"].toObject(); Deno.env.set('KALI_ENV_SET_SMOKE', 'hello'); Deno.env.delete('KALI_ENV_DELETE_SMOKE'); Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"][\"env\"][\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"][\"env\"][\"delete\"]('KALI_ENV_DELETE_SMOKE'); globalThis.Deno[\"env\"].set('KALI_ENV_SET_SMOKE', 'hello'); globalThis.Deno[\"env\"].delete('KALI_ENV_DELETE_SMOKE'); globalThis[\"Deno\"].env[\"set\"]('KALI_ENV_SET_SMOKE', 'hello'); globalThis[\"Deno\"].env[\"delete\"]('KALI_ENV_DELETE_SMOKE'); process.pid; globalThis.process.pid; globalThis[\"process\"].pid; globalThis[\"process\"][\"pid\"]; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"]; Proxy.revocable({}, {}); Object.hasOwn({}, 'a'); Object.prototype.hasOwnProperty.call({}, 'a'); globalThis.Object.prototype[\"hasOwnProperty\"].call({}, 'a'); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call({}, 'a'); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"]; new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"]; new WeakRef(); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"]; globalThis.SharedArrayBuffer; globalThis.Atomics; Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis.Deno[\"connect\"]('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis.Deno[\"listen\"]('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis.Deno[\"serve\"]('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
 }
 
+fn generator_function_source() -> &'static str {
+    "function* main() { yield 1; }\nmain();"
+}
+
+fn async_generator_function_source() -> &'static str {
+    "async function* main() { yield 1; }\nmain();"
+}
+
 fn assert_browser_late_tsx_compatibility_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("E3100"), "stderr: {stderr}");
@@ -213,6 +221,70 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
         source.contains(r#"globalThis["Deno"]["serve"]('127.0.0.1', 0)"#),
         "source: {source}"
     );
+}
+
+#[test]
+fn run_and_test_reject_generator_function_lowering_in_browser_api_surface_tsx_input() {
+    for (command, source_name) in [("run", "main.tsx"), ("test", "smoke.test.tsx")] {
+        for source in [
+            generator_function_source(),
+            async_generator_function_source(),
+        ] {
+            for output_json in [false, true] {
+                let dir = tempdir().expect("tempdir");
+                let source_path = dir.path().join(source_name);
+                fs::write(&source_path, source).expect("write source");
+
+                let mut cli = Command::new(kali_bin());
+                cli.current_dir(dir.path())
+                    .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+                if output_json {
+                    cli.arg("--output").arg("json");
+                }
+                let output = cli
+                    .arg(command)
+                    .arg("--api")
+                    .arg("browser")
+                    .arg("--max-threads")
+                    .arg("0")
+                    .arg("--max-spawned-processes")
+                    .arg("0")
+                    .arg(&source_path)
+                    .output()
+                    .expect("run kali");
+
+                assert!(!output.status.success());
+                assert_eq!(output.status.code(), Some(1));
+                if output_json {
+                    let json = parse_json_stdout(&output);
+                    assert_eq!(json["schemaVersion"], 1);
+                    assert_eq!(json["command"], command);
+                    assert_eq!(json["success"], false);
+                    let errors = json["errors"].as_array().expect("errors array");
+                    assert!(errors.iter().any(|error| error["code"] == "E5506"));
+                    let messages = errors
+                        .iter()
+                        .map(|error| error["message"].as_str().expect("message"))
+                        .collect::<Vec<_>>();
+                    assert!(
+                        messages
+                            .iter()
+                            .any(|message| message.contains("generator function lowering")
+                                || message.contains("yield expressions")),
+                        "messages: {messages:?}"
+                    );
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                    assert!(
+                        stderr.contains("generator function lowering")
+                            || stderr.contains("yield expressions"),
+                        "stderr: {stderr}"
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {
