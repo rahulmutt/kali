@@ -22,7 +22,9 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    serde_json::from_slice(&output.stdout).expect("valid json stdout")
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+    json
 }
 
 #[test]

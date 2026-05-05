@@ -38,6 +38,7 @@ fn assert_browser_summary_json(output: &std::process::Output) -> Value {
     assert_eq!(json["success"], true);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
     json
 }
 
