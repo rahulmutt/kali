@@ -64,6 +64,7 @@ fn assert_browser_bundle_global_this_math_round(filename: &str, json_output: boo
         let payload = envelope["payload"].as_object().expect("payload object");
         assert_eq!(payload["artifactKind"], "bundle");
         assert_eq!(payload["bundleFormat"], "esm");
+        assert_eq!(envelope["errors"], serde_json::Value::Array(vec![]));
     }
 
     let bundle_dir = dir.path().join("app");
@@ -169,6 +170,7 @@ fn assert_browser_harness_global_this_math_round(
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
+        assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("2\n"), "stdout: {stdout}");
