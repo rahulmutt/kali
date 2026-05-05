@@ -1,6 +1,6 @@
 # Kali — Active Implementation Plan
 
-`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks only future work from the current repository state; historical phase checklists are intentionally absent from `plan/`.
+`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks future work from the current checked-in repository state only. Historical phase checklists and progress journals are intentionally not part of the active plan.
 
 ## Plan contract
 
@@ -21,42 +21,40 @@ Normative ownership remains unchanged:
 
 ## Current baseline
 
-The repository has advanced past the original Phase-1 through Phase-10 implementation records. The current checked-in surface includes the core CLI, public effect reporting, registry analysis, coverage reporting, public embedding artifacts, Node/browser/Deno compatibility slices, browser-harness execution, deterministic schema-v1 JSON contracts, PGO/profile validation, optimization evidence, and proof-backed claims for the published boundary.
+The repository is beyond the original MVP and several later surfaces. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`. Current implementation includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, optimization/PGO evidence, package-corpus probes, and proof-backed claims limited to the published proof boundary.
 
-Do not use old phase labels as active task lists. Use the active continuation phases below plus the owning specs.
+Do not reopen completed Phase 1 through Phase 15 work as active tasks. Use the continuation phases below for remaining spec-owned gaps.
 
 ## Active roadmap
 
-The remaining work is organized as continuation phases. Phase numbers intentionally start at 11 to avoid confusing current goals with completed historical phases.
-
 | Phase | Focus | Main outcome |
 |---|---|---|
-| [11](./plan/phase-11/README.md) | Language semantics and conformance closure | Implement or explicitly gate remaining high-value ECMA/TS semantics with conformance evidence |
-| [12](./plan/phase-12/README.md) | Runtime, host, and capability expansion | Complete justified host/runtime APIs, threaded execution semantics, and browser contract hardening |
-| [13](./plan/phase-13/README.md) | Ecosystem compatibility expansion | Grow package support by rung/context without broad npm or Node overclaims |
-| [14](./plan/phase-14/README.md) | Optimization and performance promotion | Turn optimization/PGO work into benchmark-backed, deterministic performance claims |
-| [15](./plan/phase-15/README.md) | Verification and machine-contract widening | Widen Lean and schema coverage while keeping proof and JSON claims exact |
+| [16](./plan/phase-16/README.md) | Semantic closure and conformance promotion | Remaining parser-only or partial language features are either faithfully implemented with evidence or kept behind explicit gates |
+| [17](./plan/phase-17/README.md) | Host/runtime contract expansion | Threading, browser runtime, host APIs, and object-runtime APIs widen only with sandbox/resource/effect contracts |
+| [18](./plan/phase-18/README.md) | Ecosystem compatibility by rung | Package support grows by exact package shape, command, API surface, and support rung |
+| [19](./plan/phase-19/README.md) | Optimization and performance evidence | Optimization/PGO claims become deterministic, benchmark-backed, and mode-specific |
+| [20](./plan/phase-20/README.md) | Verification and machine contracts | Proof boundary, schemas, diagnostics, and CLI JSON contracts widen without claim drift |
 
 ## Dependency order
 
 ```text
-Phase 11 semantic closure
-  ├── feeds Phase 13 package compatibility
-  ├── feeds Phase 14 optimization correctness
-  └── feeds Phase 15 verification models
+Phase 16 semantic closure
+  ├── feeds Phase 18 package compatibility
+  ├── feeds Phase 19 optimization correctness
+  └── feeds Phase 20 formal models
 
-Phase 12 runtime/host expansion
-  ├── gates late host APIs and positive resource-budget claims
-  ├── gates browser-runtime support wording
-  └── feeds Phase 13 package executable/deployable claims
+Phase 17 host/runtime contracts
+  ├── gates thread/resource-budget claims
+  ├── gates standalone browser runtime support wording
+  └── feeds Phase 18 executable/deployable package claims
 
-Phase 13 ecosystem compatibility
-  └── depends on the relevant Phase 11 semantics and Phase 12 host surface
+Phase 18 ecosystem compatibility
+  └── depends on the relevant Phase 16 semantics and Phase 17 host surface
 
-Phase 14 optimization/performance
+Phase 19 optimization/performance
   └── depends on stable semantics and must preserve proof/schema boundaries
 
-Phase 15 verification/contracts
+Phase 20 verification/contracts
   └── may run in parallel, but proof-backed wording changes only after `proofs/BOUNDARY.md` widens
 ```
 

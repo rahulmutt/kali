@@ -1571,7 +1571,7 @@ fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
         ("proofs/BOUNDARY.md", summary),
         ("specs/17-verification.md", summary),
         ("specs/19-feature-maturity.md", proof_backed_phrase),
-        ("plan/phase-15/README.md", "proofs/BOUNDARY.md"),
+        ("plan/phase-20/README.md", "proofs/BOUNDARY.md"),
     ];
 
     for (relative, expected_summary) in summary_docs {
@@ -1583,11 +1583,11 @@ fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     }
 
     let stage_doc =
-        fs::read_to_string(root.join("plan/phase-15/README.md")).expect("read phase 15 doc");
+        fs::read_to_string(root.join("plan/phase-20/README.md")).expect("read phase 20 doc");
     assert!(
         stage_doc.contains("proofs/BOUNDARY.md")
             && stage_doc.contains("sole theorem/property inventory"),
-        "phase 15 doc should point to the canonical proof boundary without duplicating it"
+        "phase 20 doc should point to the canonical proof boundary without duplicating it"
     );
 
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
@@ -1644,25 +1644,24 @@ fn active_plan_tracks_language_semantics_phase() {
     let root = repo_root();
     let plan = fs::read_to_string(root.join("PLAN.md")).expect("read active plan");
     let phase =
-        fs::read_to_string(root.join("plan/phase-11/README.md")).expect("read phase 11 README");
+        fs::read_to_string(root.join("plan/phase-16/README.md")).expect("read phase 16 README");
 
     for expected in [
-        "Phase 11 — Language Semantics and Conformance Closure",
-        "generator lowering",
+        "Phase 16 — Semantic Closure and Conformance Promotion",
+        "generator and async-generator lowering",
         "for...of",
-        "nullish coalescing",
-        "Promise.allSettled",
-        "non-literal `import(expr)`",
-        "Bounded inference",
+        "dynamic import",
+        "bounded-inference contract",
+        "Conformance evidence hygiene",
     ] {
         assert!(
             phase.contains(expected),
-            "phase 11 README should mention {expected}"
+            "phase 16 README should mention {expected}"
         );
     }
 
     assert!(
-        plan.contains("phase-11/README.md"),
+        plan.contains("phase-16/README.md"),
         "top-level PLAN should link the active language phase"
     );
 }
@@ -1975,19 +1974,19 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 fn active_plan_tracks_runtime_host_phase() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-12/README.md")).expect("read phase 12 README");
+        fs::read_to_string(root.join("plan/phase-17/README.md")).expect("read phase 17 README");
 
     for expected in [
-        "Phase 12 — Runtime, Host, and Capability Expansion",
+        "Phase 17 — Host/Runtime Contract Expansion",
         "Threaded runtime semantics",
         "Browser runtime contract",
-        "Late host APIs",
+        "Late host APIs and resources",
         "Late object/runtime APIs",
-        "Keep browser-targeted `check` / `build --bundle` distinct",
+        "Keep browser-targeted `check` / `build --bundle`",
     ] {
         assert!(
             phase.contains(expected),
-            "phase 12 README should mention {expected}"
+            "phase 17 README should mention {expected}"
         );
     }
 }
@@ -1996,10 +1995,10 @@ fn active_plan_tracks_runtime_host_phase() {
 fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-13/README.md")).expect("read phase 13 README");
+        fs::read_to_string(root.join("plan/phase-18/README.md")).expect("read phase 18 README");
 
     for expected in [
-        "Phase 13 — Ecosystem Compatibility Expansion",
+        "Phase 18 — Ecosystem Compatibility by Rung",
         "Package-corpus stewardship",
         "Node ecosystem breadth",
         "Browser package deployability",
@@ -2008,7 +2007,7 @@ fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 13 README should mention {expected}"
+            "phase 18 README should mention {expected}"
         );
     }
 }
@@ -2265,10 +2264,10 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
 fn active_plan_tracks_verification_and_contract_hardening_phase() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-15/README.md")).expect("read phase 15 README");
+        fs::read_to_string(root.join("plan/phase-20/README.md")).expect("read phase 20 README");
 
     for expected in [
-        "Phase 15 — Verification and Machine-Contract Widening",
+        "Phase 20 — Verification and Machine Contracts",
         "Proof-boundary hygiene",
         "Model widening",
         "Proof CI triggers",
@@ -2277,7 +2276,7 @@ fn active_plan_tracks_verification_and_contract_hardening_phase() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 15 README should mention {expected}"
+            "phase 20 README should mention {expected}"
         );
     }
 }
@@ -2286,10 +2285,10 @@ fn active_plan_tracks_verification_and_contract_hardening_phase() {
 fn active_plan_tracks_optimization_phase_without_inventory_journal() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-14/README.md")).expect("read phase 14 README");
+        fs::read_to_string(root.join("plan/phase-19/README.md")).expect("read phase 19 README");
 
     for expected in [
-        "Phase 14 — Optimization and Performance Promotion",
+        "Phase 19 — Optimization and Performance Evidence",
         "Optimization inventory upkeep",
         "Specialization depth",
         "PGO input hardening",
@@ -2298,7 +2297,7 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 14 README should mention {expected}"
+            "phase 19 README should mention {expected}"
         );
     }
 }

@@ -1,4 +1,4 @@
-# Phase 14 — Optimization and Performance Promotion
+# Phase 19 — Optimization and Performance Evidence
 
 ## Goal
 
@@ -14,25 +14,25 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 
 ## Work packets
 
-### 14.1 Optimization inventory upkeep
+### 19.1 Optimization inventory upkeep
 
 - Keep a concise current-evidence inventory of real `fast`, `release`, and `release-advanced` behavior.
 - Update the inventory only when tests prove a mode's behavior.
 - Preserve deterministic artifacts and schema-v1 output contracts.
 
-### 14.2 Specialization depth
+### 19.2 Specialization depth
 
 - Improve layout, representation, and call-shape specialization in claim-aligned slices.
 - Treat `--max-specializations` as an exact upper bound.
 - Preserve fallback paths and JavaScript-visible semantics.
 
-### 14.3 PGO input hardening
+### 19.3 PGO input hardening
 
 - Keep `--profile` as deterministic build-only additive input.
 - Reject malformed, unknown-field, version-mismatched, and nondeterministic profile data.
 - Do not create a fourth build-mode vocabulary.
 
-### 14.4 Benchmark promotion
+### 19.4 Benchmark promotion
 
 - Use version-pinned workload fixtures with hash validation.
 - Promote performance wording only with workload, build mode, baseline, repeatability, and artifact-determinism evidence.
