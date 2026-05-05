@@ -239,6 +239,37 @@ fn run_falls_back_to_stdout_when_browser_summary_file_is_whitespace_only_when_br
 }
 
 #[test]
+fn run_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("empty-summary.tsx");
+    write_tsx_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, ""); process.stdout.write("browser empty summary\n");'"#,
+        )
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("browser empty summary"), "stdout: {stdout}");
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
+
+#[test]
 fn json_test_falls_back_to_stdout_when_browser_summary_file_is_empty_when_browser_harness_is_configured_in_tsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
