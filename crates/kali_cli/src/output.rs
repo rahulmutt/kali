@@ -1776,11 +1776,18 @@ pub fn diagnostic_to_json(
         .and_then(|span| source_path.and_then(|path| source_text.map(|text| (path, text, span))))
         .map(|(path, text, span)| span_to_json(path, text, span))
         .unwrap_or_else(|| synthetic_span(source_path));
+    let file = span
+        .get("file")
+        .and_then(Value::as_str)
+        .map(|file| json!(file));
 
     let mut diagnostic_json = Map::new();
     diagnostic_json.insert("severity".to_string(), json!(severity));
     diagnostic_json.insert("code".to_string(), json!(code));
     diagnostic_json.insert("message".to_string(), json!(diagnostic.message));
+    if let Some(file) = file {
+        diagnostic_json.insert("file".to_string(), file);
+    }
     diagnostic_json.insert("span".to_string(), span);
     diagnostic_json.insert("labels".to_string(), Value::Array(Vec::new()));
     diagnostic_json.insert("help".to_string(), json!(diagnostic.suggestion));

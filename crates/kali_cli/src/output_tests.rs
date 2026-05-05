@@ -1,11 +1,15 @@
+use kali_common::{FileId, Span};
+use kali_error::{_error_codes::e5, Diagnostic};
 use serde_json::json;
+use std::path::Path;
 
 use crate::output::{
-    emit_envelope_value, validate_check_payload_value, validate_doctor_payload_value,
-    validate_effects_payload_value, validate_envelope_value, validate_fmt_payload_value,
-    validate_init_payload_value, validate_install_payload_value, validate_lint_payload_value,
-    validate_package_audit_payload_value, validate_package_effects_payload_value,
-    validate_run_payload_value, validate_test_payload_value,
+    diagnostic_to_json, emit_envelope_value, validate_check_payload_value,
+    validate_doctor_payload_value, validate_effects_payload_value, validate_envelope_value,
+    validate_fmt_payload_value, validate_init_payload_value, validate_install_payload_value,
+    validate_lint_payload_value, validate_package_audit_payload_value,
+    validate_package_effects_payload_value, validate_run_payload_value,
+    validate_test_payload_value,
 };
 
 fn assert_payload_accepts_schema_permitted_extension_key(
@@ -96,6 +100,21 @@ fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_test_text_output()
     assert_eq!(object["stdout"], json!("stdout text"));
     assert_eq!(object["stderr"], json!("stderr text"));
     assert_eq!(object["exitCode"], json!(0));
+}
+
+#[test]
+fn diagnostic_json_includes_the_top_level_file_mirror() {
+    let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "message")
+        .with_span(Span::new(FileId::new(1), 0, 4));
+    let value = diagnostic_to_json(
+        &diagnostic,
+        Some(Path::new("src/main.ts")),
+        Some("test"),
+        "error",
+    );
+
+    assert_eq!(value["file"], json!("src/main.ts"));
+    assert_eq!(value["span"]["file"], json!("src/main.ts"));
 }
 
 #[test]
