@@ -2777,6 +2777,26 @@ fn supported_for_of_array_iteration_accepts_spread_of_parenthesized_const_bound_
         .expect("generated wasm should validate");
 }
 
+fn assert_nullish_assignment_lowers(source: &str) {
+    let program = parse_and_lower_lir(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_nullish_coalescing_lowers(source: &str) {
     let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
@@ -2801,6 +2821,11 @@ fn assert_nullish_coalescing_lowers(source: &str) {
 fn nullish_coalescing_lowers_for_supported_input_shapes() {
     assert_nullish_coalescing_lowers("console.log(null ?? 1);");
     assert_nullish_coalescing_lowers("console.log(undefined ?? 1);");
+}
+
+#[test]
+fn nullish_assignment_lowers_for_wrapped_mutable_local_binding_targets() {
+    assert_nullish_assignment_lowers("let value = null; ((value)) ??= 1; console.log(value);");
 }
 
 #[test]
