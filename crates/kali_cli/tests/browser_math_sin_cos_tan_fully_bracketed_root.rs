@@ -184,6 +184,26 @@ fn run_and_test_supports_fully_bracketed_global_this_math_sin_cos_tan_identities
             "smoke.test.ts",
             browser_harness_fully_bracketed_global_this_math_sin_cos_tan_test_source(),
         ),
+        (
+            "run",
+            "main.jsx",
+            browser_harness_fully_bracketed_global_this_math_sin_cos_tan_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            browser_harness_fully_bracketed_global_this_math_sin_cos_tan_test_source(),
+        ),
+        (
+            "run",
+            "main.tsx",
+            browser_harness_fully_bracketed_global_this_math_sin_cos_tan_run_source(),
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
+            browser_harness_fully_bracketed_global_this_math_sin_cos_tan_test_source(),
+        ),
     ] {
         for output_json in [false, true] {
             let dir = tempdir().expect("tempdir");
