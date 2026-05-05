@@ -1784,6 +1784,32 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            let base_zero = self
+                .render_static_value(*base)
+                .and_then(|rendered| parse_numeric_literal_value(&rendered))
+                .is_some_and(|value| value == 0.0);
+            let exponent_positive_integer = self
+                .render_static_value(*exponent)
+                .and_then(|rendered| parse_numeric_literal_value(&rendered))
+                .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+            if base_zero && exponent_positive_integer {
+                let _ = self.emit_node(function, *base, true);
+                function.instruction(&Instruction::Drop);
+                let _ = self.emit_node(function, *exponent, true);
+                function.instruction(&Instruction::Drop);
+                for arg in args {
+                    let produced = self.emit_node(function, *arg, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
             let base_identity = self
                 .render_static_value(*base)
                 .and_then(|rendered| parse_numeric_literal_value(&rendered))

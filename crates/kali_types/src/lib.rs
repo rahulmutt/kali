@@ -2020,6 +2020,15 @@ impl TypeContext {
             let exponent_is_static_zero = self
                 .resolve_static_numeric_literal_value(expr.args.get(1).unwrap())
                 .is_some_and(|value| value == 0.0);
+            let base_is_static_zero = self
+                .resolve_static_numeric_literal_value(expr.args.first().unwrap())
+                .is_some_and(|value| value == 0.0);
+            let exponent_is_positive_integer = self
+                .resolve_static_numeric_literal_value(expr.args.get(1).unwrap())
+                .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+            if base_is_static_zero && exponent_is_positive_integer {
+                return;
+            }
 
             if !exponent_is_static_zero
                 && expr
