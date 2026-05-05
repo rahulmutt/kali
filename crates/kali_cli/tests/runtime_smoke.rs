@@ -41241,6 +41241,46 @@ fn json_build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_js
 }
 
 #[test]
+fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_in_jsx_and_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+
+    for extension in ["tsx", "jsx"] {
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
+
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            let output = output
+                .arg("build")
+                .arg("--bundle")
+                .arg("--api")
+                .arg("browser")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], "build");
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_unsupported_math_member_calls_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_unsupported_math_member_calls_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
 fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.js");
@@ -41304,6 +41344,55 @@ fn json_build_rejects_unsupported_math_member_calls_in_inherited_browser_api_sur
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
     assert_unsupported_math_member_calls_rejection_json(errors);
+}
+
+#[test]
+fn build_rejects_unsupported_math_member_calls_in_inherited_browser_api_surface_in_jsx_and_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+
+    for extension in ["tsx", "jsx"] {
+        let source_path = dir.path().join(format!("app.{extension}"));
+        fs::write(&source_path, "console.log(Math.sqrt(1.6));\n").expect("write source");
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+        )
+        .expect("write manifest");
+
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            let output = output
+                .arg("build")
+                .arg("--bundle")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], "build");
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_unsupported_math_member_calls_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_unsupported_math_member_calls_rejection_text(&stderr);
+            }
+        }
+    }
 }
 
 #[test]
