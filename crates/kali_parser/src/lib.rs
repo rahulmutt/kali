@@ -1725,12 +1725,22 @@ impl Parser {
                 }
 
                 let _ = self.stream.advance();
-                let expr = self.parse_expression();
-                // Expect closing paren
+                let first = self.parse_expression();
+                let mut expressions = vec![first];
+                while self.stream.accept(TokenType::Comma) {
+                    expressions.push(self.parse_expression());
+                }
                 let _ = self.stream.accept(TokenType::RightParen);
-                Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
-                    expression: Box::new(expr),
-                }))
+
+                match expressions.len() {
+                    0 => Expression::Literal(kali_ast::LiteralValue::Null),
+                    1 => Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
+                        expression: Box::new(expressions.pop().unwrap()),
+                    })),
+                    _ => Expression::SequenceExpression(Box::new(kali_ast::SequenceExpression {
+                        expressions,
+                    })),
+                }
             }
             TokenType::LeftBracket => {
                 let _ = self.stream.advance();

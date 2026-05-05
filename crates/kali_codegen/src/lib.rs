@@ -809,9 +809,9 @@ impl<'a> FunctionEmitter<'a> {
             let node = self.node(id);
             if node.kind == LirNodeKind::Value
                 && node.text.as_deref().is_some_and(|text| text.is_empty())
-                && node.children.len() == 1
+                && !node.children.is_empty()
             {
-                id = node.children[0];
+                id = *node.children.last().expect("sequence wrapper has a child");
                 continue;
             }
 
@@ -3822,6 +3822,10 @@ impl<'a> FunctionEmitter<'a> {
         if matches!(node.text.as_deref(), Some("const" | "let" | "var")) {
             let declarator = node.children.first().copied()?;
             return self.node(declarator).text.clone();
+        }
+
+        if node.text.as_deref().is_some_and(|text| text.is_empty()) && !node.children.is_empty() {
+            return self.for_of_binding_name_from_node(*node.children.last().expect("wrapper child"));
         }
 
         if node.text.is_none() && node.children.len() == 1 {

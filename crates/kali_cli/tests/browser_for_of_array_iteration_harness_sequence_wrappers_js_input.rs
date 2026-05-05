@@ -16,7 +16,7 @@ for (const item of (0, [(0, 1), (0, 2)])) {
 "##
 }
 
-fn assert_browser_harness_for_of_sequence_wrapper_is_gated(command: &str, json_output: bool) {
+fn assert_browser_harness_for_of_sequence_wrapper(command: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(&source_path, for_of_sequence_source()).expect("write source");
@@ -40,53 +40,57 @@ fn assert_browser_harness_for_of_sequence_wrapper_is_gated(command: &str, json_o
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "expected sequence wrappers to remain gated"
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert_eq!(output.status.code(), Some(0));
 
     if json_output {
         let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
-        assert_eq!(json["success"], false);
-        assert_eq!(json["exitCode"], 1);
-        assert!(json["errors"]
-            .as_array()
-            .expect("errors array")
-            .iter()
-            .any(|error| {
-                error["code"] == "E5506"
-                    && error["message"]
-                        .as_str()
-                        .expect("error message")
-                        .contains("for-of array iteration lowering is unavailable")
-            }));
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        assert!(json["stdout"]
+            .as_str()
+            .expect("stdout string")
+            .contains("1"));
+        assert!(json["stdout"]
+            .as_str()
+            .expect("stdout string")
+            .contains("2"));
+        assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1"), "stdout: {stdout}");
+        assert!(stdout.contains("2"), "stdout: {stdout}");
     }
 }
 
 #[test]
-fn run_rejects_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
+fn run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper_is_gated("run", false);
+    assert_browser_harness_for_of_sequence_wrapper("run", false);
 }
 
 #[test]
-fn test_rejects_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
+fn test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper_is_gated("test", false);
+    assert_browser_harness_for_of_sequence_wrapper("test", false);
 }
 
 #[test]
-fn json_run_rejects_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
+fn json_run_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper_is_gated("run", true);
+    assert_browser_harness_for_of_sequence_wrapper("run", true);
 }
 
 #[test]
-fn json_test_rejects_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
+fn json_test_supports_for_of_array_iteration_with_sequence_wrappers_in_browser_api_surface_with_harness_js_input(
 ) {
-    assert_browser_harness_for_of_sequence_wrapper_is_gated("test", true);
+    assert_browser_harness_for_of_sequence_wrapper("test", true);
 }

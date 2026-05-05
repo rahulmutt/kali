@@ -610,11 +610,26 @@ impl TypeContext {
         }
     }
 
+    fn unwrap_for_of_wrapper_expression<'a>(&self, expression: &'a Expression) -> &'a Expression {
+        let mut current = expression;
+        loop {
+            current = match current {
+                Expression::ParenthesizedExpression(expr) => &expr.expression,
+                Expression::TypeAssertion(expr) => &expr.expression,
+                Expression::SatisfiesExpression(expr) => &expr.expression,
+                Expression::ChainExpression(expr) => &expr.expression,
+                Expression::DecoratedExpression(expr) => &expr.expression,
+                Expression::SequenceExpression(expr) => match expr.expressions.last() {
+                    Some(expression) => expression,
+                    None => return current,
+                },
+                _ => return current,
+            };
+        }
+    }
+
     fn is_static_array_iteration_target(&self, expression: &Expression) -> bool {
-        match expression {
-            Expression::ParenthesizedExpression(parenthesized) => {
-                self.is_static_array_iteration_target(&parenthesized.expression)
-            }
+        match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::ArrayExpression(array) => {
                 array.elements.iter().all(|element| match element {
                     Some(ExpressionOrSpread::Expression(expr)) => {
@@ -627,81 +642,27 @@ impl TypeContext {
                 })
             }
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
-            Expression::TypeAssertion(expr) => {
-                self.is_static_array_iteration_target(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.is_static_array_iteration_target(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.is_static_array_iteration_target(&expr.expression)
-            }
-            Expression::SequenceExpression(expr) => expr
-                .expressions
-                .last()
-                .is_some_and(|expression| self.is_static_array_iteration_target(expression)),
-            Expression::DecoratedExpression(expr) => {
-                self.is_static_array_iteration_target(&expr.expression)
-            }
             _ => false,
         }
     }
 
     fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
-        match expression {
+        match self.unwrap_for_of_wrapper_expression(expression) {
             Expression::Literal(_) => true,
             Expression::Identifier(_) => {
                 self.resolve_static_numeric_literal_value(expression)
                     .is_some()
                     || self.resolve_static_string_expression(expression).is_some()
             }
-            Expression::ParenthesizedExpression(expr) => {
-                self.is_static_array_iteration_element(&expr.expression)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.is_static_array_iteration_element(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.is_static_array_iteration_element(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.is_static_array_iteration_element(&expr.expression)
-            }
-            Expression::SequenceExpression(expr) => expr
-                .expressions
-                .last()
-                .is_some_and(|expression| self.is_static_array_iteration_element(expression)),
-            Expression::DecoratedExpression(expr) => {
-                self.is_static_array_iteration_element(&expr.expression)
-            }
             _ => false,
         }
     }
 
     fn is_simple_for_of_binding_expression(&self, expression: &Expression) -> bool {
-        match expression {
-            Expression::Identifier(_) => true,
-            Expression::ParenthesizedExpression(expr) => {
-                self.is_simple_for_of_binding_expression(&expr.expression)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.is_simple_for_of_binding_expression(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.is_simple_for_of_binding_expression(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.is_simple_for_of_binding_expression(&expr.expression)
-            }
-            Expression::SequenceExpression(expr) => expr
-                .expressions
-                .last()
-                .is_some_and(|expression| self.is_simple_for_of_binding_expression(expression)),
-            Expression::DecoratedExpression(expr) => {
-                self.is_simple_for_of_binding_expression(&expr.expression)
-            }
-            _ => false,
-        }
+        matches!(
+            self.unwrap_for_of_wrapper_expression(expression),
+            Expression::Identifier(_)
+        )
     }
 
     fn is_simple_update_target_expression(&self, expression: &Expression) -> bool {

@@ -794,7 +794,7 @@ impl HirLowerer {
                 id
             }
             Expression::SequenceExpression(expr) => {
-                let id = self.builder.alloc(HirNodeKind::SequenceExpr, None);
+                let id = self.builder.alloc_text(HirNodeKind::SequenceExpr, None, "");
                 for subexpr in &expr.expressions {
                     push_child!(self, id, self.lower_expression(subexpr));
                 }
