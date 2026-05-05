@@ -4023,31 +4023,100 @@ impl<'a> FunctionEmitter<'a> {
         mode: ObjectEnumerationMode,
         items: &mut Vec<LirNodeId>,
     ) -> bool {
-        if !self.is_object_literal(node) {
+        if self.is_object_literal(node) {
+            for child in &node.children {
+                let property = self.node(*child);
+                if property.children.len() != 2 {
+                    return false;
+                }
+
+                let key = property.children[0];
+                let key_node = self.node(key);
+                if key_node.kind != LirNodeKind::Literal || key_node.text.is_none() {
+                    return false;
+                }
+
+                match mode {
+                    ObjectEnumerationMode::Keys => items.push(key),
+                    ObjectEnumerationMode::Values => items.push(property.children[1]),
+                    ObjectEnumerationMode::Entries => {
+                        let pair = self.alloc_scratch_node(
+                            LirNodeKind::Value,
+                            None,
+                            vec![key, property.children[1]],
+                        );
+                        items.push(pair);
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        if self.is_object_from_entries_call(node) {
+            return self.collect_object_from_entries_iteration_items(node, mode, items);
+        }
+
+        false
+    }
+
+    fn collect_object_from_entries_iteration_items(
+        &mut self,
+        node: &LirNode,
+        mode: ObjectEnumerationMode,
+        items: &mut Vec<LirNodeId>,
+    ) -> bool {
+        let Some(entries_id) = node.children.get(1).copied() else {
+            return false;
+        };
+        let Some(entries_id) = self.resolve_literal_aggregate(entries_id) else {
+            return false;
+        };
+        let entries_node = self.node(entries_id).clone();
+        if !self.is_array_literal(&entries_node) {
             return false;
         }
 
-        for child in &node.children {
-            let property = self.node(*child);
-            if property.children.len() != 2 {
+        let mut ordered = Vec::with_capacity(entries_node.children.len());
+        for entry_id in &entries_node.children {
+            let Some(entry_id) = self.resolve_literal_aggregate(*entry_id) else {
+                return false;
+            };
+            let entry_node = self.node(entry_id).clone();
+            if !self.is_array_literal(&entry_node) || entry_node.children.len() != 2 {
                 return false;
             }
 
-            let key = property.children[0];
-            let key_node = self.node(key);
-            if key_node.kind != LirNodeKind::Literal || key_node.text.is_none() {
+            let Some(key_text) = self.render_static_value(entry_node.children[0]) else {
                 return false;
+            };
+            let value_id = entry_node.children[1];
+            if let Some((_, existing_value)) = ordered
+                .iter_mut()
+                .find(|(existing_key, _)| existing_key == &key_text)
+            {
+                *existing_value = value_id;
+            } else {
+                ordered.push((key_text, value_id));
             }
+        }
 
+        for (key_text, value_id) in ordered {
             match mode {
-                ObjectEnumerationMode::Keys => items.push(key),
-                ObjectEnumerationMode::Values => items.push(property.children[1]),
+                ObjectEnumerationMode::Keys => items.push(self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(format!("{key_text:?}")),
+                    vec![],
+                )),
+                ObjectEnumerationMode::Values => items.push(value_id),
                 ObjectEnumerationMode::Entries => {
-                    let pair = self.alloc_scratch_node(
-                        LirNodeKind::Value,
-                        None,
-                        vec![key, property.children[1]],
+                    let key = self.alloc_scratch_node(
+                        LirNodeKind::Literal,
+                        Some(format!("{key_text:?}")),
+                        vec![],
                     );
+                    let pair =
+                        self.alloc_scratch_node(LirNodeKind::Value, None, vec![key, value_id]);
                     items.push(pair);
                 }
             }

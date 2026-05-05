@@ -114,6 +114,32 @@ fn object_values_iteration_test_source() -> &'static str {
 "#
 }
 
+fn object_keys_from_entries_iteration_run_source() -> &'static str {
+    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+const keys = [];
+for (const key of Object.keys(fromEntries)) {
+  keys.push(key);
+}
+if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+  throw new Error('unexpected Object.keys(Object.fromEntries(...)) iteration semantics');
+}
+"#
+}
+
+fn object_keys_from_entries_iteration_test_source() -> &'static str {
+    r#"Kali.test('object keys fromEntries iteration', () => {
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+  const keys = [];
+  for (const key of Object.keys(fromEntries)) {
+    keys.push(key);
+  }
+  if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
+    throw new Error('unexpected Object.keys(Object.fromEntries(...)) iteration semantics');
+  }
+});
+"#
+}
+
 fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -246,5 +272,41 @@ fn test_supports_object_values_iteration_in_ts_input() {
         "test",
         "smoke.test.ts",
         object_values_iteration_test_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_keys_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.js",
+        object_keys_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_keys_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.ts",
+        object_keys_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_keys_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.js",
+        object_keys_from_entries_iteration_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_keys_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.ts",
+        object_keys_from_entries_iteration_test_source(),
     );
 }
