@@ -65962,6 +65962,36 @@ fn package_audit_command_emits_envelope() {
 }
 
 #[test]
+fn package_audit_preview_flag_is_rejected_before_registry_lookup() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--preview")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
+    assert!(
+        !output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--preview"), "stderr: {stderr}");
+    assert!(stderr.contains("package-audit"), "stderr: {stderr}");
+}
+
+#[test]
 fn package_audit_ignores_inherited_analysis_context() {
     let dir = tempdir().expect("tempdir");
     fs::write(
