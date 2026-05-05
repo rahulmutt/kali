@@ -65980,6 +65980,59 @@ fn package_audit_rejects_preview_compatibility_shim_in_json_output() {
 }
 
 #[test]
+fn package_audit_rejects_preview_compatibility_shim_without_package_argument() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--output")
+        .arg("json")
+        .arg("--preview")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    assert!(
+        output.stderr.is_empty(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("`--preview` is no longer accepted for package-audit"),
+        "errors: {errors:?}"
+    );
+    assert!(json["stdout"].is_null());
+    assert!(json["warnings"]
+        .as_array()
+        .expect("warnings array")
+        .is_empty());
+}
+
+#[test]
 fn package_audit_rejects_package_analysis_specific_flags() {
     let dir = tempdir().expect("tempdir");
     let policy_path = dir.path().join("kali.policy.json");
