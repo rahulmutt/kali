@@ -29976,33 +29976,73 @@ fn build_emits_library_artifacts_and_metadata() {
     );
 }
 
-#[test]
-fn build_rejects_function_declaration_export_aliases_for_library_artifact_in_jsx_and_tsx_input() {
-    for extension in ["jsx", "tsx"] {
-        let dir = tempdir().expect("tempdir");
-        let source_path = dir.path().join(format!("math.{extension}"));
-        fs::write(
-            &source_path,
-            "export function main(input) { return 1; } export { main as alias };",
-        )
-        .expect("write source");
+fn assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+    extension: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("math.{extension}"));
+    fs::write(
+        &source_path,
+        "export function main(input) { return 1; } export { main as alias };",
+    )
+    .expect("write source");
 
-        let output = Command::new(kali_bin())
-            .current_dir(dir.path())
-            .arg("build")
-            .arg("--lib")
-            .arg(&source_path)
-            .output()
-            .expect("run kali");
+    let mut command = Command::new(kali_bin());
+    command.current_dir(dir.path()).arg("build").arg("--lib");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
 
-        assert!(!output.status.success());
-        assert_eq!(output.status.code(), Some(1));
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let envelope = parse_json_stdout(&output);
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["success"], false);
+        let errors = envelope["errors"].as_array().expect("errors array");
+        assert!(!errors.is_empty(), "errors array should not be empty");
+        assert!(
+            errors.iter().any(|error| error["code"] == "E3100"),
+            "expected E3100 in {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("alias")),
+            "expected alias diagnostic in {errors:?}"
+        );
+    } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E3100"), "stderr: {stderr}");
         assert!(stderr.contains("alias"), "stderr: {stderr}");
-        assert!(!dir.path().join("math.lib.wasm").exists());
-        assert!(!dir.path().join("math.lib.wit").exists());
-        assert!(!dir.path().join("math.lib.meta.json").exists());
+    }
+
+    assert!(!dir.path().join("math.lib.wasm").exists());
+    assert!(!dir.path().join("math.lib.wit").exists());
+    assert!(!dir.path().join("math.lib.meta.json").exists());
+}
+
+#[test]
+fn build_rejects_function_declaration_export_aliases_for_library_artifact_in_all_input_classes() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+            extension, false,
+        );
+    }
+}
+
+#[test]
+fn json_build_rejects_function_declaration_export_aliases_for_library_artifact_in_all_input_classes(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+            extension, true,
+        );
     }
 }
 
