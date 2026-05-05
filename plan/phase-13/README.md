@@ -42,6 +42,7 @@ Broaden package compatibility with support-rung evidence instead of broad npm or
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
 - Do not add batch, raw-URL, local-path, or project-discovery behavior without spec/schema revisions.
 - Progress note: `package-audit --preview` remains a hidden legacy shim that is rejected before registry lookup, and the CLI parser surface now has a direct regression covering that command shape; the rejection now also fires even when the package argument is omitted, so the deprecated shim stays ahead of package-target validation.
+- Progress note: `package-effects --output json` now has regression coverage for inherited browser runtime-profile contexts and quiet eval contexts, with the success envelope asserting the schema-v1 command metadata plus empty `errors` / `warnings` arrays alongside the package-analysis report payload.
 
 ## Exit gate
 
