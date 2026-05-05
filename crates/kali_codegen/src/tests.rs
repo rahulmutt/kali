@@ -630,6 +630,28 @@ fn math_sign_member_constant_folds_static_numeric_literal_alias_chains() {
 }
 
 #[test]
+fn math_abs_and_sign_member_calls_lower_through_bracketed_global_this_math_root() {
+    let program = parse_and_lower_lir(
+        "console.log(globalThis[\"Math\"][\"abs\"](3 - 6)); console.log(globalThis[\"Math\"][\"sign\"](3 - 6));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains(r#"import "kali:rt" "math_abs""#));
+    assert!(printed.contains(r#"import "kali:rt" "math_sign""#));
+}
+
+#[test]
 fn math_imul_member_calls_lower_to_math_host_imports() {
     let program = parse_and_lower_lir("console.log(Math.imul(2147483647, 2));");
     let mut ctx = CodegenCtx::new(TargetConfig {
