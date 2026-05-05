@@ -119,10 +119,24 @@ fn run_supports_global_object_keys_iteration_in_js_input() {
 }
 
 #[test]
+fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input() {
+    for filename in ["main.ts", "main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, global_object_keys_iteration_run_source());
+    }
+}
+
+#[test]
 fn test_supports_global_object_keys_iteration_in_js_input() {
     assert_object_keys_iteration(
         "test",
         "smoke.test.js",
         global_object_keys_iteration_test_source(),
     );
+}
+
+#[test]
+fn test_supports_global_object_keys_iteration_in_ts_jsx_tsx_input() {
+    for filename in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+        assert_object_keys_iteration("test", filename, global_object_keys_iteration_test_source());
+    }
 }

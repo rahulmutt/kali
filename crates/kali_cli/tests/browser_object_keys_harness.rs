@@ -361,3 +361,55 @@ fn json_test_supports_global_object_keys_iteration_when_browser_harness_is_confi
         true,
     );
 }
+
+#[test]
+fn run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    for filename in ["main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_object_keys(
+            "run",
+            filename,
+            browser_harness_global_object_keys_run_source(),
+            false,
+        );
+    }
+}
+
+#[test]
+fn test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    for filename in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+        assert_browser_harness_object_keys(
+            "test",
+            filename,
+            browser_harness_global_object_keys_test_source(),
+            false,
+        );
+    }
+}
+
+#[test]
+fn json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    for filename in ["main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_object_keys(
+            "run",
+            filename,
+            browser_harness_global_object_keys_run_source(),
+            true,
+        );
+    }
+}
+
+#[test]
+fn json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    for filename in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+        assert_browser_harness_object_keys(
+            "test",
+            filename,
+            browser_harness_global_object_keys_test_source(),
+            true,
+        );
+    }
+}
