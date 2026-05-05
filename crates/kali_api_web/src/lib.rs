@@ -728,6 +728,26 @@ impl Storage {
     pub fn snapshot(&self) -> BTreeMap<String, String> {
         self.values.lock().expect("storage mutex poisoned").clone()
     }
+
+    /// Alias for the deterministic storage snapshot helper.
+    pub fn snapshot_object_value(&self) -> BTreeMap<String, String> {
+        self.snapshot()
+    }
+
+    /// Return the storage snapshot as a JSON object value.
+    pub fn snapshot_value(&self) -> Value {
+        Value::Object(
+            self.snapshot()
+                .into_iter()
+                .map(|(key, value)| (key, Value::String(value)))
+                .collect(),
+        )
+    }
+
+    /// Alias for the deterministic JSON-ready storage snapshot helper.
+    pub fn snapshot_json_value(&self) -> Value {
+        self.snapshot_value()
+    }
 }
 
 /// Return the shared in-memory `localStorage` bucket.

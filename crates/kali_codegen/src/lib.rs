@@ -3825,7 +3825,8 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         if node.text.as_deref().is_some_and(|text| text.is_empty()) && !node.children.is_empty() {
-            return self.for_of_binding_name_from_node(*node.children.last().expect("wrapper child"));
+            return self
+                .for_of_binding_name_from_node(*node.children.last().expect("wrapper child"));
         }
 
         if node.text.is_none() && node.children.len() == 1 {
