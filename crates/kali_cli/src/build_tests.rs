@@ -1265,7 +1265,7 @@ fn assert_build_source_file_supports_object_has_own_call_in_input(
     assert!(!output.wasm_bytes.is_empty());
 }
 
-fn assert_build_source_file_supports_object_is_numeric_literal_in_input(
+fn assert_build_source_file_supports_object_is_primitive_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -1273,7 +1273,7 @@ fn assert_build_source_file_supports_object_is_numeric_literal_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"const zero = 0; const zeroAlias = zero; console.log(Object.is(zeroAlias, -0)); console.log(globalThis["Object"]["is"](0, zeroAlias));"#,
+        r#"const zero = 0; const zeroAlias = zero; console.log(Object.is(zeroAlias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is("hello", "hello")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(globalThis["Object"]["is"](+1, 1)); console.log(globalThis.Object["is"](+1, 1)); console.log(globalThis["Object"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));"#,
     )
     .expect("write source");
 
@@ -1287,17 +1287,17 @@ fn assert_build_source_file_supports_object_is_numeric_literal_in_input(
         None,
         None,
     )
-    .expect("Object.is numeric literal build should succeed");
+    .expect("Object.is primitive-literal build should succeed");
 
     assert!(!output.wasm_bytes.is_empty());
 }
 
 #[test]
-fn build_source_file_supports_object_is_numeric_literal_in_deno_and_browser_ts_js_jsx_and_tsx_input(
+fn build_source_file_supports_object_is_primitive_literals_in_deno_and_browser_ts_js_jsx_and_tsx_input(
 ) {
     for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
         for extension in ["ts", "js", "jsx", "tsx"] {
-            assert_build_source_file_supports_object_is_numeric_literal_in_input(
+            assert_build_source_file_supports_object_is_primitive_literals_in_input(
                 api_surface,
                 extension,
             );
