@@ -10,20 +10,21 @@ fn kali_bin() -> String {
 fn browser_harness_object_has_own_run_source() -> &'static str {
     r#"const object = { a: 1, "b": 2 };
 const alias = object;
+const wrapped = (0, alias);
 if (
-  !Object.hasOwn(alias, "a") ||
-  !globalThis.Object["hasOwn"](alias, "a") ||
-  !globalThis["Object"]["hasOwn"](alias, "a") ||
-  !globalThis.Object["hasOwn"](alias, "a") ||
-  !globalThis["Object"].hasOwn(alias, "a") ||
-  !Object.prototype.hasOwnProperty.call(alias, "a") ||
-  !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") ||
-  !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") ||
-  !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") ||
-  !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") ||
-  !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") ||
-  !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a") ||
-  !globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a")
+  !Object.hasOwn(wrapped, "a") ||
+  !globalThis.Object["hasOwn"](wrapped, "a") ||
+  !globalThis["Object"]["hasOwn"](wrapped, "a") ||
+  !globalThis.Object["hasOwn"](wrapped, "a") ||
+  !globalThis["Object"].hasOwn(wrapped, "a") ||
+  !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+  !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+  !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+  !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+  !globalThis["Object"].prototype.hasOwnProperty.call(wrapped, "a") ||
+  !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
+  !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+  !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
 ) {
   throw new Error('unexpected browser Object.hasOwn result');
 }
@@ -35,20 +36,21 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     r#"Kali.test('object hasOwn primitive literals', () => {
   const object = { a: 1, "b": 2 };
   const alias = object;
+  const wrapped = (0, alias);
   if (
-    !Object.hasOwn(alias, "a") ||
-    !globalThis.Object["hasOwn"](alias, "a") ||
-    !globalThis["Object"]["hasOwn"](alias, "a") ||
-    !globalThis.Object["hasOwn"](alias, "a") ||
-    !globalThis["Object"].hasOwn(alias, "a") ||
-    !Object.prototype.hasOwnProperty.call(alias, "a") ||
-    !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") ||
-    !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") ||
-    !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") ||
-    !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") ||
-    !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") ||
-    !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a") ||
-    !globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a")
+    !Object.hasOwn(wrapped, "a") ||
+    !globalThis.Object["hasOwn"](wrapped, "a") ||
+    !globalThis["Object"]["hasOwn"](wrapped, "a") ||
+    !globalThis.Object["hasOwn"](wrapped, "a") ||
+    !globalThis["Object"].hasOwn(wrapped, "a") ||
+    !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+    !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"].prototype.hasOwnProperty.call(wrapped, "a") ||
+    !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
+    !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
   ) {
     throw new Error('unexpected browser Object.hasOwn result');
   }

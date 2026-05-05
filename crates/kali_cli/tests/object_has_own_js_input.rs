@@ -10,7 +10,8 @@ fn kali_bin() -> String {
 fn object_has_own_source() -> &'static str {
     r#"const object = { a: 1, "b": 2 };
 const alias = object;
-if (!Object.hasOwn(alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !Object.prototype.hasOwnProperty.call(alias, "a")) {
+const wrapped = (0, alias);
+if (!Object.hasOwn(wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
   throw new Error('unexpected Object.hasOwn result');
 }
 console.log('object hasOwn ok');
@@ -19,7 +20,8 @@ console.log('object hasOwn ok');
 
 fn object_has_own_as_const_source() -> &'static str {
     r#"const object = ({ a: 1, "b": 2 } as const);
-if (!Object.hasOwn(object, "a") || !globalThis.Object["hasOwn"](object, "a") || !globalThis["Object"]["hasOwn"](object, "a") || !globalThis.Object["hasOwn"](object, "a") || !globalThis["Object"].hasOwn(object, "a") || !Object.prototype.hasOwnProperty.call(object, "a")) {
+const wrapped = (0, object);
+if (!Object.hasOwn(wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
   throw new Error('unexpected as const Object.hasOwn result');
 }
 console.log('as const object hasOwn ok');
@@ -30,7 +32,8 @@ fn object_has_own_test_source() -> &'static str {
     r#"Kali.test('object hasOwn', () => {
   const object = { a: 1, "b": 2 };
   const alias = object;
-  if (!Object.hasOwn(alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !Object.prototype.hasOwnProperty.call(alias, "a")) {
+  const wrapped = (0, alias);
+  if (!Object.hasOwn(wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
     throw new Error('unexpected Object.hasOwn result');
   }
 });
