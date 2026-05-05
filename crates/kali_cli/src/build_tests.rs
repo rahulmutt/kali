@@ -759,6 +759,43 @@ globalThis["Deno"]["permissions"]["query"]({ name: "sys" });
     );
 }
 
+fn assert_build_source_file_rejects_late_subprocess_global_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"Deno.connect;
+Deno.listen;
+Deno.serve;
+new Deno.Command("sh");
+"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("late subprocess and network APIs should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in ["Deno.connect", "Deno.listen", "Deno.serve", "Deno.Command"] {
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing {expected} in {error:?}"
+        );
+    }
+}
+
 #[test]
 fn build_source_file_rejects_unsupported_permission_query_descriptors_in_js_input() {
     assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("js");
@@ -777,6 +814,26 @@ fn build_source_file_rejects_unsupported_permission_query_descriptors_in_jsx_inp
 #[test]
 fn build_source_file_rejects_unsupported_permission_query_descriptors_in_tsx_input() {
     assert_build_source_file_rejects_unsupported_permission_query_descriptors_in_input("tsx");
+}
+
+#[test]
+fn build_source_file_rejects_late_subprocess_and_network_globals_in_js_input() {
+    assert_build_source_file_rejects_late_subprocess_global_in_input("js");
+}
+
+#[test]
+fn build_source_file_rejects_late_subprocess_and_network_globals_in_ts_input() {
+    assert_build_source_file_rejects_late_subprocess_global_in_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_late_subprocess_and_network_globals_in_jsx_input() {
+    assert_build_source_file_rejects_late_subprocess_global_in_input("jsx");
+}
+
+#[test]
+fn build_source_file_rejects_late_subprocess_and_network_globals_in_tsx_input() {
+    assert_build_source_file_rejects_late_subprocess_global_in_input("tsx");
 }
 
 #[test]
