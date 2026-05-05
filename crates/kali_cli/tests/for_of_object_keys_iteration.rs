@@ -115,7 +115,7 @@ fn object_values_iteration_test_source() -> &'static str {
 }
 
 fn object_keys_from_entries_iteration_run_source() -> &'static str {
-    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
 const keys = [];
 for (const key of Object.keys(fromEntries)) {
   keys.push(key);
@@ -128,13 +128,67 @@ if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
 
 fn object_keys_from_entries_iteration_test_source() -> &'static str {
     r#"Kali.test('object keys fromEntries iteration', () => {
-  const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
   const keys = [];
   for (const key of Object.keys(fromEntries)) {
     keys.push(key);
   }
   if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
     throw new Error('unexpected Object.keys(Object.fromEntries(...)) iteration semantics');
+  }
+});
+"#
+}
+
+fn object_values_from_entries_iteration_run_source() -> &'static str {
+    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const seen = [];
+for (const value of Object.values(fromEntries)) {
+  seen.push(value);
+}
+if (seen.length !== 2 || seen[0] !== 3 || seen[1] !== 2) {
+  throw new Error('unexpected Object.values(Object.fromEntries(...)) iteration semantics');
+}
+"#
+}
+
+fn object_values_from_entries_iteration_test_source() -> &'static str {
+    r#"Kali.test('object values fromEntries iteration', () => {
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const seen = [];
+  for (const value of Object.values(fromEntries)) {
+    seen.push(value);
+  }
+  if (seen.length !== 2 || seen[0] !== 3 || seen[1] !== 2) {
+    throw new Error('unexpected Object.values(Object.fromEntries(...)) iteration semantics');
+  }
+});
+"#
+}
+
+fn object_entries_from_entries_iteration_run_source() -> &'static str {
+    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const seen = [];
+for (const entry of Object.entries(fromEntries)) {
+  seen.push(entry[0]);
+  seen.push(entry[1]);
+}
+if (seen.length !== 4 || seen[0] !== 'b' || seen[1] !== 3 || seen[2] !== 'a' || seen[3] !== 2) {
+  throw new Error('unexpected Object.entries(Object.fromEntries(...)) iteration semantics');
+}
+"#
+}
+
+fn object_entries_from_entries_iteration_test_source() -> &'static str {
+    r#"Kali.test('object entries fromEntries iteration', () => {
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const seen = [];
+  for (const entry of Object.entries(fromEntries)) {
+    seen.push(entry[0]);
+    seen.push(entry[1]);
+  }
+  if (seen.length !== 4 || seen[0] !== 'b' || seen[1] !== 3 || seen[2] !== 'a' || seen[3] !== 2) {
+    throw new Error('unexpected Object.entries(Object.fromEntries(...)) iteration semantics');
   }
 });
 "#
@@ -308,5 +362,77 @@ fn test_supports_object_keys_from_entries_iteration_in_ts_input() {
         "test",
         "smoke.test.ts",
         object_keys_from_entries_iteration_test_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_values_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.js",
+        object_values_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_values_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.ts",
+        object_values_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_values_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.js",
+        object_values_from_entries_iteration_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_values_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.ts",
+        object_values_from_entries_iteration_test_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_entries_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.js",
+        object_entries_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_entries_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "run",
+        "main.ts",
+        object_entries_from_entries_iteration_run_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_entries_from_entries_iteration_in_js_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.js",
+        object_entries_from_entries_iteration_test_source(),
+    );
+}
+
+#[test]
+fn test_supports_object_entries_from_entries_iteration_in_ts_input() {
+    assert_object_keys_iteration(
+        "test",
+        "smoke.test.ts",
+        object_entries_from_entries_iteration_test_source(),
     );
 }

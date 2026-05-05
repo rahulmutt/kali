@@ -3826,9 +3826,11 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            let produced = self.emit_node(function, object_arg, true);
-            if produced.produced {
-                function.instruction(&Instruction::Drop);
+            if !self.is_object_from_entries_call(&object) {
+                let produced = self.emit_node(function, object_arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
             }
 
             for child in items {
