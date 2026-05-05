@@ -70,6 +70,7 @@ fn assert_browser_harness_math_sqrt_cbrt(
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(stdout.contains("2\n-3"), "json: {json}");
         assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("2\n-3"), "stdout: {stdout}");
