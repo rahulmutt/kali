@@ -1598,6 +1598,66 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_ar
 }
 
 #[test]
+fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_args_field() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":null,"tests":["browser null args"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
+    )
+    .expect("write null-args summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["browser null args"],"testsFailed":8,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["stdout".to_string()]);
+    assert_eq!(summary.tests, vec!["browser null args".to_string()]);
+    assert_eq!(summary.tests_failed, Some(8));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
+fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_null_tests_field() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":["stdout"],"tests":null,"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
+    )
+    .expect("write null-tests summary file");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["browser null tests"],"testsFailed":8,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["stdout".to_string()]);
+    assert_eq!(summary.tests, vec!["browser null tests".to_string()]);
+    assert_eq!(summary.tests_failed, Some(8));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
 fn browser_runtime_summary_merges_missing_tests_failed_from_stdout() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
