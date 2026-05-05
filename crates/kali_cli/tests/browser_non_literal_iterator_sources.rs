@@ -97,6 +97,68 @@ fn assert_browser_iterator_source_rejects(
     }
 }
 
+fn assert_inherited_browser_iterator_source_rejects(
+    source: &str,
+    filename: &str,
+    json_output: bool,
+    command: &str,
+    bundle: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let mut cmd = Command::new(kali_bin());
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    cmd.current_dir(dir.path());
+    cmd.arg(command);
+    if bundle {
+        cmd.arg("--bundle");
+    }
+    let output = cmd.arg(&source_path).output().expect("run kali");
+
+    assert!(!output.status.success(), "command unexpectedly succeeded");
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], if bundle { "build" } else { "check" });
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            !errors.is_empty(),
+            "errors array should not be empty: {json}"
+        );
+        let message = errors[0]["message"].as_str().expect("error message");
+        assert_eq!(errors[0]["code"], "E5506");
+        assert!(
+            message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("literal array"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn build_rejects_non_literal_for_of_iterator_source_in_js_input() {
     assert_browser_iterator_source_rejects(for_of_source(), "main.js", false, "build", true);
@@ -255,4 +317,34 @@ fn check_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
 #[test]
 fn json_check_rejects_non_literal_object_keys_iterator_source_in_tsx_input() {
     assert_browser_iterator_source_rejects(object_keys_source(), "main.tsx", true, "check", false);
+}
+
+#[test]
+fn build_rejects_non_literal_object_keys_iterator_source_under_inherited_browser_config() {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                object_keys_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_non_literal_object_keys_iterator_source_under_inherited_browser_config() {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                object_keys_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
 }
