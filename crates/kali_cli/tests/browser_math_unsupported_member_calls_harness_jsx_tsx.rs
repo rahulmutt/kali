@@ -52,7 +52,9 @@ fn assert_browser_harness_unsupported_math_rejection(
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
         assert!(
-            stderr.contains("Math.sqrt") || stderr.contains("unsupported math"),
+            stderr.contains("Math.sqrt")
+                || stderr.contains("Math.atan2")
+                || stderr.contains("unsupported math"),
             "stderr: {stderr}"
         );
     }
@@ -65,6 +67,17 @@ fn browser_harness_run_source() -> &'static str {
 fn browser_harness_test_source() -> &'static str {
     r#"Kali.test('unsupported math member', () => {
   console.log(Math.sqrt(1.6));
+});
+"#
+}
+
+fn browser_harness_run_atan2_source() -> &'static str {
+    "console.log(Math.atan2(1, 1));\n"
+}
+
+fn browser_harness_test_atan2_source() -> &'static str {
+    r#"Kali.test('unsupported math member', () => {
+  console.log(Math.atan2(1, 1));
 });
 "#
 }
@@ -89,6 +102,25 @@ fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness
 }
 
 #[test]
+fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        assert_browser_harness_unsupported_math_rejection(
+            "run",
+            &format!("main.{extension}"),
+            browser_harness_run_atan2_source(),
+            false,
+        );
+        assert_browser_harness_unsupported_math_rejection(
+            "run",
+            &format!("main.{extension}"),
+            browser_harness_run_atan2_source(),
+            true,
+        );
+    }
+}
+
+#[test]
 fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
 ) {
     for extension in ["jsx", "tsx"] {
@@ -102,6 +134,25 @@ fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harnes
             "test",
             &format!("smoke.test.{extension}"),
             browser_harness_test_source(),
+            true,
+        );
+    }
+}
+
+#[test]
+fn test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        assert_browser_harness_unsupported_math_rejection(
+            "test",
+            &format!("smoke.test.{extension}"),
+            browser_harness_test_atan2_source(),
+            false,
+        );
+        assert_browser_harness_unsupported_math_rejection(
+            "test",
+            &format!("smoke.test.{extension}"),
+            browser_harness_test_atan2_source(),
             true,
         );
     }
