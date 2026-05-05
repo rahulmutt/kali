@@ -3555,7 +3555,7 @@ fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extensi
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const values = Object.keys({}); for (const item of values) { console.log(item); }\n",
+        "let values = [1, 2]; for (const item of values) { console.log(item); }\n",
     )
     .expect("write source");
 
@@ -3649,7 +3649,7 @@ fn assert_build_source_file_rejects_for_await_non_literal_iterable_in_input(exte
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const values = Object.keys({}); for await (const item of values) { console.log(item); }\n",
+        "let values = [1, 2]; for await (const item of values) { console.log(item); }\n",
     )
     .expect("write source");
 

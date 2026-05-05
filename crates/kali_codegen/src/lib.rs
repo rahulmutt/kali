@@ -3708,17 +3708,6 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let array = self.node(array_id).clone();
-        if !self.is_array_literal(&array) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
 
         let Some(loop_name) = self.for_of_binding_name(node) else {
             self.diagnostics.push(Diagnostic::error(
@@ -3731,6 +3720,79 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
+
+        let body = node.children.get(2).copied();
+        if self.is_object_keys_call(&array) {
+            let Some(object_arg) = array.children.get(1).copied() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let object = self.node(object_id).clone();
+            let mut items = Vec::with_capacity(object.children.len());
+            if !self.collect_object_keys_iteration_items(&object, &mut items) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...) slice with string literal keys; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
+            let produced = self.emit_node(function, object_arg, true);
+            if produced.produced {
+                function.instruction(&Instruction::Drop);
+            }
+
+            for child in items {
+                let previous_binding = self.bindings.insert(loop_name.clone(), child);
+                if let Some(body) = body {
+                    let _ = self.emit_node(function, body, false);
+                }
+                if let Some(previous_binding) = previous_binding {
+                    self.bindings.insert(loop_name.clone(), previous_binding);
+                } else {
+                    self.bindings.remove(&loop_name);
+                }
+            }
+
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if !self.is_array_literal(&array) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
 
         let mut items = Vec::with_capacity(array.children.len());
         for child in &array.children {
@@ -3747,7 +3809,6 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        let body = node.children.get(2).copied();
         for child in items {
             let previous_binding = self.bindings.insert(loop_name.clone(), child);
             if let Some(body) = body {
@@ -3764,6 +3825,63 @@ impl<'a> FunctionEmitter<'a> {
             produced: false,
             shape: ValueShape::Unknown,
         }
+    }
+
+    fn is_object_keys_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("keys") {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Object")
+                | Some("globalThis.Object")
+                | Some(r#"globalThis["Object"]"#)
+                | Some(r#"globalThis['Object']"#)
+        )
+    }
+
+    fn collect_object_keys_iteration_items(
+        &self,
+        node: &LirNode,
+        items: &mut Vec<LirNodeId>,
+    ) -> bool {
+        if !self.is_object_literal(node) {
+            return false;
+        }
+
+        for child in &node.children {
+            let property = self.node(*child);
+            if property.children.len() != 2 {
+                return false;
+            }
+
+            let key = property.children[0];
+            let key_node = self.node(key);
+            let Some(text) = key_node.text.as_deref() else {
+                return false;
+            };
+            let is_quoted_string = text.starts_with('"') && text.ends_with('"')
+                || text.starts_with('\'') && text.ends_with('\'');
+            if key_node.kind != LirNodeKind::Literal || !is_quoted_string {
+                return false;
+            }
+
+            items.push(key);
+        }
+
+        true
     }
 
     fn collect_for_of_array_iteration_items(

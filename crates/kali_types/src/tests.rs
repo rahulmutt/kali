@@ -6631,30 +6631,40 @@ fn test_resolution_supports_for_of_array_iteration_with_sequence_wrappers_in_js_
 #[test]
 fn test_resolution_rejects_for_of_non_literal_iterable_as_unavailable() {
     let mut ctx = TypeContext::new();
-    let statements = vec![Statement::ForOfStatement(ForOfStatement {
-        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
-            kind: "const".to_string(),
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
             declarations: vec![VariableDeclarator {
-                id: "item".to_string(),
-                init: None,
+                id: "values".to_string(),
+                init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(1.0)),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(2.0)),
+                        )),
+                    ],
+                })),
             }],
         }),
-        right: Expression::CallExpression(Box::new(CallExpression {
-            callee: Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::Identifier("Object".to_string()),
-                property: "keys".to_string(),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "item".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::Identifier("values".to_string()),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::Identifier("item".to_string())),
+                })],
             })),
-            args: vec![Expression::ObjectExpression(ObjectExpression {
-                properties: vec![],
-            })],
-        })),
-        body: Box::new(Statement::BlockStatement(BlockStatement {
-            body: vec![Statement::ExpressionStatement(ExpressionStatement {
-                expression: Box::new(Expression::Identifier("item".to_string())),
-            })],
-        })),
-        is_await: false,
-    })];
+            is_await: false,
+        }),
+    ];
 
     let result = ctx.resolve_statements(&statements);
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
@@ -6672,30 +6682,40 @@ fn test_resolution_rejects_for_of_non_literal_iterable_as_unavailable() {
 #[test]
 fn test_resolution_rejects_for_await_non_literal_iterable_as_unavailable() {
     let mut ctx = TypeContext::new();
-    let statements = vec![Statement::ForOfStatement(ForOfStatement {
-        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
-            kind: "const".to_string(),
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
             declarations: vec![VariableDeclarator {
-                id: "item".to_string(),
-                init: None,
+                id: "values".to_string(),
+                init: Some(Expression::ArrayExpression(kali_ast::ArrayExpression {
+                    elements: vec![
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(1.0)),
+                        )),
+                        Some(kali_ast::ExpressionOrSpread::Expression(
+                            Expression::Literal(LiteralValue::Number(2.0)),
+                        )),
+                    ],
+                })),
             }],
         }),
-        right: Expression::CallExpression(Box::new(CallExpression {
-            callee: Expression::MemberExpression(Box::new(MemberExpression {
-                object: Expression::Identifier("Object".to_string()),
-                property: "keys".to_string(),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "item".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::Identifier("values".to_string()),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::Identifier("item".to_string())),
+                })],
             })),
-            args: vec![Expression::ObjectExpression(ObjectExpression {
-                properties: vec![],
-            })],
-        })),
-        body: Box::new(Statement::BlockStatement(BlockStatement {
-            body: vec![Statement::ExpressionStatement(ExpressionStatement {
-                expression: Box::new(Expression::Identifier("item".to_string())),
-            })],
-        })),
-        is_await: true,
-    })];
+            is_await: true,
+        }),
+    ];
 
     let result = ctx.resolve_statements(&statements);
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);

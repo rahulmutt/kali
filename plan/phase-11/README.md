@@ -64,7 +64,7 @@ Close high-value language gaps by either implementing faithful semantics or pres
 - Progress note: browser bundle smoke now also covers the mixed `globalThis.Object.prototype["hasOwnProperty"]["call"]` spelling for the supported `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice in TS and `.js` input, and now also mirrors the `globalThis["Object"].prototype["hasOwnProperty"]["call"]` spelling and the fully bracketed `globalThis["Object"]["prototype"].hasOwnProperty["call"]` spelling in that same browser bundle slice.
 
 - Progress note: browser build smoke now also covers the `for await...of` `as const` and `satisfies` wrapper slices on the browser API surface in `.js`, `.jsx`, and `.tsx` input.
-- Progress note: browser-targeted `build --bundle` now also rejects non-literal iterator sources such as `Object.keys(...)` for both `for...of` and `for await...of` on the canonical `E5506` path, with JSON-output coverage on the `.js` and `.ts` smoke lanes.
+- Progress note: the supported iterator slice now also accepts `Object.keys(...)` over static object literals with string-literal keys and const alias chains, in standalone `run` / `test` and browser-targeted `build --bundle` smoke; broader `Object.keys(...)` iterator sources and other non-literal iterator sources remain on the canonical `E5506` gate.
 
 ### 11.2 Missing expression and built-in semantics
 

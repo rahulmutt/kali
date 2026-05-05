@@ -55,6 +55,7 @@ pub struct Scope {
     static_identity_values: IndexMap<String, StaticObjectIdentityValue>,
     pub static_arrays: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
+    pub static_object_keys: IndexMap<String, bool>,
 }
 
 impl Scope {
@@ -69,6 +70,7 @@ impl Scope {
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             static_objects: IndexMap::new(),
+            static_object_keys: IndexMap::new(),
         }
     }
 
@@ -642,8 +644,33 @@ impl TypeContext {
                 })
             }
             Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
+            Expression::CallExpression(call) => self.is_static_object_keys_iteration_target(call),
             _ => false,
         }
+    }
+
+    fn is_static_object_keys_iteration_target(&self, call: &CallExpression) -> bool {
+        let Some(callee_name) = Self::call_member_access_name(&call.callee) else {
+            return false;
+        };
+        if !matches!(
+            callee_name.as_str(),
+            "Object.keys"
+                | "globalThis.Object.keys"
+                | r#"globalThis["Object"].keys"#
+                | r#"globalThis['Object'].keys"#
+        ) {
+            return false;
+        }
+
+        let Some(object_arg) = call.args.first() else {
+            return false;
+        };
+        if call.args.len() != 1 {
+            return false;
+        }
+
+        self.resolve_static_object_keys_target(object_arg)
     }
 
     fn is_static_array_iteration_element(&self, expression: &Expression) -> bool {
@@ -751,6 +778,11 @@ impl TypeContext {
                     if self.resolve_static_object_model_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_objects.insert(declarator.id.clone(), true);
+                        }
+                    }
+                    if self.resolve_static_object_keys_target(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope.static_object_keys.insert(declarator.id.clone(), true);
                         }
                     }
                 }
@@ -1208,6 +1240,19 @@ impl TypeContext {
         self.global_scope.static_objects.contains_key(name)
     }
 
+    fn resolve_static_object_keys_binding_name(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.static_object_keys.contains_key(name) {
+                return true;
+            }
+            current = scope.parent;
+        }
+
+        self.global_scope.static_object_keys.contains_key(name)
+    }
+
     fn resolve_static_object_model_target(&self, expression: &Expression) -> bool {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
@@ -1237,6 +1282,38 @@ impl TypeContext {
                 })
             }
             Expression::Identifier(name) => self.resolve_static_object_binding_name(name),
+            _ => false,
+        }
+    }
+
+    fn resolve_static_object_keys_target(&self, expression: &Expression) -> bool {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::ObjectExpression(ObjectExpression { properties }) => {
+                properties.iter().all(|property| {
+                    matches!(
+                        property.kind,
+                        ObjectPropertyKind::Init
+                            | ObjectPropertyKind::Get
+                            | ObjectPropertyKind::Set
+                    ) && matches!(property.key, PropertyName::String(_))
+                })
+            }
+            Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
             _ => false,
         }
     }
