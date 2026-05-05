@@ -3550,6 +3550,24 @@ fn build_source_file_supports_for_of_array_iteration_with_sequence_wrappers_in_b
     );
 }
 
+#[test]
+fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn check_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_js_input(
+) {
+    assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
 fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
@@ -3604,6 +3622,51 @@ fn assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_i
         "unexpected diagnostics: {:?}",
         error
     );
+}
+
+fn assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const values = Object.values({ a: 1, b: 2 }); for (const item of [...values]) { console.log(item); } for await (const item of [...Object.values({ a: 3, b: 4 })]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, api_surface, &[], false, false)
+        .expect("spread of object.values iterator slices should succeed");
+}
+
+fn assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const values = Object.values({ a: 1, b: 2 }); for (const item of [...values]) { console.log(item); } for await (const item of [...Object.values({ a: 3, b: 4 })]) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("spread of object.values iterator slices should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 fn assert_build_source_file_supports_for_await_array_iteration_with_sequence_wrappers_in_input(
