@@ -5832,6 +5832,58 @@ fn test_resolution_allows_template_literal_dynamic_import_targets_in_js_files() 
 }
 
 #[test]
+fn test_resolution_allows_sequence_wrapped_template_literal_dynamic_import_targets_in_js_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(dir.path().join("lazy.js"), "export const lazy = 7;").unwrap();
+    fs::write(
+        &source_path,
+        "const name = \"lazy.js\"; import((0, `./${name}`));",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "name".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String(
+                    "lazy.js".to_string(),
+                ))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: sequence_expression(vec![
+                    Expression::Literal(LiteralValue::Number(0.0)),
+                    Expression::TemplateLiteral(TemplateLiteral {
+                        quasis: vec![
+                            TemplateElement {
+                                value: "./".to_string(),
+                                tail: false,
+                            },
+                            TemplateElement {
+                                value: "".to_string(),
+                                tail: true,
+                            },
+                        ],
+                        expressions: vec![Expression::Identifier("name".to_string())],
+                    }),
+                ]),
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_allows_const_bound_dynamic_import_targets() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");

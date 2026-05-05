@@ -49,6 +49,27 @@ Kali.test('template literal dynamic import', () => {{}});
     )
 }
 
+fn template_literal_dynamic_import_sequence_run_source(chunk_filename: &str) -> String {
+    format!(
+        r#"async function main() {{
+  const name = "{chunk_filename}";
+  const chunk = await import((0, `./${{name}}`));
+  if (typeof chunk.lazyValue !== 'function') {{
+    throw new Error('missing lazyValue export');
+  }}
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {{
+    throw new Error(`unexpected chunk result ${{value}}`);
+  }}
+  console.log(String(value));
+  console.log('main loaded');
+}}
+main();
+Kali.test('template literal dynamic import sequence', () => {{}});
+"#,
+    )
+}
+
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
@@ -326,6 +347,32 @@ fn json_test_supports_template_literal_dynamic_import_targets_in_browser_api_sur
         "lazy.jsx",
         &template_literal_dynamic_import_test_source("lazy.jsx"),
         true,
+        true,
+    );
+}
+
+#[test]
+fn run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.js",
+        "lazy.js",
+        &template_literal_dynamic_import_sequence_run_source("lazy.js"),
+        false,
+        false,
+    );
+}
+
+#[test]
+fn test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.js",
+        "lazy.js",
+        &template_literal_dynamic_import_sequence_run_source("lazy.js"),
+        false,
         true,
     );
 }
