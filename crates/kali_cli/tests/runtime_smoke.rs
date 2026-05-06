@@ -47951,6 +47951,88 @@ fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_i
     assert_eq!(json["success"], true);
 }
 
+fn assert_browser_supports_for_await_array_iteration_lowering_in_input(
+    command: &str,
+    extension: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "for await (const value of [1, 2]) { console.log(value); }",
+    )
+    .expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path())
+        .arg(command)
+        .arg("--api")
+        .arg("browser");
+    if command == "build" {
+        cli.arg("--bundle");
+    }
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    let output = cli.arg(&source_path).output().expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    }
+}
+
+#[test]
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_jsx_input() {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("check", "jsx", false);
+}
+
+#[test]
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_jsx_input_in_json(
+) {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("check", "jsx", true);
+}
+
+#[test]
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_tsx_input() {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("check", "tsx", false);
+}
+
+#[test]
+fn check_supports_for_await_array_iteration_lowering_in_browser_analysis_context_in_tsx_input_in_json(
+) {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("check", "tsx", true);
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_jsx_input() {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("build", "jsx", false);
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_jsx_input_in_json(
+) {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("build", "jsx", true);
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_tsx_input() {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("build", "tsx", false);
+}
+
+#[test]
+fn build_supports_for_await_array_iteration_lowering_in_browser_bundle_context_in_tsx_input_in_json(
+) {
+    assert_browser_supports_for_await_array_iteration_lowering_in_input("build", "tsx", true);
+}
+
 #[test]
 fn build_supports_for_of_array_iteration_lowering_with_parenthesized_binding_in_browser_bundle_context_in_ts_input(
 ) {
