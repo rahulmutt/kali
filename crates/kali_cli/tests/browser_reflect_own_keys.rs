@@ -366,6 +366,40 @@ console.log(String(result));
     assert!(stdout.contains('0'), "stdout: {stdout}");
 }
 
+fn assert_browser_checked_reflect_own_keys(filename: &str, json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, reflect_own_keys_source()).expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "check");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["filesChecked"], 1);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    }
+}
+
 #[test]
 fn run_supports_reflect_own_keys_in_js_input_when_browser_harness_is_configured() {
     assert_browser_requested_reflect_own_keys("run", "main.js");
@@ -524,6 +558,26 @@ fn json_test_supports_reflect_own_keys_in_jsx_input_when_browser_harness_is_conf
 #[test]
 fn json_test_supports_reflect_own_keys_in_tsx_input_when_browser_harness_is_configured() {
     assert_json_browser_requested_reflect_own_keys("test", "smoke.test.tsx");
+}
+
+#[test]
+fn check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface() {
+    assert_browser_checked_reflect_own_keys("main.jsx", false);
+}
+
+#[test]
+fn check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface() {
+    assert_browser_checked_reflect_own_keys("main.tsx", false);
+}
+
+#[test]
+fn json_check_accepts_reflect_own_keys_in_jsx_input_on_browser_surface() {
+    assert_browser_checked_reflect_own_keys("main.jsx", true);
+}
+
+#[test]
+fn json_check_accepts_reflect_own_keys_in_tsx_input_on_browser_surface() {
+    assert_browser_checked_reflect_own_keys("main.tsx", true);
 }
 
 #[test]
