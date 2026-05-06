@@ -6537,7 +6537,7 @@ fn run_rejects_late_object_model_revocable_calls() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -6569,7 +6569,7 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -6588,7 +6588,7 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["success"], false);
     let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 3);
+    assert_eq!(errors.len(), 5);
     assert!(errors.iter().all(|error| error["code"] == "E5506"));
     let messages = errors
         .iter()
@@ -6611,7 +6611,7 @@ fn run_rejects_late_object_model_revocable_calls_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {});",
     )
     .expect("write source");
 
@@ -61996,7 +61996,7 @@ fn effects_command_marks_proxy_revocable_calls_as_dynamic() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {});\nglobalThis.Proxy.revocable({}, {});\nglobalThis.Proxy[\"revocable\"]({}, {});\n",
+        "Proxy.revocable({}, {});\nglobalThis.Proxy.revocable({}, {});\nglobalThis[\"Proxy\"][\"revocable\"]({}, {});\nglobalThis[\"Proxy\"].revocable({}, {});\nglobalThis.Proxy[\"revocable\"]({}, {});\n",
     )
     .expect("write source");
 
