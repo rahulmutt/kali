@@ -2546,6 +2546,25 @@ fn validate_envelope_value_rejects_malformed_timing_objects() {
         .expect_err("timings with string milliseconds should fail validation");
     assert!(err.contains("milliseconds"), "unexpected error: {err}");
 
+    let unexpected_key = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": "parse", "milliseconds": 1, "metadata": "extra"}],
+    });
+    let err = validate_envelope_value(&unexpected_key)
+        .expect_err("timings with unexpected keys should fail validation");
+    assert!(
+        err.contains("timing") && err.contains("unexpected key `metadata`"),
+        "unexpected error: {err}"
+    );
+
     let negative_milliseconds = json!({
         "schemaVersion": 1,
         "command": "doctor",
