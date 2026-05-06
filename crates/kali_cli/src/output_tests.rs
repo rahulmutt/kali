@@ -3070,6 +3070,55 @@ fn validate_envelope_value_rejects_overlapping_suggested_fix_edits() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_duplicate_zero_length_suggested_fix_edits() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix duplicate insertion",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "newText": "console.log(1);"
+                        },
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "newText": "console.log(2);"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("duplicate zero-length suggested-fix edits should fail validation");
+    assert!(
+        err.contains("suggested fix edits[1] overlaps with suggested fix edits[0]"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_reversed_suggested_fix_edit_ranges() {
     let invalid_fix = json!({
         "schemaVersion": 1,

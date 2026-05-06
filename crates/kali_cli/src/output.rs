@@ -1917,10 +1917,15 @@ fn validate_suggested_fix_edits_non_overlapping(edits: &[Value]) -> Result<(), S
     });
 
     for pair in ranges.windows(2) {
-        let (previous_file, _, previous_end, previous_index) = &pair[0];
-        let (current_file, current_start, _, current_index) = &pair[1];
+        let (previous_file, previous_start, previous_end, previous_index) = &pair[0];
+        let (current_file, current_start, current_end, current_index) = &pair[1];
 
-        if previous_file == current_file && current_start < previous_end {
+        if previous_file == current_file
+            && (current_start < previous_end
+                || (previous_start == previous_end
+                    && current_start == previous_end
+                    && current_start == current_end))
+        {
             return Err(format!(
                 "suggested fix edits[{current_index}] overlaps with suggested fix edits[{previous_index}]"
             ));
