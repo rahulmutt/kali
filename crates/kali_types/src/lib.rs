@@ -1491,6 +1491,7 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
             }
+            Expression::Literal(LiteralValue::String(_)) => true,
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 properties.iter().all(|property| {
                     matches!(
