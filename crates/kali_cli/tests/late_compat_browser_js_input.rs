@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn late_process_control_source() -> &'static str {
-    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
+    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; globalThis.process.cwd; globalThis[\"process\"].cwd; process.chdir; globalThis.process.chdir; process[\"cwd\"]; globalThis.process[\"cwd\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
 }
 
 fn late_env_materialization_source() -> &'static str {
@@ -121,6 +121,13 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"]["chdir"]"#,
+        "process.kill",
+        "globalThis.process.kill",
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
@@ -177,6 +184,13 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"]["chdir"]"#,
+        "process.kill",
+        "globalThis.process.kill",
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
@@ -731,6 +745,11 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"process["chdir"]"#,
         r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"]["chdir"]"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
         r#"process["exit"]"#,
@@ -749,6 +768,10 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
     );
     assert!(
         source.contains(r#"globalThis["process"]["chdir"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["kill"]"#),
         "source: {source}"
     );
     assert!(
