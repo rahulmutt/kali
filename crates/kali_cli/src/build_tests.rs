@@ -2455,7 +2455,7 @@ fn assert_build_source_file_supports_math_expm1_and_log1p_identity_literals_in_i
         .expect("generated wasm should validate");
 }
 
-fn assert_build_source_file_supports_math_exp2_zero_identity_in_input(
+fn assert_build_source_file_supports_math_exp2_non_negative_integer_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -2463,7 +2463,7 @@ fn assert_build_source_file_supports_math_exp2_zero_identity_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const zero = 0; const alias = zero; console.log(Math.exp2(alias));\n",
+        "const exponent = 2; const alias = exponent; console.log(Math.exp2(alias)); console.log(Math.exp2(0)); console.log(Math.exp2(1)); console.log(Math.exp2(3));\n",
     )
     .expect("write source");
 
@@ -2477,14 +2477,14 @@ fn assert_build_source_file_supports_math_exp2_zero_identity_in_input(
         None,
         None,
     )
-    .expect("Math.exp2 zero identity build should succeed");
+    .expect("Math.exp2 non-negative integer build should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
         .expect("generated wasm should validate");
 }
 
-fn assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+fn assert_build_source_file_supports_global_this_math_exp2_non_negative_integer_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
@@ -2492,7 +2492,7 @@ fn assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_inpu
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const zero = 0; const alias = zero; console.log(globalThis.Math.exp2(alias)); console.log(globalThis.Math[\"exp2\"](alias)); console.log(globalThis[\"Math\"].exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n",
+        "const exponent = 2; const alias = exponent; console.log(globalThis.Math.exp2(alias)); console.log(globalThis.Math[\"exp2\"](alias)); console.log(globalThis[\"Math\"].exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n",
     )
     .expect("write source");
 
@@ -2506,11 +2506,31 @@ fn assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_inpu
         None,
         None,
     )
-    .expect("globalThis.Math exp2 identity build should succeed");
+    .expect("globalThis.Math exp2 non-negative integer build should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
         .expect("generated wasm should validate");
+}
+
+fn assert_build_source_file_supports_math_exp2_zero_identity_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    assert_build_source_file_supports_math_exp2_non_negative_integer_literals_in_input(
+        api_surface,
+        extension,
+    );
+}
+
+fn assert_build_source_file_supports_global_this_math_exp2_zero_identity_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    assert_build_source_file_supports_global_this_math_exp2_non_negative_integer_literals_in_input(
+        api_surface,
+        extension,
+    );
 }
 
 fn assert_build_source_file_supports_math_exp_and_log_const_alias_chain_in_input(

@@ -8,29 +8,29 @@ fn kali_bin() -> String {
 }
 
 fn browser_bundle_global_this_math_exp2_source() -> &'static str {
-    r##"// kali-tree-shake: globalThisMathExp2ZeroIdentity
-function globalThisMathExp2ZeroIdentity() {
-  const zero = 0;
-  console.log(globalThis.Math.exp2(zero));
-  console.log(globalThis.Math["exp2"](zero));
-  console.log(globalThis["Math"].exp2(zero));
-  console.log(globalThis["Math"]["exp2"](zero));
-  return [globalThis.Math.exp2(zero), globalThis.Math["exp2"](zero), globalThis["Math"].exp2(zero), globalThis["Math"]["exp2"](zero)];
+    r##"// kali-tree-shake: globalThisMathExp2NonNegativeIntegerLiterals
+function globalThisMathExp2NonNegativeIntegerLiterals() {
+  const exponent = 2;
+  console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis.Math["exp2"](exponent));
+  console.log(globalThis["Math"].exp2(exponent));
+  console.log(globalThis["Math"]["exp2"](exponent));
+  return [globalThis.Math.exp2(exponent), globalThis.Math["exp2"](exponent), globalThis["Math"].exp2(exponent), globalThis["Math"]["exp2"](exponent)];
 }
 "##
 }
 
 fn browser_harness_global_this_math_exp2_run_source() -> &'static str {
-    "const zero = 0; console.log(globalThis.Math.exp2(zero)); console.log(globalThis.Math[\"exp2\"](zero)); console.log(globalThis[\"Math\"].exp2(zero)); console.log(globalThis[\"Math\"][\"exp2\"](zero));\n"
+    "const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis.Math[\"exp2\"](exponent)); console.log(globalThis[\"Math\"].exp2(exponent)); console.log(globalThis[\"Math\"][\"exp2\"](exponent));\n"
 }
 
 fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
-    r#"Kali.test('globalThis math exp2 zero identity', () => {
-  const zero = 0;
-  console.log(globalThis.Math.exp2(zero));
-  console.log(globalThis.Math["exp2"](zero));
-  console.log(globalThis["Math"].exp2(zero));
-  console.log(globalThis["Math"]["exp2"](zero));
+    r#"Kali.test('globalThis math exp2 non-negative integer literals', () => {
+  const exponent = 2;
+  console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis.Math["exp2"](exponent));
+  console.log(globalThis["Math"].exp2(exponent));
+  console.log(globalThis["Math"]["exp2"](exponent));
 });
 "#
 }
@@ -90,7 +90,7 @@ fn assert_browser_bundle_global_this_math_exp2(filename: &str, json_output: bool
         "app",
         false,
         r#"const mod = await import(bundleJs.href);
-await mod.globalThisMathExp2ZeroIdentity();
+await mod.globalThisMathExp2NonNegativeIntegerLiterals();
 "#,
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
@@ -115,7 +115,7 @@ await mod.globalThisMathExp2ZeroIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("4\n"), "stdout: {stdout}");
 }
 
 fn assert_browser_harness_global_this_math_exp2(
@@ -174,13 +174,13 @@ fn assert_browser_harness_global_this_math_exp2(
             json["stdout"]
                 .as_str()
                 .expect("stdout string")
-                .contains("1\n"),
+                .contains("4\n"),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n"), "stdout: {stdout}");
+        assert!(stdout.contains("4\n"), "stdout: {stdout}");
     }
 }
 

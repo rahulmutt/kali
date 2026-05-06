@@ -4442,7 +4442,44 @@ fn test_resolution_supports_math_exp2_exact_identity_literals() {
 }
 
 #[test]
-fn test_resolution_reports_math_exp2_non_identity_literals_as_unavailable() {
+fn test_resolution_supports_math_exp2_non_negative_integer_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "exponent".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(2.0))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("exponent".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "exp2".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_math_exp2_non_integer_literals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
@@ -4450,7 +4487,7 @@ fn test_resolution_reports_math_exp2_non_identity_literals_as_unavailable() {
                 object: Expression::Identifier("Math".to_string()),
                 property: "exp2".to_string(),
             })),
-            args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            args: vec![Expression::Literal(LiteralValue::Number(1.5))],
         }))),
     })];
 
@@ -4464,7 +4501,7 @@ fn test_resolution_reports_math_exp2_non_identity_literals_as_unavailable() {
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("Math.exp2")
-            && diag.message.contains("zero numeric literal")));
+            && diag.message.contains("non-negative integer")));
 }
 
 #[test]

@@ -2283,8 +2283,36 @@ fn unsupported_math_exp_member_reports_feature_unavailable() {
 }
 
 #[test]
-fn unsupported_math_exp2_member_reports_feature_unavailable() {
-    let program = parse_and_lower_lir("console.log(Math.exp2(1));");
+fn supported_math_exp2_member_lowering_is_available_for_non_negative_integer_literals() {
+    let program = parse_and_lower_lir("console.log(Math.exp2(1)); console.log(Math.exp2(3));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+    assert!(printed.contains("i64.const 8"), "{printed}");
+}
+
+#[test]
+fn unsupported_math_exp2_non_integer_literals_report_feature_unavailable() {
+    let program = parse_and_lower_lir("console.log(Math.exp2(1.5));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
@@ -2298,7 +2326,7 @@ fn unsupported_math_exp2_member_reports_feature_unavailable() {
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
                 && diagnostic
                     .message
-                    .contains("Math.exp2 is unavailable unless the argument is a statically-known zero numeric literal")
+                    .contains("Math.exp2 is unavailable unless the argument is a statically-known non-negative integer literal within the current integer-fold range")
         }),
         "expected an unavailable Math.exp2 diagnostic: {:?}",
         result.diagnostics

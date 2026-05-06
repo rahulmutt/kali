@@ -8,13 +8,13 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_exp2_run_source() -> &'static str {
-    "const zero = 0; const alias = zero; console.log(Math.exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n"
+    "const exponent = 2; const alias = exponent; console.log(Math.exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias));\n"
 }
 
 fn browser_harness_math_exp2_test_source() -> &'static str {
-    r#"Kali.test('math exp2 zero identity', () => {
-  const zero = 0;
-  const alias = zero;
+    r#"Kali.test('math exp2 non-negative integer literals', () => {
+  const exponent = 2;
+  const alias = exponent;
   console.log(Math.exp2(alias));
   console.log(globalThis["Math"]["exp2"](alias));
 });
@@ -73,13 +73,13 @@ fn assert_browser_harness_math_exp2(
             json["stdout"]
                 .as_str()
                 .expect("stdout string")
-                .contains("1\n"),
+                .contains("4\n"),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n"), "stdout: {stdout}");
+        assert!(stdout.contains("4\n"), "stdout: {stdout}");
         if command == "test" {
             assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         }

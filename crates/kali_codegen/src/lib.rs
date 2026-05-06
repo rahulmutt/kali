@@ -1946,17 +1946,24 @@ impl<'a> FunctionEmitter<'a> {
                     };
                 };
 
-                let folded = if method == "exp" || method == "exp2" {
-                    self.math_exp_constant_value(*value)
-                } else {
-                    self.math_log_constant_value(*value)
+                let folded = match method {
+                    "exp" => self.math_exp_constant_value(*value),
+                    "log" => self.math_log_constant_value(*value),
+                    "exp2" => self.math_exp2_constant_value(*value),
+                    _ => unreachable!(),
                 };
                 let Some(folded) = folded else {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
                             "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
-                            if method == "exp" || method == "exp2" { "zero" } else { "one" }
+                            if method == "log" {
+                                "one"
+                            } else if method == "exp2" {
+                                "non-negative integer literal within the current integer-fold range"
+                            } else {
+                                "zero"
+                            }
                         ),
                     ));
                     function.instruction(&Instruction::Unreachable);
@@ -3105,6 +3112,16 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             None
         }
+    }
+
+    fn math_exp2_constant_value(&self, arg: LirNodeId) -> Option<i64> {
+        let rendered = self.render_static_value(arg)?;
+        let value = parse_number_literal(&rendered)?;
+        if !(0..=62).contains(&value) {
+            return None;
+        }
+
+        Some(1_i64 << (value as u32))
     }
 
     fn math_expm1_constant_value(&self, arg: LirNodeId) -> Option<i64> {

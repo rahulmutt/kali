@@ -1873,7 +1873,8 @@ impl TypeContext {
                     format!(
                         "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
                         match method {
-                            "exp" | "exp2" => "zero",
+                            "exp" => "zero",
+                            "exp2" => "non-negative integer literal within the current integer-fold range",
                             _ => "one",
                         }
                     ),
@@ -1881,8 +1882,13 @@ impl TypeContext {
                 return;
             };
 
-            if (method == "exp" || method == "exp2") && value == 0.0
+            if (method == "exp" && value == 0.0)
                 || (method == "log" && value == 1.0)
+                || (method == "exp2"
+                    && value.is_finite()
+                    && value.fract() == 0.0
+                    && value >= 0.0
+                    && value <= 62.0)
             {
                 return;
             }
@@ -1892,7 +1898,8 @@ impl TypeContext {
                 format!(
                     "Math.{method} is unavailable unless the argument is a statically-known {} numeric literal in the current phase; use an explicit constant or the later compatibility path",
                     match method {
-                        "exp" | "exp2" => "zero",
+                        "exp" => "zero",
+                        "exp2" => "non-negative integer literal within the current integer-fold range",
                         _ => "one",
                     }
                 ),
