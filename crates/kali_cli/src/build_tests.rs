@@ -3818,12 +3818,34 @@ fn build_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_
 }
 
 #[test]
+fn build_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_browser_api_surface_in_ts_jsx_and_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_build_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
 fn check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_browser_api_surface_in_js_input(
 ) {
     assert_check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_input(
         ApiSurface::Browser,
         "js",
     );
+}
+
+#[test]
+fn check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_browser_api_surface_in_ts_jsx_and_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
 }
 
 #[test]
