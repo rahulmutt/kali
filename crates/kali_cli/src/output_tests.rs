@@ -2284,6 +2284,44 @@ fn validate_envelope_value_allows_arbitrary_diagnostic_context_value_shapes() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_unexpected_diagnostic_context_extension_keys() {
+    let unexpected_context_key = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "diagnostic context has an extra key",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {
+                    "origin": "config",
+                    "configPath": "compilerOptions.apiSurface",
+                    "extensionKey": true
+                }
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&unexpected_context_key)
+        .expect_err("unexpected diagnostic context keys should fail validation");
+    assert!(
+        err.contains("diagnostic context") && err.contains("unexpected key `extensionKey`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_unexpected_suggested_fix_keys() {
     let extended_fix = json!({
         "schemaVersion": 1,
