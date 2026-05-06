@@ -17,6 +17,7 @@ const mixedEntries = [...globalThis["Object"]["entries"](Object.fromEntries([["b
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
+const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
 
 if (
   keys.length !== 2 ||
@@ -56,9 +57,14 @@ if (
   frozenEntries[0][0] !== 'b' ||
   frozenEntries[0][1] !== 3 ||
   frozenEntries[1][0] !== 'a' ||
-  frozenEntries[1][1] !== 2
+  frozenEntries[1][1] !== 2 ||
+  reflectiveKeys.length !== 4 ||
+  reflectiveKeys[0] !== '1' ||
+  reflectiveKeys[1] !== '2' ||
+  reflectiveKeys[2] !== 'b' ||
+  reflectiveKeys[3] !== 'a'
 ) {
-  throw new Error('unexpected frozen Object enumeration spread semantics');
+  throw new Error('unexpected frozen or reflective Object enumeration spread semantics');
 }
 
 for (const key of keys) {

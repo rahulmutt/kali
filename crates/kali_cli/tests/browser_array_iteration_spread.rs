@@ -36,6 +36,7 @@ export async function objectEnumerationSpreadWrapper() {
   const frozenValues = [...Object.values(frozenFromEntries)];
   const frozenKeys = [...Object.keys(frozenFromEntries)];
   const frozenEntries = [...Object.entries(frozenFromEntries)];
+  const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
 
   for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(value);
@@ -149,9 +150,14 @@ export async function objectEnumerationSpreadWrapper() {
     frozenEntries[0][0] !== 'b' ||
     frozenEntries[0][1] !== 3 ||
     frozenEntries[1][0] !== 'a' ||
-    frozenEntries[1][1] !== 2
+    frozenEntries[1][1] !== 2 ||
+    reflectiveKeys.length !== 4 ||
+    reflectiveKeys[0] !== '1' ||
+    reflectiveKeys[1] !== '2' ||
+    reflectiveKeys[2] !== 'b' ||
+    reflectiveKeys[3] !== 'a'
   ) {
-    throw new Error('unexpected frozen Object.fromEntries spread iteration semantics');
+    throw new Error('unexpected frozen or reflective spread iteration semantics');
   }
 }
 "##
