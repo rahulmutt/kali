@@ -2719,6 +2719,45 @@ fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable(
 }
 
 #[test]
+fn test_resolution_accepts_object_is_with_void_undefined_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "void".to_string(),
+                    argument: Expression::Literal(LiteralValue::Number(0.0)),
+                }))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "void".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(1.0)),
+                    })),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_object_is_with_static_primitive_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![

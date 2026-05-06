@@ -45,6 +45,23 @@ fn test_parse_prefix_update_expression() {
 }
 
 #[test]
+fn test_parse_void_unary_expression() {
+    let tokens = lex("void 0;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ExpressionStatement(expr_stmt) = &output.statements[0] else {
+        panic!("Expected ExpressionStatement");
+    };
+    let Expression::UnaryExpression(unary) = expr_stmt.expression.as_ref() else {
+        panic!("Expected UnaryExpression");
+    };
+    assert_eq!(unary.operator, "void");
+    assert!(matches!(unary.argument, Expression::Literal(_)));
+}
+
+#[test]
 fn test_parse_postfix_update_expression() {
     let tokens = lex("value--;");
     let mut parser = Parser::new(FileId::new(0), tokens);

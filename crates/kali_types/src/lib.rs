@@ -116,6 +116,7 @@ enum StaticObjectIdentityValue {
     String(String),
     BigInt(i64),
     Null,
+    Undefined,
     Reference(String),
 }
 
@@ -125,7 +126,7 @@ impl StaticObjectIdentityValue {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
             (Self::BigInt(left), Self::BigInt(right)) => left == right,
-            (Self::Null, Self::Null) => true,
+            (Self::Null, Self::Null) | (Self::Undefined, Self::Undefined) => true,
             (Self::Number(left), Self::Number(right)) => {
                 (left.is_nan() && right.is_nan())
                     || (left == right
@@ -1298,6 +1299,9 @@ impl TypeContext {
                     }
                     _ => None,
                 }),
+            Expression::UnaryExpression(expr) if expr.operator == "void" => {
+                Some(StaticObjectIdentityValue::Undefined)
+            }
             Expression::TypeAssertion(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
             }

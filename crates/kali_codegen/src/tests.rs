@@ -118,7 +118,7 @@ fn boolean_branches_use_the_layout_fast_path() {
 #[test]
 fn object_is_lowers_for_static_primitive_literals() {
     let program = parse_and_lower_lir(
-        "const flag = true; const text = \"hello\"; const big = 1n; console.log(Object.is(flag, true)); console.log(Object.is(text, \"hello\")); console.log(Object.is(big, 1n)); console.log(Object.is(-1n, -1n)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(null, null)); console.log(Object.is(1, 0));",
+        "const flag = true; const text = \"hello\"; const big = 1n; console.log(Object.is(flag, true)); console.log(Object.is(text, \"hello\")); console.log(Object.is(big, 1n)); console.log(Object.is(-1n, -1n)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(null, null)); console.log(Object.is(void 0, void 0)); console.log(Object.is(1, 0));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

@@ -48,6 +48,7 @@ enum StaticObjectIdentityValue {
     String(String),
     BigInt(i64),
     Null,
+    Undefined,
 }
 
 impl StaticObjectIdentityValue {
@@ -56,7 +57,7 @@ impl StaticObjectIdentityValue {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
             (Self::BigInt(left), Self::BigInt(right)) => left == right,
-            (Self::Null, Self::Null) => true,
+            (Self::Null, Self::Null) | (Self::Undefined, Self::Undefined) => true,
             (Self::Number(left), Self::Number(right)) => {
                 (left.is_nan() && right.is_nan())
                     || (left == right
@@ -595,6 +596,17 @@ impl<'a> FunctionEmitter<'a> {
                 EmittedValue {
                     produced: true,
                     shape: ValueShape::Boolean,
+                }
+            }
+            "void" => {
+                let produced = self.emit_node(function, arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                function.instruction(&Instruction::I64Const(0));
+                EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
                 }
             }
             "delete" => {
@@ -2789,6 +2801,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some("null") => Some(StaticObjectIdentityValue::Null),
                 Some("Infinity") => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
                 Some("NaN") => Some(StaticObjectIdentityValue::Number(f64::NAN)),
+                Some("void") => Some(StaticObjectIdentityValue::Undefined),
                 Some(text) => text
                     .strip_suffix('n')
                     .and_then(|value| value.parse::<i64>().ok())
@@ -2821,6 +2834,7 @@ impl<'a> FunctionEmitter<'a> {
                         other => other,
                     }
                 }
+                Some("void") => Some(StaticObjectIdentityValue::Undefined),
                 Some("-") => self
                     .resolve_static_object_identity_value(node.children[0])
                     .and_then(|value| match value {
