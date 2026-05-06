@@ -2982,14 +2982,17 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        let base_zero = self
+        let base_numeric_value = self
             .render_static_value(*base)
-            .and_then(|rendered| parse_numeric_literal_value(&rendered))
-            .is_some_and(|value| value == 0.0);
-        let exponent_positive_integer = self
+            .and_then(|rendered| parse_numeric_literal_value(&rendered));
+        let exponent_numeric_value = self
             .render_static_value(*exponent)
-            .and_then(|rendered| parse_numeric_literal_value(&rendered))
-            .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+            .and_then(|rendered| parse_numeric_literal_value(&rendered));
+        let base_zero = base_numeric_value.is_some_and(|value| value == 0.0);
+        let exponent_positive_integer =
+            exponent_numeric_value.is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+        let exponent_negative_integer =
+            exponent_numeric_value.is_some_and(|value| value < 0.0 && value.fract() == 0.0);
         if base_zero && exponent_positive_integer {
             let _ = self.emit_node(function, *base, true);
             function.instruction(&Instruction::Drop);
@@ -3008,14 +3011,10 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        let base_identity = self
-            .render_static_value(*base)
-            .and_then(|rendered| parse_numeric_literal_value(&rendered))
-            .filter(|value| *value == 0.0 || *value == 1.0);
-        let exponent_identity = self
-            .render_static_value(*exponent)
-            .and_then(|rendered| parse_numeric_literal_value(&rendered))
-            .filter(|value| *value == 0.0 || *value == 1.0);
+        let base_identity =
+            base_numeric_value.filter(|value| *value == 0.0 || *value == 1.0 || *value == -1.0);
+        let exponent_identity =
+            exponent_numeric_value.filter(|value| *value == 0.0 || *value == 1.0);
 
         if let Some(base_identity) = base_identity {
             if base_identity == 1.0 {
@@ -3032,6 +3031,33 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
                 function.instruction(&Instruction::I64Const(1));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
+            if base_identity == -1.0 && exponent_negative_integer {
+                let _ = self.emit_node(function, *base, true);
+                function.instruction(&Instruction::Drop);
+                let produced = self.emit_node(function, *exponent, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                for arg in operands.iter().skip(2) {
+                    let produced = self.emit_node(function, *arg, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+                let folded = if exponent_numeric_value
+                    .is_some_and(|value| value.abs().rem_euclid(2.0) == 0.0)
+                {
+                    1
+                } else {
+                    -1
+                };
+                function.instruction(&Instruction::I64Const(folded));
                 return EmittedValue {
                     produced: true,
                     shape: ValueShape::Scalar,
