@@ -1,6 +1,9 @@
 use kali_error::Diagnostic;
 use serde_json::{json, Map, Value};
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::{BTreeSet, HashSet},
+    path::Path,
+};
 
 use crate::{ColorChoice, OutputFormat};
 
@@ -71,6 +74,19 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
         "stderr",
         "exitCode",
     ];
+    const ALL_KEYS: [&str; 11] = [
+        "schemaVersion",
+        "command",
+        "success",
+        "errors",
+        "warnings",
+        "payload",
+        "stdout",
+        "stderr",
+        "exitCode",
+        "artifacts",
+        "timings",
+    ];
 
     let Some(object) = value.as_object() else {
         return Err("CLI envelope must be a JSON object".to_string());
@@ -81,6 +97,7 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
             return Err(format!("CLI envelope is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(object, &ALL_KEYS, "CLI envelope")?;
 
     match object.get("schemaVersion") {
         Some(Value::Number(number)) if number.as_u64() == Some(1) => {}
@@ -114,6 +131,7 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
 
     validate_diagnostic_array(object.get("errors"), "errors")?;
     validate_diagnostic_array(object.get("warnings"), "warnings")?;
+    validate_cli_artifacts_array(object.get("artifacts"))?;
 
     match object.get("stdout") {
         Some(Value::Null) | Some(Value::String(_)) => {}
@@ -1258,6 +1276,124 @@ fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), S
     for (index, item) in items.iter().enumerate() {
         validate_diagnostic_value(item)
             .map_err(|err| format!("CLI envelope {field}[{index}] is invalid: {err}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+
+    let Some(items) = value.as_array() else {
+        return Err("CLI envelope artifacts must be an array".to_string());
+    };
+
+    let mut seen_primary_executable = false;
+    let mut seen_primary_library = false;
+    let mut seen_primary_component = false;
+    let mut seen_kind_path_pairs = BTreeSet::new();
+
+    for (index, item) in items.iter().enumerate() {
+        let Some(object) = item.as_object() else {
+            return Err(format!(
+                "CLI envelope artifacts[{index}] must be a JSON object"
+            ));
+        };
+
+        reject_unexpected_keys(
+            object,
+            &["path", "kind", "role", "bytes"],
+            "CLI envelope artifact",
+        )?;
+
+        match object.get("path") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}].path must be a string, got {other}"
+                ))
+            }
+            None => {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}] is missing required key `path`"
+                ))
+            }
+        }
+        match object.get("kind") {
+            Some(Value::String(_)) => {}
+            Some(other) => {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}].kind must be a string, got {other}"
+                ))
+            }
+            None => {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}] is missing required key `kind`"
+                ))
+            }
+        }
+        match object.get("bytes") {
+            Some(Value::Number(number))
+                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
+            }
+            Some(other) => return Err(format!(
+                "CLI envelope artifacts[{index}].bytes must be a non-negative integer, got {other}"
+            )),
+            None => {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}] is missing required key `bytes`"
+                ))
+            }
+        }
+
+        let kind = object
+            .get("kind")
+            .and_then(Value::as_str)
+            .expect("validated above");
+        let path = object
+            .get("path")
+            .and_then(Value::as_str)
+            .expect("validated above");
+        if !seen_kind_path_pairs.insert((kind.to_string(), path.to_string())) {
+            return Err(format!(
+                "CLI envelope artifacts[{index}] duplicates artifact `{kind}` at `{path}`"
+            ));
+        }
+
+        if let Some(role) = object.get("role") {
+            match role {
+                Value::String(role) => {
+                    match role.as_str() {
+                        "primary-executable" => {
+                            if seen_primary_executable {
+                                return Err(format!("CLI envelope artifacts[{index}].role duplicates primary-executable"));
+                            }
+                            seen_primary_executable = true;
+                        }
+                        "primary-library" => {
+                            if seen_primary_library {
+                                return Err(format!("CLI envelope artifacts[{index}].role duplicates primary-library"));
+                            }
+                            seen_primary_library = true;
+                        }
+                        "primary-component" => {
+                            if seen_primary_component {
+                                return Err(format!("CLI envelope artifacts[{index}].role duplicates primary-component"));
+                            }
+                            seen_primary_component = true;
+                        }
+                        _ => {}
+                    }
+                }
+                other => {
+                    return Err(format!(
+                        "CLI envelope artifacts[{index}].role must be a string, got {other}"
+                    ))
+                }
+            }
+        }
     }
 
     Ok(())

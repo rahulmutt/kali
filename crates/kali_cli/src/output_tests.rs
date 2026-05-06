@@ -77,6 +77,80 @@ fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_run_text_output() 
 }
 
 #[test]
+fn emitted_cli_envelopes_accept_artifacts_arrays() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 42},
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7}
+        ]),
+    );
+
+    validate_envelope_value(&value).expect("artifacts array should validate");
+}
+
+#[test]
+fn emitted_cli_envelopes_reject_duplicate_primary_artifact_roles() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 42},
+            {"path": "alt.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 11}
+        ]),
+    );
+
+    let error = validate_envelope_value(&value).expect_err("duplicate primary role should fail");
+    assert!(
+        error.contains("duplicates primary-executable"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn emitted_cli_envelopes_reject_unexpected_top_level_keys() {
+    let mut value = emit_envelope_value(
+        "doctor",
+        true,
+        json!([]),
+        json!([]),
+        json!({"answer": 42}),
+        None,
+        None,
+        0,
+    );
+    value
+        .as_object_mut()
+        .expect("envelope object")
+        .insert("extensionKey".to_string(), json!("not allowed"));
+
+    let error = validate_envelope_value(&value).expect_err("unexpected keys should fail");
+    assert!(
+        error.contains("unexpected key `extensionKey`"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_test_text_output() {
     let value = emit_envelope_value(
         "test",
