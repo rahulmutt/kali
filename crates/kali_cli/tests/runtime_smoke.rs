@@ -14927,12 +14927,14 @@ fn run_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_co
 }
 
 #[test]
-fn run_accepts_positive_thread_budget_override_when_browser_harness_is_configured_in_js_and_ts_input(
+fn run_accepts_positive_thread_budget_override_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
     for (filename, source) in [
         ("main.js", "console.log('browser threaded budgets');\n"),
         ("main.ts", "console.log('browser threaded budgets');\n"),
+        ("main.jsx", "console.log('browser threaded budgets');\n"),
+        ("main.tsx", "console.log('browser threaded budgets');\n"),
     ] {
         let source_path = dir.path().join(filename);
         fs::write(&source_path, source).expect("write source");
@@ -58259,7 +58261,7 @@ fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_c
 }
 
 #[test]
-fn test_accepts_positive_thread_budget_override_when_browser_harness_is_configured_in_js_and_ts_input(
+fn test_accepts_positive_thread_budget_override_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     let dir = tempdir().expect("tempdir");
     for (filename, source) in [
@@ -58269,6 +58271,14 @@ fn test_accepts_positive_thread_budget_override_when_browser_harness_is_configur
         ),
         (
             "smoke.test.ts",
+            "Kali.test('browser threaded budgets', () => { console.log('browser threaded budgets'); });\n",
+        ),
+        (
+            "smoke.test.jsx",
+            "Kali.test('browser threaded budgets', () => { console.log('browser threaded budgets'); });\n",
+        ),
+        (
+            "smoke.test.tsx",
             "Kali.test('browser threaded budgets', () => { console.log('browser threaded budgets'); });\n",
         ),
     ] {
