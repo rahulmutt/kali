@@ -49,6 +49,29 @@ fn test_mir_lowering_preserves_function_flavor_metadata() {
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_flavor_metadata_for_function_expressions() {
+    let hir = parse_and_lower_hir(
+        "const syncExpr = function syncExpr() { return 1; }; const asyncExpr = async function asyncExpr() { return 1; }; const generatorExpr = function* generatorExpr() { yield 1; }; const asyncGeneratorExpr = async function* asyncGeneratorExpr() { yield 1; };",
+    );
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let sync = mir.function("syncExpr").expect("sync expression");
+    let async_expr = mir.function("asyncExpr").expect("async expression");
+    let generator = mir.function("generatorExpr").expect("generator expression");
+    let async_generator = mir
+        .function("asyncGeneratorExpr")
+        .expect("async generator expression");
+
+    assert_eq!(sync.function_flavor, Some(FunctionFlavor::Sync));
+    assert_eq!(async_expr.function_flavor, Some(FunctionFlavor::Async));
+    assert_eq!(generator.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(
+        async_generator.function_flavor,
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+}
+
+#[test]
 fn test_call_expressions_lower_to_call_nodes() {
     let hir = parse_and_lower_hir("foo(bar, 1);");
     let mir = MirLowerer::new().lower_hir_result(&hir);
