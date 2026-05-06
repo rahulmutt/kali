@@ -92,6 +92,65 @@ fn test_lower_statements_records_function_flavor_metadata() {
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata_for_function_expressions() {
+    let statements = parse("const syncExpr = function syncExpr() { return 1; }; const asyncExpr = async function asyncExpr() { return 1; }; const generatorExpr = function* generatorExpr() { yield 1; }; const asyncGeneratorExpr = async function* asyncGeneratorExpr() { yield 1; };");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let sync = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionExpr && node.text.as_deref() == Some("syncExpr")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("sync function expression node");
+    let async_expr = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionExpr && node.text.as_deref() == Some("asyncExpr")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("async function expression node");
+    let generator = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionExpr && node.text.as_deref() == Some("generatorExpr")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("generator function expression node");
+    let async_generator = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionExpr
+                && node.text.as_deref() == Some("asyncGeneratorExpr")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("async generator function expression node");
+
+    assert_eq!(result.function_flavor(sync), Some(FunctionFlavor::Sync));
+    assert_eq!(
+        result.function_flavor(async_expr),
+        Some(FunctionFlavor::Async)
+    );
+    assert_eq!(
+        result.function_flavor(generator),
+        Some(FunctionFlavor::Generator)
+    );
+    assert_eq!(
+        result.function_flavor(async_generator),
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+}
+
+#[test]
 fn test_lower_statements_records_export_all_nodes() {
     let statements = parse("export * from './helper.ts';");
     let mut lowerer = HirLowerer::new();
