@@ -1677,6 +1677,64 @@ fn validate_text_edit_location_order(start: &Value, end: &Value) -> Result<(), S
     }
 }
 
+fn validate_suggested_fix_edits_non_overlapping(edits: &[Value]) -> Result<(), String> {
+    let mut ranges = Vec::with_capacity(edits.len());
+
+    for (index, edit) in edits.iter().enumerate() {
+        let Some(object) = edit.as_object() else {
+            return Err(format!(
+                "suggested fix edits[{index}] must be a JSON object"
+            ));
+        };
+
+        let file = match object.get("file") {
+            Some(Value::String(file)) => file.clone(),
+            Some(other) => {
+                return Err(format!(
+                    "suggested fix edits[{index}].file must be a string, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        };
+
+        let start = source_location_position(
+            object.get("start").ok_or_else(|| {
+                format!("suggested fix edits[{index}] is missing required key `start`")
+            })?,
+            "text edit start",
+        )?;
+        let end = source_location_position(
+            object.get("end").ok_or_else(|| {
+                format!("suggested fix edits[{index}] is missing required key `end`")
+            })?,
+            "text edit end",
+        )?;
+
+        ranges.push((file, start, end, index));
+    }
+
+    ranges.sort_by(|left, right| {
+        left.0
+            .cmp(&right.0)
+            .then(left.1.cmp(&right.1))
+            .then(left.2.cmp(&right.2))
+            .then(left.3.cmp(&right.3))
+    });
+
+    for pair in ranges.windows(2) {
+        let (previous_file, _, previous_end, previous_index) = &pair[0];
+        let (current_file, current_start, _, current_index) = &pair[1];
+
+        if previous_file == current_file && current_start < previous_end {
+            return Err(format!(
+                "suggested fix edits[{current_index}] overlaps with suggested fix edits[{previous_index}]"
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 fn source_location_position(value: &Value, location_name: &str) -> Result<(u64, u64), String> {
     let Some(object) = value.as_object() else {
         return Err(format!("{location_name} must be a JSON object"));
@@ -1725,6 +1783,7 @@ fn validate_suggested_fix(value: Option<&Value>) -> Result<(), String> {
                             format!("suggested fix edits[{index}] is invalid: {err}")
                         })?;
                     }
+                    validate_suggested_fix_edits_non_overlapping(edits)?;
                 }
                 Some(other) => {
                     return Err(format!("suggested fix edits must be an array, got {other}"))
