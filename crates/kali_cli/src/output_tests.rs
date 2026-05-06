@@ -100,6 +100,33 @@ fn emitted_cli_envelopes_accept_artifacts_arrays() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_out_of_order_artifacts() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7},
+            {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 42}
+        ]),
+    );
+
+    let error = validate_envelope_value(&value).expect_err("out-of-order artifacts should fail");
+    assert!(
+        error.contains("must be sorted by role, kind, then path"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_duplicate_primary_artifact_roles() {
     let mut value = emit_envelope_value(
         "build",

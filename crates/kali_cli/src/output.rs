@@ -1331,6 +1331,7 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
     let mut seen_primary_library = false;
     let mut seen_primary_component = false;
     let mut seen_kind_path_pairs = BTreeSet::new();
+    let mut previous_sort_key: Option<(usize, String, String)> = None;
 
     for (index, item) in items.iter().enumerate() {
         let Some(object) = item.as_object() else {
@@ -1438,6 +1439,22 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
                 }
             }
         }
+
+        let sort_key = artifact_sort_key(object);
+        if let Some(previous_sort_key) = &previous_sort_key {
+            if previous_sort_key >= &sort_key {
+                return Err(format!(
+                    "CLI envelope artifacts[{index}] must be sorted by role, kind, then path; got role rank {}, kind `{}`, path `{}` after role rank {}, kind `{}`, path `{}`",
+                    sort_key.0,
+                    sort_key.1,
+                    sort_key.2,
+                    previous_sort_key.0,
+                    previous_sort_key.1,
+                    previous_sort_key.2
+                ));
+            }
+        }
+        previous_sort_key = Some(sort_key);
     }
 
     Ok(())
@@ -1456,6 +1473,40 @@ fn is_canonical_artifact_role(role: &str) -> bool {
             | "binding-package-manifest"
             | "debug-source-map"
     )
+}
+
+fn artifact_sort_key(object: &serde_json::Map<String, Value>) -> (usize, String, String) {
+    let role_rank = object
+        .get("role")
+        .and_then(Value::as_str)
+        .map(artifact_role_rank)
+        .unwrap_or(usize::MAX);
+    let kind = object
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let path = object
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    (role_rank, kind, path)
+}
+
+fn artifact_role_rank(role: &str) -> usize {
+    match role {
+        "primary-executable" => 0,
+        "primary-library" => 1,
+        "primary-component" => 2,
+        "browser-glue" => 3,
+        "interface-wit" => 4,
+        "embedding-header" => 5,
+        "embedding-metadata" => 6,
+        "binding-package-manifest" => 7,
+        "debug-source-map" => 8,
+        _ => usize::MAX,
+    }
 }
 
 fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
