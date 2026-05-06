@@ -28,7 +28,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 - Preserve generator/async-generator kind metadata through the lowering pipeline.
 - Add resumable iterator/state-machine plumbing needed for `yield`, `yield*`, async interaction, and finalization.
-- Current progress: HIR/MIR now preserve function-flavor metadata for sync, async, generator, and async-generator forms; MIR coverage now also pins the same preservation for named function expressions; resumable execution lowering remains gated.
+- Current progress: HIR/MIR now preserve function-flavor metadata for sync, async, generator, and async-generator forms; MIR coverage now also pins the same preservation for named function expressions; `check_source_file` now mirrors the canonical generator/async-generator lowering gate across Deno and browser TS/JS/JSX/TSX inputs; resumable execution lowering remains gated.
 
 #### 16.1b Generator lowering
 

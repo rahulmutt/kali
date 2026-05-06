@@ -5227,6 +5227,134 @@ fn build_source_file_rejects_async_generator_functions_in_tsx_input() {
     assert_build_source_file_rejects_async_generator_lowering_in_input("tsx");
 }
 
+fn assert_check_source_file_rejects_generator_lowering_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, "function* main() { yield* []; }\nmain();\n").expect("write source");
+
+    let error = check_source_file(&source_path, api_surface, &[], false, false)
+        .expect_err("generator lowering should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("generator function lowering")
+                || diagnostic.message.contains("yield expressions")
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+fn assert_check_source_file_rejects_async_generator_lowering_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "async function* main() { yield 1; }\nmain();\n",
+    )
+    .expect("write source");
+
+    let error = check_source_file(&source_path, api_surface, &[], false, false)
+        .expect_err("async generator lowering should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(
+            |diagnostic| diagnostic.message.contains("generator function lowering")
+                || diagnostic.message.contains("yield expressions")
+        ),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_ts_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_js_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_jsx_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_tsx_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_ts_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_js_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_jsx_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_tsx_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_browser_ts_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_browser_js_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_browser_jsx_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn check_source_file_rejects_generator_functions_in_browser_tsx_input() {
+    assert_check_source_file_rejects_generator_lowering_in_input(ApiSurface::Browser, "tsx");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_browser_ts_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_browser_js_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_browser_jsx_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn check_source_file_rejects_async_generator_functions_in_browser_tsx_input() {
+    assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Browser, "tsx");
+}
+
 #[test]
 fn collect_library_exports_rejects_generator_default_export_expression() {
     let dir = tempdir().expect("tempdir");
