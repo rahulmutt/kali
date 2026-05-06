@@ -4094,12 +4094,12 @@ for (const item of [...globalKeys]) { console.log(item); }
 for (const item of [...mixedKeys]) { console.log(item); }
 for (const item of [...bracketedKeys]) { console.log(item); }
 for (const item of [...frozenBracketedKeys]) { console.log(item); }
-for await (const item of [...keys]) { console.log(item); }
-for await (const item of [...aliasKeys]) { console.log(item); }
-for await (const item of [...globalKeys]) { console.log(item); }
-for await (const item of [...mixedKeys]) { console.log(item); }
-for await (const item of [...bracketedKeys]) { console.log(item); }
-for await (const item of [...frozenBracketedKeys]) { console.log(item); }
+for await (const item of keys) { console.log(item); }
+for await (const item of aliasKeys) { console.log(item); }
+for await (const item of globalKeys) { console.log(item); }
+for await (const item of mixedKeys) { console.log(item); }
+for await (const item of bracketedKeys) { console.log(item); }
+for await (const item of frozenBracketedKeys) { console.log(item); }
 "##
 }
 
