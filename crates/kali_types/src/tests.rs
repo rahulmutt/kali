@@ -7279,6 +7279,125 @@ fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before
     );
 }
 
+fn assert_object_helper_iteration_with_let_binding_in_js_input(helper: &str, rebound: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = if rebound {
+        format!(
+            "let values = {{ a: 1 }}; values = {{ b: 2 }}; for (const item of Object.{helper}(values)) {{ console.log(item); }}",
+            helper = helper,
+        )
+    } else {
+        format!(
+            "let values = {{ a: 1 }}; for (const item of Object.{helper}(values)) {{ console.log(item); }}",
+            helper = helper,
+        )
+    };
+    fs::write(&source_path, source).unwrap();
+
+    let mut statements = vec![Statement::VariableDeclaration(VariableDeclaration {
+        kind: "let".to_string(),
+        declarations: vec![VariableDeclarator {
+            id: "values".to_string(),
+            init: Some(Expression::ObjectExpression(ObjectExpression {
+                properties: vec![ObjectProperty {
+                    key: PropertyName::Identifier("a".to_string()),
+                    value: Expression::Literal(LiteralValue::Number(1.0)),
+                    kind: ObjectPropertyKind::Init,
+                }],
+            })),
+        }],
+    })];
+
+    if rebound {
+        statements.push(Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::Identifier("values".to_string()),
+                    right: Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("b".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                },
+            ))),
+        }));
+    }
+
+    statements.push(Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: helper.to_string(),
+            })),
+            args: vec![Expression::Identifier("values".to_string())],
+        })),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("item".to_string())],
+                }))),
+            })],
+        })),
+        is_await: false,
+    }));
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    if rebound {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    } else {
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_supports_object_values_iteration_with_let_binding_in_js_input() {
+    assert_object_helper_iteration_with_let_binding_in_js_input("values", false);
+}
+
+#[test]
+fn test_resolution_rejects_object_values_iteration_with_let_binding_rebound_before_use_in_js_input()
+{
+    assert_object_helper_iteration_with_let_binding_in_js_input("values", true);
+}
+
+#[test]
+fn test_resolution_supports_object_entries_iteration_with_let_binding_in_js_input() {
+    assert_object_helper_iteration_with_let_binding_in_js_input("entries", false);
+}
+
+#[test]
+fn test_resolution_rejects_object_entries_iteration_with_let_binding_rebound_before_use_in_js_input(
+) {
+    assert_object_helper_iteration_with_let_binding_in_js_input("entries", true);
+}
+
 #[test]
 fn test_resolution_supports_for_of_array_iteration() {
     let dir = tempfile::tempdir().unwrap();
