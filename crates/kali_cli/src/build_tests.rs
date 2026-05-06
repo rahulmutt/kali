@@ -1330,7 +1330,7 @@ fn assert_build_source_file_supports_object_is_primitive_literals_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"const zero = 0; const zeroAlias = zero; console.log(Object.is(zeroAlias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is("hello", "hello")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(globalThis["Object"]["is"](+1, 1)); console.log(globalThis.Object["is"](+1, 1)); console.log(globalThis["Object"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));"#,
+        r#"const zero = 0; const zeroAlias = zero; console.log(Object.is(zeroAlias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is("hello", "hello")); console.log(Object.is(1n, 1n)); console.log(Object.is(-1n, -1n)); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(globalThis["Object"]["is"](+1, 1)); console.log(globalThis.Object["is"](+1, 1)); console.log(globalThis["Object"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));"#,
     )
     .expect("write source");
 

@@ -2646,6 +2646,13 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
         Statement::VariableDeclaration(VariableDeclaration {
             kind: "const".to_string(),
             declarations: vec![VariableDeclarator {
+                id: "bigint".to_string(),
+                init: Some(Expression::BigIntLiteral("1n".to_string())),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
                 id: "infinity".to_string(),
                 init: Some(Expression::Identifier("Infinity".to_string())),
             }],
@@ -2678,6 +2685,18 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
                 args: vec![
                     Expression::Identifier("text".to_string()),
                     Expression::Literal(LiteralValue::String("hello".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("bigint".to_string()),
+                    Expression::BigIntLiteral("1n".to_string()),
                 ],
             }))),
         }),

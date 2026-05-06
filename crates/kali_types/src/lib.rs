@@ -114,6 +114,7 @@ enum StaticObjectIdentityValue {
     Boolean(bool),
     Number(f64),
     String(String),
+    BigInt(i64),
     Null,
     Reference(String),
 }
@@ -123,6 +124,7 @@ impl StaticObjectIdentityValue {
         match (self, other) {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
+            (Self::BigInt(left), Self::BigInt(right)) => left == right,
             (Self::Null, Self::Null) => true,
             (Self::Number(left), Self::Number(right)) => {
                 (left.is_nan() && right.is_nan())
@@ -1262,12 +1264,19 @@ impl TypeContext {
             Expression::Literal(LiteralValue::String(value)) => {
                 Some(StaticObjectIdentityValue::String(value.clone()))
             }
+            Expression::BigIntLiteral(value) => value
+                .strip_suffix('n')
+                .and_then(|value| value.parse::<i64>().ok())
+                .map(StaticObjectIdentityValue::BigInt),
             Expression::Literal(LiteralValue::Null) => Some(StaticObjectIdentityValue::Null),
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
             }
             Expression::UnaryExpression(expr) if expr.operator == "+" => {
-                self.resolve_static_object_identity_literal_value(&expr.argument)
+                match self.resolve_static_object_identity_literal_value(&expr.argument) {
+                    Some(StaticObjectIdentityValue::BigInt(_)) => None,
+                    other => other,
+                }
             }
             Expression::UnaryExpression(expr) if expr.operator == "-" => self
                 .resolve_static_object_identity_literal_value(&expr.argument)
@@ -1278,6 +1287,9 @@ impl TypeContext {
                         } else {
                             -number
                         }))
+                    }
+                    StaticObjectIdentityValue::BigInt(value) => {
+                        Some(StaticObjectIdentityValue::BigInt(-value))
                     }
                     _ => None,
                 }),

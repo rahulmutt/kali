@@ -46,6 +46,7 @@ enum StaticObjectIdentityValue {
     Boolean(bool),
     Number(f64),
     String(String),
+    BigInt(i64),
     Null,
 }
 
@@ -54,6 +55,7 @@ impl StaticObjectIdentityValue {
         match (self, other) {
             (Self::Boolean(left), Self::Boolean(right)) => left == right,
             (Self::String(left), Self::String(right)) => left == right,
+            (Self::BigInt(left), Self::BigInt(right)) => left == right,
             (Self::Null, Self::Null) => true,
             (Self::Number(left), Self::Number(right)) => {
                 (left.is_nan() && right.is_nan())
@@ -2765,8 +2767,13 @@ impl<'a> FunctionEmitter<'a> {
                 Some("null") => Some(StaticObjectIdentityValue::Null),
                 Some("Infinity") => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
                 Some("NaN") => Some(StaticObjectIdentityValue::Number(f64::NAN)),
-                Some(text) => parse_numeric_literal_value(text)
-                    .map(StaticObjectIdentityValue::Number)
+                Some(text) => text
+                    .strip_suffix('n')
+                    .and_then(|value| value.parse::<i64>().ok())
+                    .map(StaticObjectIdentityValue::BigInt)
+                    .or_else(|| {
+                        parse_numeric_literal_value(text).map(StaticObjectIdentityValue::Number)
+                    })
                     .or_else(|| {
                         Some(StaticObjectIdentityValue::String(
                             strip_string_delimiters(text).to_string(),
@@ -2787,7 +2794,10 @@ impl<'a> FunctionEmitter<'a> {
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
                 None | Some("") | Some("+") => {
-                    self.resolve_static_object_identity_value(node.children[0])
+                    match self.resolve_static_object_identity_value(node.children[0]) {
+                        Some(StaticObjectIdentityValue::BigInt(_)) => None,
+                        other => other,
+                    }
                 }
                 Some("-") => self
                     .resolve_static_object_identity_value(node.children[0])
@@ -2798,6 +2808,9 @@ impl<'a> FunctionEmitter<'a> {
                             } else {
                                 -number
                             }))
+                        }
+                        StaticObjectIdentityValue::BigInt(value) => {
+                            Some(StaticObjectIdentityValue::BigInt(-value))
                         }
                         _ => None,
                     }),
