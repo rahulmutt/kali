@@ -39,7 +39,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 - Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints.
 - Promote only with conformance, sandbox/resource, and JSON-output evidence.
-- Current progress: browser late-compat TSX smoke now also mirrors the full `Proxy.revocable` alias family, including the bracketed `globalThis["Proxy"].revocable` and `globalThis.Proxy["revocable"]` spellings, alongside the existing gated object-model aliases so the TSX late-object gate stays aligned with the JS/browser coverage; the same TSX lane now also rejects `Intl.NumberFormat` through both `globalThis.Intl.NumberFormat` and `globalThis["Intl"]["NumberFormat"]` spellings so the broader Intl gate is no longer JS-only in browser late-compat smoke.
+- Current progress: browser late-compat TSX smoke now also mirrors the full `Proxy.revocable` alias family, including the bracketed `globalThis["Proxy"].revocable` and `globalThis.Proxy["revocable"]` spellings, alongside the existing gated object-model aliases so the TSX late-object gate stays aligned with the JS/browser coverage; the same TSX lane now also rejects `Intl.NumberFormat` through the mixed `globalThis["Intl"].NumberFormat` / `globalThis.Intl["NumberFormat"]` / `globalThis["Intl"]["NumberFormat"]` spellings so the broader Intl gate is no longer JS-only in browser late-compat smoke.
 ## Exit gate
 
 - New host/runtime support has integration, sandbox/effect, resource-budget, and JSON-output evidence.
