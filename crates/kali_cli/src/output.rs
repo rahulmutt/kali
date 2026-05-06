@@ -1579,22 +1579,23 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
         }
     }
 
-    match object.get("file") {
-        Some(Value::String(_)) => {}
+    let file = match object.get("file") {
+        Some(Value::String(file)) => file,
         Some(other) => return Err(format!("text edit file must be a string, got {other}")),
         None => unreachable!("validated above"),
-    }
+    };
 
-    validate_source_location(
-        object
-            .get("start")
-            .ok_or_else(|| "text edit is missing required key `start`".to_string())?,
-    )?;
-    validate_source_location(
-        object
-            .get("end")
-            .ok_or_else(|| "text edit is missing required key `end`".to_string())?,
-    )?;
+    let start = object
+        .get("start")
+        .ok_or_else(|| "text edit is missing required key `start`".to_string())?;
+    validate_source_location(start)?;
+    validate_source_location_file_mirror(start, file, "text edit start")?;
+
+    let end = object
+        .get("end")
+        .ok_or_else(|| "text edit is missing required key `end`".to_string())?;
+    validate_source_location(end)?;
+    validate_source_location_file_mirror(end, file, "text edit end")?;
 
     match object.get("newText") {
         Some(Value::String(_)) => {}
@@ -1603,6 +1604,27 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn validate_source_location_file_mirror(
+    location: &Value,
+    file: &str,
+    location_name: &str,
+) -> Result<(), String> {
+    let Some(location) = location.as_object() else {
+        return Err(format!("{location_name} must be a JSON object"));
+    };
+
+    match location.get("file") {
+        Some(Value::String(location_file)) if location_file == file => Ok(()),
+        Some(Value::String(location_file)) => Err(format!(
+            "{location_name}.file must match text edit file, got `{location_file}`"
+        )),
+        Some(other) => Err(format!(
+            "{location_name}.file must be a string, got {other}"
+        )),
+        None => Err(format!("{location_name} is missing required key `file`")),
+    }
 }
 
 fn validate_source_location(value: &Value) -> Result<(), String> {

@@ -36,7 +36,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
-- Implemented: diagnostic JSON now mirrors `span.file` into the top-level `file` convenience field, and schema validation rejects any mismatch between the mirror and the canonical span file.
+- Implemented: diagnostic JSON now mirrors `span.file` into the top-level `file` convenience field, schema validation rejects any mismatch between the mirror and the canonical span file, and suggested-fix edit locations now require their nested `start.file` / `end.file` mirrors to match the edit file as well.
 
 ## Exit gate
 
