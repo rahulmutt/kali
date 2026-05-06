@@ -45028,6 +45028,42 @@ fn check_rejects_async_generator_lowering_in_js_input_in_json() {
     );
 }
 
+fn assert_async_generator_function_expression_lowering_rejection(command: &str, extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const main = async function*() { yield* other(); };\nmain();",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn check_rejects_async_generator_function_expression_lowering_in_jsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("check", "jsx");
+}
+
+#[test]
+fn check_rejects_async_generator_function_expression_lowering_in_tsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("check", "tsx");
+}
+
 #[test]
 fn check_rejects_generator_delegating_yield_lowering() {
     let dir = tempdir().expect("tempdir");
@@ -49241,6 +49277,16 @@ fn build_rejects_async_generator_function_expression_lowering_in_js_input_in_jso
 }
 
 #[test]
+fn build_rejects_async_generator_function_expression_lowering_in_jsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("build", "jsx");
+}
+
+#[test]
+fn build_rejects_async_generator_function_expression_lowering_in_tsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("build", "tsx");
+}
+
+#[test]
 fn run_rejects_async_generator_function_expression_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -49295,6 +49341,16 @@ fn run_rejects_async_generator_function_expression_lowering_in_js_input() {
 }
 
 #[test]
+fn run_rejects_async_generator_function_expression_lowering_in_jsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("run", "jsx");
+}
+
+#[test]
+fn run_rejects_async_generator_function_expression_lowering_in_tsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("run", "tsx");
+}
+
+#[test]
 fn test_rejects_async_generator_function_expression_lowering() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.ts");
@@ -49346,6 +49402,16 @@ fn test_rejects_async_generator_function_expression_lowering_in_js_input() {
         stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn test_rejects_async_generator_function_expression_lowering_in_jsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("test", "jsx");
+}
+
+#[test]
+fn test_rejects_async_generator_function_expression_lowering_in_tsx_input() {
+    assert_async_generator_function_expression_lowering_rejection("test", "tsx");
 }
 
 #[test]
