@@ -298,6 +298,26 @@ fn run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in
 }
 
 #[test]
+fn run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.jsx",
+        browser_harness_wrapped_object_enumeration_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.tsx",
+        browser_harness_wrapped_object_enumeration_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_wrapped_object_enumeration(
         "test",
@@ -313,6 +333,26 @@ fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_i
         "test",
         "smoke.test.js",
         browser_harness_wrapped_object_enumeration_js_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_wrapped_object_enumeration_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_wrapped_object_enumeration_test_source(),
         false,
     );
 }
@@ -338,6 +378,26 @@ fn json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configur
 }
 
 #[test]
+fn json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.jsx",
+        browser_harness_wrapped_object_enumeration_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.tsx",
+        browser_harness_wrapped_object_enumeration_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_wrapped_object_enumeration(
         "test",
@@ -353,6 +413,26 @@ fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configu
         "test",
         "smoke.test.js",
         browser_harness_wrapped_object_enumeration_js_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_wrapped_object_enumeration_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_wrapped_object_enumeration_test_source(),
         true,
     );
 }
