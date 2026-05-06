@@ -4203,24 +4203,54 @@ impl<'a> FunctionEmitter<'a> {
             Some(text)
                 if text == "keys"
                     || text.ends_with(".keys")
+                    || text.ends_with("[\"keys\"]")
+                    || text.ends_with("['keys']")
                     || text == "Object.keys"
-                    || text == "globalThis.Object.keys" =>
+                    || text == "Object[\"keys\"]"
+                    || text == "Object['keys']"
+                    || text == "globalThis.Object.keys"
+                    || text == "globalThis.Object[\"keys\"]"
+                    || text == "globalThis.Object['keys']"
+                    || text == r#"globalThis["Object"].keys"#
+                    || text == r#"globalThis["Object"]["keys"]"#
+                    || text == r#"globalThis['Object'].keys"#
+                    || text == r#"globalThis['Object']['keys']"# =>
             {
                 ObjectEnumerationMode::Keys
             }
             Some(text)
                 if text == "values"
                     || text.ends_with(".values")
+                    || text.ends_with("[\"values\"]")
+                    || text.ends_with("['values']")
                     || text == "Object.values"
-                    || text == "globalThis.Object.values" =>
+                    || text == "Object[\"values\"]"
+                    || text == "Object['values']"
+                    || text == "globalThis.Object.values"
+                    || text == "globalThis.Object[\"values\"]"
+                    || text == "globalThis.Object['values']"
+                    || text == r#"globalThis["Object"].values"#
+                    || text == r#"globalThis["Object"]["values"]"#
+                    || text == r#"globalThis['Object'].values"#
+                    || text == r#"globalThis['Object']['values']"# =>
             {
                 ObjectEnumerationMode::Values
             }
             Some(text)
                 if text == "entries"
                     || text.ends_with(".entries")
+                    || text.ends_with("[\"entries\"]")
+                    || text.ends_with("['entries']")
                     || text == "Object.entries"
-                    || text == "globalThis.Object.entries" =>
+                    || text == "Object[\"entries\"]"
+                    || text == "Object['entries']"
+                    || text == "globalThis.Object.entries"
+                    || text == "globalThis.Object[\"entries\"]"
+                    || text == "globalThis.Object['entries']"
+                    || text == r#"globalThis["Object"].entries"#
+                    || text == r#"globalThis["Object"]["entries"]"#
+                    || text == r#"globalThis['Object'].entries"#
+                    || text == r#"globalThis['Object']['entries']"# =>
             {
                 ObjectEnumerationMode::Entries
             }

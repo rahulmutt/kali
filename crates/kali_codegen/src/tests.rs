@@ -302,6 +302,31 @@ fn for_of_object_entries_lowers_for_static_object_from_entries_operands() {
 }
 
 #[test]
+fn for_of_object_enumeration_lowers_for_mixed_bracket_static_object_from_entries_operands() {
+    let program = parse_and_lower_lir(
+        "for (const value of [...globalThis.Object[\"values\"](Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(value); } for (const key of [...globalThis[\"Object\"].keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); } for (const entry of [...globalThis[\"Object\"][\"entries\"](Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const"), "{printed}");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn for_of_object_enumeration_lowers_for_frozen_static_object_from_entries_operands() {
     let program = parse_and_lower_lir(
         "for (const key of Object.keys(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))) { console.log(key); }",
