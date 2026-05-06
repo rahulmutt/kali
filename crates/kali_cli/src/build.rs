@@ -2303,19 +2303,327 @@ pub fn collect_library_exports(
     runtime_profiles: &[String],
 ) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
     let source_path = source_path.as_ref();
-    let parsed = parse_source_file(source_path)?;
-
-    let mut resolver = TypeContext::with_base_path_and_api_surface_and_runtime_profiles(
+    let mut visited = BTreeSet::new();
+    collect_library_exports_from_source_path_with_context(
         source_path,
-        api_surface.to_string(),
-        runtime_profiles.to_vec(),
-    );
-    let resolved = resolver.resolve_statements_in_file(source_path, &parsed);
-    if has_errors(&resolved.diagnostics) {
-        return Err(resolved.diagnostics);
+        api_surface,
+        runtime_profiles,
+        &mut visited,
+    )
+}
+
+fn collect_library_exports_from_source_path_with_context(
+    source_path: &Path,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    visited: &mut BTreeSet<PathBuf>,
+) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
+    let canonical_source_path =
+        fs::canonicalize(source_path).unwrap_or_else(|_| source_path.to_path_buf());
+    if !visited.insert(canonical_source_path.clone()) {
+        return Err(vec![invalid_export_surface(
+            source_path,
+            "cyclic re-exported surfaces are not statically known yet",
+        )]);
     }
 
-    collect_library_exports_from_statements(&parsed, source_path)
+    let parsed = match parse_source_file(source_path) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            visited.remove(&canonical_source_path);
+            return Err(error);
+        }
+    };
+
+    let exports = collect_library_exports_from_statements_with_context(
+        &parsed,
+        source_path,
+        api_surface,
+        runtime_profiles,
+        visited,
+    );
+    visited.remove(&canonical_source_path);
+    exports
+}
+
+fn collect_library_exports_from_statements_with_context(
+    statements: &[Statement],
+    source_path: &Path,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    visited: &mut BTreeSet<PathBuf>,
+) -> Result<Vec<LibraryExport>, Vec<Diagnostic>> {
+    let mut diagnostics = Vec::new();
+    let declared_function_signatures =
+        collect_declared_function_signatures(statements, source_path, &mut diagnostics);
+    let mut exports = BTreeMap::<String, String>::new();
+    for statement in statements {
+        match statement {
+            Statement::FunctionDeclaration(func) => {
+                let signature = infer_function_signature(&func.params, &func.body, func.is_async);
+                if exports.insert(func.name.clone(), signature).is_some() {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        &format!("duplicate export name `{}`", func.name),
+                    ));
+                }
+            }
+            Statement::ExportNamed(declaration) => {
+                if let Some(source) = declaration.source.as_ref() {
+                    let Some(resolved_source_path) =
+                        resolve_library_export_source_path(source_path, source, api_surface)
+                    else {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("re-export source `{source}` could not be resolved"),
+                        ));
+                        continue;
+                    };
+
+                    let reexported_exports =
+                        match collect_library_exports_from_source_path_with_context(
+                            &resolved_source_path,
+                            api_surface,
+                            runtime_profiles,
+                            visited,
+                        ) {
+                            Ok(exports) => exports,
+                            Err(mut error_diagnostics) => {
+                                diagnostics.append(&mut error_diagnostics);
+                                continue;
+                            }
+                        };
+                    let reexported_map = reexported_exports
+                        .into_iter()
+                        .map(|export| (export.name, export.signature))
+                        .collect::<BTreeMap<_, _>>();
+
+                    if declaration.specifiers.is_empty() {
+                        continue;
+                    }
+
+                    for specifier in &declaration.specifiers {
+                        let Some(signature) = reexported_map.get(&specifier.local).cloned() else {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                &format!(
+                                    "re-exported export `{}` was not statically known in `{source}`",
+                                    specifier.local
+                                ),
+                            ));
+                            continue;
+                        };
+                        if exports
+                            .insert(specifier.exported.clone(), signature)
+                            .is_some()
+                        {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                &format!("duplicate export name `{}`", specifier.exported),
+                            ));
+                        }
+                    }
+                    continue;
+                }
+
+                for specifier in &declaration.specifiers {
+                    let signature = declared_function_signatures
+                        .get(&specifier.local)
+                        .cloned()
+                        .unwrap_or_else(|| signature_from_export_specifier(&specifier.local));
+                    if exports
+                        .insert(specifier.exported.clone(), signature)
+                        .is_some()
+                    {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{}`", specifier.exported),
+                        ));
+                    }
+                }
+            }
+            Statement::ExportDefault(default_decl) => match default_decl {
+                ExportDefaultDeclaration::FunctionDeclaration(func) => {
+                    if func.generator {
+                        diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                        ));
+                    } else {
+                        let export_name = if func.name.is_empty() {
+                            "default".to_string()
+                        } else {
+                            func.name.clone()
+                        };
+                        if exports
+                            .insert(
+                                export_name.clone(),
+                                infer_function_signature(&func.params, &func.body, func.is_async),
+                            )
+                            .is_some()
+                        {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                &format!("duplicate export name `{export_name}`"),
+                            ));
+                        }
+                    }
+                }
+                ExportDefaultDeclaration::Expression(expression) => {
+                    if let Some(signature) = infer_function_binding_signature(
+                        Some(expression),
+                        source_path,
+                        &mut diagnostics,
+                    ) {
+                        if exports.insert("default".to_string(), signature).is_some() {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                "duplicate export name `default`",
+                            ));
+                        }
+                    } else {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            "default export expressions are only part of the Phase-1 base library artifact when they resolve to a statically known function shape; use an explicit function declaration or the later compatibility path",
+                        ));
+                    }
+                }
+                ExportDefaultDeclaration::ClassDeclaration(_) => {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        "default export classes are not part of the Phase-1 base library artifact",
+                    ));
+                }
+            },
+            Statement::ImportDeclaration(_)
+            | Statement::BreakStatement(_)
+            | Statement::ContinueStatement(_)
+            | Statement::WithStatement(_)
+            | Statement::ReturnStatement(_)
+            | Statement::LabeledStatement(_)
+            | Statement::IfStatement(_)
+            | Statement::SwitchStatement(_)
+            | Statement::ThrowStatement(_)
+            | Statement::TryStatement(_)
+            | Statement::DebuggerStatement(_)
+            | Statement::BlockStatement(_)
+            | Statement::ForStatement(_)
+            | Statement::ForInStatement(_)
+            | Statement::ForOfStatement(_)
+            | Statement::WhileStatement(_)
+            | Statement::DoWhileStatement(_)
+            | Statement::ClassDeclaration(_)
+            | Statement::VariableDeclaration(_)
+            | Statement::EnumDeclaration(_)
+            | Statement::TypeAliasDeclaration(_)
+            | Statement::InterfaceDeclaration(_)
+            | Statement::ExpressionStatement(_) => {}
+        }
+    }
+
+    if has_errors(&diagnostics) {
+        return Err(diagnostics);
+    }
+
+    let exports = exports
+        .into_iter()
+        .map(|(name, signature)| LibraryExport { name, signature })
+        .collect::<Vec<_>>();
+
+    if exports.is_empty() {
+        return Err(vec![invalid_export_surface(
+            source_path,
+            "no statically known export surface was found",
+        )]);
+    }
+
+    Ok(exports)
+}
+
+fn resolve_library_export_source_path(
+    source_path: &Path,
+    source: &str,
+    api_surface: ApiSurface,
+) -> Option<PathBuf> {
+    let base_dir = source_path.parent().unwrap_or_else(|| Path::new("."));
+    let source_path = Path::new(source);
+
+    if source_path.is_absolute() || source.starts_with('.') {
+        if let Some(resolved) = resolve_relative_library_export_source(base_dir, source) {
+            return Some(resolved);
+        }
+    }
+
+    let project_root =
+        kali_npm::discover_project_root(base_dir).unwrap_or_else(|| base_dir.to_path_buf());
+    kali_npm::resolve_materialized_import_with_browser_context(
+        project_root,
+        source,
+        api_surface == ApiSurface::Browser,
+    )
+}
+
+fn resolve_relative_library_export_source(base_dir: &Path, source: &str) -> Option<PathBuf> {
+    let candidate = base_dir.join(source);
+    if candidate.is_file() {
+        return Some(candidate);
+    }
+
+    if candidate.is_dir() {
+        for index_name in [
+            "index.ts",
+            "index.tsx",
+            "index.js",
+            "index.jsx",
+            "index.mts",
+            "index.mjs",
+            "index.cts",
+            "index.cjs",
+            "index.d.ts",
+            "index.d.mts",
+            "index.d.cts",
+        ] {
+            let index_candidate = candidate.join(index_name);
+            if index_candidate.is_file() {
+                return Some(index_candidate);
+            }
+        }
+    }
+
+    let extensions = [
+        "ts", "tsx", "js", "jsx", "mts", "cts", "d.ts", "d.mts", "d.cts",
+    ];
+    extensions.iter().find_map(|extension| {
+        let candidate = if source.ends_with(extension) {
+            base_dir.join(source)
+        } else {
+            base_dir.join(format!("{}.{}", source, extension))
+        };
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if candidate.is_dir() {
+            for index_name in [
+                "index.ts",
+                "index.tsx",
+                "index.js",
+                "index.jsx",
+                "index.mts",
+                "index.mjs",
+                "index.cts",
+                "index.cjs",
+                "index.d.ts",
+                "index.d.mts",
+                "index.d.cts",
+            ] {
+                let index_candidate = candidate.join(index_name);
+                if index_candidate.is_file() {
+                    return Some(index_candidate);
+                }
+            }
+        }
+        None
+    })
 }
 
 pub fn collect_browser_bundle_exports(

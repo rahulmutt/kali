@@ -2,7 +2,8 @@
 use kali_ast::{
     ASTBuilder, ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
-    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, Expression,
+    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement,
+    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
     ExpressionOrSpread, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
     ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
@@ -172,6 +173,7 @@ impl Parser {
             }
             TokenType::Function => self.parse_function_declaration_with_async(false),
             TokenType::Class => self.parse_class_declaration(),
+            TokenType::Export => self.parse_export_declaration(),
             TokenType::If => self.parse_if_statement(),
             TokenType::While => self.parse_while_statement(),
             TokenType::For => self.parse_for_statement(),
@@ -875,6 +877,130 @@ impl Parser {
             specifiers,
             source,
         }))
+    }
+
+    fn parse_export_declaration(&mut self) -> Option<Statement> {
+        let _ = self.stream.advance();
+
+        if self.stream.current_kind() == Some(&TokenType::Default) {
+            let _ = self.stream.advance();
+            let declaration = match self.stream.current_kind() {
+                Some(TokenType::Async)
+                    if self.stream.peek_next_kind() == Some(&TokenType::Function) =>
+                {
+                    self.parse_function_declaration_with_async(true)
+                        .and_then(|statement| match statement {
+                            Statement::FunctionDeclaration(function) => {
+                                Some(ExportDefaultDeclaration::FunctionDeclaration(function))
+                            }
+                            _ => None,
+                        })
+                }
+                Some(TokenType::Function) => self
+                    .parse_function_declaration_with_async(false)
+                    .and_then(|statement| match statement {
+                        Statement::FunctionDeclaration(function) => {
+                            Some(ExportDefaultDeclaration::FunctionDeclaration(function))
+                        }
+                        _ => None,
+                    }),
+                Some(TokenType::Class) => {
+                    self.parse_class_declaration()
+                        .and_then(|statement| match statement {
+                            Statement::ClassDeclaration(class_declaration) => Some(
+                                ExportDefaultDeclaration::ClassDeclaration(class_declaration),
+                            ),
+                            _ => None,
+                        })
+                }
+                _ => Some(ExportDefaultDeclaration::Expression(
+                    self.parse_expression(),
+                )),
+            }?;
+            let _ = self.stream.accept(TokenType::Semicolon);
+            return Some(Statement::ExportDefault(declaration));
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::Async)
+            && self.stream.peek_next_kind() == Some(&TokenType::Function)
+        {
+            return self.parse_function_declaration_with_async(true);
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::Function) {
+            return self.parse_function_declaration();
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::Class) {
+            return self.parse_class_declaration();
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+            let specifiers = self.parse_export_named_specifiers();
+            let source = if self.stream.current_kind() == Some(&TokenType::From) {
+                let _ = self.stream.advance();
+                match self.stream.current_kind() {
+                    Some(TokenType::StringLiteral) => self
+                        .stream
+                        .advance()
+                        .map(|token| unquote_string_literal(&token.value)),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let _ = self.stream.accept(TokenType::Semicolon);
+            return Some(Statement::ExportNamed(ExportNamedDeclaration {
+                specifiers,
+                source,
+            }));
+        }
+
+        self.parse_expression_statement()
+    }
+
+    fn parse_export_named_specifiers(&mut self) -> Vec<ExportSpecifier> {
+        let mut specifiers = Vec::new();
+        if self.stream.current_kind() != Some(&TokenType::LeftBrace) {
+            return specifiers;
+        }
+
+        let _ = self.stream.advance();
+        loop {
+            match self.stream.current_kind() {
+                Some(TokenType::RightBrace) => {
+                    let _ = self.stream.advance();
+                    break;
+                }
+                Some(TokenType::Identifier) => {
+                    let local = self
+                        .stream
+                        .advance()
+                        .map(|token| token.value)
+                        .unwrap_or_default();
+                    let mut exported = local.clone();
+
+                    if self.stream.current_kind() == Some(&TokenType::As) {
+                        let _ = self.stream.advance();
+                        if self.stream.current_kind() == Some(&TokenType::Identifier) {
+                            exported = self
+                                .stream
+                                .advance()
+                                .map(|token| token.value)
+                                .unwrap_or(local.clone());
+                        }
+                    }
+
+                    specifiers.push(ExportSpecifier { local, exported });
+                    let _ = self.stream.accept(TokenType::Comma);
+                }
+                _ => {
+                    let _ = self.stream.advance();
+                }
+            }
+        }
+
+        specifiers
     }
 
     fn parse_import_named_specifiers(&mut self) -> Vec<ImportNamedSpecifier> {

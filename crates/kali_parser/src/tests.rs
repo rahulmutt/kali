@@ -173,6 +173,64 @@ fn test_parse_default_import_declaration() {
 }
 
 #[test]
+fn test_parse_named_export_declaration() {
+    let tokens = lex("export { quadruple } from \"./helper.ts\";");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportNamed(decl) => {
+            assert_eq!(decl.source.as_deref(), Some("./helper.ts"));
+            assert_eq!(
+                decl.specifiers,
+                vec![kali_ast::ExportSpecifier {
+                    local: "quadruple".to_string(),
+                    exported: "quadruple".to_string(),
+                }]
+            );
+        }
+        other => panic!("Expected ExportNamedDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_default_export_function_declaration() {
+    let tokens = lex("export default function main() { return 1; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportDefault(decl) => match decl {
+            kali_ast::ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                assert_eq!(function.name, "main");
+                assert!(!function.is_async);
+                assert!(!function.generator);
+            }
+            other => panic!("Expected function declaration export, got {other:?}"),
+        },
+        other => panic!("Expected ExportDefaultDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_export_async_function_declaration() {
+    let tokens = lex("export async function main() { await value; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::FunctionDeclaration(decl) => {
+            assert_eq!(decl.name, "main");
+            assert!(decl.is_async);
+        }
+        other => panic!("Expected FunctionDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_async_await_expression() {
     let tokens = lex("async function main() { await Promise.resolve(7); }");
     let mut parser = Parser::new(FileId::new(0), tokens);

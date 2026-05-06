@@ -7445,6 +7445,29 @@ fn collect_library_exports_infers_literal_return_types_for_function_declarations
 }
 
 #[test]
+fn collect_library_exports_resolves_named_re_exports_across_source_graph() {
+    let dir = tempdir().expect("tempdir");
+    let helper_path = dir.path().join("helper.ts");
+    let bridge_path = dir.path().join("bridge.ts");
+
+    fs::write(
+        &helper_path,
+        "export function quadruple(value) { return value + value; }\n",
+    )
+    .expect("write helper source");
+    fs::write(&bridge_path, "export { quadruple } from './helper.ts';\n")
+        .expect("write bridge source");
+
+    let exports = collect_library_exports(&bridge_path, ApiSurface::Deno, &[])
+        .expect("library exports should resolve through re-exports");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "quadruple" && export.signature == "(value) => unknown" }));
+}
+
+#[test]
 fn collect_library_exports_infers_const_function_expression_bindings_and_aliases() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
