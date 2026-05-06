@@ -269,6 +269,9 @@ Required fields:
 - `message: string`
 - `style: "primary" | "secondary"`
 
+Interpretation rules:
+- label objects are fixed-shape in schema v1; unexpected keys are rejected
+
 ### `RelatedInfo`
 
 ```json
@@ -287,6 +290,9 @@ Required fields:
 Required fields:
 - `message: string`
 - `span: SourceSpan`
+
+Interpretation rules:
+- related-info objects are fixed-shape in schema v1; unexpected keys are rejected
 
 ### `DiagnosticContext`
 

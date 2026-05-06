@@ -1487,6 +1487,7 @@ fn validate_label_value(value: &Value) -> Result<(), String> {
             return Err(format!("label is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(object, &["span", "message", "style"], "label")?;
 
     validate_source_span(
         object
@@ -1536,6 +1537,7 @@ fn validate_related_info_value(value: &Value) -> Result<(), String> {
             return Err(format!("related item is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(object, &["message", "span"], "related item")?;
 
     match object.get("message") {
         Some(Value::String(_)) => {}

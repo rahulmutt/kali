@@ -2463,6 +2463,81 @@ fn validate_envelope_value_rejects_related_item_with_non_string_message() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_unexpected_label_extensions() {
+    let invalid_label_extension = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic label extension",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [
+                    {
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "message": "label",
+                        "style": "primary",
+                        "metadata": {"kind": "extra"}
+                    }
+                ],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_label_extension)
+        .expect_err("unexpected label extensions should fail validation");
+    assert!(err.contains("labels[0]"), "unexpected error: {err}");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_rejects_unexpected_related_item_extensions() {
+    let invalid_related_extension = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad related item extension",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [
+                    {
+                        "message": "follow-up note",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "metadata": {"kind": "extra"}
+                    }
+                ],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_related_extension)
+        .expect_err("unexpected related item extensions should fail validation");
+    assert!(err.contains("related[0]"), "unexpected error: {err}");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_suggested_fix_edits() {
     let invalid_fix = json!({
         "schemaVersion": 1,
