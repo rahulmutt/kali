@@ -182,6 +182,34 @@ fn emitted_cli_envelopes_reject_unexpected_artifact_keys() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_duplicate_artifact_kind_path_pairs() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 42},
+            {"path": "main.wasm", "kind": "wasm-module", "role": "browser-glue", "bytes": 7}
+        ]),
+    );
+
+    let error = validate_envelope_value(&value)
+        .expect_err("duplicate artifact kind/path pairs should fail");
+    assert!(
+        error.contains("duplicates artifact `wasm-module` at `main.wasm`"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_unexpected_top_level_keys() {
     let mut value = emit_envelope_value(
         "doctor",
