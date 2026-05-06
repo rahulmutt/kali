@@ -235,7 +235,7 @@ pub fn validate_effects_payload_value(value: &Value) -> Result<(), String> {
         object.get("analysisContext"),
         "effects payload analysisContext",
     )?;
-    validate_string_array_value(
+    validate_unique_string_array_value(
         object.get("entryPoints"),
         "effects payload entryPoints",
         true,

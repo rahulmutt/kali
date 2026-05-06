@@ -1142,6 +1142,29 @@ fn validate_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_duplicate_entry_points() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": ["src/main.ts", "src/main.ts"],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("duplicate entryPoints should fail validation");
+    assert!(
+        err.contains("entryPoints") && err.contains("duplicate item `src/main.ts`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_effects_payload_value_rejects_unexpected_keys() {
     let value = json!({
         "schemaVersion": 1,
