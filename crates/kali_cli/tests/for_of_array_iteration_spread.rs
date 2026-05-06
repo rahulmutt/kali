@@ -73,3 +73,27 @@ fn test_supports_for_of_array_iteration_spread_in_ts_input() {
         "ok 1",
     );
 }
+
+#[test]
+fn run_supports_for_of_array_iteration_spread_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_for_of_array_iteration_spread(
+            "run",
+            filename,
+            "const values = [1, 2]; for (const item of [...values]) { console.log(item); }\n",
+            "1\n2\n",
+        );
+    }
+}
+
+#[test]
+fn test_supports_for_of_array_iteration_spread_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_for_of_array_iteration_spread(
+            "test",
+            filename,
+            "Kali.test('for-of spread', () => { const values = [1, 2]; for (const item of [...values]) { console.log(item); } });\n",
+            "ok 1",
+        );
+    }
+}
