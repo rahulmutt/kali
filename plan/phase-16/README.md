@@ -18,9 +18,19 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 ### 16.1 Generators and iterator protocol
 
-- Implement generator and async-generator lowering only with state-machine, `yield` / `yield*`, async interaction, error, and finalization coverage.
+- Generators need a dedicated resumable-iterator representation before faithful lowering can land; the current HIR path does not yet preserve enough function-kind metadata for that work.
+- Split the generator packet into prerequisite plumbing, then state-machine lowering, then async-generator/finalization coverage.
 - Expand `for...of` and `for await...of` toward full iterator/async-iterator protocol semantics beyond bounded static slices, including spread of supported `Object.keys(...)` / `Object.values(...)` / `Object.entries(...)` slices where that remains shape-safe.
 - Keep unavailable forms on canonical `E5506` gates with TS/JS/JSX/TSX and JSON-output regressions where applicable.
+
+#### 16.1a Generator prerequisites
+
+- Preserve generator/async-generator kind metadata through the lowering pipeline.
+- Add resumable iterator/state-machine plumbing needed for `yield`, `yield*`, async interaction, and finalization.
+
+#### 16.1b Generator lowering
+
+- Implement generator and async-generator lowering only after the prerequisite plumbing lands, with state-machine, `yield` / `yield*`, async interaction, error, and finalization coverage.
 
 ### 16.2 Expression, built-in, and object semantics
 

@@ -184,6 +184,8 @@ async function fetch(url) → StateMachine {
 - Promise resolution triggers the next state
 - Implemented without OS threads — single-threaded cooperative scheduling
 
+Generator functions and async generators would use the same resumable-execution family, but with iterator/result plumbing instead of promise resolution. That support is still gated until the lowering pipeline preserves generator kind metadata and the runtime has a resumable iterator contract.
+
 ## Threading Model
 
 Kali's primary execution model is single-threaded (one event loop per runtime instance).
