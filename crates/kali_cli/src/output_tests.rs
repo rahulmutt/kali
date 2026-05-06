@@ -118,6 +118,44 @@ fn diagnostic_json_includes_the_top_level_file_mirror() {
 }
 
 #[test]
+fn diagnostic_json_rejects_a_top_level_file_mirror_mismatch() {
+    let envelope = json!({
+        "schemaVersion": 1,
+        "command": "check",
+        "success": false,
+        "errors": [{
+            "severity": "error",
+            "code": "E5101",
+            "message": "message",
+            "file": "src/other.ts",
+            "span": {
+                "file": "src/main.ts",
+                "line": 1,
+                "column": 1,
+                "endLine": 1,
+                "endColumn": 1,
+            },
+            "labels": [],
+            "related": [],
+            "fix": null,
+            "notes": [],
+        }],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&envelope)
+        .expect_err("mismatched file mirror should fail validation");
+    assert!(
+        err.contains("diagnostic file mirror must match span.file"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "browserHarness": {

@@ -1354,6 +1354,29 @@ fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
             .get("span")
             .ok_or_else(|| "diagnostic is missing required key `span`".to_string())?,
     )?;
+
+    if let Some(file) = object.get("file") {
+        match file {
+            Value::String(file)
+                if object
+                    .get("span")
+                    .and_then(Value::as_object)
+                    .and_then(|span| span.get("file"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|span_file| span_file == file) => {}
+            Value::String(file) => {
+                return Err(format!(
+                    "diagnostic file mirror must match span.file, got `{file}`"
+                ))
+            }
+            other => {
+                return Err(format!(
+                    "diagnostic file mirror must be a string, got {other}"
+                ))
+            }
+        }
+    }
+
     validate_diagnostic_label_array(object.get("labels"))?;
     validate_related_info_array(object.get("related"))?;
     validate_suggested_fix(object.get("fix"))?;
