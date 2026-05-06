@@ -855,6 +855,14 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
 
+            if self.is_object_freeze_call(node) {
+                let Some(argument) = node.children.get(1).copied() else {
+                    return None;
+                };
+                id = argument;
+                continue;
+            }
+
             return Some(id);
         }
     }
@@ -2708,6 +2716,35 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
         matches!(
+            self.node(object).text.as_deref(),
+            Some("Object")
+                | Some("globalThis.Object")
+                | Some(r#"globalThis["Object"]"#)
+                | Some(r#"globalThis['Object']"#)
+        )
+    }
+
+    fn is_object_freeze_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+
+        matches!(
+            callee_node.text.as_deref(),
+            Some(text)
+                if text == "freeze"
+                    || text.ends_with(".freeze")
+                    || text.ends_with(r#"["freeze"]"#)
+                    || text.ends_with(r#"['freeze']"#)
+        ) && matches!(
             self.node(object).text.as_deref(),
             Some("Object")
                 | Some("globalThis.Object")
