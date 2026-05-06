@@ -1,6 +1,9 @@
 use super::*;
 use kali_common::FileId;
-use kali_hir::{HirLowerer, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult};
+use kali_hir::{
+    FunctionFlavor, HirLowerer, HirNode, HirNodeId, HirNodeKind,
+    LoweringResult as HirLoweringResult,
+};
 use kali_lexer::Lexer;
 use kali_parser::Parser;
 
@@ -30,6 +33,19 @@ fn test_mir_lowering_preserves_program_shape() {
         MirNodeKind::Decl
     );
     assert!(mir.validate().is_ok());
+}
+
+#[test]
+fn test_mir_lowering_preserves_function_flavor_metadata() {
+    let hir =
+        parse_and_lower_hir("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let outer = mir.function("outer").expect("outer function");
+    let inner = mir.function("inner").expect("inner function");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
 }
 
 #[test]
@@ -182,6 +198,7 @@ fn test_borrowed_lifetime_reports_collapse_exact_duplicates() {
     let function = MirFunction {
         name: Some("dup".to_string()),
         kind: MirFunctionKind::Function,
+        function_flavor: None,
         bindings: vec![binding.clone(), binding.clone()],
     };
 
@@ -627,6 +644,7 @@ fn test_object_literal_values_escape_without_treating_keys_as_identifiers() {
                 children: vec![],
             },
         ],
+        function_flavors: Vec::new(),
         diagnostics: vec![],
     };
 
@@ -719,6 +737,7 @@ fn test_array_element_values_escape_to_heap_storage() {
                 children: vec![],
             },
         ],
+        function_flavors: Vec::new(),
         diagnostics: vec![],
     };
 
@@ -791,6 +810,7 @@ fn test_assignment_into_member_expressions_marks_rhs_escape() {
                 children: vec![],
             },
         ],
+        function_flavors: Vec::new(),
         diagnostics: vec![],
     };
 

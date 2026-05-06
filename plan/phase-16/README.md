@@ -27,6 +27,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 - Preserve generator/async-generator kind metadata through the lowering pipeline.
 - Add resumable iterator/state-machine plumbing needed for `yield`, `yield*`, async interaction, and finalization.
+- Current progress: HIR/MIR now preserve function-flavor metadata for sync, async, generator, and async-generator forms; resumable execution lowering remains gated.
 
 #### 16.1b Generator lowering
 

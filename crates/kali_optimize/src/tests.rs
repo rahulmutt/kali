@@ -1197,11 +1197,13 @@ fn release_specializes_object_literal_property_order_canonicalization() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_point".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "point".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -2078,11 +2080,13 @@ fn release_specializes_array_literal_arguments_by_shape() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_array".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "items".to_string(),
@@ -2193,6 +2197,7 @@ fn release_specializes_large_function_using_mir_layouts() {
         functions: vec![kali_mir::MirFunction {
             name: Some("sum_many".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "x".to_string(),
@@ -2337,6 +2342,7 @@ fn release_recursively_specializes_nested_mir_call_sites() {
             kali_mir::MirFunction {
                 name: Some("sum_pair".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -2359,6 +2365,7 @@ fn release_recursively_specializes_nested_mir_call_sites() {
             kali_mir::MirFunction {
                 name: Some("use_sum_pair".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -2508,6 +2515,7 @@ fn release_specializes_same_binding_name_in_distinct_function_scopes() {
             kali_mir::MirFunction {
                 name: Some("consume_point".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point".to_string(),
@@ -2530,6 +2538,7 @@ fn release_specializes_same_binding_name_in_distinct_function_scopes() {
             kali_mir::MirFunction {
                 name: Some("use_a".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point".to_string(),
@@ -2552,6 +2561,7 @@ fn release_specializes_same_binding_name_in_distinct_function_scopes() {
             kali_mir::MirFunction {
                 name: Some("use_b".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point".to_string(),
@@ -2650,6 +2660,7 @@ fn release_specializes_tagged_parameters_from_concrete_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("add_pair".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -2756,6 +2767,7 @@ fn release_respects_zero_specialization_budget_for_tagged_parameters() {
         functions: vec![kali_mir::MirFunction {
             name: Some("add_pair".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -2881,11 +2893,13 @@ fn release_advanced_limits_specialization_to_one_distinct_call_site_after_root_i
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("merge_pair".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -2997,6 +3011,7 @@ fn release_specializes_tagged_parameters_for_non_inlined_functions() {
         functions: vec![kali_mir::MirFunction {
             name: Some("sum_chain".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -3186,6 +3201,7 @@ fn release_specializes_literal_shaped_mir_call_sites_without_layout_metadata() {
         functions: vec![kali_mir::MirFunction {
             name: Some("merge_pair".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: Vec::new(),
         }],
     };
@@ -3324,6 +3340,7 @@ fn release_allows_generic_specialization_inside_mir_specialized_clones() {
         functions: vec![kali_mir::MirFunction {
             name: Some("wrap_sum".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -3462,6 +3479,7 @@ fn release_advanced_allows_generic_specialization_inside_mir_specialized_clones(
         functions: vec![kali_mir::MirFunction {
             name: Some("wrap_sum".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -3647,6 +3665,7 @@ fn release_reuses_generic_specializations_across_layout_specialized_owners() {
             kali_mir::MirFunction {
                 name: Some("merge_pair".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -3669,6 +3688,7 @@ fn release_reuses_generic_specializations_across_layout_specialized_owners() {
             kali_mir::MirFunction {
                 name: Some("wrapper_a".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "payload".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -3681,6 +3701,7 @@ fn release_reuses_generic_specializations_across_layout_specialized_owners() {
             kali_mir::MirFunction {
                 name: Some("wrapper_b".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "payload".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -3886,6 +3907,7 @@ fn release_advanced_reuses_generic_specializations_across_layout_specialized_own
             kali_mir::MirFunction {
                 name: Some("merge_pair".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -3908,6 +3930,7 @@ fn release_advanced_reuses_generic_specializations_across_layout_specialized_own
             kali_mir::MirFunction {
                 name: Some("wrapper_a".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "payload".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -3920,6 +3943,7 @@ fn release_advanced_reuses_generic_specializations_across_layout_specialized_own
             kali_mir::MirFunction {
                 name: Some("wrapper_b".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "payload".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -4413,6 +4437,7 @@ fn release_advanced_partially_specializes_reexport_chain() {
             kali_mir::MirFunction {
                 name: Some("module_helper".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -4435,6 +4460,7 @@ fn release_advanced_partially_specializes_reexport_chain() {
             kali_mir::MirFunction {
                 name: Some("bridge".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -4457,6 +4483,7 @@ fn release_advanced_partially_specializes_reexport_chain() {
             kali_mir::MirFunction {
                 name: Some("public_a".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -4501,6 +4528,7 @@ fn release_advanced_partially_specializes_reexport_chain() {
             kali_mir::MirFunction {
                 name: Some("public_b".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "left".to_string(),
@@ -4730,6 +4758,7 @@ fn release_reuses_existing_mir_specializations_after_an_owner_spends_its_budget(
         functions: vec![kali_mir::MirFunction {
             name: Some("merge_pair".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![
                 kali_mir::MirBinding {
                     name: "left".to_string(),
@@ -4857,6 +4886,7 @@ fn release_specializes_string_literal_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("echo_text".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "text".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -4966,6 +4996,7 @@ fn release_specializes_quoted_string_and_template_literal_arguments_distinctly()
         functions: vec![kali_mir::MirFunction {
             name: Some("echo_text_variant".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "text".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -5070,6 +5101,7 @@ fn release_specializes_regex_literal_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_pattern".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "value".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -5174,6 +5206,7 @@ fn release_specializes_regex_literal_arguments_with_mir_layouts() {
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_pattern".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "value".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -5278,11 +5311,13 @@ fn release_specializes_nullish_literal_arguments() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_value".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -5393,11 +5428,13 @@ fn release_advanced_specializes_nullish_literal_arguments() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_value".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -5509,11 +5546,13 @@ fn fast_keeps_nullish_literal_arguments_unspecialized() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_value".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -5633,11 +5672,13 @@ fn release_specializes_infinity_and_nan_literal_arguments() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_special_number".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -5782,11 +5823,13 @@ fn release_specializes_boolean_literal_arguments() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_flag".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -5912,6 +5955,7 @@ fn release_specializes_numeric_literal_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_number".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "value".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -6034,6 +6078,7 @@ fn release_specializes_negative_zero_literal_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_zero".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "value".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -6155,6 +6200,7 @@ fn release_specializes_bigint_literal_arguments() {
         functions: vec![kali_mir::MirFunction {
             name: Some("consume_bigint".to_string()),
             kind: kali_mir::MirFunctionKind::Function,
+            function_flavor: None,
             bindings: vec![kali_mir::MirBinding {
                 name: "value".to_string(),
                 kind: MirBindingKind::Parameter,
@@ -6260,11 +6306,13 @@ fn release_advanced_specializes_bigint_literal_arguments() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_bigint".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "value".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -6387,6 +6435,7 @@ fn release_specializes_shared_closure_layout_bindings() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "handler_a".to_string(),
@@ -6413,6 +6462,7 @@ fn release_specializes_shared_closure_layout_bindings() {
             kali_mir::MirFunction {
                 name: Some("consume_handler".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "handler".to_string(),
@@ -6533,6 +6583,7 @@ fn release_specializes_distinct_closure_capture_bindings() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "handler_a".to_string(),
@@ -6559,6 +6610,7 @@ fn release_specializes_distinct_closure_capture_bindings() {
             kali_mir::MirFunction {
                 name: Some("consume_handler".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "handler".to_string(),
@@ -6723,11 +6775,13 @@ fn release_specializes_nested_mir_bound_bindings_inside_object_literals() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: Vec::new(),
             },
             kali_mir::MirFunction {
                 name: Some("consume_point".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "point".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -6740,6 +6794,7 @@ fn release_specializes_nested_mir_bound_bindings_inside_object_literals() {
             kali_mir::MirFunction {
                 name: Some("use_a".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "shared".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -6752,6 +6807,7 @@ fn release_specializes_nested_mir_bound_bindings_inside_object_literals() {
             kali_mir::MirFunction {
                 name: Some("use_b".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![kali_mir::MirBinding {
                     name: "shared".to_string(),
                     kind: MirBindingKind::Parameter,
@@ -6867,6 +6923,7 @@ fn release_specializes_shared_struct_layout_bindings() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point_a".to_string(),
@@ -6897,6 +6954,7 @@ fn release_specializes_shared_struct_layout_bindings() {
             kali_mir::MirFunction {
                 name: Some("consume_point".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point".to_string(),
@@ -7047,6 +7105,7 @@ fn release_specializes_distinct_struct_layout_bindings() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point_a".to_string(),
@@ -7069,6 +7128,7 @@ fn release_specializes_distinct_struct_layout_bindings() {
             kali_mir::MirFunction {
                 name: Some("consume_point".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "point".to_string(),
@@ -7202,6 +7262,7 @@ fn release_specializes_distinct_array_layout_bindings() {
             kali_mir::MirFunction {
                 name: None,
                 kind: kali_mir::MirFunctionKind::Module,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "items_a".to_string(),
@@ -7224,6 +7285,7 @@ fn release_specializes_distinct_array_layout_bindings() {
             kali_mir::MirFunction {
                 name: Some("consume_array".to_string()),
                 kind: kali_mir::MirFunctionKind::Function,
+                function_flavor: None,
                 bindings: vec![
                     kali_mir::MirBinding {
                         name: "items".to_string(),

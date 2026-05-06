@@ -5,7 +5,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kali_hir::{HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult};
+use kali_hir::{
+    FunctionFlavor, HirNode, HirNodeId, HirNodeKind, LoweringResult as HirLoweringResult,
+};
 
 /// Canonical ownership classes used by MIR analysis.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -263,6 +265,7 @@ pub enum MirFunctionKind {
 pub struct MirFunction {
     pub name: Option<String>,
     pub kind: MirFunctionKind,
+    pub function_flavor: Option<FunctionFlavor>,
     pub bindings: Vec<MirBinding>,
 }
 
@@ -549,7 +552,8 @@ impl MirLowerer {
     pub fn lower_hir_result(&self, hir: &HirLoweringResult) -> MirProgram {
         let mut builder = MirBuilder::new();
         let root = self.lower_hir_node(&mut builder, &hir.nodes, hir.root);
-        let functions = OwnershipAnalyzer::new(&hir.nodes).analyze_program(hir.root);
+        let functions =
+            OwnershipAnalyzer::new(&hir.nodes, &hir.function_flavors).analyze_program(hir.root);
         MirProgram {
             root,
             nodes: builder.nodes,
@@ -772,6 +776,7 @@ fn finalise_binding(
 struct ScopeState {
     label: String,
     kind: MirFunctionKind,
+    function_flavor: Option<FunctionFlavor>,
     bindings: Vec<BindingState>,
     binding_index: BTreeMap<String, usize>,
     function_aliases: BTreeMap<String, String>,
@@ -779,10 +784,15 @@ struct ScopeState {
 }
 
 impl ScopeState {
-    fn new(label: impl Into<String>, kind: MirFunctionKind) -> Self {
+    fn new(
+        label: impl Into<String>,
+        kind: MirFunctionKind,
+        function_flavor: Option<FunctionFlavor>,
+    ) -> Self {
         Self {
             label: label.into(),
             kind,
+            function_flavor,
             bindings: Vec::new(),
             binding_index: BTreeMap::new(),
             function_aliases: BTreeMap::new(),
@@ -828,6 +838,7 @@ impl ScopeState {
         let ScopeState {
             label,
             kind,
+            function_flavor,
             mut bindings,
             binding_index: _,
             function_aliases: _,
@@ -854,6 +865,7 @@ impl ScopeState {
                 Some(label)
             },
             kind,
+            function_flavor,
             bindings: bindings
                 .into_iter()
                 .map(|binding| {
@@ -871,15 +883,17 @@ impl ScopeState {
 
 struct OwnershipAnalyzer<'a> {
     nodes: &'a [HirNode],
+    function_flavors: &'a [(HirNodeId, FunctionFlavor)],
     functions: Vec<MirFunction>,
     scope_stack: Vec<ScopeState>,
     synthetic_function_counter: usize,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
-    fn new(nodes: &'a [HirNode]) -> Self {
+    fn new(nodes: &'a [HirNode], function_flavors: &'a [(HirNodeId, FunctionFlavor)]) -> Self {
         Self {
             nodes,
+            function_flavors,
             functions: Vec::new(),
             scope_stack: Vec::new(),
             synthetic_function_counter: 0,
@@ -887,15 +901,21 @@ impl<'a> OwnershipAnalyzer<'a> {
     }
 
     fn analyze_program(mut self, root: HirNodeId) -> Vec<MirFunction> {
-        self.push_scope("<module>", MirFunctionKind::Module);
+        self.push_scope("<module>", MirFunctionKind::Module, None);
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
         self.pop_scope_and_record();
         self.functions
     }
 
-    fn push_scope(&mut self, label: impl Into<String>, kind: MirFunctionKind) {
-        self.scope_stack.push(ScopeState::new(label, kind));
+    fn push_scope(
+        &mut self,
+        label: impl Into<String>,
+        kind: MirFunctionKind,
+        function_flavor: Option<FunctionFlavor>,
+    ) {
+        self.scope_stack
+            .push(ScopeState::new(label, kind, function_flavor));
     }
 
     fn pop_scope_and_record(&mut self) {
@@ -917,6 +937,13 @@ impl<'a> OwnershipAnalyzer<'a> {
 
     fn current_scope_mut(&mut self) -> Option<&mut ScopeState> {
         self.scope_stack.last_mut()
+    }
+
+    fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {
+        self.function_flavors
+            .iter()
+            .find(|(id, _)| *id == node_id)
+            .map(|(_, flavor)| *flavor)
     }
 
     fn precollect_scope_bindings(&mut self, node_id: HirNodeId) {
@@ -1071,7 +1098,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 let function_name = text.unwrap_or_else(|| self.next_function_name());
                 let body = children.last().copied();
                 let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
-                self.push_scope(function_name.clone(), MirFunctionKind::Function);
+                self.push_scope(
+                    function_name.clone(),
+                    MirFunctionKind::Function,
+                    self.function_flavor(node_id),
+                );
                 if let Some(scope) = self.current_scope_mut() {
                     scope.define(
                         function_name.clone(),
@@ -1102,7 +1133,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 let function_name = text.unwrap_or_else(|| self.next_function_name());
                 let body = children.last().copied();
                 let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
-                self.push_scope(function_name.clone(), MirFunctionKind::Closure);
+                self.push_scope(
+                    function_name.clone(),
+                    MirFunctionKind::Closure,
+                    self.function_flavor(node_id),
+                );
                 if let Some(scope) = self.current_scope_mut() {
                     scope.define(
                         function_name.clone(),

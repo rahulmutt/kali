@@ -57,6 +57,41 @@ fn test_lower_program_from_ast_matches_statement_lowering_for_empty_ast_shell() 
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata() {
+    let statements = parse("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let outer = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("outer")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("outer function node");
+    let inner = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("inner")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("inner function node");
+
+    assert_eq!(
+        result.function_flavor(outer),
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+    assert_eq!(
+        result.function_flavor(inner),
+        Some(FunctionFlavor::Generator)
+    );
+}
+
+#[test]
 fn test_object_literal_lowers_to_stable_property_shape() {
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_expression(&Expression::ObjectExpression(ObjectExpression {
@@ -177,6 +212,7 @@ fn test_hir_validation_rejects_out_of_bounds_children() {
             text: None,
             children: vec![HirNodeId::new(1)],
         }],
+        function_flavors: Vec::new(),
         diagnostics: Vec::new(),
     };
 

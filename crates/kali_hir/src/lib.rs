@@ -183,12 +183,34 @@ impl Default for HirBuilder {
     }
 }
 
+/// Function-flavor metadata preserved through HIR lowering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FunctionFlavor {
+    Sync,
+    Async,
+    Generator,
+    AsyncGenerator,
+}
+
+impl FunctionFlavor {
+    pub fn from_flags(is_async: bool, generator: bool) -> Self {
+        match (is_async, generator) {
+            (false, false) => Self::Sync,
+            (true, false) => Self::Async,
+            (false, true) => Self::Generator,
+            (true, true) => Self::AsyncGenerator,
+        }
+    }
+}
+
 /// Lowering result from AST to HIR.
 pub struct LoweringResult {
     /// Root node of the HIR.
     pub root: HirNodeId,
     /// All HIR nodes.
     pub nodes: Vec<HirNode>,
+    /// Function-flavor metadata keyed by lowered HIR node id.
+    pub function_flavors: Vec<(HirNodeId, FunctionFlavor)>,
     /// Diagnostics.
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -204,12 +226,21 @@ impl LoweringResult {
             |id| id.0 as usize,
         )
     }
+
+    /// Return the preserved flavor for a lowered function node.
+    pub fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {
+        self.function_flavors
+            .iter()
+            .find(|(id, _)| *id == node_id)
+            .map(|(_, flavor)| *flavor)
+    }
 }
 
 /// HIR lowering from AST.
 pub struct HirLowerer {
     builder: HirBuilder,
     diagnostics: Vec<Diagnostic>,
+    function_flavors: Vec<(HirNodeId, FunctionFlavor)>,
     synthetic_function_counter: usize,
 }
 
@@ -225,6 +256,7 @@ impl HirLowerer {
         Self {
             builder: HirBuilder::new(),
             diagnostics: Vec::new(),
+            function_flavors: Vec::new(),
             synthetic_function_counter: 0,
         }
     }
@@ -241,6 +273,7 @@ impl HirLowerer {
     pub fn lower_statements(&mut self, statements: &[Statement]) -> LoweringResult {
         self.clear_diagnostics();
         self.builder = HirBuilder::new();
+        self.function_flavors.clear();
         self.synthetic_function_counter = 0;
 
         let root = self.builder.alloc(HirNodeKind::Program, None);
@@ -255,6 +288,7 @@ impl HirLowerer {
         LoweringResult {
             root,
             nodes: self.builder.nodes.clone(),
+            function_flavors: self.function_flavors.clone(),
             diagnostics: self.diagnostics.clone(),
         }
     }
@@ -506,7 +540,11 @@ impl HirLowerer {
                 id
             }
             Statement::FunctionDeclaration(FunctionDeclaration {
-                name, params, body, ..
+                name,
+                params,
+                body,
+                is_async,
+                generator,
             }) => {
                 let id = self
                     .builder
@@ -524,6 +562,7 @@ impl HirLowerer {
                     id,
                     self.lower_statement(&Statement::BlockStatement((**body).clone()))
                 );
+                self.record_function_flavor(id, FunctionFlavor::from_flags(*is_async, *generator));
                 id
             }
             Statement::ClassDeclaration(ClassDeclaration { name, body }) => {
@@ -646,6 +685,7 @@ impl HirLowerer {
                 self.lower_statement(&Statement::BlockStatement((**body).clone()))
             );
         }
+        self.record_function_flavor(id, FunctionFlavor::Sync);
         id
     }
 
@@ -907,6 +947,10 @@ impl HirLowerer {
                 self.lower_statement(&Statement::BlockStatement((**body).clone()))
             );
         }
+        self.record_function_flavor(
+            id,
+            FunctionFlavor::from_flags(expr.is_async, expr.generator),
+        );
         id
     }
 
@@ -930,6 +974,7 @@ impl HirLowerer {
                 argument: Some(expr.body.clone()),
             }))
         );
+        self.record_function_flavor(id, FunctionFlavor::from_flags(expr.is_async, false));
         id
     }
 
@@ -1069,6 +1114,10 @@ impl HirLowerer {
             ),
         }
         id
+    }
+
+    fn record_function_flavor(&mut self, node_id: HirNodeId, flavor: FunctionFlavor) {
+        self.function_flavors.push((node_id, flavor));
     }
 
     fn push_child(&mut self, parent: HirNodeId, child: HirNodeId) {
