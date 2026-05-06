@@ -2653,160 +2653,165 @@ fn node_api_surface_rejects_node_dns_module_on_inherited_node_api_surface_in_js_
 }
 
 #[test]
-fn node_api_surface_supports_process_exit_in_js_input_on_check_build_run_and_test_commands() {
-    for inherited in [false, true] {
-        let dir = tempdir().expect("tempdir");
-        let run_file = dir.path().join("main.js");
-        let test_file = dir.path().join("main.test.js");
-        fs::write(&run_file, "process.exit(7);\n").expect("write run file");
-        fs::write(
-            &test_file,
-            "Kali.test('process exit', () => process.exit(7));\n",
-        )
-        .expect("write test file");
-
-        if inherited {
+fn node_api_surface_supports_process_exit_in_js_jsx_and_tsx_input_on_check_build_run_and_test_commands(
+) {
+    for extension in ["js", "jsx", "tsx"] {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let run_file = dir.path().join(format!("main.{extension}"));
+            let test_file = dir.path().join(format!("main.test.{extension}"));
+            fs::write(&run_file, "process.exit(7);\n").expect("write run file");
             fs::write(
-                dir.path().join("kali.json"),
-                r#"{
+                &test_file,
+                "Kali.test('process exit', () => process.exit(7));\n",
+            )
+            .expect("write test file");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "node"
   }
 }"#,
-            )
-            .expect("write manifest");
-        }
-
-        for command in ["check", "build"] {
-            let mut text_command = Command::new(kali_bin());
-            text_command.current_dir(dir.path()).arg(command);
-            if !inherited {
-                text_command.arg("--api").arg("node");
+                )
+                .expect("write manifest");
             }
-            text_command.arg(&run_file);
 
-            let text_output = text_command.output().expect("run kali");
-            assert!(
-                text_output.status.success(),
-                "{command} stderr for process.exit (inherited={inherited}): {}",
-                String::from_utf8_lossy(&text_output.stderr)
-            );
-            let text_stdout = String::from_utf8_lossy(&text_output.stdout);
-            assert!(
-                text_stdout.contains(if command == "check" {
-                    "Checked 1 file(s)"
+            for command in ["check", "build"] {
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(&run_file);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    text_output.status.success(),
+                    "{command} stderr for process.exit (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stdout = String::from_utf8_lossy(&text_output.stdout);
+                assert!(
+                    text_stdout.contains(if command == "check" {
+                        "Checked 1 file(s)"
+                    } else {
+                        "Built executable artifact at"
+                    }),
+                    "{command} stdout for process.exit (extension={extension}, inherited={inherited}): {text_stdout}"
+                );
+            }
+
+            for command in ["run", "test"] {
+                let input_path = if command == "run" {
+                    &run_file
                 } else {
-                    "Built executable artifact at"
-                }),
-                "{command} stdout for process.exit (inherited={inherited}): {text_stdout}"
-            );
-        }
+                    &test_file
+                };
 
-        for command in ["run", "test"] {
-            let input_path = if command == "run" {
-                &run_file
-            } else {
-                &test_file
-            };
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
 
-            let mut text_command = Command::new(kali_bin());
-            text_command.current_dir(dir.path()).arg(command);
-            if !inherited {
-                text_command.arg("--api").arg("node");
+                let text_output = text_command.output().expect("run kali");
+                let expected_code = if command == "run" { Some(7) } else { Some(0) };
+                assert_eq!(
+                    text_output.status.code(),
+                    expected_code,
+                    "{command} stderr for process.exit (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
             }
-            text_command.arg(input_path);
-
-            let text_output = text_command.output().expect("run kali");
-            let expected_code = if command == "run" { Some(7) } else { Some(0) };
-            assert_eq!(
-                text_output.status.code(),
-                expected_code,
-                "{command} stderr for process.exit (inherited={inherited}): {}",
-                String::from_utf8_lossy(&text_output.stderr)
-            );
         }
     }
 }
 
 #[test]
-fn node_api_surface_supports_bracketed_process_control_in_js_input_on_check_build_run_and_test_commands(
+fn node_api_surface_supports_bracketed_process_control_in_js_jsx_and_tsx_input_on_check_build_run_and_test_commands(
 ) {
-    for inherited in [false, true] {
-        let dir = tempdir().expect("tempdir");
-        let run_file = dir.path().join("main.js");
-        let test_file = dir.path().join("main.test.js");
-        fs::write(
-            &run_file,
-            "globalThis.process.cwd(); globalThis[\"process\"][\"cwd\"](); process[\"cwd\"](); globalThis.process.chdir('.'); globalThis[\"process\"][\"chdir\"]('.'); process[\"chdir\"]('.'); globalThis.process.exit(7); globalThis[\"process\"][\"exit\"](7); process[\"exit\"](7);\n",
-        )
-        .expect("write run file");
-        fs::write(
-            &test_file,
-            "Kali.test('process control', () => { globalThis.process.cwd(); globalThis.process.chdir('.'); globalThis.process.exit(7); });\n",
-        )
-        .expect("write test file");
-
-        if inherited {
+    for extension in ["js", "jsx", "tsx"] {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let run_file = dir.path().join(format!("main.{extension}"));
+            let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
-                dir.path().join("kali.json"),
-                r#"{
+                &run_file,
+                "globalThis.process.cwd(); globalThis[\"process\"][\"cwd\"](); process[\"cwd\"](); globalThis.process.chdir('.'); globalThis[\"process\"][\"chdir\"]('.'); process[\"chdir\"]('.'); globalThis.process.exit(7); globalThis[\"process\"][\"exit\"](7); process[\"exit\"](7);\n",
+            )
+            .expect("write run file");
+            fs::write(
+                &test_file,
+                "Kali.test('process control', () => { globalThis.process.cwd(); globalThis.process.chdir('.'); globalThis.process.exit(7); });\n",
+            )
+            .expect("write test file");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "node"
   }
 }"#,
-            )
-            .expect("write manifest");
-        }
-
-        for command in ["check", "build"] {
-            let mut text_command = Command::new(kali_bin());
-            text_command.current_dir(dir.path()).arg(command);
-            if !inherited {
-                text_command.arg("--api").arg("node");
+                )
+                .expect("write manifest");
             }
-            text_command.arg(&run_file);
 
-            let text_output = text_command.output().expect("run kali");
-            assert!(
-                text_output.status.success(),
-                "{command} stderr for bracketed process control (inherited={inherited}): {}",
-                String::from_utf8_lossy(&text_output.stderr)
-            );
-            let text_stdout = String::from_utf8_lossy(&text_output.stdout);
-            assert!(
-                text_stdout.contains(if command == "check" {
-                    "Checked 1 file(s)"
+            for command in ["check", "build"] {
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(&run_file);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    text_output.status.success(),
+                    "{command} stderr for bracketed process control (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stdout = String::from_utf8_lossy(&text_output.stdout);
+                assert!(
+                    text_stdout.contains(if command == "check" {
+                        "Checked 1 file(s)"
+                    } else {
+                        "Built executable artifact at"
+                    }),
+                    "{command} stdout for bracketed process control (extension={extension}, inherited={inherited}): {text_stdout}"
+                );
+            }
+
+            for command in ["run", "test"] {
+                let input_path = if command == "run" {
+                    &run_file
                 } else {
-                    "Built executable artifact at"
-                }),
-                "{command} stdout for bracketed process control (inherited={inherited}): {text_stdout}"
-            );
-        }
+                    &test_file
+                };
 
-        for command in ["run", "test"] {
-            let input_path = if command == "run" {
-                &run_file
-            } else {
-                &test_file
-            };
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
 
-            let mut text_command = Command::new(kali_bin());
-            text_command.current_dir(dir.path()).arg(command);
-            if !inherited {
-                text_command.arg("--api").arg("node");
+                let text_output = text_command.output().expect("run kali");
+                let expected_code = if command == "run" { Some(7) } else { Some(0) };
+                assert_eq!(
+                    text_output.status.code(),
+                    expected_code,
+                    "{command} stderr for bracketed process control (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
             }
-            text_command.arg(input_path);
-
-            let text_output = text_command.output().expect("run kali");
-            let expected_code = if command == "run" { Some(7) } else { Some(0) };
-            assert_eq!(
-                text_output.status.code(),
-                expected_code,
-                "{command} stderr for bracketed process control (inherited={inherited}): {}",
-                String::from_utf8_lossy(&text_output.stderr)
-            );
         }
     }
 }
