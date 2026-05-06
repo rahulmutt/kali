@@ -592,10 +592,23 @@ fn json_test_supports_direct_object_values_iteration_when_browser_harness_is_con
 fn browser_harness_object_values_spread_source(test_mode: bool) -> String {
     if test_mode {
         return r#"Kali.test('object values spread iteration', () => {
-  const collected = [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
-  if (collected.length !== 2 || collected[0] !== 3 || collected[1] !== 2) {
-    throw new Error('unexpected Object.values spread iteration semantics');
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
   }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
   console.log('browser object values spread iteration ok');
 });
 "#
@@ -603,10 +616,23 @@ fn browser_harness_object_values_spread_source(test_mode: bool) -> String {
     }
 
     r#"function browserObjectValuesSpreadIteration() {
-  const collected = [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
-  if (collected.length !== 2 || collected[0] !== 3 || collected[1] !== 2) {
-    throw new Error('unexpected Object.values spread iteration semantics');
+  function assertObjectValuesSpreadIteration(values) {
+    if (values.length !== 2 || values[0] !== 3 || values[1] !== 2) {
+      throw new Error('unexpected Object.values spread iteration semantics');
+    }
   }
+
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const collected = [...Object.values(fromEntries)];
+  const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const mixedCollected = [...globalThis.Object["values"](fromEntries)];
+  const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
+  assertObjectValuesSpreadIteration(collected);
+  assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(mixedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
   console.log('browser object values spread iteration ok');
 }
 

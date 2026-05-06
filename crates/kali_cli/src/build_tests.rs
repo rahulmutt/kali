@@ -3949,17 +3949,39 @@ fn assert_build_source_file_supports_for_of_object_keys_const_bound_iterable_in_
         .expect("generated wasm should validate");
 }
 
+fn object_values_spread_iteration_source() -> &'static str {
+    r##"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const values = Object.values(fromEntries);
+const globalValues = globalThis.Object.values(fromEntries);
+const mixedValues = globalThis.Object["values"](fromEntries);
+const mixedBracketedValues = globalThis["Object"].values(fromEntries);
+const bracketedValues = globalThis["Object"]["values"](fromEntries);
+for (const item of [...values]) { console.log(item); }
+for (const item of [...globalValues]) { console.log(item); }
+for (const item of [...mixedValues]) { console.log(item); }
+for (const item of [...mixedBracketedValues]) { console.log(item); }
+for (const item of [...bracketedValues]) { console.log(item); }
+const asyncFromEntries = Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]);
+const asyncValues = Object.values(asyncFromEntries);
+const asyncGlobalValues = globalThis.Object.values(asyncFromEntries);
+const asyncMixedValues = globalThis.Object["values"](asyncFromEntries);
+const asyncMixedBracketedValues = globalThis["Object"].values(asyncFromEntries);
+const asyncBracketedValues = globalThis["Object"]["values"](asyncFromEntries);
+for await (const item of [...asyncValues]) { console.log(item); }
+for await (const item of [...asyncGlobalValues]) { console.log(item); }
+for await (const item of [...asyncMixedValues]) { console.log(item); }
+for await (const item of [...asyncMixedBracketedValues]) { console.log(item); }
+for await (const item of [...asyncBracketedValues]) { console.log(item); }
+"##
+}
+
 fn assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
     api_surface: ApiSurface,
     extension: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "const values = Object.values({ a: 1, b: 2 }); for (const item of [...values]) { console.log(item); } for await (const item of [...Object.values({ a: 3, b: 4 })]) { console.log(item); }\n",
-    )
-    .expect("write source");
+    fs::write(&source_path, object_values_spread_iteration_source()).expect("write source");
 
     check_source_file(&source_path, api_surface, &[], false, false)
         .expect("spread of object.values iterator slices should succeed");
@@ -3971,11 +3993,7 @@ fn assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "const values = Object.values({ a: 1, b: 2 }); for (const item of [...values]) { console.log(item); } for await (const item of [...Object.values({ a: 3, b: 4 })]) { console.log(item); }\n",
-    )
-    .expect("write source");
+    fs::write(&source_path, object_values_spread_iteration_source()).expect("write source");
 
     let output = build_source_file(
         &source_path,
