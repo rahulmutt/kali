@@ -135,7 +135,7 @@ Required fields:
 ### `BrowserRuntimeContractDoctor`
 
 Required fields:
-- `hostLabel: string` — canonical label for the browser-requested host contract used in diagnostics
+- `hostLabel: const` `"browser-requested"` — canonical label for the browser-requested host contract used in diagnostics
 - `hostDescription: string` — short human-readable description of the intended browser host
 - `hostDescriptionNote: const` `"browser runtime host description: real browser host"` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output
 - `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, and the current contract serializes it as `[`run`, `test`]`

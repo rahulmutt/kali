@@ -1194,16 +1194,31 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "doctor browserRuntimeContract",
     )?;
 
-    for key in ["hostLabel", "hostDescription"] {
-        match object.get(key) {
-            Some(Value::String(_)) => {}
-            Some(other) => {
-                return Err(format!(
-                    "doctor browserRuntimeContract {key} must be a string, got {other}"
-                ))
-            }
-            None => unreachable!("validated above"),
+    const BROWSER_RUNTIME_HOST_LABEL: &str = "browser-requested";
+
+    match object.get("hostLabel") {
+        Some(Value::String(value)) if value == BROWSER_RUNTIME_HOST_LABEL => {}
+        Some(Value::String(_)) => {
+            return Err(format!(
+                "doctor browserRuntimeContract hostLabel must be `{BROWSER_RUNTIME_HOST_LABEL}`"
+            ))
         }
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract hostLabel must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    match object.get("hostDescription") {
+        Some(Value::String(_)) => {}
+        Some(other) => {
+            return Err(format!(
+                "doctor browserRuntimeContract hostDescription must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
     }
 
     match object.get("diagnosticHint") {
