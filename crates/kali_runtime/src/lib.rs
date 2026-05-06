@@ -3607,8 +3607,8 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
 fn parse_optional_runtime_host_contract_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeHostContract> {
-    let label = value?.as_str()?;
-    if label.trim().is_empty() {
+    let label = value?.as_str()?.trim();
+    if label.is_empty() {
         return None;
     }
 
@@ -3618,8 +3618,8 @@ fn parse_optional_runtime_host_contract_label(
 fn parse_optional_runtime_backend_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeBackend> {
-    let label = value?.as_str()?;
-    if label.trim().is_empty() {
+    let label = value?.as_str()?.trim();
+    if label.is_empty() {
         return None;
     }
 
