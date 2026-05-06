@@ -34,7 +34,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Add subprocess, socket/listener, worker/thread, env materialization, env mutation, cwd/process-control, and late Node/Deno module support only with policy/effect/resource contracts.
 - Keep host visibility aligned with effective `apiSurface`, command family, runtime profile, and maturity gate.
 - Preserve explicit gates for unavailable host members.
-- Current progress: the late process-control gate now also keeps `process.kill` explicitly rejected in the standalone runtime-smoke lane, and the Node API-surface regression suite now mirrors that same rejection across JS, JSX, and TSX input on `check` / `build` / `run` / `test`, so the Node process-control row stays narrower than the documented `pid` / `cwd` / `chdir` / `exit` support slice. Browser late-compat smoke now also rejects `process.kill` in the browser JS and TSX compatibility lanes.
+- Current progress: the late process-control gate now also keeps `process.kill` explicitly rejected in the standalone runtime-smoke lane, and the Node API-surface regression suite now mirrors that same rejection across JS, JSX, and TSX input on `check` / `build` / `run` / `test`, so the Node process-control row stays narrower than the documented `pid` / `cwd` / `chdir` / `exit` support slice. Browser late-compat smoke now also rejects `process.kill` in the browser JS, JSX, and TSX compatibility lanes.
 
 ### 17.4 Late object/runtime APIs
 
