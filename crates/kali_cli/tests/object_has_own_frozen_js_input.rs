@@ -80,36 +80,46 @@ fn assert_frozen_object_has_own(command: &str, filename: &str, source: &str, jso
 }
 
 #[test]
-fn check_accepts_frozen_object_has_own_in_js_input() {
-    assert_frozen_object_has_own("check", "main.js", frozen_object_has_own_source(), false);
+fn check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_frozen_object_has_own("check", filename, frozen_object_has_own_source(), false);
+    }
 }
 
 #[test]
-fn run_accepts_frozen_object_has_own_in_js_input() {
-    assert_frozen_object_has_own("run", "main.js", frozen_object_has_own_source(), false);
+fn run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), false);
+    }
 }
 
 #[test]
-fn json_run_accepts_frozen_object_has_own_in_js_input() {
-    assert_frozen_object_has_own("run", "main.js", frozen_object_has_own_source(), true);
+fn json_run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), true);
+    }
 }
 
 #[test]
-fn test_accepts_frozen_object_has_own_in_js_input() {
-    assert_frozen_object_has_own(
-        "test",
+fn test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
+    for filename in [
         "main.test.js",
-        frozen_object_has_own_test_source(),
-        false,
-    );
+        "main.test.ts",
+        "main.test.jsx",
+        "main.test.tsx",
+    ] {
+        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), false);
+    }
 }
 
 #[test]
-fn json_test_accepts_frozen_object_has_own_in_js_input() {
-    assert_frozen_object_has_own(
-        "test",
+fn json_test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
+    for filename in [
         "main.test.js",
-        frozen_object_has_own_test_source(),
-        true,
-    );
+        "main.test.ts",
+        "main.test.jsx",
+        "main.test.tsx",
+    ] {
+        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), true);
+    }
 }
