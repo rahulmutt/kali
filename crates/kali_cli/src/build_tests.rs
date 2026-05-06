@@ -7969,9 +7969,9 @@ fn build_browser_bundle_result_round_trips_through_schema_validation() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
             { "kind": "js-glue", "path": "browser.js" },
-            { "kind": "source-map", "path": "browser.js.map" }
+            { "kind": "source-map", "path": "browser.js.map" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": "esm"
@@ -7989,9 +7989,9 @@ fn build_browser_bundle_result_accepts_cjs_format_through_schema_validation() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
             { "kind": "js-glue", "path": "browser.cjs" },
-            { "kind": "source-map", "path": "browser.cjs.map" }
+            { "kind": "source-map", "path": "browser.cjs.map" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": "cjs"
@@ -8012,8 +8012,8 @@ fn build_library_result_round_trips_through_schema_validation() {
         "metadataPath": "/workspace/dist/lib/lib.meta.json",
         "witPath": "/workspace/dist/lib/lib.wit",
         "artifacts": [
-            { "kind": "wasm-module", "path": "lib.wasm" },
-            { "kind": "meta-json", "path": "lib.meta.json" }
+            { "kind": "meta-json", "path": "lib.meta.json" },
+            { "kind": "wasm-module", "path": "lib.wasm" }
         ],
         "exports": [
             { "name": "main", "signature": "(input) => number" }
@@ -9134,9 +9134,9 @@ fn build_capi_result_round_trips_through_schema_validation() {
         "witPath": "/workspace/dist/capi/capi.wit",
         "headerPath": "/workspace/dist/capi/capi.h",
         "artifacts": [
-            { "kind": "wasm-module", "path": "capi.wasm" },
+            { "kind": "header", "path": "capi.h" },
             { "kind": "meta-json", "path": "capi.meta.json" },
-            { "kind": "header", "path": "capi.h" }
+            { "kind": "wasm-module", "path": "capi.wasm" }
         ],
         "exports": []
     });
@@ -9158,8 +9158,8 @@ fn build_component_result_accepts_artifact_roles_through_schema_validation() {
         "artifacts": [
             { "kind": "wasm-component", "path": "component.wasm", "role": "primary-component" },
             { "kind": "wit", "path": "component.wit", "role": "interface-wit" },
-            { "kind": "meta-json", "path": "component.meta.json" },
-            { "kind": "binding-package", "path": "component.binding-package.json", "role": "binding-package-manifest" }
+            { "kind": "binding-package", "path": "component.binding-package.json", "role": "binding-package-manifest" },
+            { "kind": "meta-json", "path": "component.meta.json" }
         ],
         "exports": []
     });
@@ -9213,8 +9213,8 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "headerPath": "/workspace/dist/capi/capi.h",
             "artifacts": [
                 { "kind": "wasm-module", "path": "capi.wasm", "role": "primary-library" },
-                { "kind": "meta-json", "path": "capi.meta.json" },
-                { "kind": "header", "path": "capi.h" }
+                { "kind": "header", "path": "capi.h" },
+                { "kind": "meta-json", "path": "capi.meta.json" }
             ],
             "exports": []
         }),
@@ -9277,6 +9277,30 @@ fn validate_build_result_value_rejects_duplicate_artifact_kind_path_pairs() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_out_of_order_artifacts() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "js-glue", "path": "browser-z.js", "role": "browser-glue" },
+            { "kind": "js-glue", "path": "browser-a.js", "role": "browser-glue" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("out-of-order build result artifacts should fail validation");
+    assert!(
+        err.contains("must be sorted by role, kind, then path"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_build_result_value_rejects_non_string_artifact_roles() {
     let invalid_component = serde_json::json!({
         "artifactKind": "component",
@@ -9332,8 +9356,8 @@ fn validate_build_result_value_rejects_fractional_size_bytes() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
-            { "kind": "js-glue", "path": "browser.js" }
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": "esm"
@@ -9505,8 +9529,8 @@ fn validate_build_result_value_rejects_unexpected_top_level_keys() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
-            { "kind": "js-glue", "path": "browser.js" }
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": "esm",
@@ -9548,8 +9572,8 @@ fn validate_build_result_value_rejects_duplicate_export_names() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
-            { "kind": "js-glue", "path": "browser.js" }
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [
             { "name": "main", "signature": "(input) => number" },
@@ -9572,8 +9596,8 @@ fn validate_build_result_value_rejects_invalid_bundle_format() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
-            { "kind": "js-glue", "path": "browser.js" }
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": "umd"
@@ -9593,8 +9617,8 @@ fn validate_build_result_value_rejects_non_string_bundle_format() {
         "buildMode": "release-advanced",
         "sourceHash": "sha256-deadbeef",
         "artifacts": [
-            { "kind": "wasm-module", "path": "browser.wasm" },
-            { "kind": "js-glue", "path": "browser.js" }
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
         ],
         "exports": [],
         "bundleFormat": 1

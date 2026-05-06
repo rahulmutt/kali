@@ -1305,6 +1305,43 @@ enum BuildResult {
     },
 }
 
+fn build_result_artifact_sort_key(value: &Value) -> (usize, String, String) {
+    let object = value
+        .as_object()
+        .expect("build result artifact entries must be JSON objects");
+    let role_rank = object
+        .get("role")
+        .and_then(Value::as_str)
+        .map(build_result_artifact_role_rank)
+        .unwrap_or(usize::MAX);
+    let kind = object
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let path = object
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    (role_rank, kind, path)
+}
+
+fn build_result_artifact_role_rank(role: &str) -> usize {
+    match role {
+        "primary-executable" => 0,
+        "primary-library" => 1,
+        "primary-component" => 2,
+        "browser-glue" => 3,
+        "interface-wit" => 4,
+        "embedding-header" => 5,
+        "embedding-metadata" => 6,
+        "binding-package-manifest" => 7,
+        "debug-source-map" => 8,
+        _ => usize::MAX,
+    }
+}
+
 impl BuildResult {
     fn inject_profile_data_hash(mut value: Value, metadata: &build::ArtifactMetadata) -> Value {
         if let Some(profile_data_hash) = &metadata.profile_data_hash {
@@ -1314,6 +1351,12 @@ impl BuildResult {
         }
 
         value
+    }
+
+    fn sort_build_result_artifacts(artifacts: &mut [Value]) {
+        artifacts.sort_by(|left, right| {
+            build_result_artifact_sort_key(left).cmp(&build_result_artifact_sort_key(right))
+        });
     }
 
     fn artifact_json(&self) -> Value {
@@ -1338,24 +1381,28 @@ impl BuildResult {
                 meta_path,
                 wasm_bytes,
                 metadata,
-            } => Self::inject_profile_data_hash(
-                json!({
-                    "artifactKind": "lib",
-                    "outputPath": output_path,
-                    "sizeBytes": wasm_bytes.len(),
-                    "buildMode": metadata.build_mode.clone(),
-                    "sourceHash": metadata.source_hash.clone(),
-                    "metadataPath": meta_path,
-                    "witPath": wit_path,
-                    "artifacts": [
-                        { "kind": "wasm-module", "path": output_path },
-                        { "kind": "wit", "path": wit_path },
-                        { "kind": "meta-json", "path": meta_path },
-                    ],
-                    "exports": metadata.exports.clone().unwrap_or_default(),
-                }),
-                metadata,
-            ),
+            } => {
+                let mut artifacts = vec![
+                    json!({ "kind": "wasm-module", "path": output_path }),
+                    json!({ "kind": "wit", "path": wit_path }),
+                    json!({ "kind": "meta-json", "path": meta_path }),
+                ];
+                Self::sort_build_result_artifacts(&mut artifacts);
+                Self::inject_profile_data_hash(
+                    json!({
+                        "artifactKind": "lib",
+                        "outputPath": output_path,
+                        "sizeBytes": wasm_bytes.len(),
+                        "buildMode": metadata.build_mode.clone(),
+                        "sourceHash": metadata.source_hash.clone(),
+                        "metadataPath": meta_path,
+                        "witPath": wit_path,
+                        "artifacts": artifacts,
+                        "exports": metadata.exports.clone().unwrap_or_default(),
+                    }),
+                    metadata,
+                )
+            }
             BuildResult::Capi {
                 output_path,
                 wit_path,
@@ -1363,26 +1410,30 @@ impl BuildResult {
                 meta_path,
                 wasm_bytes,
                 metadata,
-            } => Self::inject_profile_data_hash(
-                json!({
-                    "artifactKind": "capi",
-                    "outputPath": output_path,
-                    "sizeBytes": wasm_bytes.len(),
-                    "buildMode": metadata.build_mode.clone(),
-                    "sourceHash": metadata.source_hash.clone(),
-                    "metadataPath": meta_path,
-                    "witPath": wit_path,
-                    "headerPath": header_path,
-                    "artifacts": [
-                        { "kind": "wasm-module", "path": output_path },
-                        { "kind": "wit", "path": wit_path },
-                        { "kind": "c-header", "path": header_path },
-                        { "kind": "cabi-metadata", "path": meta_path },
-                    ],
-                    "exports": metadata.exports.clone().unwrap_or_default(),
-                }),
-                metadata,
-            ),
+            } => {
+                let mut artifacts = vec![
+                    json!({ "kind": "wasm-module", "path": output_path }),
+                    json!({ "kind": "wit", "path": wit_path }),
+                    json!({ "kind": "c-header", "path": header_path }),
+                    json!({ "kind": "cabi-metadata", "path": meta_path }),
+                ];
+                Self::sort_build_result_artifacts(&mut artifacts);
+                Self::inject_profile_data_hash(
+                    json!({
+                        "artifactKind": "capi",
+                        "outputPath": output_path,
+                        "sizeBytes": wasm_bytes.len(),
+                        "buildMode": metadata.build_mode.clone(),
+                        "sourceHash": metadata.source_hash.clone(),
+                        "metadataPath": meta_path,
+                        "witPath": wit_path,
+                        "headerPath": header_path,
+                        "artifacts": artifacts,
+                        "exports": metadata.exports.clone().unwrap_or_default(),
+                    }),
+                    metadata,
+                )
+            }
             BuildResult::Component {
                 output_path,
                 wit_path,
@@ -1390,26 +1441,30 @@ impl BuildResult {
                 binding_package_path,
                 wasm_bytes,
                 metadata,
-            } => Self::inject_profile_data_hash(
-                json!({
-                    "artifactKind": "component",
-                    "outputPath": output_path,
-                    "sizeBytes": wasm_bytes.len(),
-                    "buildMode": metadata.build_mode.clone(),
-                    "sourceHash": metadata.source_hash.clone(),
-                    "metadataPath": meta_path,
-                    "witPath": wit_path,
-                    "bindingPackagePath": binding_package_path,
-                    "artifacts": [
-                        { "kind": "wasm-component", "path": output_path },
-                        { "kind": "wit", "path": wit_path },
-                        { "kind": "meta-json", "path": meta_path },
-                        { "kind": "binding-package", "path": binding_package_path, "role": "binding-package-manifest" },
-                    ],
-                    "exports": metadata.exports.clone().unwrap_or_default(),
-                }),
-                metadata,
-            ),
+            } => {
+                let mut artifacts = vec![
+                    json!({ "kind": "wasm-component", "path": output_path, "role": "primary-component" }),
+                    json!({ "kind": "wit", "path": wit_path, "role": "interface-wit" }),
+                    json!({ "kind": "meta-json", "path": meta_path }),
+                    json!({ "kind": "binding-package", "path": binding_package_path, "role": "binding-package-manifest" }),
+                ];
+                Self::sort_build_result_artifacts(&mut artifacts);
+                Self::inject_profile_data_hash(
+                    json!({
+                        "artifactKind": "component",
+                        "outputPath": output_path,
+                        "sizeBytes": wasm_bytes.len(),
+                        "buildMode": metadata.build_mode.clone(),
+                        "sourceHash": metadata.source_hash.clone(),
+                        "metadataPath": meta_path,
+                        "witPath": wit_path,
+                        "bindingPackagePath": binding_package_path,
+                        "artifacts": artifacts,
+                        "exports": metadata.exports.clone().unwrap_or_default(),
+                    }),
+                    metadata,
+                )
+            }
             BuildResult::BrowserBundle {
                 output_dir,
                 wasm_path,
@@ -1430,6 +1485,7 @@ impl BuildResult {
                 artifacts.extend(extra_artifacts.iter().map(
                     |artifact| json!({ "kind": artifact.kind.clone(), "path": artifact.path }),
                 ));
+                Self::sort_build_result_artifacts(&mut artifacts);
                 Self::inject_profile_data_hash(
                     json!({
                         "artifactKind": "bundle",
