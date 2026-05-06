@@ -508,7 +508,7 @@ impl TypeContext {
                 if !left_is_supported || !self.is_static_array_iteration_target(right) {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "for-of array iteration lowering is unavailable unless the iterable is a literal array with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path",
+                        "for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path",
                     ));
                     return;
                 }
@@ -647,7 +647,11 @@ impl TypeContext {
                     Some(ExpressionOrSpread::Empty) | None => false,
                 })
             }
-            Expression::Identifier(name) => self.resolve_static_array_binding_name(name),
+            Expression::Literal(LiteralValue::String(_)) => true,
+            Expression::Identifier(name) => {
+                self.resolve_static_array_binding_name(name)
+                    || self.resolve_static_string_binding(name).is_some()
+            }
             Expression::CallExpression(call) => {
                 self.is_static_object_enumeration_iteration_target(call)
             }

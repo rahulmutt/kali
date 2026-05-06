@@ -3865,6 +3865,30 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let body = node.children.get(2).copied();
+        if let Some(string_text) = self.render_static_string_value(&array) {
+            for value in string_text.chars() {
+                let literal = self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(format!("{value:?}")),
+                    vec![],
+                );
+                let previous_binding = self.bindings.insert(loop_name.clone(), literal);
+                if let Some(body) = body {
+                    let _ = self.emit_node(function, body, false);
+                }
+                if let Some(previous_binding) = previous_binding {
+                    self.bindings.insert(loop_name.clone(), previous_binding);
+                } else {
+                    self.bindings.remove(&loop_name);
+                }
+            }
+
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
@@ -4105,6 +4129,32 @@ impl<'a> FunctionEmitter<'a> {
         mode: ObjectEnumerationMode,
         items: &mut Vec<LirNodeId>,
     ) -> bool {
+        if let Some(string_text) = self.render_static_string_value(node) {
+            for (index, value) in string_text.chars().enumerate() {
+                let key = self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(format!("{index:?}")),
+                    vec![],
+                );
+                let value = self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(format!("{value:?}")),
+                    vec![],
+                );
+                match mode {
+                    ObjectEnumerationMode::Keys => items.push(key),
+                    ObjectEnumerationMode::Values => items.push(value),
+                    ObjectEnumerationMode::Entries => {
+                        let pair =
+                            self.alloc_scratch_node(LirNodeKind::Value, None, vec![key, value]);
+                        items.push(pair);
+                    }
+                }
+            }
+
+            return true;
+        }
+
         if self.is_object_literal(node) {
             for child in &node.children {
                 let property = self.node(*child);
@@ -4140,6 +4190,34 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         false
+    }
+
+    fn render_static_string_value(&self, node: &LirNode) -> Option<String> {
+        let text = match node.kind {
+            LirNodeKind::Literal if node.children.is_empty() => node.text.as_deref()?,
+            LirNodeKind::Value if node.children.is_empty() => {
+                let text = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(text).copied() {
+                    return self.render_static_string_value(self.node(bound));
+                }
+                text
+            }
+            _ => return None,
+        };
+
+        if text == "true"
+            || text == "false"
+            || text == "null"
+            || text == "undefined"
+            || text == "Infinity"
+            || text == "NaN"
+            || parse_number_literal(text).is_some()
+            || parse_numeric_literal_value(text).is_some()
+        {
+            return None;
+        }
+
+        Some(strip_string_delimiters(text).to_string())
     }
 
     fn collect_object_from_entries_iteration_items(

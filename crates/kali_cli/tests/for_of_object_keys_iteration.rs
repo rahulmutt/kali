@@ -194,6 +194,30 @@ fn object_entries_from_entries_iteration_test_source() -> &'static str {
 "#
 }
 
+fn object_string_enumeration_run_source() -> &'static str {
+    r#"const seen = [];
+for (const value of 'ab') {
+  seen.push(value);
+}
+if (seen.length !== 2 || seen[0] !== 'a' || seen[1] !== 'b') {
+  throw new Error('unexpected string iteration semantics');
+}
+"#
+}
+
+fn object_string_enumeration_test_source() -> &'static str {
+    r#"Kali.test('string iteration', () => {
+  const seen = [];
+  for (const value of 'ab') {
+    seen.push(value);
+  }
+  if (seen.length !== 2 || seen[0] !== 'a' || seen[1] !== 'b') {
+    throw new Error('unexpected string iteration semantics');
+  }
+});
+"#
+}
+
 fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -556,5 +580,24 @@ fn test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
             filename,
             object_entries_from_entries_iteration_test_source(),
         );
+    }
+}
+
+#[test]
+fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, object_string_enumeration_run_source());
+    }
+}
+
+#[test]
+fn test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_object_keys_iteration("test", filename, object_string_enumeration_test_source());
     }
 }
