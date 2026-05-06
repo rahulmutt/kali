@@ -14977,6 +14977,10 @@ fn run_rejects_positive_thread_budget_override() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("compilerOptions.runtimeProfiles"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -20762,6 +20766,10 @@ fn test_rejects_positive_thread_budget_override() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("compilerOptions.runtimeProfiles"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -55965,6 +55973,10 @@ fn json_run_rejects_positive_thread_budget_override() {
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(
+        json["errors"][0]["message"],
+        "selected resource budget(s) [\"resources.maxThreads\"] are unavailable in this phase"
+    );
 }
 
 #[test]
@@ -56037,6 +56049,10 @@ fn json_test_rejects_positive_thread_budget_override() {
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5506");
+    assert_eq!(
+        json["errors"][0]["message"],
+        "selected resource budget(s) [\"resources.maxThreads\"] are unavailable in this phase"
+    );
 }
 
 #[test]

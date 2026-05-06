@@ -1216,7 +1216,8 @@ fn reject_unavailable_zero_capable_budgets(
         ),
     )
     .note("canonical CLI flag: --max-threads")
-    .note("canonical config path: compilerOptions.runtimeProfiles");
+    .note("canonical config path: resources.maxThreads")
+    .note("threaded runtime profile config path: compilerOptions.runtimeProfiles");
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
