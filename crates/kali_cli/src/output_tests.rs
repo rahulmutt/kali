@@ -2411,6 +2411,73 @@ fn validate_envelope_value_rejects_unexpected_diagnostic_context_extension_keys(
 }
 
 #[test]
+fn validate_envelope_value_accepts_all_canonical_diagnostic_context_origins() {
+    for (origin, context) in [
+        (
+            "cli",
+            json!({
+                "origin": "cli",
+                "flag": "--api",
+                "requestedValue": "browser",
+                "effectiveValue": "browser",
+            }),
+        ),
+        (
+            "config",
+            json!({
+                "origin": "config",
+                "configPath": "compilerOptions.apiSurface",
+                "requestedValue": {"apiSurface": "browser"},
+                "effectiveValue": "browser",
+            }),
+        ),
+        (
+            "default",
+            json!({
+                "origin": "default",
+                "requestedValue": null,
+                "effectiveValue": "deno",
+            }),
+        ),
+        (
+            "source",
+            json!({
+                "origin": "source",
+                "requestedValue": ["browser", "deno"],
+                "effectiveValue": {"apiSurface": "browser"},
+            }),
+        ),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "command": "doctor",
+            "success": false,
+            "errors": [
+                {
+                    "severity": "error",
+                    "code": "E5508",
+                    "message": format!("diagnostic context origin {origin} should validate"),
+                    "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                    "labels": [],
+                    "related": [],
+                    "fix": null,
+                    "notes": [],
+                    "context": context,
+                }
+            ],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 1,
+        });
+
+        validate_envelope_value(&value)
+            .expect("canonical diagnostic context origin should validate");
+    }
+}
+
+#[test]
 fn validate_envelope_value_rejects_unexpected_suggested_fix_keys() {
     let extended_fix = json!({
         "schemaVersion": 1,
