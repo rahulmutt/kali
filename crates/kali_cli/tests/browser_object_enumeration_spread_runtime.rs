@@ -14,6 +14,9 @@ const values = [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3
 const mixedValues = [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const mixedKeys = [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const mixedEntries = [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const bracketedKeys = [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const bracketedValues = [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const bracketedEntries = [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
@@ -36,7 +39,18 @@ if (
   mixedEntries[0][0] !== 'b' ||
   mixedEntries[0][1] !== 3 ||
   mixedEntries[1][0] !== 'a' ||
-  mixedEntries[1][1] !== 2
+  mixedEntries[1][1] !== 2 ||
+  bracketedKeys.length !== 2 ||
+  bracketedKeys[0] !== 'b' ||
+  bracketedKeys[1] !== 'a' ||
+  bracketedValues.length !== 2 ||
+  bracketedValues[0] !== 3 ||
+  bracketedValues[1] !== 2 ||
+  bracketedEntries.length !== 2 ||
+  bracketedEntries[0][0] !== 'b' ||
+  bracketedEntries[0][1] !== 3 ||
+  bracketedEntries[1][0] !== 'a' ||
+  bracketedEntries[1][1] !== 2
 ) {
   throw new Error('unexpected Object enumeration spread semantics');
 }
