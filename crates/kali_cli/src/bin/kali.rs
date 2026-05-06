@@ -1083,7 +1083,9 @@ fn reject_unavailable_compat_features(
             "selected compatibility feature(s) {:?} are unavailable in this phase",
             unavailable
         ),
-    );
+    )
+    .note("canonical CLI flag: --compat")
+    .note("canonical config path: compat.features");
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
@@ -1118,7 +1120,9 @@ fn reject_unavailable_runtime_profiles(
             "selected runtime profile(s) {:?} are unavailable in this phase",
             unavailable
         ),
-    );
+    )
+    .note("canonical CLI flag: --wasm-threads")
+    .note("canonical config path: compilerOptions.runtimeProfiles");
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
@@ -1171,7 +1175,9 @@ fn reject_unavailable_spawned_process_budget(
     let diagnostic = Diagnostic::error(
         e5::FEATURE_UNAVAILABLE as u32,
         "selected resource budget(s) [\"resources.maxSpawnedProcesses\"] are unavailable in this phase",
-    );
+    )
+    .note("canonical CLI flag: --max-spawned-processes")
+    .note("canonical config path: resources.maxSpawnedProcesses");
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
@@ -1208,7 +1214,9 @@ fn reject_unavailable_zero_capable_budgets(
             "selected resource budget(s) {:?} are unavailable in this phase",
             unavailable
         ),
-    );
+    )
+    .note("canonical CLI flag: --max-threads")
+    .note("canonical config path: compilerOptions.runtimeProfiles");
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],

@@ -1338,9 +1338,11 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
             Some(Value::Number(number))
                 if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
             }
-            Some(other) => return Err(format!(
+            Some(other) => {
+                return Err(format!(
                 "CLI envelope artifacts[{index}].bytes must be a non-negative integer, got {other}"
-            )),
+            ))
+            }
             None => {
                 return Err(format!(
                     "CLI envelope artifacts[{index}] is missing required key `bytes`"
