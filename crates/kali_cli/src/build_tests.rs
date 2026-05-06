@@ -9158,7 +9158,7 @@ fn build_component_result_accepts_artifact_roles_through_schema_validation() {
         "artifacts": [
             { "kind": "wasm-component", "path": "component.wasm", "role": "primary-component" },
             { "kind": "wit", "path": "component.wit", "role": "interface-wit" },
-            { "kind": "meta-json", "path": "component.meta.json", "role": "embedding-metadata" },
+            { "kind": "meta-json", "path": "component.meta.json" },
             { "kind": "binding-package", "path": "component.binding-package.json", "role": "binding-package-manifest" }
         ],
         "exports": []
@@ -9181,8 +9181,8 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "metadataPath": "/workspace/dist/lib/lib.meta.json",
             "witPath": "/workspace/dist/lib/lib.wit",
             "artifacts": [
-                { "kind": "wasm-module", "path": "lib.wasm", "role": "primary-module" },
-                { "kind": "meta-json", "path": "lib.meta.json", "role": "metadata" }
+                { "kind": "wasm-module", "path": "lib.wasm", "role": "primary-library" },
+                { "kind": "meta-json", "path": "lib.meta.json" }
             ],
             "exports": [
                 { "name": "main", "signature": "(input) => number" }
@@ -9195,7 +9195,7 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "buildMode": "release-advanced",
             "sourceHash": "sha256-deadbeef",
             "artifacts": [
-                { "kind": "wasm-module", "path": "browser.wasm", "role": "bundle-module" },
+                { "kind": "wasm-module", "path": "browser.wasm", "role": "primary-executable" },
                 { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" }
             ],
             "exports": [],
@@ -9212,9 +9212,9 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "witPath": "/workspace/dist/capi/capi.wit",
             "headerPath": "/workspace/dist/capi/capi.h",
             "artifacts": [
-                { "kind": "wasm-module", "path": "capi.wasm", "role": "primary-module" },
-                { "kind": "meta-json", "path": "capi.meta.json", "role": "metadata" },
-                { "kind": "header", "path": "capi.h", "role": "header" }
+                { "kind": "wasm-module", "path": "capi.wasm", "role": "primary-library" },
+                { "kind": "meta-json", "path": "capi.meta.json" },
+                { "kind": "header", "path": "capi.h" }
             ],
             "exports": []
         }),
@@ -9297,6 +9297,30 @@ fn validate_build_result_value_rejects_non_string_artifact_roles() {
     let err = validate_build_result_value(&invalid_component)
         .expect_err("non-string artifact roles should fail validation");
     assert!(err.contains("role"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_noncanonical_artifact_roles() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "wasm-module", "path": "browser.wasm", "role": "bundle-module" },
+            { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("noncanonical artifact roles should fail validation");
+    assert!(
+        err.contains("canonical schema-v1 role"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

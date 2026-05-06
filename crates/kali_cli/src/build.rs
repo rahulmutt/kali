@@ -2136,37 +2136,46 @@ fn validate_build_result_artifacts_array(
         }
 
         if let Some(role) = object.get("role") {
-            if !role.is_string() {
-                return Err(format!(
-                    "{context}[{index}].role must be a string, got {role}"
-                ));
-            }
-            match role.as_str().unwrap() {
-                "primary-executable" => {
-                    if seen_primary_executable {
+            match role {
+                Value::String(role) => {
+                    if !is_canonical_artifact_role(role) {
                         return Err(format!(
-                            "{context}[{index}].role duplicates primary-executable"
+                            "{context}[{index}].role must be a canonical schema-v1 role, got `{role}`"
                         ));
                     }
-                    seen_primary_executable = true;
-                }
-                "primary-library" => {
-                    if seen_primary_library {
-                        return Err(format!(
-                            "{context}[{index}].role duplicates primary-library"
-                        ));
+                    match role.as_str() {
+                        "primary-executable" => {
+                            if seen_primary_executable {
+                                return Err(format!(
+                                    "{context}[{index}].role duplicates primary-executable"
+                                ));
+                            }
+                            seen_primary_executable = true;
+                        }
+                        "primary-library" => {
+                            if seen_primary_library {
+                                return Err(format!(
+                                    "{context}[{index}].role duplicates primary-library"
+                                ));
+                            }
+                            seen_primary_library = true;
+                        }
+                        "primary-component" => {
+                            if seen_primary_component {
+                                return Err(format!(
+                                    "{context}[{index}].role duplicates primary-component"
+                                ));
+                            }
+                            seen_primary_component = true;
+                        }
+                        _ => {}
                     }
-                    seen_primary_library = true;
                 }
-                "primary-component" => {
-                    if seen_primary_component {
-                        return Err(format!(
-                            "{context}[{index}].role duplicates primary-component"
-                        ));
-                    }
-                    seen_primary_component = true;
+                other => {
+                    return Err(format!(
+                        "{context}[{index}].role must be a string, got {other}"
+                    ));
                 }
-                _ => {}
             }
         }
     }
@@ -2233,6 +2242,21 @@ fn validate_no_unexpected_keys(
     }
 
     Ok(())
+}
+
+fn is_canonical_artifact_role(role: &str) -> bool {
+    matches!(
+        role,
+        "primary-executable"
+            | "primary-library"
+            | "primary-component"
+            | "browser-glue"
+            | "interface-wit"
+            | "embedding-header"
+            | "embedding-metadata"
+            | "binding-package-manifest"
+            | "debug-source-map"
+    )
 }
 
 pub fn serialize_artifact_metadata(metadata: &ArtifactMetadata) -> Vec<u8> {
