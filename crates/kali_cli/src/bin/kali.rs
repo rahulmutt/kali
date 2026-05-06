@@ -1208,7 +1208,7 @@ fn reject_unavailable_zero_capable_budgets(
         return Ok(());
     }
 
-    let diagnostic = Diagnostic::error(
+    let mut diagnostic = Diagnostic::error(
         e5::FEATURE_UNAVAILABLE as u32,
         format!(
             "selected resource budget(s) {:?} are unavailable in this phase",
@@ -1218,6 +1218,15 @@ fn reject_unavailable_zero_capable_budgets(
     .note("canonical CLI flag: --max-threads")
     .note("canonical config path: resources.maxThreads")
     .note("threaded runtime profile config path: compilerOptions.runtimeProfiles");
+
+    if let Some(count) = max_threads {
+        diagnostic = diagnostic.with_context(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--max-threads")
+                .with_requested_value(count.to_string())
+                .with_effective_value(count.to_string()),
+        );
+    }
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],

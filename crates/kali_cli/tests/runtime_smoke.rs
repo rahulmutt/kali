@@ -56169,6 +56169,10 @@ fn json_run_rejects_positive_thread_budget_override() {
         json["errors"][0]["message"],
         "selected resource budget(s) [\"resources.maxThreads\"] are unavailable in this phase"
     );
+    assert_eq!(json["errors"][0]["context"]["origin"], "cli");
+    assert_eq!(json["errors"][0]["context"]["flag"], "--max-threads");
+    assert_eq!(json["errors"][0]["context"]["requestedValue"], "1");
+    assert_eq!(json["errors"][0]["context"]["effectiveValue"], "1");
 }
 
 #[test]
@@ -56245,6 +56249,10 @@ fn json_test_rejects_positive_thread_budget_override() {
         json["errors"][0]["message"],
         "selected resource budget(s) [\"resources.maxThreads\"] are unavailable in this phase"
     );
+    assert_eq!(json["errors"][0]["context"]["origin"], "cli");
+    assert_eq!(json["errors"][0]["context"]["flag"], "--max-threads");
+    assert_eq!(json["errors"][0]["context"]["requestedValue"], "1");
+    assert_eq!(json["errors"][0]["context"]["effectiveValue"], "1");
 }
 
 #[test]
