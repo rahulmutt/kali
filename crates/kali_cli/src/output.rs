@@ -1518,15 +1518,21 @@ fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
         return Err("CLI envelope timings must be an array".to_string());
     };
 
+    let mut seen_phases = HashSet::new();
     for (index, item) in items.iter().enumerate() {
-        validate_timing_value(item)
+        let phase = validate_timing_value(item)
             .map_err(|err| format!("CLI envelope timings[{index}] is invalid: {err}"))?;
+        if !seen_phases.insert(phase.clone()) {
+            return Err(format!(
+                "CLI envelope timings[{index}] duplicates phase `{phase}`"
+            ));
+        }
     }
 
     Ok(())
 }
 
-fn validate_timing_value(value: &Value) -> Result<(), String> {
+fn validate_timing_value(value: &Value) -> Result<String, String> {
     let Some(object) = value.as_object() else {
         return Err("timing must be a JSON object".to_string());
     };
@@ -1538,11 +1544,11 @@ fn validate_timing_value(value: &Value) -> Result<(), String> {
     }
     reject_unexpected_keys(object, &["phase", "milliseconds"], "timing")?;
 
-    match object.get("phase") {
-        Some(Value::String(_)) => {}
+    let phase = match object.get("phase") {
+        Some(Value::String(value)) => value.clone(),
         Some(other) => return Err(format!("timing phase must be a string, got {other}")),
         None => unreachable!("validated above"),
-    }
+    };
 
     match object.get("milliseconds") {
         Some(Value::Number(value))
@@ -1556,7 +1562,7 @@ fn validate_timing_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    Ok(())
+    Ok(phase)
 }
 
 fn validate_diagnostic_value(value: &Value) -> Result<(), String> {

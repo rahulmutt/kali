@@ -2521,6 +2521,32 @@ fn validate_envelope_value_rejects_malformed_timing_objects() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_duplicate_timing_phases() {
+    let duplicate_timings = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [
+            {"phase": "parse", "milliseconds": 1},
+            {"phase": "parse", "milliseconds": 2},
+        ],
+    });
+
+    let err = validate_envelope_value(&duplicate_timings)
+        .expect_err("duplicate timing phases should fail validation");
+    assert!(
+        err.contains("duplicates phase `parse`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_fractional_exit_code() {
     let invalid_exit_code = json!({
         "schemaVersion": 1,

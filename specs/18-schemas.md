@@ -83,7 +83,7 @@ Used by commands that opt into `--output json`.
 - for execution-style commands in JSON mode, guest/program stdout and stderr belong in the envelope's `stdout` / `stderr` fields rather than being interleaved as raw text around the JSON payload
 - diagnostics inside the envelope may carry optional structured `context` metadata when a config/flag-derived effective command context materially caused the failure
 - Commands should avoid inventing top-level ad hoc fields when `payload` is sufficient
-- To keep JSON outputs diff-friendly and deterministic, producers should emit array fields in stable order when the producer naturally owns that order: diagnostics by file/line/column/code, artifacts by `role`, then `kind`, then path, and timings by canonical phase order
+- To keep JSON outputs diff-friendly and deterministic, producers should emit array fields in stable order when the producer naturally owns that order: diagnostics by file/line/column/code, artifacts by `role`, then `kind`, then path, and timings by canonical phase order with each phase label appearing at most once
 
 ## Doctor Payload
 
