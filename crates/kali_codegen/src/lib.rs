@@ -1116,7 +1116,7 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if op != "??" {
+        if op != "??" && op != "**" {
             let _ = self.emit_node(function, left, true);
             let _ = self.emit_node(function, right, true);
         }
@@ -1181,6 +1181,11 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Boolean,
                 }
             }
+            "**" => self.emit_exponentiation_expression(
+                function,
+                &[left, right],
+                "Exponentiation operator '**'",
+            ),
             "??" => {
                 let left = node.children[0];
                 let right = node.children[1];
@@ -1801,188 +1806,9 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if let Some(import_index) = self.math_pow_import_index(&callee_node) {
-            let mut args = node.children.iter().skip(1);
-            let Some(base) = args.next() else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.pow requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-            let Some(exponent) = args.next() else {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.pow requires at least two arguments in the current phase; use explicit operands or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            };
-
-            if self.contains_negative_numeric_literal(*exponent) {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.pow is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path",
-                ));
-                function.instruction(&Instruction::Unreachable);
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            }
-
-            let base_zero = self
-                .render_static_value(*base)
-                .and_then(|rendered| parse_numeric_literal_value(&rendered))
-                .is_some_and(|value| value == 0.0);
-            let exponent_positive_integer = self
-                .render_static_value(*exponent)
-                .and_then(|rendered| parse_numeric_literal_value(&rendered))
-                .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
-            if base_zero && exponent_positive_integer {
-                let _ = self.emit_node(function, *base, true);
-                function.instruction(&Instruction::Drop);
-                let _ = self.emit_node(function, *exponent, true);
-                function.instruction(&Instruction::Drop);
-                for arg in args {
-                    let produced = self.emit_node(function, *arg, true);
-                    if produced.produced {
-                        function.instruction(&Instruction::Drop);
-                    }
-                }
-                function.instruction(&Instruction::I64Const(0));
-                return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Scalar,
-                };
-            }
-
-            let base_identity = self
-                .render_static_value(*base)
-                .and_then(|rendered| parse_numeric_literal_value(&rendered))
-                .filter(|value| *value == 0.0 || *value == 1.0);
-            let exponent_identity = self
-                .render_static_value(*exponent)
-                .and_then(|rendered| parse_numeric_literal_value(&rendered))
-                .filter(|value| *value == 0.0 || *value == 1.0);
-
-            if let Some(base_identity) = base_identity {
-                if base_identity == 1.0 {
-                    let _ = self.emit_node(function, *base, true);
-                    function.instruction(&Instruction::Drop);
-                    let produced = self.emit_node(function, *exponent, true);
-                    if produced.produced {
-                        function.instruction(&Instruction::Drop);
-                    }
-                    for arg in args {
-                        let produced = self.emit_node(function, *arg, true);
-                        if produced.produced {
-                            function.instruction(&Instruction::Drop);
-                        }
-                    }
-                    function.instruction(&Instruction::I64Const(1));
-                    return EmittedValue {
-                        produced: true,
-                        shape: ValueShape::Scalar,
-                    };
-                }
-
-                if let Some(exponent) = exponent_identity {
-                    if exponent == 0.0 {
-                        let _ = self.emit_node(function, *base, true);
-                        function.instruction(&Instruction::Drop);
-                        for arg in args {
-                            let produced = self.emit_node(function, *arg, true);
-                            if produced.produced {
-                                function.instruction(&Instruction::Drop);
-                            }
-                        }
-                        function.instruction(&Instruction::I64Const(1));
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Scalar,
-                        };
-                    }
-                }
-            }
-
-            if let Some(exponent_identity) = exponent_identity {
-                match exponent_identity {
-                    0.0 => {
-                        let base_result = self.emit_node(function, *base, true);
-                        if base_result.produced {
-                            function.instruction(&Instruction::Drop);
-                        }
-                        for arg in args {
-                            let produced = self.emit_node(function, *arg, true);
-                            if produced.produced {
-                                function.instruction(&Instruction::Drop);
-                            }
-                        }
-                        function.instruction(&Instruction::I64Const(1));
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Scalar,
-                        };
-                    }
-                    1.0 => {
-                        if !self.emit_integer_math_arg(function, *base, "pow") {
-                            return EmittedValue {
-                                produced: false,
-                                shape: ValueShape::Unknown,
-                            };
-                        }
-                        for arg in args {
-                            if !self.emit_integer_math_arg(function, *arg, "pow") {
-                                return EmittedValue {
-                                    produced: false,
-                                    shape: ValueShape::Unknown,
-                                };
-                            }
-                            function.instruction(&Instruction::Drop);
-                        }
-                        return EmittedValue {
-                            produced: true,
-                            shape: ValueShape::Scalar,
-                        };
-                    }
-                    _ => unreachable!(),
-                }
-            }
-
-            if !self.emit_integer_math_arg(function, *base, "pow") {
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            }
-            if !self.emit_integer_math_arg(function, *exponent, "pow") {
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
-            }
-            function.instruction(&Instruction::Call(import_index));
-            for arg in args {
-                if !self.emit_integer_math_arg(function, *arg, "pow") {
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
-                }
-                function.instruction(&Instruction::Drop);
-            }
-            return EmittedValue {
-                produced: true,
-                shape: ValueShape::Scalar,
-            };
+        if let Some(_) = self.math_pow_import_index(&callee_node) {
+            let operands: Vec<_> = node.children.iter().skip(1).copied().collect();
+            return self.emit_exponentiation_expression(function, &operands, "Math.pow");
         }
 
         if matches!(
@@ -3021,6 +2847,200 @@ impl<'a> FunctionEmitter<'a> {
             Some(MATH_CLZ32_IMPORT_INDEX)
         } else {
             None
+        }
+    }
+
+    fn emit_exponentiation_expression(
+        &mut self,
+        function: &mut Function,
+        operands: &[LirNodeId],
+        label: &str,
+    ) -> EmittedValue {
+        let Some(base) = operands.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "{label} requires at least two operands in the current phase; use explicit operands or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+        let Some(exponent) = operands.get(1) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "{label} requires at least two operands in the current phase; use explicit operands or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        if self.contains_negative_numeric_literal(*exponent) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "{label} is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        let base_zero = self
+            .render_static_value(*base)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .is_some_and(|value| value == 0.0);
+        let exponent_positive_integer = self
+            .render_static_value(*exponent)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+        if base_zero && exponent_positive_integer {
+            let _ = self.emit_node(function, *base, true);
+            function.instruction(&Instruction::Drop);
+            let _ = self.emit_node(function, *exponent, true);
+            function.instruction(&Instruction::Drop);
+            for arg in operands.iter().skip(2) {
+                let produced = self.emit_node(function, *arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        let base_identity = self
+            .render_static_value(*base)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .filter(|value| *value == 0.0 || *value == 1.0);
+        let exponent_identity = self
+            .render_static_value(*exponent)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .filter(|value| *value == 0.0 || *value == 1.0);
+
+        if let Some(base_identity) = base_identity {
+            if base_identity == 1.0 {
+                let _ = self.emit_node(function, *base, true);
+                function.instruction(&Instruction::Drop);
+                let produced = self.emit_node(function, *exponent, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+                for arg in operands.iter().skip(2) {
+                    let produced = self.emit_node(function, *arg, true);
+                    if produced.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                }
+                function.instruction(&Instruction::I64Const(1));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Scalar,
+                };
+            }
+
+            if let Some(exponent) = exponent_identity {
+                if exponent == 0.0 {
+                    let _ = self.emit_node(function, *base, true);
+                    function.instruction(&Instruction::Drop);
+                    for arg in operands.iter().skip(2) {
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    function.instruction(&Instruction::I64Const(1));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+            }
+        }
+
+        if let Some(exponent_identity) = exponent_identity {
+            match exponent_identity {
+                0.0 => {
+                    let base_result = self.emit_node(function, *base, true);
+                    if base_result.produced {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    for arg in operands.iter().skip(2) {
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+                    function.instruction(&Instruction::I64Const(1));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                1.0 => {
+                    if !self.emit_integer_math_arg(function, *base, "pow") {
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                    for arg in operands.iter().skip(2) {
+                        if !self.emit_integer_math_arg(function, *arg, "pow") {
+                            return EmittedValue {
+                                produced: false,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
+                        function.instruction(&Instruction::Drop);
+                    }
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    };
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        if !self.emit_integer_math_arg(function, *base, "pow") {
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        if !self.emit_integer_math_arg(function, *exponent, "pow") {
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+        function.instruction(&Instruction::Call(MATH_POW_IMPORT_INDEX));
+        for arg in operands.iter().skip(2) {
+            if !self.emit_integer_math_arg(function, *arg, "pow") {
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            function.instruction(&Instruction::Drop);
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
         }
     }
 

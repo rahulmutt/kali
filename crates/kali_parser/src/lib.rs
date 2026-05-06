@@ -1200,6 +1200,7 @@ impl Parser {
                 | TokenType::GtEq => Some(6),
                 TokenType::Plus | TokenType::Minus => Some(7),
                 TokenType::Star | TokenType::Slash | TokenType::Percent => Some(8),
+                TokenType::StarStar => Some(9),
                 _ => None,
             };
 
@@ -1213,6 +1214,7 @@ impl Parser {
                     TokenType::Plus => "+",
                     TokenType::Minus => "-",
                     TokenType::Star => "*",
+                    TokenType::StarStar => "**",
                     TokenType::Slash => "/",
                     TokenType::Percent => "%",
                     TokenType::AndAnd => "&&",
@@ -1237,10 +1239,16 @@ impl Parser {
                 let _ = self.stream.advance();
                 // Parse right side with higher precedence to get next operand
                 // Using prec + 1 ensures left-associativity for same-precedence operators
+                // Exponentiation is right-associative, so keep the same precedence on the right.
+                let right_prec = if matches!(op_kind, TokenType::StarStar) {
+                    prec
+                } else {
+                    prec + 1
+                };
                 left = Expression::BinaryExpression(Box::new(BinaryExpression {
                     left,
                     operator: op_str.to_string(),
-                    right: self.parse_binary_expression(prec + 1),
+                    right: self.parse_binary_expression(right_prec),
                 }));
             } else {
                 break;

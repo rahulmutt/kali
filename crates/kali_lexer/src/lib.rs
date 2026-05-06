@@ -9,6 +9,7 @@ pub enum TokenType {
     Plus,
     Minus,
     Star,
+    StarStar,
     Slash,
     Caret,
     Percent,
@@ -477,6 +478,7 @@ impl Lexer {
             '*' if self.nth(1) == Some('*') && self.nth(2) == Some('=') => {
                 (TokenType::StarStarEq, "**=".to_string(), 3)
             }
+            '*' if self.nth(1) == Some('*') => (TokenType::StarStar, "**".to_string(), 2),
             '*' if self.nth(1) == Some('=') => (TokenType::StarEq, "*=".to_string(), 2),
             '/' if self.nth(1) == Some('=') => (TokenType::SlashEq, "/=".to_string(), 2),
             '%' if self.nth(1) == Some('=') => (TokenType::PercentEq, "%=".to_string(), 2),

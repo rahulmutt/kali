@@ -30258,7 +30258,7 @@ fn build_emits_library_artifacts_and_metadata() {
     );
 }
 
-fn assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+fn assert_build_supports_function_declaration_export_aliases_for_library_artifact(
     extension: &str,
     json_output: bool,
 ) {
@@ -30277,42 +30277,63 @@ fn assert_build_rejects_function_declaration_export_aliases_for_library_artifact
     }
     let output = command.arg(&source_path).output().expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     if json_output {
         let envelope = parse_json_stdout(&output);
         assert_eq!(envelope["schemaVersion"], 1);
         assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], false);
-        let errors = envelope["errors"].as_array().expect("errors array");
-        assert!(!errors.is_empty(), "errors array should not be empty");
+        assert_eq!(envelope["success"], true);
+        let payload = envelope["payload"].as_object().expect("payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
         assert!(
-            errors.iter().any(|error| error["code"] == "E3100"),
-            "expected E3100 in {errors:?}"
+            exports.iter().any(|export| {
+                export["name"] == "alias" && export["signature"] == "(input) => number"
+            }),
+            "expected alias export in {exports:?}"
         );
         assert!(
-            errors.iter().any(|error| error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("alias")),
-            "expected alias diagnostic in {errors:?}"
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "(input) => number"
+            }),
+            "expected main export in {exports:?}"
         );
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("E3100"), "stderr: {stderr}");
-        assert!(stderr.contains("alias"), "stderr: {stderr}");
     }
 
-    assert!(!dir.path().join("math.lib.wasm").exists());
-    assert!(!dir.path().join("math.lib.wit").exists());
-    assert!(!dir.path().join("math.lib.meta.json").exists());
+    let metadata: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["artifactKind"], "lib");
+    let exports = metadata["exports"].as_array().expect("exports array");
+    assert!(
+        exports.iter().any(|export| {
+            export["name"] == "alias" && export["signature"] == "(input) => number"
+        }),
+        "expected alias export in {exports:?}"
+    );
+    assert!(
+        exports.iter().any(|export| {
+            export["name"] == "main" && export["signature"] == "(input) => number"
+        }),
+        "expected main export in {exports:?}"
+    );
+
+    assert!(dir.path().join("math.lib.wasm").exists());
+    assert!(dir.path().join("math.lib.wit").exists());
+    assert!(dir.path().join("math.lib.meta.json").exists());
 }
 
 #[test]
 fn build_rejects_function_declaration_export_aliases_for_library_artifact_in_all_input_classes() {
     for extension in ["js", "ts", "jsx", "tsx"] {
-        assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+        assert_build_supports_function_declaration_export_aliases_for_library_artifact(
             extension, false,
         );
     }
@@ -30322,7 +30343,7 @@ fn build_rejects_function_declaration_export_aliases_for_library_artifact_in_all
 fn json_build_rejects_function_declaration_export_aliases_for_library_artifact_in_all_input_classes(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
-        assert_build_rejects_function_declaration_export_aliases_for_library_artifact(
+        assert_build_supports_function_declaration_export_aliases_for_library_artifact(
             extension, true,
         );
     }
@@ -30724,7 +30745,7 @@ fn build_emits_bounded_signature_for_default_async_function_declaration_in_all_i
 }
 
 #[test]
-fn build_rejects_default_async_arrow_export_in_all_input_classes() {
+fn build_supports_default_async_arrow_export_in_all_input_classes() {
     for extension in ["js", "ts", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("math.{extension}"));
@@ -30741,7 +30762,7 @@ fn build_rejects_default_async_arrow_export_in_all_input_classes() {
             .expect("run kali");
 
         assert!(
-            !output.status.success(),
+            output.status.success(),
             "stdout: {}\nstderr: {}",
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
@@ -30750,16 +30771,15 @@ fn build_rejects_default_async_arrow_export_in_all_input_classes() {
         let json = parse_json_stdout(&output);
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "build");
-        assert_eq!(json["success"], false);
-        let errors = json["errors"].as_array().expect("errors array");
+        assert_eq!(json["success"], true);
+        let payload = json["payload"].as_object().expect("payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
         assert!(
-            errors.iter().any(|error| {
-                error["code"] == "E5511"
-                    && error["message"].as_str().is_some_and(|message| {
-                        message.contains("no statically known export surface")
-                    })
+            exports.iter().any(|export| {
+                export["name"] == "default" && export["signature"] == "(input) => Promise<number>"
             }),
-            "errors for {extension}: {errors:?}"
+            "exports for {extension}: {exports:?}"
         );
     }
 }
@@ -30881,7 +30901,7 @@ fn build_emits_conservative_unknown_signature_for_default_export_function_declar
 }
 
 #[test]
-fn build_rejects_default_async_function_expression_in_all_input_classes() {
+fn build_supports_default_async_function_expression_in_all_input_classes() {
     for extension in ["js", "ts", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("math.{extension}"));
@@ -30899,21 +30919,32 @@ fn build_rejects_default_async_function_expression_in_all_input_classes() {
             .output()
             .expect("run kali");
 
-        assert!(!output.status.success());
-        assert_eq!(output.status.code(), Some(1));
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("E5511"), "stderr: {stderr}");
         assert!(
-            stderr.contains("no statically known export surface"),
-            "stderr: {stderr}"
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
-        assert!(!dir.path().join("math.lib.wasm").exists());
-        assert!(!dir.path().join("math.lib.meta.json").exists());
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+        )
+        .expect("parse metadata json");
+        assert_eq!(metadata["artifactKind"], "lib");
+        let exports = metadata["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "default" && export["signature"] == "(input) => Promise<unknown>"
+            }),
+            "exports for {extension}: {exports:?}"
+        );
+        assert!(dir.path().join("math.lib.wasm").exists());
+        assert!(dir.path().join("math.lib.wit").exists());
+        assert!(dir.path().join("math.lib.meta.json").exists());
     }
 }
 
 #[test]
-fn json_build_rejects_default_async_function_expression_in_all_input_classes() {
+fn json_build_supports_default_async_function_expression_in_all_input_classes() {
     for extension in ["js", "ts", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("math.{extension}"));
@@ -30933,27 +30964,28 @@ fn json_build_rejects_default_async_function_expression_in_all_input_classes() {
             .output()
             .expect("run kali");
 
-        assert!(!output.status.success());
-        assert_eq!(output.status.code(), Some(1));
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         let json = parse_json_stdout(&output);
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "build");
-        assert_eq!(json["success"], false);
-        let errors = json["errors"].as_array().expect("errors array");
-        assert!(!errors.is_empty(), "errors array should not be empty");
+        assert_eq!(json["success"], true);
+        let payload = json["payload"].as_object().expect("payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
         assert!(
-            errors.iter().any(|error| error["code"] == "E5511"),
-            "expected E5511 in {errors:?}"
+            exports.iter().any(|export| {
+                export["name"] == "default" && export["signature"] == "(input) => Promise<unknown>"
+            }),
+            "expected default export in {exports:?}"
         );
-        assert!(
-            errors.iter().any(|error| error["message"]
-                .as_str()
-                .expect("error message")
-                .contains("no statically known export surface")),
-            "expected export-surface message in {errors:?}"
-        );
-        assert!(!dir.path().join("math.lib.wasm").exists());
-        assert!(!dir.path().join("math.lib.meta.json").exists());
+        assert!(dir.path().join("math.lib.wasm").exists());
+        assert!(dir.path().join("math.lib.wit").exists());
+        assert!(dir.path().join("math.lib.meta.json").exists());
     }
 }
 

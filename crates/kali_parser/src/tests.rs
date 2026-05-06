@@ -385,6 +385,39 @@ fn test_parse_nullish_coalescing_expression() {
 }
 
 #[test]
+fn test_parse_exponentiation_expression() {
+    let tokens = lex("const value = 2 ** 3 ** 2;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let Expression::BinaryExpression(expr) = init else {
+        panic!("Expected BinaryExpression, got {init:?}");
+    };
+    assert_eq!(expr.operator, "**");
+    let Expression::BinaryExpression(right_expr) = expr.right.as_ref() else {
+        panic!(
+            "Expected nested BinaryExpression on the right, got {:?}",
+            expr.right
+        );
+    };
+    assert_eq!(right_expr.operator, "**");
+}
+
+#[test]
 fn test_parse_compound_assignment_expression() {
     let tokens = lex("value += 1; value **= 2; value %= 3; value &&= 4; value ||= 5;");
     let mut parser = Parser::new(FileId::new(0), tokens);

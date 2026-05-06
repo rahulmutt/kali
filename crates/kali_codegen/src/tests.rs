@@ -2458,10 +2458,10 @@ fn unsupported_math_pow_with_single_argument_reports_feature_unavailable() {
     assert!(
         result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.code == Some(5506)
                 && diagnostic
                     .message
-                    .contains("requires at least two arguments")
+                    .contains("requires at least two operands")
         }),
         "expected an unavailable Math.pow diagnostic: {:?}",
         result.diagnostics
@@ -2518,6 +2518,60 @@ fn unsupported_math_pow_member_rejects_negative_exponents() {
                     .contains("Math.pow is unavailable for negative numeric literals")
         }),
         "expected a negative-exponent Math.pow diagnostic: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_exponentiation_operator_lowering_is_available_for_integer_literals() {
+    let program = parse_and_lower_lir("console.log(2 ** 3);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("call 16"), "{printed}");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+}
+
+#[test]
+fn unsupported_exponentiation_operator_rejects_negative_exponents() {
+    let program = parse_and_lower_lir("console.log(2 ** -1);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("negative numeric literals")
+        }),
+        "expected a negative-exponentiation diagnostic: {:?}",
         result.diagnostics
     );
 
