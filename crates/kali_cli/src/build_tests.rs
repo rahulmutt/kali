@@ -9492,6 +9492,23 @@ fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields()
             }),
         ),
         (
+            "profileDataHash",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef",
+                "profileDataHash": ""
+            }),
+        ),
+        (
             "hostContract",
             serde_json::json!({
                 "schemaVersion": 1,
@@ -9720,6 +9737,28 @@ fn validate_build_result_value_rejects_non_string_bundle_format() {
     let err = validate_build_result_value(&invalid_bundle)
         .expect_err("non-string bundleFormat should fail validation");
     assert!(err.contains("bundleFormat"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_empty_profile_data_hash() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "profileDataHash": "",
+        "artifacts": [
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("empty profileDataHash should fail validation");
+    assert!(err.contains("profileDataHash"), "unexpected error: {err}");
 }
 
 #[test]

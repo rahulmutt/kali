@@ -1860,10 +1860,16 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
     }
 
     if let Some(profile_data_hash) = object.get("profileDataHash") {
-        if !profile_data_hash.is_string() {
-            return Err(format!(
-                "build result profileDataHash must be a string, got {profile_data_hash}"
-            ));
+        match profile_data_hash {
+            Value::String(value) if !value.is_empty() => {}
+            Value::String(_) => {
+                return Err("build result profileDataHash must be a non-empty string".to_string())
+            }
+            other => {
+                return Err(format!(
+                    "build result profileDataHash must be a string, got {other}"
+                ))
+            }
         }
     }
 
