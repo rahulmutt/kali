@@ -35,27 +35,106 @@ export async function objectEnumerationSpreadWrapper() {
   for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(value);
   }
+  for (const value of [...globalThis.Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
+  for (const value of [...globalThis["Object"]["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
   for (const key of [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis.Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(key);
+  }
+  for (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(key);
   }
   for (const entry of [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for (const entry of [...globalThis.Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis["Object"].entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
   for await (const value of [...Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(value);
   }
+  for await (const value of [...globalThis.Object.values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis.Object["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis["Object"].values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis["Object"]["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
   for await (const key of [...Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis.Object.keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis.Object["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis["Object"].keys(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(key);
+  }
+  for await (const key of [...globalThis["Object"]["keys"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(key);
   }
   for await (const entry of [...Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for await (const entry of [...globalThis.Object.entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis.Object["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis["Object"].entries(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
 }
 "##
 }
-
 fn assert_browser_bundle_array_iteration_spread(
     filename: &str,
     json_output: bool,
@@ -235,10 +314,26 @@ await mod.{harness_function}();
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert_eq!(
-        lines,
-        ["3", "2", "b", "a", "b", "3", "a", "2", "6", "5", "c", "d", "c", "6", "d", "5",]
-    );
+    let mut expected = Vec::new();
+    for _ in 0..5 {
+        expected.extend(["3", "2"]);
+    }
+    for _ in 0..5 {
+        expected.extend(["b", "a"]);
+    }
+    for _ in 0..5 {
+        expected.extend(["b", "3", "a", "2"]);
+    }
+    for _ in 0..5 {
+        expected.extend(["6", "5"]);
+    }
+    for _ in 0..5 {
+        expected.extend(["c", "d"]);
+    }
+    for _ in 0..5 {
+        expected.extend(["c", "6", "d", "5"]);
+    }
+    assert_eq!(lines, expected);
 }
 
 #[test]
