@@ -42,6 +42,20 @@ fn browser_bundle_object_has_own_frozen_from_entries_source() -> String {
     )
 }
 
+fn browser_harness_object_has_own_frozen_from_entries_run_source() -> String {
+    browser_harness_object_has_own_from_entries_run_source().replace(
+        "const object = Object.fromEntries(",
+        "const object = Object.freeze(Object.fromEntries(",
+    )
+}
+
+fn browser_harness_object_has_own_frozen_from_entries_test_source() -> String {
+    browser_harness_object_has_own_from_entries_test_source().replace(
+        "  const object = Object.fromEntries(",
+        "  const object = Object.freeze(Object.fromEntries(",
+    )
+}
+
 fn assert_browser_bundle_object_has_own_from_entries(filename: &str, json_output: bool) {
     assert_browser_bundle_object_has_own_from_entries_with_source(
         filename,
@@ -277,6 +291,15 @@ fn build_emits_frozen_object_has_own_from_entries_in_js_input() {
 }
 
 #[test]
+fn build_emits_frozen_object_has_own_from_entries_in_ts_jsx_tsx_input() {
+    let source = browser_bundle_object_has_own_frozen_from_entries_source();
+    for filename in ["app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_object_has_own_from_entries_with_source(filename, &source, false);
+        assert_browser_bundle_object_has_own_from_entries_with_source(filename, &source, true);
+    }
+}
+
+#[test]
 fn build_emits_object_has_own_from_entries_in_jsx_input() {
     assert_browser_bundle_object_has_own_from_entries("app.jsx", false);
 }
@@ -327,12 +350,19 @@ fn run_supports_frozen_object_has_own_from_entries_when_browser_harness_is_confi
     assert_browser_harness_object_has_own_from_entries(
         "run",
         "main.js",
-        &browser_harness_object_has_own_from_entries_run_source().replace(
-            "const object = Object.fromEntries(",
-            "const object = Object.freeze(Object.fromEntries(",
-        ),
+        &browser_harness_object_has_own_frozen_from_entries_run_source(),
         false,
     );
+}
+
+#[test]
+fn run_supports_frozen_object_has_own_from_entries_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    let source = browser_harness_object_has_own_frozen_from_entries_run_source();
+    for filename in ["main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_object_has_own_from_entries("run", filename, &source, false);
+        assert_browser_harness_object_has_own_from_entries("run", filename, &source, true);
+    }
 }
 
 #[test]
@@ -381,12 +411,19 @@ fn test_supports_frozen_object_has_own_from_entries_when_browser_harness_is_conf
     assert_browser_harness_object_has_own_from_entries(
         "test",
         "smoke.test.js",
-        &browser_harness_object_has_own_from_entries_test_source().replace(
-            "const object = Object.fromEntries(",
-            "const object = Object.freeze(Object.fromEntries(",
-        ),
+        &browser_harness_object_has_own_frozen_from_entries_test_source(),
         false,
     );
+}
+
+#[test]
+fn test_supports_frozen_object_has_own_from_entries_when_browser_harness_is_configured_in_ts_jsx_tsx_input(
+) {
+    let source = browser_harness_object_has_own_frozen_from_entries_test_source();
+    for filename in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+        assert_browser_harness_object_has_own_from_entries("test", filename, &source, false);
+        assert_browser_harness_object_has_own_from_entries("test", filename, &source, true);
+    }
 }
 
 #[test]
