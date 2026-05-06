@@ -50551,6 +50551,54 @@ fn json_test_rejects_generator_function_lowering_in_browser_api_surface_when_bro
 }
 
 #[test]
+fn run_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "run", "ts", false,
+    );
+}
+
+#[test]
+fn run_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "run", "jsx", false,
+    );
+}
+
+#[test]
+fn run_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "run", "tsx", false,
+    );
+}
+
+#[test]
+fn test_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "test", "ts", false,
+    );
+}
+
+#[test]
+fn test_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "test", "jsx", false,
+    );
+}
+
+#[test]
+fn test_rejects_generator_function_lowering_in_browser_api_surface_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+        "test", "tsx", false,
+    );
+}
+
+#[test]
 fn run_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
