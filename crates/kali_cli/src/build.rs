@@ -1719,13 +1719,24 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => {}
     }
 
-    for key in [
-        "hostContract",
-        "runtimeBackend",
-        "kaliVersion",
-        "sourceHash",
-        "profileDataHash",
-    ] {
+    for key in ["kaliVersion", "sourceHash"] {
+        match object.get(key) {
+            Some(Value::String(value)) if !value.is_empty() => {}
+            Some(Value::String(_)) => {
+                return Err(format!(
+                    "artifact metadata {key} must be a non-empty string"
+                ));
+            }
+            Some(other) => {
+                return Err(format!(
+                    "artifact metadata {key} must be a string, got {other}"
+                ));
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    for key in ["hostContract", "runtimeBackend", "profileDataHash"] {
         if let Some(value) = object.get(key) {
             match value {
                 Value::String(value) if !value.is_empty() => {}
@@ -1850,7 +1861,10 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
     }
 
     match object.get("sourceHash") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err("build result sourceHash must be a non-empty string".to_string())
+        }
         Some(other) => {
             return Err(format!(
                 "build result sourceHash must be a string, got {other}"
