@@ -2197,7 +2197,7 @@ fn validate_envelope_value_allows_arbitrary_diagnostic_context_value_shapes() {
 }
 
 #[test]
-fn validate_envelope_value_allows_schema_permitted_suggested_fix_extensions() {
+fn validate_envelope_value_rejects_unexpected_suggested_fix_keys() {
     let extended_fix = json!({
         "schemaVersion": 1,
         "command": "doctor",
@@ -2217,8 +2217,7 @@ fn validate_envelope_value_allows_schema_permitted_suggested_fix_extensions() {
                             "file": "src/main.ts",
                             "start": {"file": "src/main.ts", "line": 1, "column": 1},
                             "end": {"file": "src/main.ts", "line": 1, "column": 2},
-                            "newText": "console.log(1);",
-                            "metadata": {"kind": "replacement"}
+                            "newText": "console.log(1);"
                         }
                     ],
                     "metadata": {"origin": "autofix"}
@@ -2233,8 +2232,12 @@ fn validate_envelope_value_allows_schema_permitted_suggested_fix_extensions() {
         "exitCode": 1,
     });
 
-    validate_envelope_value(&extended_fix)
-        .expect("schema-permitted suggested fix extensions should validate");
+    let err = validate_envelope_value(&extended_fix)
+        .expect_err("unexpected suggested fix keys should fail validation");
+    assert!(
+        err.contains("suggested fix") && err.contains("unexpected key `metadata`"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

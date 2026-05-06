@@ -1939,6 +1939,7 @@ fn validate_suggested_fix(value: Option<&Value>) -> Result<(), String> {
                     return Err(format!("suggested fix is missing required key `{key}`"));
                 }
             }
+            reject_unexpected_keys(object, &["message", "edits"], "suggested fix")?;
 
             match object.get("message") {
                 Some(Value::String(_)) => {}
