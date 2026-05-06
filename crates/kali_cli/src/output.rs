@@ -504,8 +504,12 @@ pub fn validate_run_payload_value(value: &Value) -> Result<(), String> {
 
     for key in ["hostContract", "runtimeBackend"] {
         if let Some(value) = object.get(key) {
-            if !value.is_string() {
-                return Err(format!("run payload {key} must be a string, got {value}"));
+            match value {
+                Value::String(value) if !value.is_empty() => {}
+                Value::String(_) => {
+                    return Err(format!("run payload {key} must be a non-empty string"));
+                }
+                _ => return Err(format!("run payload {key} must be a string, got {value}")),
             }
         }
     }
@@ -540,8 +544,12 @@ pub fn validate_test_payload_value(value: &Value) -> Result<(), String> {
 
     for key in ["hostContract", "runtimeBackend"] {
         if let Some(value) = object.get(key) {
-            if !value.is_string() {
-                return Err(format!("test payload {key} must be a string, got {value}"));
+            match value {
+                Value::String(value) if !value.is_empty() => {}
+                Value::String(_) => {
+                    return Err(format!("test payload {key} must be a non-empty string"));
+                }
+                _ => return Err(format!("test payload {key} must be a string, got {value}")),
             }
         }
     }

@@ -15,6 +15,14 @@
     "runtimeMs": {
       "type": "integer",
       "minimum": 0
+    },
+    "hostContract": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeBackend": {
+      "type": "string",
+      "minLength": 1
     }
   }
 }

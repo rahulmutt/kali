@@ -676,7 +676,12 @@ fn validate_run_payload_value_accepts_the_current_contract_shape() {
 
 #[test]
 fn validate_run_payload_value_rejects_non_string_provenance_fields() {
-    for (field, value) in [("hostContract", json!(true)), ("runtimeBackend", json!(42))] {
+    for (field, value) in [
+        ("hostContract", json!(true)),
+        ("runtimeBackend", json!(42)),
+        ("hostContract", json!("")),
+        ("runtimeBackend", json!("")),
+    ] {
         let payload = json!({
             "exitCode": 0,
             "runtimeMs": 12,
@@ -806,6 +811,8 @@ fn validate_test_payload_value_rejects_non_string_provenance_fields() {
     for (field, value) in [
         ("hostContract", json!(null)),
         ("runtimeBackend", json!(["wasmtime"])),
+        ("hostContract", json!("")),
+        ("runtimeBackend", json!("")),
     ] {
         let payload = json!({
             "total": 4,

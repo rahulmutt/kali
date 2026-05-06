@@ -9492,6 +9492,38 @@ fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields()
             }),
         ),
         (
+            "hostContract",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "runtimeBackend",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
             "runtimeProfiles[1]",
             serde_json::json!({
                 "schemaVersion": 1,

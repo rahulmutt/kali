@@ -1727,10 +1727,18 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         "profileDataHash",
     ] {
         if let Some(value) = object.get(key) {
-            if !value.is_string() {
-                return Err(format!(
-                    "artifact metadata {key} must be a string, got {value}"
-                ));
+            match value {
+                Value::String(value) if !value.is_empty() => {}
+                Value::String(_) => {
+                    return Err(format!(
+                        "artifact metadata {key} must be a non-empty string"
+                    ));
+                }
+                _ => {
+                    return Err(format!(
+                        "artifact metadata {key} must be a string, got {value}"
+                    ));
+                }
             }
         }
     }

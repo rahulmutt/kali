@@ -51,19 +51,24 @@
       "type": "integer"
     },
     "hostContract": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "runtimeBackend": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "kaliVersion": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "sourceHash": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "profileDataHash": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "exports": {
       "type": "array",
