@@ -45116,6 +45116,48 @@ fn assert_generator_function_lowering_rejection_when_browser_harness_is_configur
     }
 }
 
+fn assert_class_generator_method_lowering_rejection(
+    command: &str,
+    json_output: bool,
+    source_contents: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, source_contents).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path());
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command).arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        let messages = errors
+            .iter()
+            .map(|error| error["message"].as_str().expect("message"))
+            .collect::<Vec<_>>();
+        assert!(messages.iter().any(|message| {
+            message.contains("class method async/generator lowering is unavailable")
+        }));
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("class method async/generator lowering is unavailable"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn check_rejects_generator_function_lowering_in_jsx_input() {
     assert_generator_function_lowering_rejection("check", "jsx");
@@ -50506,6 +50548,46 @@ fn json_test_rejects_generator_function_lowering_in_browser_api_surface_when_bro
     assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
         "test", "js", true,
     );
+}
+
+#[test]
+fn run_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("run", false, source);
+    }
+}
+
+#[test]
+fn json_run_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("run", true, source);
+    }
+}
+
+#[test]
+fn test_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("test", false, source);
+    }
+}
+
+#[test]
+fn json_test_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("test", true, source);
+    }
 }
 
 #[test]
