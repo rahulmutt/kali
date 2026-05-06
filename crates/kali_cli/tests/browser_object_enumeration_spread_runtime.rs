@@ -10,6 +10,9 @@ fn kali_bin() -> String {
 fn object_enumeration_spread_source() -> &'static str {
     r##"const keys = [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const entries = [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+const frozenKeys = [...Object.keys(frozenFromEntries)];
+const frozenEntries = [...Object.entries(frozenFromEntries)];
 
 if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
   throw new Error('unexpected Object.keys spread semantics');
@@ -22,6 +25,18 @@ if (
   entries[1][1] !== 2
 ) {
   throw new Error('unexpected Object.entries spread semantics');
+}
+if (
+  frozenKeys.length !== 2 ||
+  frozenKeys[0] !== 'b' ||
+  frozenKeys[1] !== 'a' ||
+  frozenEntries.length !== 2 ||
+  frozenEntries[0][0] !== 'b' ||
+  frozenEntries[0][1] !== 3 ||
+  frozenEntries[1][0] !== 'a' ||
+  frozenEntries[1][1] !== 2
+) {
+  throw new Error('unexpected frozen Object enumeration spread semantics');
 }
 
 for (const key of keys) {

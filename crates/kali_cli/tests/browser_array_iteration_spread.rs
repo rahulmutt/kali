@@ -32,6 +32,11 @@ export async function forAwaitArrayIterationSpreadWrapper() {
 fn object_enumeration_spread_source() -> &'static str {
     r##"// kali-tree-shake: objectEnumerationSpreadWrapper
 export async function objectEnumerationSpreadWrapper() {
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const frozenValues = [...Object.values(frozenFromEntries)];
+  const frozenKeys = [...Object.keys(frozenFromEntries)];
+  const frozenEntries = [...Object.entries(frozenFromEntries)];
+
   for (const value of [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(value);
   }
@@ -131,6 +136,22 @@ export async function objectEnumerationSpreadWrapper() {
   for await (const entry of [...globalThis["Object"]["entries"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(entry[0]);
     console.log(entry[1]);
+  }
+
+  if (
+    frozenValues.length !== 2 ||
+    frozenValues[0] !== 3 ||
+    frozenValues[1] !== 2 ||
+    frozenKeys.length !== 2 ||
+    frozenKeys[0] !== 'b' ||
+    frozenKeys[1] !== 'a' ||
+    frozenEntries.length !== 2 ||
+    frozenEntries[0][0] !== 'b' ||
+    frozenEntries[0][1] !== 3 ||
+    frozenEntries[1][0] !== 'a' ||
+    frozenEntries[1][1] !== 2
+  ) {
+    throw new Error('unexpected frozen Object.fromEntries spread iteration semantics');
   }
 }
 "##
