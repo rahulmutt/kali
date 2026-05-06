@@ -38,7 +38,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 - Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints.
 - Promote only with conformance, sandbox/resource, and JSON-output evidence.
-
+- Current progress: browser late-compat TSX smoke now also mirrors the bracketed `Proxy.revocable` alias spellings alongside the existing gated object-model aliases, keeping the TSX late-object gate aligned with the JS/browser coverage.
 ## Exit gate
 
 - New host/runtime support has integration, sandbox/effect, resource-budget, and JSON-output evidence.
