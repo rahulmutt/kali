@@ -6,18 +6,27 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-#[test]
-fn run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
+fn object_is_freeze_same_reference_source() -> &'static str {
+    "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object));\n"
+}
+
+fn object_is_freeze_same_reference_test_source() -> &'static str {
+    "Kali.test('object is freeze same reference', () => { const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); });\n"
+}
+
+fn assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object));\n",
-    )
-    .expect("write source");
+    fs::write(&source_path, object_is_freeze_same_reference_source()).expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
+    let mut command = Command::new(kali_bin());
+    command.current_dir(dir.path());
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command
         .arg("run")
         .arg(&source_path)
         .output()
@@ -30,6 +39,75 @@ fn run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n1"), "stdout: {stdout}");
+    if json_output {
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["stdout"], "1\n1\n1\n");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout, "1\n1\n1\n", "stdout: {stdout}");
+    }
+}
+
+fn assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, object_is_freeze_same_reference_test_source()).expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command.current_dir(dir.path());
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1\n1\n1\n"), "stdout: {stdout}");
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
+    assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(false);
+}
+
+#[test]
+fn json_run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
+    assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(true);
+}
+
+#[test]
+fn test_supports_object_is_through_object_freeze_same_reference_in_js_input() {
+    assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(false);
+}
+
+#[test]
+fn json_test_supports_object_is_through_object_freeze_same_reference_in_js_input() {
+    assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(true);
 }
