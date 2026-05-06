@@ -641,6 +641,13 @@ browserObjectValuesSpreadIteration();
     .to_string()
 }
 
+fn browser_harness_object_values_frozen_spread_source(test_mode: bool) -> String {
+    browser_harness_object_values_spread_source(test_mode).replace(
+        "  const fromEntries = Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]);",
+        "  const fromEntries = Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]));",
+    )
+}
+
 #[test]
 fn run_supports_object_values_spread_iteration_when_browser_harness_is_configured() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
@@ -654,6 +661,24 @@ fn run_supports_object_values_spread_iteration_when_browser_harness_is_configure
             "run",
             filename,
             &browser_harness_object_values_spread_source(false),
+            true,
+        );
+    }
+}
+
+#[test]
+fn run_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_object_values_spread(
+            "run",
+            filename,
+            &browser_harness_object_values_frozen_spread_source(false),
+            false,
+        );
+        assert_browser_harness_object_values_spread(
+            "run",
+            filename,
+            &browser_harness_object_values_frozen_spread_source(false),
             true,
         );
     }
@@ -677,6 +702,29 @@ fn test_supports_object_values_spread_iteration_when_browser_harness_is_configur
             "test",
             filename,
             &browser_harness_object_values_spread_source(true),
+            true,
+        );
+    }
+}
+
+#[test]
+fn test_supports_frozen_object_values_spread_iteration_when_browser_harness_is_configured() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_harness_object_values_spread(
+            "test",
+            filename,
+            &browser_harness_object_values_frozen_spread_source(true),
+            false,
+        );
+        assert_browser_harness_object_values_spread(
+            "test",
+            filename,
+            &browser_harness_object_values_frozen_spread_source(true),
             true,
         );
     }
