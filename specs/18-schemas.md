@@ -325,8 +325,8 @@ Interpretation rules:
 - diagnostic-context objects are fixed-shape in schema v1; unexpected keys are rejected
 - this field exists primarily for AI/tooling-friendly diagnostics such as `E5506` and `E5508`, where the failure often depends on the merged command/config state or the resulting **availability context** rather than only the source span
 - populate it only when the command/config selection materially contributes to the diagnostic; ordinary type/syntax errors usually do not need it
-- when a discovered config value caused the failure, prefer `origin: "config"` plus `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value
-- when an explicit CLI flag caused the failure, prefer `origin: "cli"` plus `flag`
+- when a discovered config value caused the failure, prefer `origin: "config"` plus a non-empty `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value
+- when an explicit CLI flag caused the failure, prefer `origin: "cli"` plus a non-empty `flag`
 - producers may include both `requestedValue` and `effectiveValue` when normalization or merging matters (for example a config-derived browser API surface making plain `kali build main.ts` invalid because the effective API surface is `browser` even though the CLI spelled no `--api` flag)
 - this field is explanatory metadata, not a second source of truth for the actual command semantics; the canonical rules still live in the CLI/spec chapters
 

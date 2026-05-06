@@ -2132,7 +2132,13 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
     for key in ["configPath", "flag"] {
         if let Some(value) = object.get(key) {
             match value {
-                Value::Null | Value::String(_) => {}
+                Value::Null => {}
+                Value::String(value) if !value.trim().is_empty() => {}
+                Value::String(_) => {
+                    return Err(format!(
+                        "diagnostic context {key} must be a non-empty string when present"
+                    ))
+                }
                 other => {
                     return Err(format!(
                         "diagnostic context {key} must be string or null, got {other}"
