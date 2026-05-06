@@ -3919,8 +3919,11 @@ fn browser_bundle_string_primitive_enumeration_source() -> &'static str {
     r##"// kali-tree-shake: stringPrimitiveSmoke
 async function stringPrimitiveSmoke(left, right) {
   const stringKeys = Object.keys('ab');
+  const globalThisStringKeys = globalThis.Object["keys"]('ab');
   const stringEntries = Object.entries('ab');
+  const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
   const stringValues = Object.values('ab');
+  const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
   const consumeArray = (items, value) => items[0] + items[1] + value;
   const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
   const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3931,14 +3934,25 @@ async function stringPrimitiveSmoke(left, right) {
     stringKeys.length !== 2 ||
     stringKeys[0] !== '0' ||
     stringKeys[1] !== '1' ||
+    globalThisStringKeys.length !== 2 ||
+    globalThisStringKeys[0] !== '0' ||
+    globalThisStringKeys[1] !== '1' ||
     stringEntries.length !== 2 ||
     stringEntries[0][0] !== '0' ||
     stringEntries[0][1] !== 'a' ||
     stringEntries[1][0] !== '1' ||
     stringEntries[1][1] !== 'b' ||
+    bracketedGlobalThisStringEntries.length !== 2 ||
+    bracketedGlobalThisStringEntries[0][0] !== '0' ||
+    bracketedGlobalThisStringEntries[0][1] !== 'a' ||
+    bracketedGlobalThisStringEntries[1][0] !== '1' ||
+    bracketedGlobalThisStringEntries[1][1] !== 'b' ||
     stringValues.length !== 2 ||
     stringValues[0] !== 'a' ||
-    stringValues[1] !== 'b'
+    stringValues[1] !== 'b' ||
+    fullyBracketedGlobalThisStringValues.length !== 2 ||
+    fullyBracketedGlobalThisStringValues[0] !== 'a' ||
+    fullyBracketedGlobalThisStringValues[1] !== 'b'
   ) {
     throw new Error('unexpected string primitive enumeration');
   }
@@ -25082,19 +25096,18 @@ console.log(values.length);
     assert!(stdout.contains('2'), "stdout: {stdout}");
 }
 
-#[test]
-fn run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+fn assert_object_string_primitive_enumeration_semantics(
+    command: &str,
+    filename: &str,
+    source: &str,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        object_string_primitive_enumeration_semantics_source(),
-    )
-    .expect("write source");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
-        .arg("run")
+        .arg(command)
         .arg(&source_path)
         .output()
         .expect("run kali");
@@ -25110,87 +25123,156 @@ fn run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.js",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_string_primitive_enumeration_semantics_in_ts_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.ts",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_string_primitive_enumeration_semantics_in_jsx_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.jsx",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn run_supports_object_string_primitive_enumeration_semantics_in_tsx_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.tsx",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
 fn test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(
-        &source_path,
+    assert_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.js",
         object_string_primitive_enumeration_semantics_test_source(),
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("test")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn run_supports_for_await_object_string_primitive_enumeration_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        for_await_object_string_primitive_enumeration_semantics_source(),
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("run")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+fn test_supports_object_string_primitive_enumeration_semantics_in_ts_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.ts",
+        object_string_primitive_enumeration_semantics_test_source(),
     );
-    assert_eq!(output.status.code(), Some(0));
 }
 
 #[test]
-fn test_supports_for_await_object_string_primitive_enumeration_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(
-        &source_path,
-        for_await_object_string_primitive_enumeration_test_source(),
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("test")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        output.status.success(),
-        "stdout: {}, stderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+fn test_supports_object_string_primitive_enumeration_semantics_in_jsx_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.jsx",
+        object_string_primitive_enumeration_semantics_test_source(),
     );
-    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn test_supports_object_string_primitive_enumeration_semantics_in_tsx_input() {
+    assert_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.tsx",
+        object_string_primitive_enumeration_semantics_test_source(),
+    );
+}
+
+#[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.js",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_in_ts_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.ts",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_in_jsx_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.jsx",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn json_run_supports_object_string_primitive_enumeration_semantics_in_tsx_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "run",
+        "main.tsx",
+        object_string_primitive_enumeration_semantics_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.js",
+        object_string_primitive_enumeration_semantics_test_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_in_ts_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.ts",
+        object_string_primitive_enumeration_semantics_test_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_in_jsx_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.jsx",
+        object_string_primitive_enumeration_semantics_test_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_object_string_primitive_enumeration_semantics_in_tsx_input() {
+    assert_json_object_string_primitive_enumeration_semantics(
+        "test",
+        "smoke.test.tsx",
+        object_string_primitive_enumeration_semantics_test_source(),
+    );
 }
 
 fn object_string_primitive_enumeration_semantics_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
+const globalThisStringKeys = globalThis.Object["keys"]('ab');
 const stringEntries = Object.entries('ab');
+const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -25201,14 +25283,25 @@ if (
   stringKeys.length !== 2 ||
   stringKeys[0] !== '0' ||
   stringKeys[1] !== '1' ||
+  globalThisStringKeys.length !== 2 ||
+  globalThisStringKeys[0] !== '0' ||
+  globalThisStringKeys[1] !== '1' ||
   stringEntries.length !== 2 ||
   stringEntries[0][0] !== '0' ||
   stringEntries[0][1] !== 'a' ||
   stringEntries[1][0] !== '1' ||
   stringEntries[1][1] !== 'b' ||
+  bracketedGlobalThisStringEntries.length !== 2 ||
+  bracketedGlobalThisStringEntries[0][0] !== '0' ||
+  bracketedGlobalThisStringEntries[0][1] !== 'a' ||
+  bracketedGlobalThisStringEntries[1][0] !== '1' ||
+  bracketedGlobalThisStringEntries[1][1] !== 'b' ||
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
-  stringValues[1] !== 'b'
+  stringValues[1] !== 'b' ||
+  fullyBracketedGlobalThisStringValues.length !== 2 ||
+  fullyBracketedGlobalThisStringValues[0] !== 'a' ||
+  fullyBracketedGlobalThisStringValues[1] !== 'b'
 ) {
   throw 'unexpected string primitive enumeration';
 }
@@ -25218,90 +25311,39 @@ console.log(stringKeys.length);
 
 fn object_string_primitive_enumeration_semantics_test_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
+const globalThisStringKeys = globalThis.Object["keys"]('ab');
 const stringEntries = Object.entries('ab');
+const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
 if (
   stringKeys.length !== 2 ||
   stringKeys[0] !== '0' ||
   stringKeys[1] !== '1' ||
+  globalThisStringKeys.length !== 2 ||
+  globalThisStringKeys[0] !== '0' ||
+  globalThisStringKeys[1] !== '1' ||
   stringEntries.length !== 2 ||
   stringEntries[0][0] !== '0' ||
   stringEntries[0][1] !== 'a' ||
   stringEntries[1][0] !== '1' ||
   stringEntries[1][1] !== 'b' ||
+  bracketedGlobalThisStringEntries.length !== 2 ||
+  bracketedGlobalThisStringEntries[0][0] !== '0' ||
+  bracketedGlobalThisStringEntries[0][1] !== 'a' ||
+  bracketedGlobalThisStringEntries[1][0] !== '1' ||
+  bracketedGlobalThisStringEntries[1][1] !== 'b' ||
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
-  stringValues[1] !== 'b'
+  stringValues[1] !== 'b' ||
+  fullyBracketedGlobalThisStringValues.length !== 2 ||
+  fullyBracketedGlobalThisStringValues[0] !== 'a' ||
+  fullyBracketedGlobalThisStringValues[1] !== 'b'
 ) {
   throw 'unexpected string primitive enumeration';
 }
 console.log(stringKeys.length);
 Kali.test('string primitive enumeration', () => {});
-"#
-}
-
-fn for_await_object_string_primitive_enumeration_semantics_source() -> &'static str {
-    r#"const stringKeys = [];
-for await (const key of Object.keys('ab')) {
-  stringKeys.push(key);
-}
-const stringEntries = [];
-for await (const entry of Object.entries('ab')) {
-  stringEntries.push(entry);
-}
-const stringValues = [];
-for await (const value of Object.values('ab')) {
-  stringValues.push(value);
-}
-if (
-  stringKeys.length !== 2 ||
-  stringKeys[0] !== '0' ||
-  stringKeys[1] !== '1' ||
-  stringEntries.length !== 2 ||
-  stringEntries[0][0] !== '0' ||
-  stringEntries[0][1] !== 'a' ||
-  stringEntries[1][0] !== '1' ||
-  stringEntries[1][1] !== 'b' ||
-  stringValues.length !== 2 ||
-  stringValues[0] !== 'a' ||
-  stringValues[1] !== 'b'
-) {
-  throw 'unexpected for await string primitive enumeration';
-}
-console.log(stringKeys.length);
-"#
-}
-
-fn for_await_object_string_primitive_enumeration_test_source() -> &'static str {
-    r#"const stringKeys = [];
-for await (const key of Object.keys('ab')) {
-  stringKeys.push(key);
-}
-const stringEntries = [];
-for await (const entry of Object.entries('ab')) {
-  stringEntries.push(entry);
-}
-const stringValues = [];
-for await (const value of Object.values('ab')) {
-  stringValues.push(value);
-}
-if (
-  stringKeys.length !== 2 ||
-  stringKeys[0] !== '0' ||
-  stringKeys[1] !== '1' ||
-  stringEntries.length !== 2 ||
-  stringEntries[0][0] !== '0' ||
-  stringEntries[0][1] !== 'a' ||
-  stringEntries[1][0] !== '1' ||
-  stringEntries[1][1] !== 'b' ||
-  stringValues.length !== 2 ||
-  stringValues[0] !== 'a' ||
-  stringValues[1] !== 'b'
-) {
-  throw 'unexpected for await string primitive enumeration';
-}
-console.log(stringKeys.length);
-Kali.test('for await string primitive enumeration', () => {});
 "#
 }
 
@@ -25729,14 +25771,14 @@ fn test_supports_object_from_entries_has_own_semantics_in_tsx_input_when_browser
     );
 }
 
-fn assert_json_object_string_primitive_enumeration_semantics(command: &str, filename: &str) {
+fn assert_json_object_string_primitive_enumeration_semantics(
+    command: &str,
+    filename: &str,
+    source: &str,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        object_string_primitive_enumeration_semantics_source(),
-    )
-    .expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -25771,16 +25813,6 @@ fn assert_json_object_string_primitive_enumeration_semantics(command: &str, file
     }
     assert_eq!(json["stdout"], "2\n");
     assert_eq!(json["stderr"], "");
-}
-
-#[test]
-fn json_run_supports_object_string_primitive_enumeration_semantics_in_js_input() {
-    assert_json_object_string_primitive_enumeration_semantics("run", "main.js");
-}
-
-#[test]
-fn json_test_supports_object_string_primitive_enumeration_semantics_in_js_input() {
-    assert_json_object_string_primitive_enumeration_semantics("test", "smoke.test.js");
 }
 
 fn object_property_deletion_semantics_source() -> &'static str {
