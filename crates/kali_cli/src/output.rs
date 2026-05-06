@@ -1902,16 +1902,11 @@ fn validate_source_location_file_mirror(
     file: &str,
     location_name: &str,
 ) -> Result<(), String> {
-    let Some(location) = location.as_object() else {
-        return Err(format!("{location_name} must be a JSON object"));
-    };
+    validate_source_location(location, location_name)?;
 
-    for key in ["file", "line", "column"] {
-        if !location.contains_key(key) {
-            return Err(format!("{location_name} is missing required key `{key}`"));
-        }
-    }
-    reject_unexpected_keys(location, &["file", "line", "column"], location_name)?;
+    let Some(location) = location.as_object() else {
+        unreachable!("validated above")
+    };
 
     match location.get("file") {
         Some(Value::String(location_file)) if location_file == file => {}
@@ -1926,18 +1921,6 @@ fn validate_source_location_file_mirror(
             ))
         }
         None => unreachable!("validated above"),
-    }
-
-    for key in ["line", "column"] {
-        match location.get(key) {
-            Some(value) if is_positive_integer(value) => {}
-            Some(other) => {
-                return Err(format!(
-                    "{location_name} source location {key} must be a positive integer, got {other}"
-                ))
-            }
-            None => unreachable!("validated above"),
-        }
     }
 
     Ok(())
@@ -2055,23 +2038,20 @@ fn validate_suggested_fix_edits_non_overlapping(edits: &[Value]) -> Result<(), S
 }
 
 fn source_location_position(value: &Value, location_name: &str) -> Result<(u64, u64), String> {
-    let Some(object) = value.as_object() else {
-        return Err(format!("{location_name} must be a JSON object"));
-    };
-    reject_unexpected_keys(object, &["file", "line", "column"], location_name)?;
+    validate_source_location(value, location_name)?;
 
-    let line = positive_integer_value(
-        object
-            .get("line")
-            .ok_or_else(|| format!("{location_name} is missing required key `line`"))?,
-    )
-    .ok_or_else(|| format!("{location_name} source location line must be a positive integer"))?;
-    let column = positive_integer_value(
-        object
-            .get("column")
-            .ok_or_else(|| format!("{location_name} is missing required key `column`"))?,
-    )
-    .ok_or_else(|| format!("{location_name} source location column must be a positive integer"))?;
+    let Some(object) = value.as_object() else {
+        unreachable!("validated above")
+    };
+
+    let line =
+        positive_integer_value(object.get("line").expect("validated above")).ok_or_else(|| {
+            format!("{location_name} source location line must be a positive integer")
+        })?;
+    let column = positive_integer_value(object.get("column").expect("validated above"))
+        .ok_or_else(|| {
+            format!("{location_name} source location column must be a positive integer")
+        })?;
 
     Ok((line, column))
 }
