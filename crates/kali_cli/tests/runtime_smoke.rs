@@ -38932,6 +38932,9 @@ fn json_check_rejects_negative_math_pow_exponents_in_js_input() {
             .expect("error message")
             .contains("Math.pow is unavailable for negative numeric literals")
     }));
+    let source_file = source_path.to_string_lossy();
+    assert_eq!(errors[0]["file"], json!(source_file.as_ref()));
+    assert_eq!(errors[0]["span"]["file"], json!(source_file.as_ref()));
 }
 
 #[test]
