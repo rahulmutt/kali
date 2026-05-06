@@ -3617,11 +3617,65 @@ fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser
 }
 
 #[test]
+fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
 fn check_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_js_input(
 ) {
     assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
         ApiSurface::Browser,
         "js",
+    );
+}
+
+#[test]
+fn check_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_ts_input(
+) {
+    assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn check_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_jsx_input(
+) {
+    assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn check_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_tsx_input(
+) {
+    assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
