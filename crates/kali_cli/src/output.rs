@@ -1456,6 +1456,14 @@ fn validate_diagnostic_value(value: &Value) -> Result<(), String> {
             return Err(format!("diagnostic is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(
+        object,
+        &[
+            "severity", "code", "message", "span", "file", "labels", "help", "related", "fix",
+            "notes", "context",
+        ],
+        "diagnostic",
+    )?;
 
     match object.get("severity") {
         Some(Value::String(value))

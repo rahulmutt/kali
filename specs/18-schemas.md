@@ -248,6 +248,9 @@ Ordering rule:
 - `notes: string[]`
 - `context: DiagnosticContext` *(structured machine-readable command/config context for diagnostics whose meaning depends on the effective invocation state)*
 
+Interpretation rules:
+- diagnostic objects are fixed-shape in schema v1; unexpected top-level keys are rejected
+
 ## Reusable Supporting Types
 
 These types are referenced by the envelope and diagnostic schemas above and should not be redefined ad hoc elsewhere.
@@ -343,7 +346,7 @@ Required fields:
 - `end: SourceLocation`
 - `newText: string`
 
-Semantics:
+Interpretation rules:
 - `start` is inclusive and `end` is exclusive
 - `start.file` and `end.file` must match `file`
 - `end` must not precede `start`

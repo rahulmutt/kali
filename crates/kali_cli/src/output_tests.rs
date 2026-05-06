@@ -2726,8 +2726,8 @@ fn validate_envelope_value_rejects_mismatched_suggested_fix_edit_file_mirrors() 
 }
 
 #[test]
-fn validate_envelope_value_rejects_source_location_extensions_in_suggested_fix_edits() {
-    let invalid_fix = json!({
+fn validate_envelope_value_rejects_unexpected_diagnostic_keys() {
+    let invalid_diagnostic = json!({
         "schemaVersion": 1,
         "command": "doctor",
         "success": false,
@@ -2735,22 +2735,13 @@ fn validate_envelope_value_rejects_source_location_extensions_in_suggested_fix_e
             {
                 "severity": "error",
                 "code": "E5508",
-                "message": "bad suggested fix source location",
+                "message": "bad diagnostic shape",
                 "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
                 "labels": [],
                 "related": [],
-                "fix": {
-                    "message": "adjust location",
-                    "edits": [
-                        {
-                            "file": "src/main.ts",
-                            "start": {"file": "src/main.ts", "line": 1, "column": 1, "extra": true},
-                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
-                            "newText": "console.log(1);"
-                        }
-                    ]
-                },
-                "notes": []
+                "fix": null,
+                "notes": [],
+                "extensionKey": true
             }
         ],
         "warnings": [],
@@ -2760,14 +2751,10 @@ fn validate_envelope_value_rejects_source_location_extensions_in_suggested_fix_e
         "exitCode": 1,
     });
 
-    let err = validate_envelope_value(&invalid_fix)
-        .expect_err("unexpected source-location keys should fail validation");
+    let err = validate_envelope_value(&invalid_diagnostic)
+        .expect_err("unexpected diagnostic keys should fail validation");
     assert!(
-        err.contains("suggested fix edits[0]"),
-        "unexpected error: {err}"
-    );
-    assert!(
-        err.contains("text edit start contains unexpected key"),
+        err.contains("diagnostic") && err.contains("unexpected key `extensionKey`"),
         "unexpected error: {err}"
     );
 }
