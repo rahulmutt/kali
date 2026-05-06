@@ -38,6 +38,7 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
 - Do not add batch, raw-URL, local-path, or project-discovery behavior without spec/schema revisions.
+- Current progress: registry-analysis command-shape coverage now also pins extra-argument failures in JSON mode, including `--output json` and `--pretty --output json`, so presentation flags do not bypass the single-package contract.
 
 ## Exit gate
 

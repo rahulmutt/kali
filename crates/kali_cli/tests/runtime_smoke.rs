@@ -65748,6 +65748,41 @@ fn json_package_registry_analysis_commands_require_exactly_one_package_argument(
 }
 
 #[test]
+fn json_package_registry_analysis_commands_reject_extra_package_arguments() {
+    for (command, json_flags) in [
+        ("package-effects", vec!["--output", "json"]),
+        ("package-effects", vec!["--pretty", "--output", "json"]),
+        ("package-audit", vec!["--output", "json"]),
+        ("package-audit", vec!["--pretty", "--output", "json"]),
+    ] {
+        let output = Command::new(kali_bin())
+            .args(json_flags)
+            .arg(command)
+            .args(["semver", "lodash"])
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert!(!json["success"].as_bool().expect("success boolean"));
+        assert_eq!(json["exitCode"], 5);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(!errors.is_empty(), "errors: {errors:?}");
+        assert_eq!(errors[0]["code"], "E5508");
+        assert!(
+            errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("accepts exactly one package argument"),
+            "json: {json}"
+        );
+    }
+}
+
+#[test]
 fn package_registry_commands_reject_explicit_package_versions() {
     for command in ["package-effects", "package-audit"] {
         let output = Command::new(kali_bin())
