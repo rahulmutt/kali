@@ -25328,6 +25328,14 @@ fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
 "#
 }
 
+fn browser_runtime_frozen_object_enumeration_spread_source() -> &'static str {
+    r#"const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
+for (const value of [...Object.values(frozen)]) { console.log(value); }
+for (const key of [...Object.keys(frozen)]) { console.log(key); }
+for (const entry of [...Object.entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+"#
+}
+
 fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -42686,6 +42694,104 @@ fn check_supports_bracketed_promise_all_settled_in_inherited_browser_api_surface
             let output = output.output().expect("run kali");
 
             assert!(output.status.success());
+            assert_eq!(output.status.code(), Some(0));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(!stderr.contains("E5506"), "stderr: {stderr}");
+            }
+        }
+    }
+}
+
+#[test]
+fn check_supports_frozen_object_enumeration_spread_in_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        browser_runtime_frozen_object_enumeration_spread_source(),
+    )
+    .expect("write source");
+
+    for command in ["check", "build"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            output.arg("--api").arg("browser").arg(&source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(output.status.code(), Some(0));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(!stderr.contains("E5506"), "stderr: {stderr}");
+            }
+        }
+    }
+}
+
+#[test]
+fn check_supports_frozen_object_enumeration_spread_in_inherited_browser_api_surface_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        browser_runtime_frozen_object_enumeration_spread_source(),
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    for command in ["check", "build"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            output.arg(&source_path);
+            let output = output.output().expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
             assert_eq!(output.status.code(), Some(0));
             if output_json {
                 let json = parse_json_stdout(&output);
