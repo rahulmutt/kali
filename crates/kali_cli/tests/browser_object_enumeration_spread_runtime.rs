@@ -10,12 +10,34 @@ fn kali_bin() -> String {
 fn object_enumeration_spread_source() -> &'static str {
     r##"const keys = [...Object.keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const entries = [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const values = [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const mixedValues = [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const mixedKeys = [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const mixedEntries = [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
 
-if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
-  throw new Error('unexpected Object.keys spread semantics');
+if (
+  keys.length !== 2 ||
+  keys[0] !== 'b' ||
+  keys[1] !== 'a' ||
+  values.length !== 2 ||
+  values[0] !== 3 ||
+  values[1] !== 2 ||
+  mixedValues.length !== 2 ||
+  mixedValues[0] !== 3 ||
+  mixedValues[1] !== 2 ||
+  mixedKeys.length !== 2 ||
+  mixedKeys[0] !== 'b' ||
+  mixedKeys[1] !== 'a' ||
+  mixedEntries.length !== 2 ||
+  mixedEntries[0][0] !== 'b' ||
+  mixedEntries[0][1] !== 3 ||
+  mixedEntries[1][0] !== 'a' ||
+  mixedEntries[1][1] !== 2
+) {
+  throw new Error('unexpected Object enumeration spread semantics');
 }
 if (
   entries.length !== 2 ||
