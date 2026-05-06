@@ -2398,6 +2398,25 @@ fn validate_envelope_value_rejects_malformed_timing_objects() {
     let err = validate_envelope_value(&invalid_milliseconds)
         .expect_err("timings with string milliseconds should fail validation");
     assert!(err.contains("milliseconds"), "unexpected error: {err}");
+
+    let negative_milliseconds = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": "parse", "milliseconds": -1}],
+    });
+    let err = validate_envelope_value(&negative_milliseconds)
+        .expect_err("timings with negative milliseconds should fail validation");
+    assert!(
+        err.contains("finite non-negative number"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

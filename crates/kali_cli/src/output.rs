@@ -1483,7 +1483,13 @@ fn validate_timing_value(value: &Value) -> Result<(), String> {
     }
 
     match object.get("milliseconds") {
-        Some(Value::Number(_)) => {}
+        Some(Value::Number(value))
+            if value
+                .as_f64()
+                .is_some_and(|milliseconds| milliseconds.is_finite() && milliseconds >= 0.0) => {}
+        Some(Value::Number(_)) => {
+            return Err("timing milliseconds must be a finite non-negative number".to_string())
+        }
         Some(other) => return Err(format!("timing milliseconds must be a number, got {other}")),
         None => unreachable!("validated above"),
     }
