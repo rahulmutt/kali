@@ -2828,12 +2828,11 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
-                None | Some("") | Some("+") => {
-                    match self.resolve_static_object_identity_value(node.children[0]) {
-                        Some(StaticObjectIdentityValue::BigInt(_)) => None,
-                        other => other,
-                    }
-                }
+                None | Some("") => self.resolve_static_object_identity_value(node.children[0]),
+                Some("+") => match self.resolve_static_object_identity_value(node.children[0]) {
+                    Some(StaticObjectIdentityValue::BigInt(_)) => None,
+                    other => other,
+                },
                 Some("void") => Some(StaticObjectIdentityValue::Undefined),
                 Some("-") => self
                     .resolve_static_object_identity_value(node.children[0])

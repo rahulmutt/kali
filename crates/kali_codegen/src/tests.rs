@@ -205,6 +205,28 @@ fn object_is_lowers_for_bracketed_global_this_object_spellings() {
 }
 
 #[test]
+fn object_is_lowers_through_parenthesized_same_reference_wrappers() {
+    let program = parse_and_lower_lir(
+        "const object = { a: 1 }; const alias = object; console.log(Object.is((alias), (((object)))));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn object_has_own_lowers_for_static_object_from_entries_operands() {
     let program = parse_and_lower_lir(
         "console.log(Object.hasOwn(Object.fromEntries([[\"b\", 1], [\"a\", 2]]), \"a\"));",
