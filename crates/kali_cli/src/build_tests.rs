@@ -1349,12 +1349,52 @@ fn assert_build_source_file_supports_object_is_primitive_literals_in_input(
     assert!(!output.wasm_bytes.is_empty());
 }
 
+fn assert_build_source_file_supports_object_is_same_reference_alias_chain_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(globalThis["Object"]["is"](alias, object)); console.log(globalThis.Object["is"](frozen, object)); console.log(globalThis["Object"].is(alias, object)); console.log(globalThis.Object.is(frozen, object));"#,
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Object.is same-reference alias-chain build should succeed");
+
+    assert!(!output.wasm_bytes.is_empty());
+}
+
 #[test]
 fn build_source_file_supports_object_is_primitive_literals_in_deno_and_browser_ts_js_jsx_and_tsx_input(
 ) {
     for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
         for extension in ["ts", "js", "jsx", "tsx"] {
             assert_build_source_file_supports_object_is_primitive_literals_in_input(
+                api_surface,
+                extension,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_source_file_supports_object_is_same_reference_alias_chain_in_deno_and_browser_ts_js_jsx_and_tsx_input(
+) {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
+            assert_build_source_file_supports_object_is_same_reference_alias_chain_in_input(
                 api_surface,
                 extension,
             );
