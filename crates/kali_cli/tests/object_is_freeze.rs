@@ -14,11 +14,12 @@ fn object_is_freeze_same_reference_test_source() -> &'static str {
     "Kali.test('object is freeze same reference', () => { const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); });\n"
 }
 
-fn assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(
+fn assert_run_supports_object_is_through_object_freeze_same_reference_in_input(
+    extension: &str,
     json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, object_is_freeze_same_reference_source()).expect("write source");
 
     let mut command = Command::new(kali_bin());
@@ -52,11 +53,12 @@ fn assert_run_supports_object_is_through_object_freeze_same_reference_in_js_inpu
     }
 }
 
-fn assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(
+fn assert_test_supports_object_is_through_object_freeze_same_reference_in_input(
+    extension: &str,
     json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
+    let source_path = dir.path().join(format!("smoke.test.{extension}"));
     fs::write(&source_path, object_is_freeze_same_reference_test_source()).expect("write source");
 
     let mut command = Command::new(kali_bin());
@@ -94,20 +96,56 @@ fn assert_test_supports_object_is_through_object_freeze_same_reference_in_js_inp
 
 #[test]
 fn run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
-    assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(false);
+    assert_run_supports_object_is_through_object_freeze_same_reference_in_input("js", false);
 }
 
 #[test]
 fn json_run_supports_object_is_through_object_freeze_same_reference_in_js_input() {
-    assert_run_supports_object_is_through_object_freeze_same_reference_in_js_input(true);
+    assert_run_supports_object_is_through_object_freeze_same_reference_in_input("js", true);
+}
+
+#[test]
+fn run_supports_object_is_through_object_freeze_same_reference_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_run_supports_object_is_through_object_freeze_same_reference_in_input(
+            extension, false,
+        );
+    }
+}
+
+#[test]
+fn json_run_supports_object_is_through_object_freeze_same_reference_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_run_supports_object_is_through_object_freeze_same_reference_in_input(
+            extension, true,
+        );
+    }
 }
 
 #[test]
 fn test_supports_object_is_through_object_freeze_same_reference_in_js_input() {
-    assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(false);
+    assert_test_supports_object_is_through_object_freeze_same_reference_in_input("js", false);
 }
 
 #[test]
 fn json_test_supports_object_is_through_object_freeze_same_reference_in_js_input() {
-    assert_test_supports_object_is_through_object_freeze_same_reference_in_js_input(true);
+    assert_test_supports_object_is_through_object_freeze_same_reference_in_input("js", true);
+}
+
+#[test]
+fn test_supports_object_is_through_object_freeze_same_reference_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_test_supports_object_is_through_object_freeze_same_reference_in_input(
+            extension, false,
+        );
+    }
+}
+
+#[test]
+fn json_test_supports_object_is_through_object_freeze_same_reference_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_test_supports_object_is_through_object_freeze_same_reference_in_input(
+            extension, true,
+        );
+    }
 }
