@@ -2133,16 +2133,26 @@ impl TypeContext {
                 return;
             }
 
-            let exponent_is_static_zero = self
-                .resolve_static_numeric_literal_value(expr.args.get(1).unwrap())
-                .is_some_and(|value| value == 0.0);
-            let base_is_static_zero = self
-                .resolve_static_numeric_literal_value(expr.args.first().unwrap())
-                .is_some_and(|value| value == 0.0);
-            let exponent_is_positive_integer = self
-                .resolve_static_numeric_literal_value(expr.args.get(1).unwrap())
-                .is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+            let base_value = expr
+                .args
+                .first()
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg));
+            let exponent_value = expr
+                .args
+                .get(1)
+                .and_then(|arg| self.resolve_static_numeric_literal_value(arg));
+            let exponent_is_static_zero = exponent_value.is_some_and(|value| value == 0.0);
+            let base_is_static_zero = base_value.is_some_and(|value| value == 0.0);
+            let base_is_static_unit = base_value.is_some_and(|value| value == 1.0 || value == -1.0);
+            let exponent_is_positive_integer =
+                exponent_value.is_some_and(|value| value > 0.0 && value.fract() == 0.0);
+            let exponent_is_negative_integer =
+                exponent_value.is_some_and(|value| value < 0.0 && value.fract() == 0.0);
             if base_is_static_zero && exponent_is_positive_integer {
+                return;
+            }
+
+            if base_is_static_unit && exponent_is_negative_integer {
                 return;
             }
 
@@ -2163,10 +2173,11 @@ impl TypeContext {
                 .args
                 .get(1)
                 .is_some_and(|arg| self.contains_negative_numeric_literal(arg))
+                && !base_is_static_unit
             {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Math.pow is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path",
+                    "Math.pow is unavailable for negative numeric literals unless the base is a statically-known ±1 in the current phase; use a non-negative exponent or the later compatibility path",
                 ));
             }
             return;

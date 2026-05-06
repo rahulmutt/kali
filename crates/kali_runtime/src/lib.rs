@@ -1435,8 +1435,14 @@ fn register_default_host_imports(linker: &mut Linker<KaliHostState>) -> Result<(
             "math_pow",
             |left: i64, right: i64| -> wasmtime::Result<i64> {
                 if right < 0 {
+                    if left == 1 {
+                        return Ok(1);
+                    }
+                    if left == -1 {
+                        return Ok(if right % 2 == 0 { 1 } else { -1 });
+                    }
                     return Err(wasmtime::Error::msg(
-                        "Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path",
+                        "Math.pow negative exponents are unavailable unless the base is a statically-known ±1 in the current phase; use a non-negative exponent or the later compatibility path",
                     ));
                 }
                 Ok(left.wrapping_pow(right as u32))
@@ -3073,7 +3079,13 @@ const importObject = {{
     }},
     math_pow(left, right) {{
       if (right < 0n) {{
-        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+        if (left === 1n) {{
+          return 1n;
+        }}
+        if (left === -1n) {{
+          return right % 2n === 0n ? 1n : -1n;
+        }}
+        throw new Error('Math.pow negative exponents are unavailable unless the base is a statically-known ±1 in the current phase; use a non-negative exponent or the later compatibility path');
       }}
       return BigInt.asIntN(64, left ** right);
     }},
@@ -3387,7 +3399,13 @@ const importObject = {{
     }},
     math_pow(left, right) {{
       if (right < 0n) {{
-        throw new Error('Math.pow negative exponents are unavailable in the current phase; use a non-negative exponent or the later compatibility path');
+        if (left === 1n) {{
+          return 1n;
+        }}
+        if (left === -1n) {{
+          return right % 2n === 0n ? 1n : -1n;
+        }}
+        throw new Error('Math.pow negative exponents are unavailable unless the base is a statically-known ±1 in the current phase; use a non-negative exponent or the later compatibility path');
       }}
       return BigInt.asIntN(64, left ** right);
     }},

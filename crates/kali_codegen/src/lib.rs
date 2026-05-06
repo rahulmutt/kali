@@ -2883,11 +2883,15 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
-        if self.contains_negative_numeric_literal(*exponent) {
+        let base_unit = self
+            .render_static_value(*base)
+            .and_then(|rendered| parse_numeric_literal_value(&rendered))
+            .is_some_and(|value| value == 1.0 || value == -1.0);
+        if self.contains_negative_numeric_literal(*exponent) && !base_unit {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "{label} is unavailable for negative numeric literals in the current phase; use a non-negative exponent or the later compatibility path"
+                    "{label} is unavailable for negative numeric literals unless the base is a statically-known ±1 in the current phase; use a non-negative exponent or the later compatibility path"
                 ),
             ));
             function.instruction(&Instruction::Unreachable);
