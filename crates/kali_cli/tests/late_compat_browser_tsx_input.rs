@@ -242,6 +242,19 @@ fn browser_late_tsx_compatibility_source_includes_bracketed_forms() {
 }
 
 #[test]
+fn browser_late_tsx_compatibility_source_includes_mixed_bracketed_proxy_revocable_form() {
+    let source = late_browser_tsx_compatibility_source();
+    assert!(
+        source.contains(r#"globalThis["Proxy"].revocable"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis.Proxy["revocable"]"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn run_and_test_reject_generator_function_lowering_in_browser_api_surface_tsx_input() {
     for (command, source_name) in [("run", "main.tsx"), ("test", "smoke.test.tsx")] {
         for source in [
