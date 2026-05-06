@@ -7199,6 +7199,87 @@ fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input()
 }
 
 #[test]
+fn test_resolution_rejects_object_keys_iteration_with_let_binding_rebound_before_use_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "let values = { a: 1 }; values = { b: 2 }; for (const key of Object.keys(values)) { console.log(key); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "let".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "values".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                })),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::Assign,
+                    left: Expression::Identifier("values".to_string()),
+                    right: Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("b".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                },
+            ))),
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "key".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "keys".to_string(),
+                })),
+                args: vec![Expression::Identifier("values".to_string())],
+            })),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("key".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: false,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_of_array_iteration() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
