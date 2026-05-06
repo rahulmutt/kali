@@ -3608,7 +3608,7 @@ fn parse_optional_runtime_host_contract_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeHostContract> {
     let label = value?.as_str()?;
-    if label.is_empty() {
+    if label.trim().is_empty() {
         return None;
     }
 
@@ -3619,7 +3619,7 @@ fn parse_optional_runtime_backend_label(
     value: Option<&serde_json::Value>,
 ) -> Option<RuntimeBackend> {
     let label = value?.as_str()?;
-    if label.is_empty() {
+    if label.trim().is_empty() {
         return None;
     }
 
