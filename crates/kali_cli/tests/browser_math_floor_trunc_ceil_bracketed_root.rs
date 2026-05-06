@@ -17,6 +17,9 @@ function bracketedGlobalThisMathFloorTruncCeilIdentity() {
   console.log(globalThis["Math"]["floor"](value));
   console.log(globalThis["Math"]["trunc"](value));
   console.log(globalThis["Math"]["ceil"](value));
+  console.log(globalThis.Math["floor"](value));
+  console.log(globalThis.Math["trunc"](value));
+  console.log(globalThis.Math["ceil"](value));
   return [
     globalThis["Math"].floor(value),
     globalThis["Math"].trunc(value),
@@ -24,6 +27,9 @@ function bracketedGlobalThisMathFloorTruncCeilIdentity() {
     globalThis["Math"]["floor"](value),
     globalThis["Math"]["trunc"](value),
     globalThis["Math"]["ceil"](value),
+    globalThis.Math["floor"](value),
+    globalThis.Math["trunc"](value),
+    globalThis.Math["ceil"](value),
   ];
 }
 "##
@@ -112,8 +118,8 @@ await mod.bracketedGlobalThisMathFloorTruncCeilIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.matches("1\n").count() >= 4, "stdout: {stdout}");
-    assert!(stdout.matches("2\n").count() >= 2, "stdout: {stdout}");
+    assert!(stdout.matches("1\n").count() >= 6, "stdout: {stdout}");
+    assert!(stdout.matches("2\n").count() >= 3, "stdout: {stdout}");
 }
 
 #[test]
@@ -143,42 +149,42 @@ fn run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_wh
         (
             "run",
             "main.js",
-            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value));\n",
         ),
         (
             "test",
             "smoke.test.js",
-            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value)); });\n",
         ),
         (
             "run",
             "main.ts",
-            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value));\n",
         ),
         (
             "test",
             "smoke.test.ts",
-            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value)); });\n",
         ),
         (
             "run",
             "main.jsx",
-            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value));\n",
         ),
         (
             "test",
             "smoke.test.jsx",
-            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value)); });\n",
         ),
         (
             "run",
             "main.tsx",
-            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value));\n",
+            "const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value));\n",
         ),
         (
             "test",
             "smoke.test.tsx",
-            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); });\n",
+            "Kali.test('bracketed math floor trunc ceil identity', () => { const value = 1.6; console.log(globalThis[\"Math\"].floor(value)); console.log(globalThis[\"Math\"].trunc(value)); console.log(globalThis[\"Math\"].ceil(value)); console.log(globalThis[\"Math\"][\"floor\"](value)); console.log(globalThis[\"Math\"][\"trunc\"](value)); console.log(globalThis[\"Math\"][\"ceil\"](value)); console.log(globalThis.Math[\"floor\"](value)); console.log(globalThis.Math[\"trunc\"](value)); console.log(globalThis.Math[\"ceil\"](value)); });\n",
         ),
     ] {
         for output_json in [false, true] {
@@ -227,13 +233,13 @@ fn run_and_test_supports_bracketed_global_this_math_floor_trunc_ceil_identity_wh
                     assert_eq!(json["payload"]["failed"], 0);
                 }
                 let stdout = json["stdout"].as_str().expect("stdout");
-                assert!(stdout.matches("1\n").count() >= 4, "json: {json}");
-                assert!(stdout.matches("2\n").count() >= 2, "json: {json}");
+                assert!(stdout.matches("1\n").count() >= 6, "json: {json}");
+                assert!(stdout.matches("2\n").count() >= 3, "json: {json}");
                 assert_eq!(json["stderr"], "");
             } else {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                assert!(stdout.matches("1\n").count() >= 4, "stdout: {stdout}");
-                assert!(stdout.matches("2\n").count() >= 2, "stdout: {stdout}");
+                assert!(stdout.matches("1\n").count() >= 6, "stdout: {stdout}");
+                assert!(stdout.matches("2\n").count() >= 3, "stdout: {stdout}");
             }
         }
     }
