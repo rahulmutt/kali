@@ -1356,6 +1356,30 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_object_freeze_call(node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(value) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Object.freeze requires at least one argument in the current phase; use an explicit value or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let emitted = self.emit_node(function, *value, true);
+            for arg in args {
+                let produced = self.emit_node(function, *arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+            return emitted;
+        }
+
         if self.is_object_has_own_call(node, &callee_node) {
             let Some(object_id) = node.children.get(1).copied() else {
                 return EmittedValue {

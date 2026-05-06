@@ -8,13 +8,15 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_object_is_run_source() -> &'static str {
-    "const zero = 0; const alias = zero; console.log(Object.is(alias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is(\"hello\", \"hello\")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(globalThis[\"Object\"][\"is\"](+1, 1)); console.log(globalThis.Object[\"is\"](+1, 1)); console.log(globalThis[\"Object\"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));\n"
+    "const zero = 0; const alias = zero; const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(alias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is(\"hello\", \"hello\")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis[\"Object\"][\"is\"](+1, 1)); console.log(globalThis.Object[\"is\"](+1, 1)); console.log(globalThis[\"Object\"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));\n"
 }
 
 fn browser_harness_object_is_test_source() -> &'static str {
     r#"Kali.test('object is primitive literals', () => {
   const zero = 0;
   const alias = zero;
+  const object = { a: 1 };
+  const frozen = Object.freeze(object);
   console.log(Object.is(alias, -0));
   console.log(Object.is(+1, 1));
   console.log(Object.is(true, true));
@@ -23,6 +25,8 @@ fn browser_harness_object_is_test_source() -> &'static str {
   console.log(Object.is(Infinity, Infinity));
   console.log(Object.is(NaN, NaN));
   console.log(Object.is(-Infinity, -Infinity));
+  console.log(Object.is(frozen, object));
+  console.log(Object.is(Object.freeze(object), object));
   console.log(globalThis["Object"]["is"](+1, 1));
   console.log(globalThis.Object["is"](+1, 1));
   console.log(globalThis["Object"].is(+1, 1));

@@ -1244,6 +1244,10 @@ impl TypeContext {
                     self.resolve_static_object_identity_reference_name(expression)
                 })
             }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .and_then(|argument| self.resolve_static_object_identity_reference_name(argument)),
             Expression::Identifier(name) => self
                 .resolve_static_reference_binding_name(name)
                 .or_else(|| Some(name.clone())),
