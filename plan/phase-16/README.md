@@ -22,7 +22,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Split the generator packet into prerequisite plumbing, then state-machine lowering, then async-generator/finalization coverage.
 - Expand `for...of` and `for await...of` toward full iterator/async-iterator protocol semantics beyond bounded static slices, including spread of supported `Object.keys(...)` / `Object.values(...)` / `Object.entries(...)` slices where that remains shape-safe.
 - Keep unavailable forms on canonical `E5506` gates with TS/JS/JSX/TSX and JSON-output regressions where applicable.
-- Current progress: the browser-targeted check/build smoke and browser-requested run/test/browser-bundle smoke now also exercise the `globalThis.Object.values` / `globalThis.Object["values"]` / `globalThis["Object"].values` / `globalThis["Object"]["values"]` spread slices over `Object.fromEntries(...)` in the supported JS/TS/JSX/TSX matrix, including the `Object.freeze(Object.fromEntries(...))` variant.
+- Current progress: the browser-targeted check/build smoke and browser-requested run/test/browser-bundle smoke now also exercise the `globalThis.Object.values` / `globalThis.Object["values"]` / `globalThis["Object"].values` / `globalThis["Object"]["values"]` spread slices over `Object.fromEntries(...)` in the supported JS/TS/JSX/TSX matrix, including the `Object.freeze(Object.fromEntries(...))` variant. The checker also now invalidates those static iterable/object-helper slices on rebinding so the supported let-bound cases stay honest while rebounded inputs continue through the canonical `E5506` rejection path.
 
 #### 16.1a Generator prerequisites
 

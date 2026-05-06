@@ -2209,7 +2209,13 @@ fn test_resolution_rejects_object_has_own_as_unavailable_in_browser_api_surface(
                 kali_ast::AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::Identifier("object".to_string()),
-                    right: Expression::Identifier("object".to_string()),
+                    right: Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
                 },
             ))),
         }),
@@ -5987,7 +5993,13 @@ fn test_resolution_reports_object_has_own_helpers_as_late_object_model_api() {
                 kali_ast::AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::Identifier("object".to_string()),
-                    right: Expression::Identifier("object".to_string()),
+                    right: Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
                 },
             ))),
         }),
@@ -7226,7 +7238,16 @@ fn test_resolution_rejects_for_of_non_literal_iterable_as_unavailable() {
                 kali_ast::AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::Identifier("values".to_string()),
-                    right: Expression::Identifier("values".to_string()),
+                    right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+                        elements: vec![
+                            Some(kali_ast::ExpressionOrSpread::Expression(
+                                Expression::Literal(LiteralValue::Number(3.0)),
+                            )),
+                            Some(kali_ast::ExpressionOrSpread::Expression(
+                                Expression::Literal(LiteralValue::Number(4.0)),
+                            )),
+                        ],
+                    }),
                 },
             ))),
         }),
@@ -7286,7 +7307,16 @@ fn test_resolution_rejects_for_await_non_literal_iterable_as_unavailable() {
                 kali_ast::AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: Expression::Identifier("values".to_string()),
-                    right: Expression::Identifier("values".to_string()),
+                    right: Expression::ArrayExpression(kali_ast::ArrayExpression {
+                        elements: vec![
+                            Some(kali_ast::ExpressionOrSpread::Expression(
+                                Expression::Literal(LiteralValue::Number(3.0)),
+                            )),
+                            Some(kali_ast::ExpressionOrSpread::Expression(
+                                Expression::Literal(LiteralValue::Number(4.0)),
+                            )),
+                        ],
+                    }),
                 },
             ))),
         }),
