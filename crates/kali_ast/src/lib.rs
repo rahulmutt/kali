@@ -301,6 +301,7 @@ pub enum Statement {
     ClassDeclaration(ClassDeclaration),
     VariableDeclaration(VariableDeclaration),
     ImportDeclaration(ImportDeclaration),
+    ExportAll(ExportAllDeclaration),
     ExportNamed(ExportNamedDeclaration),
     ExportDefault(ExportDefaultDeclaration),
     EnumDeclaration(EnumDeclaration),

@@ -195,6 +195,21 @@ fn test_parse_named_export_declaration() {
 }
 
 #[test]
+fn test_parse_export_all_declaration() {
+    let tokens = lex("export * from \"./helper.ts\";");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportAll(decl) => {
+            assert_eq!(decl.source, "./helper.ts");
+        }
+        other => panic!("Expected ExportAllDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_default_export_function_declaration() {
     let tokens = lex("export default function main() { return 1; }");
     let mut parser = Parser::new(FileId::new(0), tokens);

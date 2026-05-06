@@ -92,6 +92,23 @@ fn test_lower_statements_records_function_flavor_metadata() {
 }
 
 #[test]
+fn test_lower_statements_records_export_all_nodes() {
+    let statements = parse("export * from './helper.ts';");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(result.nodes[result.root.0 as usize].children.len(), 1);
+    let export_decl = &result.nodes[result.nodes[result.root.0 as usize].children[0].0 as usize];
+    assert_eq!(export_decl.kind, HirNodeKind::ExportDecl);
+    assert_eq!(export_decl.text.as_deref(), Some("./helper.ts"));
+}
+
+#[test]
 fn test_object_literal_lowers_to_stable_property_shape() {
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_expression(&Expression::ObjectExpression(ObjectExpression {

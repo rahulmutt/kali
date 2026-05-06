@@ -2368,6 +2368,50 @@ fn collect_library_exports_from_statements_with_context(
                     ));
                 }
             }
+            Statement::ExportAll(declaration) => {
+                let Some(resolved_source_path) = resolve_library_export_source_path(
+                    source_path,
+                    &declaration.source,
+                    api_surface,
+                ) else {
+                    diagnostics.push(invalid_export_surface(
+                        source_path,
+                        &format!(
+                            "re-export source `{}` could not be resolved",
+                            declaration.source
+                        ),
+                    ));
+                    continue;
+                };
+
+                let reexported_exports = match collect_library_exports_from_source_path_with_context(
+                    &resolved_source_path,
+                    api_surface,
+                    runtime_profiles,
+                    visited,
+                ) {
+                    Ok(exports) => exports,
+                    Err(mut error_diagnostics) => {
+                        diagnostics.append(&mut error_diagnostics);
+                        continue;
+                    }
+                };
+
+                for export in reexported_exports {
+                    if export.name == "default" {
+                        continue;
+                    }
+                    if exports
+                        .insert(export.name.clone(), export.signature)
+                        .is_some()
+                    {
+                        diagnostics.push(invalid_export_surface(
+                            source_path,
+                            &format!("duplicate export name `{}`", export.name),
+                        ));
+                    }
+                }
+            }
             Statement::ExportNamed(declaration) => {
                 if let Some(source) = declaration.source.as_ref() {
                     let Some(resolved_source_path) =
@@ -2690,6 +2734,7 @@ fn validate_unique_export_names_from_statements(
                     ));
                 }
             }
+            Statement::ExportAll(_) => {}
             Statement::ExportNamed(declaration) => {
                 for specifier in &declaration.specifiers {
                     if !seen_names.insert(specifier.exported.clone()) {
@@ -2771,6 +2816,13 @@ fn collect_library_exports_from_statements(
                         &format!("duplicate export name `{}`", func.name),
                     ));
                 }
+            }
+            Statement::ExportAll(_) => {
+                diagnostics.push(invalid_export_surface(
+                    source_path,
+                    "re-exported surfaces are not statically known yet",
+                ));
+                continue;
             }
             Statement::ExportNamed(declaration) => {
                 if declaration.source.is_some() {
@@ -3154,6 +3206,7 @@ fn collect_direct_bundle_calls_from_statement(
         | Statement::DebuggerStatement(_)
         | Statement::TypeAliasDeclaration(_)
         | Statement::InterfaceDeclaration(_)
+        | Statement::ExportAll(_)
         | Statement::ExportNamed(_)
         | Statement::ExportDefault(_) => {}
     }

@@ -2,7 +2,7 @@
 use kali_ast::{
     ASTBuilder, ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
-    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement,
+    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, ExportAllDeclaration,
     ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
     ExpressionOrSpread, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
@@ -933,6 +933,23 @@ impl Parser {
 
         if self.stream.current_kind() == Some(&TokenType::Class) {
             return self.parse_class_declaration();
+        }
+
+        if self.stream.current_kind() == Some(&TokenType::Star) {
+            let _ = self.stream.advance();
+            if self.stream.current_kind() == Some(&TokenType::From) {
+                let _ = self.stream.advance();
+            }
+            let source = match self.stream.current_kind() {
+                Some(TokenType::StringLiteral) => self
+                    .stream
+                    .advance()
+                    .map(|token| unquote_string_literal(&token.value))
+                    .unwrap_or_default(),
+                _ => "unknown".to_string(),
+            };
+            let _ = self.stream.accept(TokenType::Semicolon);
+            return Some(Statement::ExportAll(ExportAllDeclaration { source }));
         }
 
         if self.stream.current_kind() == Some(&TokenType::LeftBrace) {

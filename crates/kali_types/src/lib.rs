@@ -9,13 +9,13 @@ use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     BlockStatement, BreakStatement, CallExpression, CatchClause, ClassBody, ClassDeclaration,
     ClassExpression, ContinueStatement, DecoratedExpression, DoWhileStatement, EnumDeclaration,
-    EnumMember, Expression, ExpressionOrSpread, ExpressionStatement, ForInLefthand, ForInStatement,
-    ForInit, ForOfLefthand, ForOfStatement, ForStatement, FunctionDeclaration, FunctionExpression,
-    FunctionParam, IfStatement, ImportDeclaration, ImportExpression, ImportSpecifier,
-    InterfaceDeclaration, JsxChild, JsxElement, JsxFragment, LabeledStatement, LiteralValue,
-    MemberExpression, NodeId, ObjectExpression, ObjectProperty, ObjectPropertyKind,
-    OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement, Statement,
-    SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
+    EnumMember, ExportAllDeclaration, Expression, ExpressionOrSpread, ExpressionStatement,
+    ForInLefthand, ForInStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
+    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
+    ImportExpression, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement, JsxFragment,
+    LabeledStatement, LiteralValue, MemberExpression, NodeId, ObjectExpression, ObjectProperty,
+    ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement,
+    Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
     TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration, WhileStatement,
     WithStatement,
 };
@@ -573,6 +573,7 @@ impl TypeContext {
             Statement::ImportDeclaration(declaration) => {
                 self.resolve_import_declaration(declaration)
             }
+            Statement::ExportAll(declaration) => self.resolve_export_all(declaration),
             Statement::ExportNamed(declaration) => self.resolve_export_named(declaration),
             Statement::ExportDefault(declaration) => self.resolve_export_default(declaration),
             Statement::EnumDeclaration(EnumDeclaration { name, members }) => {
@@ -3352,6 +3353,27 @@ impl TypeContext {
                     self.bind_current_scope(local.clone());
                 }
                 ImportSpecifier::SideEffect => {}
+            }
+        }
+    }
+
+    fn resolve_export_all(&mut self, declaration: &ExportAllDeclaration) {
+        match self.resolve_import_source(&declaration.source) {
+            Ok(true) => {}
+            Ok(false) => {
+                self.diagnostics.push(
+                    Diagnostic::error(
+                        e3::IMPORT_NOT_FOUND as u32,
+                        format!(
+                            "re-export source '{}' could not be resolved",
+                            declaration.source
+                        ),
+                    )
+                    .with_suggestion("check the relative path or package specifier"),
+                );
+            }
+            Err(diagnostic) => {
+                self.diagnostics.push(diagnostic);
             }
         }
     }

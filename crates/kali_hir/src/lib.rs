@@ -590,6 +590,10 @@ impl HirLowerer {
                 }
                 id
             }
+            Statement::ExportAll(ExportAllDeclaration { source }) => {
+                self.builder
+                    .alloc_text(HirNodeKind::ExportDecl, None, source.clone())
+            }
             Statement::ExportNamed(ExportNamedDeclaration { specifiers, source }) => {
                 let id = self.builder.alloc_text(
                     HirNodeKind::ExportDecl,

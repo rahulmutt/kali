@@ -583,6 +583,31 @@ fn test_resolution_reports_unresolved_public_exports_in_js_input() {
 }
 
 #[test]
+fn test_resolution_resolves_export_all_sources_in_js_input() {
+    let dir = tempdir().unwrap();
+    let helper_path = dir.path().join("helper.js");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &helper_path,
+        "export function quadruple(value) { return value + value; }",
+    )
+    .unwrap();
+    fs::write(&source_path, "export * from './helper.js';").unwrap();
+
+    let statements = vec![Statement::ExportAll(kali_ast::ExportAllDeclaration {
+        source: "./helper.js".to_string(),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_unresolved_public_exports_in_jsx_and_tsx_input() {
     for extension in ["jsx", "tsx"] {
         let dir = tempdir().unwrap();
