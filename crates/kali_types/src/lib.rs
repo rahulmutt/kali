@@ -2764,7 +2764,10 @@ impl TypeContext {
     }
 
     fn resolve_late_host_control_member(&mut self, expr: &MemberExpression) {
-        if !matches!(expr.property.as_str(), "pid" | "cwd" | "chdir" | "exit") {
+        if !matches!(
+            expr.property.as_str(),
+            "pid" | "cwd" | "chdir" | "exit" | "kill"
+        ) {
             return;
         }
 
@@ -2816,7 +2819,10 @@ impl TypeContext {
         {
             Some(format!("globalThis[\"Deno\"].{}", expr.property))
         } else if object_name == "process"
-            && matches!(expr.property.as_str(), "pid" | "cwd" | "chdir" | "exit")
+            && matches!(
+                expr.property.as_str(),
+                "pid" | "cwd" | "chdir" | "exit" | "kill"
+            )
         {
             Some(format!(
                 "globalThis[\"process\"].{}, globalThis.process[\"{}\"]",

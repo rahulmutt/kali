@@ -147,7 +147,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> &'static str {
-    r#"process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
+    r#"process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; process.kill; globalThis.process.kill; globalThis["process"].kill; globalThis["process"]["kill"]; process["kill"]; globalThis.process["kill"]; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#
 }
 
 fn late_process_env_mutation_source() -> &'static str {
@@ -207,6 +207,10 @@ fn late_process_control_source_includes_bracketed_spellings() {
         r#"globalThis.process["chdir"]"#,
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
         r#"globalThis["process"].exit"#,
@@ -6308,6 +6312,13 @@ fn run_rejects_late_process_control_members() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
     ] {
         assert!(
@@ -6350,6 +6361,13 @@ fn run_rejects_late_process_control_members_in_json() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
         "undefined identifier 'process'",
     ] {
@@ -6744,6 +6762,13 @@ fn build_rejects_late_process_control_members_in_js_input() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
     ] {
         assert!(
@@ -6786,6 +6811,13 @@ fn json_build_rejects_late_process_control_members_in_js_input() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
         "undefined identifier 'process'",
     ] {
@@ -7073,6 +7105,13 @@ fn test_rejects_late_process_control_members() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
     ] {
         assert!(
@@ -7115,6 +7154,13 @@ fn test_rejects_late_process_control_members_in_json() {
         "globalThis.process.cwd",
         "process.chdir",
         "globalThis.process.chdir",
+        "process.kill",
+        r#"globalThis.process.kill"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         "process.exit",
         "undefined identifier 'process'",
     ] {
