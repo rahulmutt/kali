@@ -2786,6 +2786,24 @@ fn validate_envelope_value_rejects_fractional_exit_code() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_negative_exit_code() {
+    let invalid_exit_code = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": -1,
+    });
+    let err = validate_envelope_value(&invalid_exit_code)
+        .expect_err("negative exitCode should fail validation");
+    assert!(err.contains("exitCode"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_diagnostics() {
     let invalid_diagnostic = json!({
         "schemaVersion": 1,

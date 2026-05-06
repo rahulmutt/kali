@@ -156,10 +156,11 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
     validate_timings_array(object.get("timings"))?;
 
     match object.get("exitCode") {
-        Some(Value::Number(number)) if number.as_i64().is_some() || number.as_u64().is_some() => {}
+        Some(Value::Number(number))
+            if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {}
         Some(other) => {
             return Err(format!(
-                "CLI envelope exitCode must be an integer, got {other}"
+                "CLI envelope exitCode must be a non-negative integer, got {other}"
             ))
         }
         None => unreachable!("validated above"),
