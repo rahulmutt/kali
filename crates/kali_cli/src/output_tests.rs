@@ -593,6 +593,25 @@ fn validate_install_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_install_payload_value_rejects_unexpected_top_level_keys() {
+    let value = json!({
+        "manifestPath": "/workspace/example/kali.json",
+        "lockPath": null,
+        "installed": ["semver"],
+        "updated": [],
+        "removed": [],
+        "extensionKey": true,
+    });
+
+    let err = validate_install_payload_value(&value)
+        .expect_err("unexpected install payload keys should fail validation");
+    assert!(
+        err.contains("unexpected key `extensionKey`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_check_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "filesChecked": 3,
@@ -752,16 +771,6 @@ fn ordinary_cli_result_payloads_accept_schema_permitted_extension_keys() {
             "durationMs": 9,
         }),
         validate_lint_payload_value,
-    );
-    assert_payload_accepts_schema_permitted_extension_key(
-        json!({
-            "manifestPath": "/workspace/example/kali.json",
-            "lockPath": null,
-            "installed": ["semver"],
-            "updated": [],
-            "removed": [],
-        }),
-        validate_install_payload_value,
     );
 }
 

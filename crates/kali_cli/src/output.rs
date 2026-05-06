@@ -390,6 +390,17 @@ pub fn validate_install_payload_value(value: &Value) -> Result<(), String> {
             return Err(format!("install payload is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(
+        object,
+        &[
+            "installed",
+            "updated",
+            "removed",
+            "manifestPath",
+            "lockPath",
+        ],
+        "install payload",
+    )?;
 
     for key in ["manifestPath", "lockPath"] {
         if let Some(other) = object.get(key) {
