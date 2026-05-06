@@ -11141,7 +11141,7 @@ fn run_supports_math_suite_semantics_when_browser_harness_is_configured_in_ts_in
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\nconsole.log(Math.clz32(1));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\nconsole.log(Math.clz32(1));\nconsole.log(Math.clz32());\n",
     )
     .expect("write source");
 
@@ -11176,6 +11176,7 @@ fn run_supports_math_suite_semantics_when_browser_harness_is_configured_in_ts_in
     assert!(stdout.contains("-1\n"), "json: {json}");
     assert!(stdout.contains("-2\n"), "json: {json}");
     assert!(stdout.contains("31\n"), "json: {json}");
+    assert!(stdout.contains("32\n"), "json: {json}");
 }
 
 #[test]
@@ -11184,7 +11185,7 @@ fn json_run_supports_math_suite_semantics_when_browser_harness_is_configured_in_
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\nconsole.log(Math.clz32(1));\n",
+        "console.log(Math.max(1, 2, 3));\nconsole.log(Math.min(3, 2, 1));\nconsole.log(Math.abs(3 - 6));\nconsole.log(Math.sign(3 - 6));\nconsole.log(Math.imul(2147483647, 2));\nconsole.log(Math.clz32(1));\nconsole.log(Math.clz32());\n",
     )
     .expect("write source");
 
@@ -11219,6 +11220,7 @@ fn json_run_supports_math_suite_semantics_when_browser_harness_is_configured_in_
     assert!(stdout.contains("-1\n"), "json: {json}");
     assert!(stdout.contains("-2\n"), "json: {json}");
     assert!(stdout.contains("31\n"), "json: {json}");
+    assert!(stdout.contains("32\n"), "json: {json}");
 }
 
 #[test]
