@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_object_is_run_source() -> &'static str {
-    "const zero = 0; const alias = zero; const object = { a: 1 }; const objectAlias = object; const frozen = Object.freeze(object); const undefinedValue = void 0; console.log(Object.is(alias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is(\"hello\", \"hello\")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(Object.is(undefinedValue, void 0)); console.log(\"same-reference\", Object.is(objectAlias, object)); console.log(\"same-reference-freeze\", Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis[\"Object\"][\"is\"](+1, 1)); console.log(globalThis.Object[\"is\"](+1, 1)); console.log(globalThis[\"Object\"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));\n"
+    "const zero = 0; const alias = zero; const object = { a: 1 }; const objectAlias = object; const frozen = Object.freeze(object); const undefinedValue = void 0; console.log(Object.is(alias, -0)); console.log(Object.is(+1, 1)); console.log(Object.is(true, true)); console.log(Object.is(\"hello\", \"hello\")); console.log(Object.is(null, null)); console.log(Object.is(Infinity, Infinity)); console.log(Object.is(NaN, NaN)); console.log(Object.is(-Infinity, -Infinity)); console.log(Object.is(undefinedValue, void 0)); console.log(\"same-reference\", Object.is(objectAlias, object)); console.log(\"same-reference-freeze\", Object.is(frozen, object)); console.log(\"same-reference-freeze-bracketed\", globalThis[\"Object\"][\"is\"](frozen, object)); console.log(\"same-reference-freeze-mixed\", globalThis.Object[\"is\"](frozen, object)); console.log(\"same-reference-freeze-root\", globalThis[\"Object\"].is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis[\"Object\"][\"is\"](+1, 1)); console.log(globalThis.Object[\"is\"](+1, 1)); console.log(globalThis[\"Object\"].is(+1, 1)); console.log(globalThis.Object.is(+1, 1));\n"
 }
 
 fn browser_harness_object_is_test_source() -> &'static str {
@@ -30,6 +30,9 @@ fn browser_harness_object_is_test_source() -> &'static str {
   console.log(Object.is(undefinedValue, void 0));
   console.log("same-reference", Object.is(objectAlias, object));
   console.log("same-reference-freeze", Object.is(frozen, object));
+  console.log("same-reference-freeze-bracketed", globalThis["Object"]["is"](frozen, object));
+  console.log("same-reference-freeze-mixed", globalThis.Object["is"](frozen, object));
+  console.log("same-reference-freeze-root", globalThis["Object"].is(frozen, object));
   console.log(Object.is(Object.freeze(object), object));
   console.log(globalThis["Object"]["is"](+1, 1));
   console.log(globalThis.Object["is"](+1, 1));
@@ -95,6 +98,18 @@ fn assert_browser_harness_object_is(
             stdout.contains("same-reference\nsame-reference-freeze"),
             "json: {json}"
         );
+        assert!(
+            stdout.contains("same-reference-freeze-bracketed"),
+            "json: {json}"
+        );
+        assert!(
+            stdout.contains("same-reference-freeze-mixed"),
+            "json: {json}"
+        );
+        assert!(
+            stdout.contains("same-reference-freeze-root"),
+            "json: {json}"
+        );
         assert!(stdout.contains("0\n1\n1\n1\n1"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
@@ -102,6 +117,18 @@ fn assert_browser_harness_object_is(
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
             stdout.contains("same-reference\nsame-reference-freeze"),
+            "stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("same-reference-freeze-bracketed"),
+            "stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("same-reference-freeze-mixed"),
+            "stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("same-reference-freeze-root"),
             "stdout: {stdout}"
         );
         assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");

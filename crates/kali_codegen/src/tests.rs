@@ -163,7 +163,7 @@ fn object_is_lowers_for_same_static_reference() {
 #[test]
 fn object_is_lowers_for_same_static_reference_through_object_freeze() {
     let program = parse_and_lower_lir(
-        "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object));",
+        "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis[\"Object\"][\"is\"](frozen, object)); console.log(globalThis.Object[\"is\"](frozen, object)); console.log(globalThis[\"Object\"].is(frozen, object));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

@@ -1357,7 +1357,7 @@ fn assert_build_source_file_supports_object_is_same_reference_alias_chain_in_inp
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(globalThis["Object"]["is"](alias, object)); console.log(globalThis.Object["is"](frozen, object)); console.log(globalThis["Object"].is(alias, object)); console.log(globalThis.Object.is(frozen, object));"#,
+        r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(globalThis["Object"]["is"](alias, object)); console.log(globalThis.Object["is"](frozen, object)); console.log(globalThis["Object"].is(alias, object)); console.log(globalThis.Object.is(frozen, object)); console.log(globalThis["Object"]["is"](frozen, object)); console.log(globalThis["Object"].is(frozen, object)); console.log(globalThis.Object["is"](frozen, object));"#,
     )
     .expect("write source");
 
