@@ -4400,6 +4400,33 @@ fn write_valid_policy(path: &Path) {
     .expect("write policy");
 }
 
+fn write_threaded_policy(path: &Path) {
+    fs::write(
+        path,
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 1
+  }
+}"#,
+    )
+    .expect("write threaded policy");
+}
+
 fn write_invalid_policy_schema(path: &Path) {
     fs::write(
         path,
@@ -68415,6 +68442,148 @@ fn json_run_with_sandbox_rejects_positive_thread_budget_policy() {
     assert_eq!(json["success"], false);
     assert!(!json["errors"].as_array().expect("errors array").is_empty());
     assert_eq!(json["errors"][0]["code"], "E5506");
+}
+
+#[test]
+fn json_run_accepts_positive_thread_budget_policy_when_threaded_profile_is_active() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_threaded_policy(&policy_path);
+
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        let source_path = dir.path().join(filename);
+        fs::write(&source_path, "console.log('thread policy');").expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg("--wasm-threads")
+            .arg("--max-threads")
+            .arg("1")
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert_eq!(json["stdout"], "thread policy\n");
+        assert_eq!(json["stderr"], "");
+    }
+}
+
+#[test]
+fn json_test_accepts_positive_thread_budget_policy_when_threaded_profile_is_active() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_threaded_policy(&policy_path);
+
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        let source_path = dir.path().join(filename);
+        fs::write(
+            &source_path,
+            "Kali.test('thread policy', () => { console.log('thread policy'); });\n",
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--wasm-threads")
+            .arg("--max-threads")
+            .arg("1")
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["skipped"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout")
+                .contains("thread policy"),
+            "json: {json}"
+        );
+        assert_eq!(json["stderr"], "");
+    }
+}
+
+#[test]
+fn json_check_accepts_positive_thread_budget_policy_when_threaded_profile_is_active() {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("kali.policy.json");
+    write_threaded_policy(&policy_path);
+
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        let source_path = dir.path().join(filename);
+        fs::write(&source_path, "console.log('thread policy');").expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("check")
+            .arg("--wasm-threads")
+            .arg("--sandbox")
+            .arg(&policy_path)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "check");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["filesChecked"], 1);
+        assert_eq!(json["payload"]["errorCount"], 0);
+        assert_eq!(json["payload"]["warningCount"], 0);
+    }
 }
 
 fn package_audit_metadata_body(

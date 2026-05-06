@@ -370,6 +370,14 @@ pub struct PolicyValidation {
 impl SandboxPolicy {
     /// Load, parse, and validate a policy file.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, Vec<Diagnostic>> {
+        Self::from_file_with_runtime_profiles(path, &[])
+    }
+
+    /// Load, parse, and validate a policy file against the provided runtime-profile context.
+    pub fn from_file_with_runtime_profiles(
+        path: impl AsRef<Path>,
+        runtime_profiles: &[String],
+    ) -> Result<Self, Vec<Diagnostic>> {
         let path = path.as_ref();
         let source = fs::read_to_string(path).map_err(|error| {
             vec![Diagnostic::error(
@@ -395,7 +403,9 @@ impl SandboxPolicy {
 
         policy.base_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         policy.serialized_source = Some(source.into_bytes());
-        policy.validate().map(|_| policy)
+        policy
+            .validate_with_runtime_profiles(runtime_profiles)
+            .map(|_| policy)
     }
 
     /// Serialize the policy to deterministic canonical JSON.
@@ -410,6 +420,14 @@ impl SandboxPolicy {
 
     /// Validate the policy against the schema v1 contract and current Phase-1 availability.
     pub fn validate(&self) -> Result<(), Vec<Diagnostic>> {
+        self.validate_with_runtime_profiles(&[])
+    }
+
+    /// Validate a policy against the supplied runtime-profile context.
+    pub fn validate_with_runtime_profiles(
+        &self,
+        runtime_profiles: &[String],
+    ) -> Result<(), Vec<Diagnostic>> {
         let mut diagnostics = Vec::new();
 
         if self.schema_version != 1 {
@@ -480,7 +498,10 @@ impl SandboxPolicy {
         if self.effects.eval {
             diagnostics.push(unavailable_capability("effects.eval"));
         }
-        if self.resources.max_threads.unwrap_or(0) > 0 {
+        let has_threaded_profile = runtime_profiles
+            .iter()
+            .any(|profile| profile == "wasm-threads");
+        if self.resources.max_threads.unwrap_or(0) > 0 && !has_threaded_profile {
             diagnostics.push(unavailable_capability("resources.maxThreads"));
         }
 

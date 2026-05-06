@@ -3674,6 +3674,46 @@ fn runtime_context_resolves_effective_thread_budget() {
 }
 
 #[test]
+fn runtime_context_resolves_positive_thread_budget_against_policy_cap() {
+    let policy_path = tempfile::NamedTempFile::new().expect("policy temp file");
+    std::fs::write(
+        policy_path.path(),
+        r#"{
+  "schemaVersion": 1,
+  "$schema": "https://kali.sh/schemas/policy-v1.json",
+  "effects": {
+    "fileSystem": { "read": false, "write": false },
+    "network": { "fetch": false, "connect": false, "listen": false, "maxConnections": 1 },
+    "process": { "spawn": false, "envRead": false, "envWrite": false },
+    "timer": { "schedule": false, "maxTimeoutMs": 1000, "maxActiveTimers": 1 },
+    "eval": false,
+    "random": true,
+    "console": true
+  },
+  "resources": {
+    "maxMemoryMB": 256,
+    "maxCpuTimeMs": 10000,
+    "maxOpenFiles": 8,
+    "maxSpawnedProcesses": 0,
+    "maxThreads": 1
+  }
+}"#,
+    )
+    .expect("write policy fixture");
+    let runtime_profiles = vec!["wasm-threads".to_string()];
+    let policy =
+        SandboxPolicy::from_file_with_runtime_profiles(policy_path.path(), &runtime_profiles)
+            .expect("load policy");
+
+    let runtime =
+        RuntimeCtx::with_api_surface(Some(policy.clone()), "deno").with_max_threads(Some(2));
+    assert_eq!(runtime.effective_thread_budget(), Some(1));
+
+    let runtime = RuntimeCtx::with_api_surface(Some(policy), "deno").with_max_threads(Some(1));
+    assert_eq!(runtime.effective_thread_budget(), Some(1));
+}
+
+#[test]
 fn runtime_host_state_tracks_thread_budget_bookkeeping() {
     let mut state = KaliHostState::default();
 

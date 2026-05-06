@@ -14,7 +14,6 @@ use kali_capi::{
 };
 use kali_cli::{
     build, discover_source_files, discover_test_files, init, is_declaration_only_source_file,
-    load_sandbox_policy,
     output::{
         self, validate_check_payload_value, validate_doctor_payload_value,
         validate_effects_payload_value, validate_fmt_payload_value, validate_init_payload_value,
@@ -458,7 +457,6 @@ fn check_command(
         return emit_diagnostics_and_exit("check", vec![diagnostic], 1, output, None, None);
     }
 
-    let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
         Ok(features) => features,
@@ -487,6 +485,7 @@ fn check_command(
     ) {
         return Err(exit_code);
     }
+    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     let compat_eval = effective_compat.iter().any(|feature| feature == "eval");
 
     let selected_files = if files.is_empty() {
@@ -499,12 +498,6 @@ fn check_command(
     } else {
         files
     };
-
-    if let Some(policy) = policy.as_ref() {
-        if let Err(diagnostics) = policy.validate() {
-            return emit_diagnostics_and_exit("check", diagnostics, 5, output, None, None);
-        }
-    }
 
     let mut checked = 0usize;
     let mut errors = Vec::new();
@@ -613,7 +606,6 @@ fn build_command(
     out_dir: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
         Ok(features) => features,
@@ -633,12 +625,6 @@ fn build_command(
             return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None)
         }
     };
-
-    if let Some(policy) = policy.as_ref() {
-        if let Err(diagnostics) = policy.validate() {
-            return emit_diagnostics_and_exit("build", diagnostics, 5, output, None, None);
-        }
-    }
 
     let effective_api = match resolve_effective_api_surface(api) {
         Ok(api) => api,
@@ -686,6 +672,7 @@ fn build_command(
     ) {
         return Err(exit_code);
     }
+    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
 
     let Some(source) = single_or_error(files, "build", output)? else {
         return Err(1);
@@ -2962,7 +2949,6 @@ fn run_command(
         return Err(exit_code);
     }
 
-    let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
         Ok(features) => features,
@@ -2991,6 +2977,7 @@ fn run_command(
     ) {
         return Err(exit_code);
     }
+    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     if let Err(exit_code) =
         reject_unavailable_spawned_process_budget("run", max_spawned_processes, output, None, None)
     {
@@ -3183,7 +3170,6 @@ fn test_command(
         return Err(exit_code);
     }
 
-    let policy = load_policy_or_exit(sandbox, output)?;
     ensure_project_ready_or_exit(output)?;
     let effective_compat = match resolve_effective_compat_features(compat) {
         Ok(features) => features,
@@ -3212,6 +3198,7 @@ fn test_command(
     ) {
         return Err(exit_code);
     }
+    let policy = load_policy_or_exit(sandbox, &effective_runtime_profiles, output)?;
     if let Err(exit_code) =
         reject_unavailable_spawned_process_budget("test", max_spawned_processes, output, None, None)
     {
@@ -4351,10 +4338,14 @@ fn install_command(
 
 fn load_policy_or_exit(
     sandbox: Option<PathBuf>,
+    runtime_profiles: &[String],
     output: &CliOutputOptions,
 ) -> Result<Option<SandboxPolicy>, i32> {
     match sandbox {
-        Some(path) => match load_sandbox_policy(&path) {
+        Some(path) => match kali_sandbox::SandboxPolicy::from_file_with_runtime_profiles(
+            &path,
+            runtime_profiles,
+        ) {
             Ok(policy) => Ok(Some(policy)),
             Err(diagnostics) => {
                 emit_diagnostics_and_exit("policy", diagnostics, 5, output, Some(&path), None)
