@@ -544,6 +544,11 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
             ));
         }
     }
+    reject_unexpected_keys(
+        object,
+        &["mode", "files", "summary"],
+        "test payload coverage",
+    )?;
 
     match object.get("mode") {
         Some(Value::String(mode)) if mode == "function" => {}
@@ -585,6 +590,17 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
                 ));
             }
         }
+        let file_context = format!("test payload coverage files[{index}]");
+        reject_unexpected_keys(
+            file,
+            &[
+                "file",
+                "functionsTotal",
+                "functionsCovered",
+                "functionsMissed",
+            ],
+            &file_context,
+        )?;
         let Some(Value::String(file_path)) = file.get("file") else {
             match file.get("file") {
                 Some(other) => {
@@ -633,6 +649,16 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
             ));
         }
     }
+    reject_unexpected_keys(
+        summary,
+        &[
+            "functionsTotal",
+            "functionsCovered",
+            "functionsMissed",
+            "coveragePercent",
+        ],
+        "test payload coverage summary",
+    )?;
     for key in ["functionsTotal", "functionsCovered", "functionsMissed"] {
         match summary.get(key) {
             Some(Value::Number(number))

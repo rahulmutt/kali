@@ -860,6 +860,100 @@ fn validate_test_payload_value_rejects_malformed_coverage_summary() {
 }
 
 #[test]
+fn validate_test_payload_value_rejects_unexpected_coverage_root_keys() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+            "metadata": {"kind": "extra"},
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("unexpected coverage root keys should fail validation");
+    assert!(
+        err.contains("coverage contains unexpected key `metadata`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_test_payload_value_rejects_unexpected_coverage_row_keys() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "function",
+            "files": [
+                {
+                    "file": "src/main.ts",
+                    "functionsTotal": 4,
+                    "functionsCovered": 3,
+                    "functionsMissed": 1,
+                    "metadata": true,
+                }
+            ],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("unexpected coverage row keys should fail validation");
+    assert!(
+        err.contains("coverage files[0] contains unexpected key `metadata`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_test_payload_value_rejects_unexpected_coverage_summary_keys() {
+    let value = json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+                "metadata": {"kind": "extra"},
+            },
+        },
+    });
+
+    let err = validate_test_payload_value(&value)
+        .expect_err("unexpected coverage summary keys should fail validation");
+    assert!(
+        err.contains("coverage summary contains unexpected key `metadata`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_effects_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "schemaVersion": 1,

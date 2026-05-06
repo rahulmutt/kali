@@ -34,7 +34,7 @@
     },
     "coverage": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": ["mode", "files", "summary"],
       "properties": {
         "mode": {
@@ -44,7 +44,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "additionalProperties": true,
+            "additionalProperties": false,
             "required": ["file", "functionsTotal", "functionsCovered", "functionsMissed"],
             "properties": {
               "file": {
@@ -67,7 +67,7 @@
         },
         "summary": {
           "type": "object",
-          "additionalProperties": true,
+          "additionalProperties": false,
           "required": ["functionsTotal", "functionsCovered", "functionsMissed", "coveragePercent"],
           "properties": {
             "functionsTotal": {

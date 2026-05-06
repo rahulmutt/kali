@@ -386,7 +386,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(test_result["properties"]["coverage"]["type"], "object");
     assert_eq!(
         test_result["properties"]["coverage"]["additionalProperties"],
-        true
+        false
     );
     assert_eq!(
         test_result["properties"]["coverage"]["required"]
@@ -408,7 +408,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["files"]["items"]
             ["additionalProperties"],
-        true
+        false
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["files"]["items"]["required"]
@@ -430,7 +430,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["summary"]["additionalProperties"],
-        true
+        false
     );
     assert_eq!(
         test_result["properties"]["coverage"]["properties"]["summary"]["required"]

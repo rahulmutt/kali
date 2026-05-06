@@ -935,6 +935,7 @@ Consistency rules:
 
 Interpretation rule:
 - coverage output is function-based in schema v1: the report records per-file function totals plus a deterministic summary object
+- the coverage payload, each per-file coverage row, and the summary object are fixed-shape schema-v1 objects; unexpected keys are rejected
 - per-file coverage rows are normalized relative to the effective project root when available, emitted in deterministic file order, and kept unique by file path
 - `kali test --coverage` reuses the normal test command and JSON envelope rather than introducing a second runner
 - the canonical coverage payload lives in `schemas/result/test/v1.json`; docs and examples must not invent a second coverage shape
