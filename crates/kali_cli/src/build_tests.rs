@@ -3951,27 +3951,49 @@ fn assert_build_source_file_supports_for_of_object_keys_const_bound_iterable_in_
 
 fn object_values_spread_iteration_source() -> &'static str {
     r##"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const values = Object.values(fromEntries);
+const frozenValues = Object.values(frozenFromEntries);
 const globalValues = globalThis.Object.values(fromEntries);
+const frozenGlobalValues = globalThis.Object.values(frozenFromEntries);
 const mixedValues = globalThis.Object["values"](fromEntries);
+const frozenMixedValues = globalThis.Object["values"](frozenFromEntries);
 const mixedBracketedValues = globalThis["Object"].values(fromEntries);
+const frozenMixedBracketedValues = globalThis["Object"].values(frozenFromEntries);
 const bracketedValues = globalThis["Object"]["values"](fromEntries);
+const frozenBracketedValues = globalThis["Object"]["values"](frozenFromEntries);
 for (const item of [...values]) { console.log(item); }
+for (const item of [...frozenValues]) { console.log(item); }
 for (const item of [...globalValues]) { console.log(item); }
+for (const item of [...frozenGlobalValues]) { console.log(item); }
 for (const item of [...mixedValues]) { console.log(item); }
+for (const item of [...frozenMixedValues]) { console.log(item); }
 for (const item of [...mixedBracketedValues]) { console.log(item); }
+for (const item of [...frozenMixedBracketedValues]) { console.log(item); }
 for (const item of [...bracketedValues]) { console.log(item); }
+for (const item of [...frozenBracketedValues]) { console.log(item); }
 const asyncFromEntries = Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]);
+const frozenAsyncFromEntries = Object.freeze(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]));
 const asyncValues = Object.values(asyncFromEntries);
+const frozenAsyncValues = Object.values(frozenAsyncFromEntries);
 const asyncGlobalValues = globalThis.Object.values(asyncFromEntries);
+const frozenAsyncGlobalValues = globalThis.Object.values(frozenAsyncFromEntries);
 const asyncMixedValues = globalThis.Object["values"](asyncFromEntries);
+const frozenAsyncMixedValues = globalThis.Object["values"](frozenAsyncFromEntries);
 const asyncMixedBracketedValues = globalThis["Object"].values(asyncFromEntries);
+const frozenAsyncMixedBracketedValues = globalThis["Object"].values(frozenAsyncFromEntries);
 const asyncBracketedValues = globalThis["Object"]["values"](asyncFromEntries);
+const frozenAsyncBracketedValues = globalThis["Object"]["values"](frozenAsyncFromEntries);
 for await (const item of [...asyncValues]) { console.log(item); }
+for await (const item of [...frozenAsyncValues]) { console.log(item); }
 for await (const item of [...asyncGlobalValues]) { console.log(item); }
+for await (const item of [...frozenAsyncGlobalValues]) { console.log(item); }
 for await (const item of [...asyncMixedValues]) { console.log(item); }
+for await (const item of [...frozenAsyncMixedValues]) { console.log(item); }
 for await (const item of [...asyncMixedBracketedValues]) { console.log(item); }
+for await (const item of [...frozenAsyncMixedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncBracketedValues]) { console.log(item); }
+for await (const item of [...frozenAsyncBracketedValues]) { console.log(item); }
 "##
 }
 
@@ -4020,7 +4042,7 @@ fn assert_check_source_file_supports_spread_of_object_keys_and_entries_iterator_
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const key of [...Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); } for (const entry of [...Object.entries(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); } for await (const key of [...Object.keys(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+        "const frozenFromEntries = Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])); const frozenAsyncFromEntries = Object.freeze(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]])); for (const key of [...Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); } for (const key of [...Object.keys(frozenFromEntries)]) { console.log(key); } for (const entry of [...Object.entries(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); } for (const entry of [...Object.entries(frozenFromEntries)]) { console.log(entry[0]); console.log(entry[1]); } for await (const key of [...Object.keys(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(key); } for await (const key of [...Object.keys(frozenAsyncFromEntries)]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(entry[0]); console.log(entry[1]); } for await (const entry of [...Object.entries(frozenAsyncFromEntries)]) { console.log(entry[0]); console.log(entry[1]); }\n",
     )
     .expect("write source");
 
@@ -4036,7 +4058,7 @@ fn assert_build_source_file_supports_spread_of_object_keys_and_entries_iterator_
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const key of [...Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); } for (const entry of [...Object.entries(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); } for await (const key of [...Object.keys(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+        "const frozenFromEntries = Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])); const frozenAsyncFromEntries = Object.freeze(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]])); for (const key of [...Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(key); } for (const key of [...Object.keys(frozenFromEntries)]) { console.log(key); } for (const entry of [...Object.entries(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); } for (const entry of [...Object.entries(frozenFromEntries)]) { console.log(entry[0]); console.log(entry[1]); } for await (const key of [...Object.keys(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(key); } for await (const key of [...Object.keys(frozenAsyncFromEntries)]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"c\", 4], [\"d\", 5], [\"c\", 6]]))]) { console.log(entry[0]); console.log(entry[1]); } for await (const entry of [...Object.entries(frozenAsyncFromEntries)]) { console.log(entry[0]); console.log(entry[1]); }\n",
     )
     .expect("write source");
 

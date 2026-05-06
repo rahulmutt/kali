@@ -38,6 +38,7 @@ function assertWrappedObjectEnumeration(keys, values, entries) {
 function browserWrappedObjectEnumeration() {
   const wrappedConst = ({ "b": 1, "2": 2, "a": 3, "1": 4 } as const);
   const wrappedSatisfies = ({ "b": 1, "2": 2, "a": 3, "1": 4 } satisfies unknown);
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
 
   const constKeys = Object.keys(wrappedConst);
   const constValues = Object.values(wrappedConst);
@@ -48,6 +49,11 @@ function browserWrappedObjectEnumeration() {
   const satisfiesValues = Object.values(wrappedSatisfies);
   const satisfiesEntries = Object.entries(wrappedSatisfies);
   assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
 }
 "##
 }
