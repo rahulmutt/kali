@@ -404,7 +404,7 @@ Notes:
 Required fields:
 - `path: string`
 - `kind: string`
-- `bytes: number`
+- `bytes: non-negative integer number`
 
 Optional fields:
 - `role: string` — canonical artifact role when the same `kind` can appear in multiple build modes
@@ -425,6 +425,7 @@ Current repository snapshot note:
 
 Interpretation rules:
 - `kind` stays the primary cross-command type discriminator (`wasm-module`, `wasm-component`, `js-glue`, `wit`, `c-header`, `cabi-metadata`, `binding-package`, `source-map`)
+- `bytes` records the artifact size in bytes and is validated as a non-negative integer so deterministic manifests do not admit fractional or negative sizes
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
 - schema-v1 reserves these `kind` / `role` names for stable machine readability even when the owning command/artifact flow is still phase-gated; read actual availability from [19 — Feature Maturity](19-feature-maturity.md) rather than inferring it from the presence of a schema value alone

@@ -182,6 +182,33 @@ fn emitted_cli_envelopes_reject_unexpected_artifact_keys() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_invalid_artifact_bytes() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": -1},
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7.5}
+        ]),
+    );
+
+    let error = validate_envelope_value(&value).expect_err("invalid artifact bytes should fail");
+    assert!(
+        error.contains("bytes must be a non-negative integer"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_duplicate_artifact_kind_path_pairs() {
     let mut value = emit_envelope_value(
         "build",
