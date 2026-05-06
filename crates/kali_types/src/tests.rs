@@ -2882,6 +2882,87 @@ fn test_resolution_accepts_transparent_decorated_wrappers_for_static_object_help
 }
 
 #[test]
+fn test_resolution_accepts_object_freeze_wrappers_for_static_object_helpers() {
+    let mut ctx = TypeContext::new();
+    let frozen_object = Expression::CallExpression(Box::new(CallExpression {
+        callee: Expression::MemberExpression(Box::new(MemberExpression {
+            object: Expression::Identifier("Object".to_string()),
+            property: "freeze".to_string(),
+        })),
+        args: vec![Expression::ObjectExpression(ObjectExpression {
+            properties: vec![
+                ObjectProperty {
+                    key: PropertyName::Identifier("b".to_string()),
+                    value: Expression::Literal(LiteralValue::Number(1.0)),
+                    kind: ObjectPropertyKind::Init,
+                },
+                ObjectProperty {
+                    key: PropertyName::Identifier("a".to_string()),
+                    value: Expression::Literal(LiteralValue::Number(2.0)),
+                    kind: ObjectPropertyKind::Init,
+                },
+            ],
+        })],
+    }));
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "frozen".to_string(),
+                init: Some(frozen_object),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "hasOwn".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("frozen".to_string()),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "keys".to_string(),
+                })),
+                args: vec![Expression::Identifier("frozen".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "values".to_string(),
+                })),
+                args: vec![Expression::Identifier("frozen".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "entries".to_string(),
+                })),
+                args: vec![Expression::Identifier("frozen".to_string())],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_transparent_wrappers_around_permission_query_descriptors() {
     let mut ctx = TypeContext::new();
     let wrapped_descriptor = Expression::DecoratedExpression(DecoratedExpression {

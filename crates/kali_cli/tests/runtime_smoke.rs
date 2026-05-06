@@ -3504,6 +3504,10 @@ const fromEntriesValues = Object.values(fromEntries);
 const wrappedEntries = ([["b", 1], ["a", 2]]);
 const wrappedFromEntries = Object.fromEntries(wrappedEntries);
 const wrappedFromEntriesKeys = Object.keys(wrappedFromEntries);
+const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
+const frozenFromEntriesKeys = Object.keys(frozenFromEntries);
+const frozenFromEntriesEntries = Object.entries(frozenFromEntries);
+const frozenFromEntriesValues = Object.values(frozenFromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3543,7 +3547,18 @@ if (
   fromEntriesValues[1] !== 2 ||
   wrappedFromEntriesKeys.length !== 2 ||
   wrappedFromEntriesKeys[0] !== 'b' ||
-  wrappedFromEntriesKeys[1] !== 'a'
+  wrappedFromEntriesKeys[1] !== 'a' ||
+  frozenFromEntriesKeys.length !== 2 ||
+  frozenFromEntriesKeys[0] !== 'b' ||
+  frozenFromEntriesKeys[1] !== 'a' ||
+  frozenFromEntriesEntries.length !== 2 ||
+  frozenFromEntriesEntries[0][0] !== 'b' ||
+  frozenFromEntriesEntries[0][1] !== 1 ||
+  frozenFromEntriesEntries[1][0] !== 'a' ||
+  frozenFromEntriesEntries[1][1] !== 2 ||
+  frozenFromEntriesValues.length !== 2 ||
+  frozenFromEntriesValues[0] !== 1 ||
+  frozenFromEntriesValues[1] !== 2
 ) {
   throw new Error('unexpected numeric-key ordering');
 }
@@ -3590,6 +3605,10 @@ const fromEntriesValues = Object.values(fromEntries);
 const wrappedEntries = ([["b", 1], ["a", 2]]);
 const wrappedFromEntries = Object.fromEntries(wrappedEntries);
 const wrappedFromEntriesKeys = Object.keys(wrappedFromEntries);
+const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
+const frozenFromEntriesKeys = Object.keys(frozenFromEntries);
+const frozenFromEntriesEntries = Object.entries(frozenFromEntries);
+const frozenFromEntriesValues = Object.values(frozenFromEntries);
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -3621,7 +3640,18 @@ if (
   fromEntriesValues[1] !== 2 ||
   wrappedFromEntriesKeys.length !== 2 ||
   wrappedFromEntriesKeys[0] !== 'b' ||
-  wrappedFromEntriesKeys[1] !== 'a'
+  wrappedFromEntriesKeys[1] !== 'a' ||
+  frozenFromEntriesKeys.length !== 2 ||
+  frozenFromEntriesKeys[0] !== 'b' ||
+  frozenFromEntriesKeys[1] !== 'a' ||
+  frozenFromEntriesEntries.length !== 2 ||
+  frozenFromEntriesEntries[0][0] !== 'b' ||
+  frozenFromEntriesEntries[0][1] !== 1 ||
+  frozenFromEntriesEntries[1][0] !== 'a' ||
+  frozenFromEntriesEntries[1][1] !== 2 ||
+  frozenFromEntriesValues.length !== 2 ||
+  frozenFromEntriesValues[0] !== 1 ||
+  frozenFromEntriesValues[1] !== 2
 ) {
   throw new Error('unexpected numeric-key ordering');
 }

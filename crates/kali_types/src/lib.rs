@@ -1407,7 +1407,13 @@ impl TypeContext {
                         )
                 })
             }
-            Expression::CallExpression(call) => self.resolve_static_object_from_entries_call(call),
+            Expression::CallExpression(call) => {
+                self.resolve_static_object_from_entries_call(call)
+                    || Self::is_object_freeze_call(call)
+                        && call.args.first().is_some_and(|argument| {
+                            self.resolve_static_object_model_target(argument)
+                        })
+            }
             Expression::Identifier(name) => self.resolve_static_object_binding_name(name),
             _ => false,
         }
@@ -1445,10 +1451,32 @@ impl TypeContext {
                     )
                 })
             }
-            Expression::CallExpression(call) => self.resolve_static_object_from_entries_call(call),
+            Expression::CallExpression(call) => {
+                self.resolve_static_object_from_entries_call(call)
+                    || Self::is_object_freeze_call(call)
+                        && call.args.first().is_some_and(|argument| {
+                            self.resolve_static_object_keys_target(argument)
+                        })
+            }
             Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
             _ => false,
         }
+    }
+
+    fn is_object_freeze_call(call: &CallExpression) -> bool {
+        matches!(
+            Self::call_member_access_name(&call.callee).as_deref(),
+            Some("Object.freeze")
+                | Some("globalThis.Object.freeze")
+                | Some(r#"globalThis["Object"].freeze"#)
+                | Some(r#"globalThis["Object"]["freeze"]"#)
+                | Some(r#"globalThis['Object'].freeze"#)
+                | Some(r#"globalThis['Object']['freeze']"#)
+                | Some(r#"Object["freeze"]"#)
+                | Some(r#"Object['freeze']"#)
+                | Some(r#"globalThis.Object["freeze"]"#)
+                | Some(r#"globalThis.Object['freeze']"#)
+        ) && call.args.len() == 1
     }
 
     fn resolve_static_object_from_entries_call(&self, call: &CallExpression) -> bool {
