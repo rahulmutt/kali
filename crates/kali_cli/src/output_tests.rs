@@ -2942,6 +2942,79 @@ fn validate_envelope_value_rejects_unexpected_related_item_extensions() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_unexpected_label_source_span_keys() {
+    let invalid_label_span = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic label span",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [
+                    {
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2, "metadata": true},
+                        "message": "label",
+                        "style": "primary"
+                    }
+                ],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_label_span)
+        .expect_err("unexpected label source-span keys should fail validation");
+    assert!(err.contains("labels[0]"), "unexpected error: {err}");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_rejects_unexpected_related_item_source_span_keys() {
+    let invalid_related_span = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad related item span",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [
+                    {
+                        "message": "follow-up note",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2, "metadata": true}
+                    }
+                ],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_related_span)
+        .expect_err("unexpected related item source-span keys should fail validation");
+    assert!(err.contains("related[0]"), "unexpected error: {err}");
+    assert!(err.contains("unexpected key"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_suggested_fix_edits() {
     let invalid_fix = json!({
         "schemaVersion": 1,
