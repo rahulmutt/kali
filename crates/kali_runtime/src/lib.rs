@@ -3579,6 +3579,37 @@ fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
     parse_browser_runtime_summary_opt(stdout).unwrap_or_default()
 }
 
+fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<BrowserRuntimeSummary> {
+    let object = value.as_object()?;
+    if object.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "args" | "tests" | "testsFailed" | "hostContract" | "runtimeBackend"
+        )
+    }) {
+        return None;
+    }
+
+    let args = parse_string_array_field(object.get("args"))?;
+    let tests = parse_string_array_field(object.get("tests"))?;
+    Some(BrowserRuntimeSummary {
+        args,
+        tests,
+        tests_failed: object
+            .get("testsFailed")
+            .and_then(|value| value.as_u64())
+            .map(|value| value as usize),
+        host_contract: object
+            .get("hostContract")
+            .and_then(|value| value.as_str())
+            .and_then(parse_runtime_host_contract_label),
+        runtime_backend: object
+            .get("runtimeBackend")
+            .and_then(|value| value.as_str())
+            .and_then(parse_runtime_backend_label),
+    })
+}
+
 fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
     stdout.lines().rev().find_map(|line| {
         let trimmed = line.trim();
@@ -3587,24 +3618,7 @@ fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSumma
         }
 
         let value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
-        let args = parse_string_array_field(value.get("args"))?;
-        let tests = parse_string_array_field(value.get("tests"))?;
-        Some(BrowserRuntimeSummary {
-            args,
-            tests,
-            tests_failed: value
-                .get("testsFailed")
-                .and_then(|value| value.as_u64())
-                .map(|value| value as usize),
-            host_contract: value
-                .get("hostContract")
-                .and_then(|value| value.as_str())
-                .and_then(parse_runtime_host_contract_label),
-            runtime_backend: value
-                .get("runtimeBackend")
-                .and_then(|value| value.as_str())
-                .and_then(parse_runtime_backend_label),
-        })
+        parse_browser_runtime_summary_value(&value)
     })
 }
 

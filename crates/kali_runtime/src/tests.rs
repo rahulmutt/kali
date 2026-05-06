@@ -1504,6 +1504,36 @@ fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_is_incomplete(
 }
 
 #[test]
+fn browser_runtime_summary_falls_back_to_stdout_when_summary_file_has_unexpected_keys() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":["summary"],"tests":["browser extra key"],"testsFailed":4,"hostContract":"browser-requested","runtimeBackend":"browser-harness","unexpected":true}"#,
+    )
+    .expect("write summary file with unexpected keys");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["stdout"],"testsFailed":9,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["stdout".to_string()]);
+    assert_eq!(summary.tests, vec!["stdout".to_string()]);
+    assert_eq!(summary.tests_failed, Some(9));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
 fn browser_runtime_summary_merges_stdout_labels_when_summary_file_labels_are_invalid() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
