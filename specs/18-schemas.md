@@ -318,6 +318,7 @@ Optional fields:
 - `effectiveValue: object | array | string | number | boolean | null` — normalized effective value that the command actually validated against
 
 Interpretation rules:
+- diagnostic-context objects are fixed-shape in schema v1; unexpected keys are rejected
 - this field exists primarily for AI/tooling-friendly diagnostics such as `E5506` and `E5508`, where the failure often depends on the merged command/config state or the resulting **availability context** rather than only the source span
 - populate it only when the command/config selection materially contributes to the diagnostic; ordinary type/syntax errors usually do not need it
 - when a discovered config value caused the failure, prefer `origin: "config"` plus `configPath` so tools do not have to scrape prose notes to learn that the user omitted the CLI flag but inherited the effective value

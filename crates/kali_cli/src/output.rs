@@ -1944,6 +1944,18 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
         return Err("diagnostic context must be a JSON object".to_string());
     };
 
+    reject_unexpected_keys(
+        object,
+        &[
+            "origin",
+            "configPath",
+            "flag",
+            "requestedValue",
+            "effectiveValue",
+        ],
+        "diagnostic context",
+    )?;
+
     match object.get("origin") {
         Some(Value::String(value))
             if matches!(value.as_str(), "cli" | "config" | "default" | "source") => {}

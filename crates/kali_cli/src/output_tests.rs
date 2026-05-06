@@ -3101,6 +3101,44 @@ fn validate_envelope_value_rejects_diagnostic_context_missing_origin() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_unexpected_diagnostic_context_keys() {
+    let unexpected_key = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad diagnostic context",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": [],
+                "context": {"origin": "cli", "flag": "--api", "extra": true}
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&unexpected_key)
+        .expect_err("unexpected diagnostic context keys should fail validation");
+    assert!(
+        err.contains("diagnostic context"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("unexpected key `extra`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_allows_canonical_diagnostic_context_origins() {
     for origin in ["cli", "config", "default", "source"] {
         let value = json!({
