@@ -35,14 +35,29 @@ function browserObjectHasOwnFromEntries() {
 "##
 }
 
+fn browser_bundle_object_has_own_frozen_from_entries_source() -> String {
+    browser_bundle_object_has_own_from_entries_source().replace(
+        "const object = Object.fromEntries(",
+        "const object = Object.freeze(Object.fromEntries(",
+    )
+}
+
 fn assert_browser_bundle_object_has_own_from_entries(filename: &str, json_output: bool) {
+    assert_browser_bundle_object_has_own_from_entries_with_source(
+        filename,
+        browser_bundle_object_has_own_from_entries_source(),
+        json_output,
+    );
+}
+
+fn assert_browser_bundle_object_has_own_from_entries_with_source(
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        browser_bundle_object_has_own_from_entries_source(),
-    )
-    .expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -253,6 +268,15 @@ fn build_emits_object_has_own_from_entries_in_js_input() {
 }
 
 #[test]
+fn build_emits_frozen_object_has_own_from_entries_in_js_input() {
+    assert_browser_bundle_object_has_own_from_entries_with_source(
+        "app.js",
+        &browser_bundle_object_has_own_frozen_from_entries_source(),
+        false,
+    );
+}
+
+#[test]
 fn build_emits_object_has_own_from_entries_in_jsx_input() {
     assert_browser_bundle_object_has_own_from_entries("app.jsx", false);
 }
@@ -298,6 +322,20 @@ fn run_supports_object_has_own_from_entries_when_browser_harness_is_configured_i
 }
 
 #[test]
+fn run_supports_frozen_object_has_own_from_entries_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_object_has_own_from_entries(
+        "run",
+        "main.js",
+        &browser_harness_object_has_own_from_entries_run_source().replace(
+            "const object = Object.fromEntries(",
+            "const object = Object.freeze(Object.fromEntries(",
+        ),
+        false,
+    );
+}
+
+#[test]
 fn run_supports_object_has_own_from_entries_when_browser_harness_is_configured_in_jsx_input() {
     assert_browser_harness_object_has_own_from_entries(
         "run",
@@ -333,6 +371,20 @@ fn test_supports_object_has_own_from_entries_when_browser_harness_is_configured_
         "test",
         "smoke.test.js",
         browser_harness_object_has_own_from_entries_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_frozen_object_has_own_from_entries_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_object_has_own_from_entries(
+        "test",
+        "smoke.test.js",
+        &browser_harness_object_has_own_from_entries_test_source().replace(
+            "const object = Object.fromEntries(",
+            "const object = Object.freeze(Object.fromEntries(",
+        ),
         false,
     );
 }
