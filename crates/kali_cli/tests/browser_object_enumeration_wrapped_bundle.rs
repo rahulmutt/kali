@@ -58,14 +58,60 @@ function browserWrappedObjectEnumeration() {
 "##
 }
 
+fn browser_bundle_wrapped_object_enumeration_js_source() -> &'static str {
+    r##"// kali-tree-shake: browserWrappedObjectEnumeration
+function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+}
+"##
+}
+
 fn assert_browser_bundle_wrapped_object_enumeration(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(
-        &source_path,
-        browser_bundle_wrapped_object_enumeration_source(),
-    )
-    .expect("write source");
+    let source = if filename.ends_with(".js") {
+        browser_bundle_wrapped_object_enumeration_js_source()
+    } else {
+        browser_bundle_wrapped_object_enumeration_source()
+    };
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -151,6 +197,11 @@ fn build_emits_wrapped_object_enumeration_semantics_in_ts_input() {
 }
 
 #[test]
+fn build_emits_wrapped_object_enumeration_semantics_in_js_input() {
+    assert_browser_bundle_wrapped_object_enumeration("app.js", false);
+}
+
+#[test]
 fn build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input() {
     for filename in ["app.jsx", "app.tsx"] {
         assert_browser_bundle_wrapped_object_enumeration(filename, false);
@@ -160,6 +211,11 @@ fn build_emits_wrapped_object_enumeration_semantics_in_jsx_tsx_input() {
 #[test]
 fn json_build_emits_wrapped_object_enumeration_semantics_in_ts_input() {
     assert_browser_bundle_wrapped_object_enumeration("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_wrapped_object_enumeration_semantics_in_js_input() {
+    assert_browser_bundle_wrapped_object_enumeration("app.js", true);
 }
 
 #[test]

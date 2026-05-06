@@ -61,6 +61,54 @@ browserWrappedObjectEnumeration();
 "##
 }
 
+fn browser_harness_wrapped_object_enumeration_js_run_source() -> &'static str {
+    r##"function assertWrappedObjectEnumeration(keys, values, entries) {
+  if (
+    keys.length !== 4 ||
+    keys[0] !== '1' ||
+    keys[1] !== '2' ||
+    keys[2] !== 'b' ||
+    keys[3] !== 'a' ||
+    values.length !== 4 ||
+    values[0] !== 4 ||
+    values[1] !== 2 ||
+    values[2] !== 1 ||
+    values[3] !== 3 ||
+    entries.length !== 4 ||
+    entries[0][0] !== '1' ||
+    entries[0][1] !== 4 ||
+    entries[1][0] !== '2' ||
+    entries[1][1] !== 2 ||
+    entries[2][0] !== 'b' ||
+    entries[2][1] !== 1 ||
+    entries[3][0] !== 'a' ||
+    entries[3][1] !== 3
+  ) {
+    throw new Error('unexpected wrapped object enumeration ordering');
+  }
+}
+
+function browserWrappedObjectEnumeration() {
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+}
+
+browserWrappedObjectEnumeration();
+"##
+}
+
 fn browser_harness_wrapped_object_enumeration_test_source() -> &'static str {
     r##"Kali.test('wrapped object enumeration', () => {
   function assertWrappedObjectEnumeration(keys, values, entries) {
@@ -102,6 +150,52 @@ fn browser_harness_wrapped_object_enumeration_test_source() -> &'static str {
   const satisfiesValues = Object.values(wrappedSatisfies);
   const satisfiesEntries = Object.entries(wrappedSatisfies);
   assertWrappedObjectEnumeration(satisfiesKeys, satisfiesValues, satisfiesEntries);
+
+  const frozenKeys = Object.keys(frozenFromEntries);
+  const frozenValues = Object.values(frozenFromEntries);
+  const frozenEntries = Object.entries(frozenFromEntries);
+  assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+
+  console.log('browser wrapped object enumeration ok');
+});
+"##
+}
+
+fn browser_harness_wrapped_object_enumeration_js_test_source() -> &'static str {
+    r##"Kali.test('wrapped object enumeration', () => {
+  function assertWrappedObjectEnumeration(keys, values, entries) {
+    if (
+      keys.length !== 4 ||
+      keys[0] !== '1' ||
+      keys[1] !== '2' ||
+      keys[2] !== 'b' ||
+      keys[3] !== 'a' ||
+      values.length !== 4 ||
+      values[0] !== 4 ||
+      values[1] !== 2 ||
+      values[2] !== 1 ||
+      values[3] !== 3 ||
+      entries.length !== 4 ||
+      entries[0][0] !== '1' ||
+      entries[0][1] !== 4 ||
+      entries[1][0] !== '2' ||
+      entries[1][1] !== 2 ||
+      entries[2][0] !== 'b' ||
+      entries[2][1] !== 1 ||
+      entries[3][0] !== 'a' ||
+      entries[3][1] !== 3
+    ) {
+      throw new Error('unexpected wrapped object enumeration ordering');
+    }
+  }
+
+  const wrappedObject = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["2", 2], ["a", 3], ["1", 4]]));
+
+  const objectKeys = Object.keys(wrappedObject);
+  const objectValues = Object.values(wrappedObject);
+  const objectEntries = Object.entries(wrappedObject);
+  assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
 
   const frozenKeys = Object.keys(frozenFromEntries);
   const frozenValues = Object.values(frozenFromEntries);
@@ -194,11 +288,31 @@ fn run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in
 }
 
 #[test]
+fn run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.js",
+        browser_harness_wrapped_object_enumeration_js_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_wrapped_object_enumeration(
         "test",
         "smoke.test.ts",
         browser_harness_wrapped_object_enumeration_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.js",
+        browser_harness_wrapped_object_enumeration_js_test_source(),
         false,
     );
 }
@@ -214,11 +328,31 @@ fn json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configur
 }
 
 #[test]
+fn json_run_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "run",
+        "main.js",
+        browser_harness_wrapped_object_enumeration_js_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_wrapped_object_enumeration(
         "test",
         "smoke.test.ts",
         browser_harness_wrapped_object_enumeration_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_wrapped_object_enumeration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_wrapped_object_enumeration(
+        "test",
+        "smoke.test.js",
+        browser_harness_wrapped_object_enumeration_js_test_source(),
         true,
     );
 }
