@@ -10,6 +10,7 @@ fn kali_bin() -> String {
 fn for_of_source() -> &'static str {
     r#"function main() {
   let values = [1, 2];
+  values = values;
   for (const item of values) {
     console.log(item);
   }
@@ -21,6 +22,7 @@ main();
 fn for_await_source() -> &'static str {
     r#"async function main() {
   let values = [1, 2];
+  values = values;
   for await (const item of values) {
     console.log(item);
   }
@@ -32,6 +34,7 @@ main();
 fn object_keys_source() -> &'static str {
     r#"function main() {
   let values = { a: 1 };
+  values = values;
   for (const key of Object.keys(values)) {
     console.log(key);
   }
@@ -43,6 +46,7 @@ main();
 fn object_values_source() -> &'static str {
     r#"function main() {
   let values = { a: 1 };
+  values = values;
   for (const value of Object.values(values)) {
     console.log(value);
   }

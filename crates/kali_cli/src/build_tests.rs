@@ -3853,7 +3853,7 @@ fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extensi
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "let values = [1, 2]; for (const item of values) { console.log(item); }\n",
+        "let values = [1, 2]; values = [3, 4]; for (const item of values) { console.log(item); }\n",
     )
     .expect("write source");
 
@@ -3887,7 +3887,7 @@ fn assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_i
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "let values = { a: 1 }; for (const key of Object.keys(values)) { console.log(key); }\n",
+        "let values = { a: 1 }; values = { a: 2 }; for (const key of Object.keys(values)) { console.log(key); }\n",
     )
     .expect("write source");
 
@@ -4147,7 +4147,7 @@ fn assert_build_source_file_rejects_for_await_non_literal_iterable_in_input(exte
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "let values = [1, 2]; for await (const item of values) { console.log(item); }\n",
+        "let values = [1, 2]; values = [3, 4]; for await (const item of values) { console.log(item); }\n",
     )
     .expect("write source");
 
@@ -4277,6 +4277,35 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_const_alias_cha
         None,
     )
     .expect("for-of array iteration with const alias chain should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+fn assert_build_source_file_supports_for_of_array_iteration_with_let_binding_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let values = [1, 2]; for (const item of values) { console.log(item); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for-of array iteration with let binding should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
@@ -4665,6 +4694,40 @@ fn build_source_file_supports_for_of_array_iteration_with_const_alias_chain_in_b
 fn build_source_file_supports_for_of_array_iteration_with_const_alias_chain_in_browser_api_surface_in_ts_input(
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_const_alias_chain_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_let_binding_in_js_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_let_binding_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_let_binding_in_ts_input() {
+    assert_build_source_file_supports_for_of_array_iteration_with_let_binding_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_let_binding_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_let_binding_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_array_iteration_with_let_binding_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_of_array_iteration_with_let_binding_in_input(
         ApiSurface::Browser,
         "ts",
     );

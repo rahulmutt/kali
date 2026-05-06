@@ -89,6 +89,16 @@ impl Scope {
     pub fn contains(&self, name: &str) -> bool {
         self.bindings.contains_key(name)
     }
+
+    fn invalidate_static_binding(&mut self, name: &str) {
+        self.static_values.shift_remove(name);
+        self.static_numeric_values.shift_remove(name);
+        self.static_identity_values.shift_remove(name);
+        self.static_arrays.shift_remove(name);
+        self.static_objects.shift_remove(name);
+        self.static_reference_values.shift_remove(name);
+        self.static_object_keys.shift_remove(name);
+    }
 }
 
 /// Result of name resolution over a source file/module.
@@ -777,7 +787,7 @@ impl TypeContext {
                         .mutable_bindings
                         .insert(declarator.id.clone(), declaration.kind != "const");
                 }
-                if declaration.kind == "const" {
+                if declaration.kind != "var" {
                     if let Some(value) = self.resolve_static_string_expression(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_values.insert(declarator.id.clone(), value);
@@ -920,6 +930,9 @@ impl TypeContext {
                 }
 
                 if matches!(expr.operator, AssignmentOperator::Assign) {
+                    if let Some(name) = self.resolve_update_binding_name(&expr.left) {
+                        self.invalidate_static_binding(&name);
+                    }
                     return;
                 }
 
@@ -933,6 +946,8 @@ impl TypeContext {
                         .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
                     return;
                 };
+
+                self.invalidate_static_binding(&name);
 
                 if !self.binding_is_mutable(&name) {
                     let message = if matches!(expr.operator, AssignmentOperator::NullishAssign) {
@@ -1014,6 +1029,8 @@ impl TypeContext {
             return;
         };
 
+        self.invalidate_static_binding(&name);
+
         if !self.binding_is_mutable(&name) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1022,6 +1039,25 @@ impl TypeContext {
                     name
                 ),
             ));
+        }
+    }
+
+    fn invalidate_static_binding(&mut self, name: &str) {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            if let Some(scope) = self.scopes.get_mut(&scope_id) {
+                if scope.bindings.contains_key(name) {
+                    scope.invalidate_static_binding(name);
+                    return;
+                }
+                current = scope.parent;
+            } else {
+                return;
+            }
+        }
+
+        if self.global_scope.bindings.contains_key(name) {
+            self.global_scope.invalidate_static_binding(name);
         }
     }
 
