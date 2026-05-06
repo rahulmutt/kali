@@ -25,6 +25,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 - Improve layout, representation, and call-shape specialization in claim-aligned slices.
 - Treat `--max-specializations` as an exact upper bound.
 - Preserve fallback paths and JavaScript-visible semantics.
+- Current progress: `Object.freeze`-wrapped literal object shapes now also fold through the release and release-advanced optimizer paths for `Object.keys(...)`, `Object.values(...)`, `Object.entries(...)`, and `Reflect.ownKeys(...)`, keeping the frozen-object specialization path aligned with the existing literal-object folding tests.
 
 ### 19.3 PGO input hardening
 

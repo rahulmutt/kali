@@ -2012,6 +2012,11 @@ impl Optimizer {
                 continue;
             }
 
+            if self.is_object_freeze_call(program, node) {
+                id = node.children[1];
+                continue;
+            }
+
             if node.kind == LirNodeKind::Value
                 && node.children.is_empty()
                 && node.text.as_deref().is_some()
@@ -2025,6 +2030,23 @@ impl Optimizer {
 
             return Some(id);
         }
+    }
+
+    fn is_object_freeze_call(&self, program: &LirProgram, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || node.children.len() < 2 {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee_node) = program.nodes.get(callee.0 as usize) else {
+            return false;
+        };
+        matches!(
+            self.member_access_name(program, callee_node).as_deref(),
+            Some("Object.freeze") | Some("globalThis.Object.freeze")
+        )
     }
 
     fn collect_constant_bindings(&self, program: &LirProgram, id: LirNodeId) -> BindingEnv {
