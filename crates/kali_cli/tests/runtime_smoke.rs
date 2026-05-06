@@ -3920,9 +3920,12 @@ fn browser_bundle_string_primitive_enumeration_source() -> &'static str {
 async function stringPrimitiveSmoke(left, right) {
   const stringKeys = Object.keys('ab');
   const globalThisStringKeys = globalThis.Object["keys"]('ab');
+  const bracketedGlobalThisStringKeys = globalThis["Object"].keys('ab');
   const stringEntries = Object.entries('ab');
+  const globalThisStringEntries = globalThis.Object["entries"]('ab');
   const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
   const stringValues = Object.values('ab');
+  const globalThisStringValues = globalThis.Object["values"]('ab');
   const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
   const consumeArray = (items, value) => items[0] + items[1] + value;
   const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
@@ -3937,11 +3940,19 @@ async function stringPrimitiveSmoke(left, right) {
     globalThisStringKeys.length !== 2 ||
     globalThisStringKeys[0] !== '0' ||
     globalThisStringKeys[1] !== '1' ||
+    bracketedGlobalThisStringKeys.length !== 2 ||
+    bracketedGlobalThisStringKeys[0] !== '0' ||
+    bracketedGlobalThisStringKeys[1] !== '1' ||
     stringEntries.length !== 2 ||
     stringEntries[0][0] !== '0' ||
     stringEntries[0][1] !== 'a' ||
     stringEntries[1][0] !== '1' ||
     stringEntries[1][1] !== 'b' ||
+    globalThisStringEntries.length !== 2 ||
+    globalThisStringEntries[0][0] !== '0' ||
+    globalThisStringEntries[0][1] !== 'a' ||
+    globalThisStringEntries[1][0] !== '1' ||
+    globalThisStringEntries[1][1] !== 'b' ||
     bracketedGlobalThisStringEntries.length !== 2 ||
     bracketedGlobalThisStringEntries[0][0] !== '0' ||
     bracketedGlobalThisStringEntries[0][1] !== 'a' ||
@@ -3950,6 +3961,9 @@ async function stringPrimitiveSmoke(left, right) {
     stringValues.length !== 2 ||
     stringValues[0] !== 'a' ||
     stringValues[1] !== 'b' ||
+    globalThisStringValues.length !== 2 ||
+    globalThisStringValues[0] !== 'a' ||
+    globalThisStringValues[1] !== 'b' ||
     fullyBracketedGlobalThisStringValues.length !== 2 ||
     fullyBracketedGlobalThisStringValues[0] !== 'a' ||
     fullyBracketedGlobalThisStringValues[1] !== 'b'
@@ -25320,9 +25334,12 @@ fn json_test_supports_object_string_primitive_enumeration_semantics_in_tsx_input
 fn object_string_primitive_enumeration_semantics_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
 const globalThisStringKeys = globalThis.Object["keys"]('ab');
+const bracketedGlobalThisStringKeys = globalThis["Object"].keys('ab');
 const stringEntries = Object.entries('ab');
+const globalThisStringEntries = globalThis.Object["entries"]('ab');
 const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const globalThisStringValues = globalThis.Object["values"]('ab');
 const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
@@ -25337,11 +25354,19 @@ if (
   globalThisStringKeys.length !== 2 ||
   globalThisStringKeys[0] !== '0' ||
   globalThisStringKeys[1] !== '1' ||
+  bracketedGlobalThisStringKeys.length !== 2 ||
+  bracketedGlobalThisStringKeys[0] !== '0' ||
+  bracketedGlobalThisStringKeys[1] !== '1' ||
   stringEntries.length !== 2 ||
   stringEntries[0][0] !== '0' ||
   stringEntries[0][1] !== 'a' ||
   stringEntries[1][0] !== '1' ||
   stringEntries[1][1] !== 'b' ||
+  globalThisStringEntries.length !== 2 ||
+  globalThisStringEntries[0][0] !== '0' ||
+  globalThisStringEntries[0][1] !== 'a' ||
+  globalThisStringEntries[1][0] !== '1' ||
+  globalThisStringEntries[1][1] !== 'b' ||
   bracketedGlobalThisStringEntries.length !== 2 ||
   bracketedGlobalThisStringEntries[0][0] !== '0' ||
   bracketedGlobalThisStringEntries[0][1] !== 'a' ||
@@ -25350,6 +25375,9 @@ if (
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
   stringValues[1] !== 'b' ||
+  globalThisStringValues.length !== 2 ||
+  globalThisStringValues[0] !== 'a' ||
+  globalThisStringValues[1] !== 'b' ||
   fullyBracketedGlobalThisStringValues.length !== 2 ||
   fullyBracketedGlobalThisStringValues[0] !== 'a' ||
   fullyBracketedGlobalThisStringValues[1] !== 'b'
@@ -25363,9 +25391,12 @@ console.log(stringKeys.length);
 fn object_string_primitive_enumeration_semantics_test_source() -> &'static str {
     r#"const stringKeys = Object.keys('ab');
 const globalThisStringKeys = globalThis.Object["keys"]('ab');
+const bracketedGlobalThisStringKeys = globalThis["Object"].keys('ab');
 const stringEntries = Object.entries('ab');
+const globalThisStringEntries = globalThis.Object["entries"]('ab');
 const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const globalThisStringValues = globalThis.Object["values"]('ab');
 const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
 if (
   stringKeys.length !== 2 ||
@@ -25374,11 +25405,19 @@ if (
   globalThisStringKeys.length !== 2 ||
   globalThisStringKeys[0] !== '0' ||
   globalThisStringKeys[1] !== '1' ||
+  bracketedGlobalThisStringKeys.length !== 2 ||
+  bracketedGlobalThisStringKeys[0] !== '0' ||
+  bracketedGlobalThisStringKeys[1] !== '1' ||
   stringEntries.length !== 2 ||
   stringEntries[0][0] !== '0' ||
   stringEntries[0][1] !== 'a' ||
   stringEntries[1][0] !== '1' ||
   stringEntries[1][1] !== 'b' ||
+  globalThisStringEntries.length !== 2 ||
+  globalThisStringEntries[0][0] !== '0' ||
+  globalThisStringEntries[0][1] !== 'a' ||
+  globalThisStringEntries[1][0] !== '1' ||
+  globalThisStringEntries[1][1] !== 'b' ||
   bracketedGlobalThisStringEntries.length !== 2 ||
   bracketedGlobalThisStringEntries[0][0] !== '0' ||
   bracketedGlobalThisStringEntries[0][1] !== 'a' ||
@@ -25387,6 +25426,9 @@ if (
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
   stringValues[1] !== 'b' ||
+  globalThisStringValues.length !== 2 ||
+  globalThisStringValues[0] !== 'a' ||
+  globalThisStringValues[1] !== 'b' ||
   fullyBracketedGlobalThisStringValues.length !== 2 ||
   fullyBracketedGlobalThisStringValues[0] !== 'a' ||
   fullyBracketedGlobalThisStringValues[1] !== 'b'
