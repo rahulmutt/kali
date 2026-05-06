@@ -25311,6 +25311,22 @@ fn browser_runtime_object_from_entries_satisfies_test_source() -> &'static str {
 "#
 }
 
+fn browser_runtime_object_from_entries_has_own_source() -> &'static str {
+    r#"const frozen = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
+console.log(Object.hasOwn(frozen, "a"));
+console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
+"#
+}
+
+fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
+    r#"Kali.test('browser object.fromEntries hasOwn', () => {
+  const frozen = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
+  console.log(Object.hasOwn(frozen, "a"));
+  console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
+});
+"#
+}
+
 fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -25497,6 +25513,83 @@ fn test_supports_object_from_entries_enumeration_semantics_with_satisfies_wrappe
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(output.status.code(), Some(0));
+}
+
+fn assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
+    command: &str,
+    filename: &str,
+    source: &str,
+    assert_stdout: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.status.code(), Some(0));
+    if assert_stdout {
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n1\n");
+    }
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
+
+#[test]
+fn run_supports_object_from_entries_has_own_semantics_in_jsx_input_when_browser_harness_is_configured(
+) {
+    assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
+        "run",
+        "main.jsx",
+        browser_runtime_object_from_entries_has_own_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_object_from_entries_has_own_semantics_in_tsx_input_when_browser_harness_is_configured(
+) {
+    assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
+        "run",
+        "main.tsx",
+        browser_runtime_object_from_entries_has_own_source(),
+        true,
+    );
+}
+
+#[test]
+fn test_supports_object_from_entries_has_own_semantics_in_jsx_input_when_browser_harness_is_configured(
+) {
+    assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
+        "test",
+        "smoke.test.jsx",
+        browser_runtime_object_from_entries_has_own_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_from_entries_has_own_semantics_in_tsx_input_when_browser_harness_is_configured(
+) {
+    assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
+        "test",
+        "smoke.test.tsx",
+        browser_runtime_object_from_entries_has_own_test_source(),
+        false,
+    );
 }
 
 fn assert_json_object_string_primitive_enumeration_semantics(command: &str, filename: &str) {
