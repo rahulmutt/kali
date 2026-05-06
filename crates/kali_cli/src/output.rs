@@ -1596,6 +1596,7 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
         .ok_or_else(|| "text edit is missing required key `end`".to_string())?;
     validate_source_location(end)?;
     validate_source_location_file_mirror(end, file, "text edit end")?;
+    validate_text_edit_location_order(start, end)?;
 
     match object.get("newText") {
         Some(Value::String(_)) => {}
@@ -1661,6 +1662,38 @@ fn validate_source_location(value: &Value) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn validate_text_edit_location_order(start: &Value, end: &Value) -> Result<(), String> {
+    let start = source_location_position(start, "text edit start")?;
+    let end = source_location_position(end, "text edit end")?;
+
+    if end < start {
+        Err("text edit end position must not precede its start position".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+fn source_location_position(value: &Value, location_name: &str) -> Result<(u64, u64), String> {
+    let Some(object) = value.as_object() else {
+        return Err(format!("{location_name} must be a JSON object"));
+    };
+
+    let line = positive_integer_value(
+        object
+            .get("line")
+            .ok_or_else(|| format!("{location_name} is missing required key `line`"))?,
+    )
+    .ok_or_else(|| format!("{location_name} line must be a positive integer"))?;
+    let column = positive_integer_value(
+        object
+            .get("column")
+            .ok_or_else(|| format!("{location_name} is missing required key `column`"))?,
+    )
+    .ok_or_else(|| format!("{location_name} column must be a positive integer"))?;
+
+    Ok((line, column))
 }
 
 fn validate_suggested_fix(value: Option<&Value>) -> Result<(), String> {

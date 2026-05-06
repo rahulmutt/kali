@@ -335,6 +335,7 @@ Required fields:
 Semantics:
 - `start` is inclusive and `end` is exclusive
 - `start.file` and `end.file` must match `file`
+- `end` must not precede `start`
 - edits inside one `SuggestedFix` must be non-overlapping
 
 ### `SuggestedFix`

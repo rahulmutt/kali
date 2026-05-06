@@ -2550,6 +2550,53 @@ fn validate_envelope_value_rejects_mismatched_suggested_fix_edit_file_mirrors() 
 }
 
 #[test]
+fn validate_envelope_value_rejects_reversed_suggested_fix_edit_ranges() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix range",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 2, "column": 1},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 1},
+                            "newText": "console.log(1);"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("reversed suggested-fix range should fail validation");
+    assert!(
+        err.contains("suggested fix edits[0]"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("must not precede its start position"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_related_item_with_non_positive_span() {
     let invalid_related_span = json!({
         "schemaVersion": 1,
