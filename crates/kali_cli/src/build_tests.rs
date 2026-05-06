@@ -9548,3 +9548,67 @@ fn discover_dynamic_import_targets_resolves_parenthesized_dynamic_import_targets
             .expect("canonical lazy index path")
     );
 }
+
+fn assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "let value = 2; ((value)) **= 3; console.log(value);",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_js_input() {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_ts_input() {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}

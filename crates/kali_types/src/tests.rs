@@ -5440,6 +5440,17 @@ fn test_resolution_supports_update_expressions_on_mutable_bindings() {
                 prefix: false,
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::AssignmentExpression(Box::new(
+                AssignmentExpression {
+                    operator: AssignmentOperator::ExponentAssign,
+                    left: Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("value".to_string())),
+                    })),
+                    right: Expression::Literal(LiteralValue::Number(2.0)),
+                },
+            ))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
