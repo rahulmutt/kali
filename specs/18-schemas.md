@@ -184,6 +184,9 @@ Required fields:
 - `line: number` *(1-based)*
 - `column: number` *(1-based)*
 
+Interpretation rules:
+- source-location objects are fixed-shape in schema v1; unexpected keys are rejected
+
 ### `SourceSpan`
 
 ```json

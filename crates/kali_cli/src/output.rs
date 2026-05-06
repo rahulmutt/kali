@@ -1590,13 +1590,13 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
     let start = object
         .get("start")
         .ok_or_else(|| "text edit is missing required key `start`".to_string())?;
-    validate_source_location(start)?;
+    validate_source_location(start, "text edit start")?;
     validate_source_location_file_mirror(start, file, "text edit start")?;
 
     let end = object
         .get("end")
         .ok_or_else(|| "text edit is missing required key `end`".to_string())?;
-    validate_source_location(end)?;
+    validate_source_location(end, "text edit end")?;
     validate_source_location_file_mirror(end, file, "text edit end")?;
     validate_text_edit_location_order(start, end)?;
 
@@ -1630,22 +1630,23 @@ fn validate_source_location_file_mirror(
     }
 }
 
-fn validate_source_location(value: &Value) -> Result<(), String> {
+fn validate_source_location(value: &Value, context: &str) -> Result<(), String> {
     let Some(object) = value.as_object() else {
-        return Err("source location must be a JSON object".to_string());
+        return Err(format!("{context} must be a JSON object"));
     };
 
     for key in ["file", "line", "column"] {
         if !object.contains_key(key) {
-            return Err(format!("source location is missing required key `{key}`"));
+            return Err(format!("{context} is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(object, &["file", "line", "column"], context)?;
 
     match object.get("file") {
         Some(Value::String(_)) => {}
         Some(other) => {
             return Err(format!(
-                "source location file must be a string, got {other}"
+                "{context} source location file must be a string, got {other}"
             ))
         }
         None => unreachable!("validated above"),
@@ -1656,7 +1657,7 @@ fn validate_source_location(value: &Value) -> Result<(), String> {
             Some(value) if is_positive_integer(value) => {}
             Some(other) => {
                 return Err(format!(
-                    "source location {key} must be a positive integer, got {other}"
+                    "{context} source location {key} must be a positive integer, got {other}"
                 ))
             }
             None => unreachable!("validated above"),
@@ -1739,19 +1740,20 @@ fn source_location_position(value: &Value, location_name: &str) -> Result<(u64, 
     let Some(object) = value.as_object() else {
         return Err(format!("{location_name} must be a JSON object"));
     };
+    reject_unexpected_keys(object, &["file", "line", "column"], location_name)?;
 
     let line = positive_integer_value(
         object
             .get("line")
             .ok_or_else(|| format!("{location_name} is missing required key `line`"))?,
     )
-    .ok_or_else(|| format!("{location_name} line must be a positive integer"))?;
+    .ok_or_else(|| format!("{location_name} source location line must be a positive integer"))?;
     let column = positive_integer_value(
         object
             .get("column")
             .ok_or_else(|| format!("{location_name} is missing required key `column`"))?,
     )
-    .ok_or_else(|| format!("{location_name} column must be a positive integer"))?;
+    .ok_or_else(|| format!("{location_name} source location column must be a positive integer"))?;
 
     Ok((line, column))
 }
