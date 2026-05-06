@@ -1871,13 +1871,11 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
     let start = object
         .get("start")
         .ok_or_else(|| "text edit is missing required key `start`".to_string())?;
-    validate_source_location(start, "text edit start")?;
     validate_source_location_file_mirror(start, file, "text edit start")?;
 
     let end = object
         .get("end")
         .ok_or_else(|| "text edit is missing required key `end`".to_string())?;
-    validate_source_location(end, "text edit end")?;
     validate_source_location_file_mirror(end, file, "text edit end")?;
     validate_text_edit_location_order(start, end)?;
 
@@ -1899,16 +1897,41 @@ fn validate_source_location_file_mirror(
         return Err(format!("{location_name} must be a JSON object"));
     };
 
-    match location.get("file") {
-        Some(Value::String(location_file)) if location_file == file => Ok(()),
-        Some(Value::String(location_file)) => Err(format!(
-            "{location_name}.file must match text edit file, got `{location_file}`"
-        )),
-        Some(other) => Err(format!(
-            "{location_name}.file must be a string, got {other}"
-        )),
-        None => Err(format!("{location_name} is missing required key `file`")),
+    for key in ["file", "line", "column"] {
+        if !location.contains_key(key) {
+            return Err(format!("{location_name} is missing required key `{key}`"));
+        }
     }
+    reject_unexpected_keys(location, &["file", "line", "column"], location_name)?;
+
+    match location.get("file") {
+        Some(Value::String(location_file)) if location_file == file => {}
+        Some(Value::String(location_file)) => {
+            return Err(format!(
+                "{location_name}.file must match text edit file, got `{location_file}`"
+            ))
+        }
+        Some(other) => {
+            return Err(format!(
+                "{location_name}.file must be a string, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    for key in ["line", "column"] {
+        match location.get(key) {
+            Some(value) if is_positive_integer(value) => {}
+            Some(other) => {
+                return Err(format!(
+                    "{location_name} source location {key} must be a positive integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_source_location(value: &Value, context: &str) -> Result<(), String> {

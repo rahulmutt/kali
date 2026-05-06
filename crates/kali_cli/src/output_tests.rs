@@ -3267,6 +3267,47 @@ fn validate_envelope_value_rejects_unexpected_source_location_keys_in_suggested_
 }
 
 #[test]
+fn validate_envelope_value_rejects_missing_text_edit_source_location_fields() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix source location",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "column": 1},
+                            "end": {"file": "src/main.ts", "line": 1, "column": 2},
+                            "newText": "console.log(1);"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("missing text-edit source-location fields should fail validation");
+    assert!(err.contains("text edit start"), "unexpected error: {err}");
+    assert!(err.contains("line"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_mismatched_suggested_fix_edit_file_mirrors() {
     let invalid_fix = json!({
         "schemaVersion": 1,
