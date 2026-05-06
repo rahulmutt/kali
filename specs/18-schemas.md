@@ -348,6 +348,7 @@ Required fields:
 - `newText: string`
 
 Interpretation rules:
+- `TextEdit` objects are fixed-shape in schema v1; unexpected keys are rejected
 - `start` is inclusive and `end` is exclusive
 - `start.file` and `end.file` must match `file`
 - `end` must not precede `start`

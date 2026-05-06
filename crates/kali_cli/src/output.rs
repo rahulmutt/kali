@@ -1767,6 +1767,8 @@ fn validate_text_edit_value(value: &Value) -> Result<(), String> {
         return Err("text edit must be a JSON object".to_string());
     };
 
+    reject_unexpected_keys(object, &["file", "start", "end", "newText"], "text edit")?;
+
     for key in ["file", "start", "end", "newText"] {
         if !object.contains_key(key) {
             return Err(format!("text edit is missing required key `{key}`"));
