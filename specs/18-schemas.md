@@ -423,6 +423,7 @@ Interpretation rules:
 - `debug-source-map` is a `role`, not a second source-map `kind`; the matching artifact `kind` remains `source-map`
 - `role` exists so tools do not have to infer semantic intent from filenames alone when multiple artifact modes reuse the same `kind`
 - schema-v1 reserves these `kind` / `role` names for stable machine readability even when the owning command/artifact flow is still phase-gated; read actual availability from [19 — Feature Maturity](19-feature-maturity.md) rather than inferring it from the presence of a schema value alone
+- CLI-envelope artifact roles are limited to the canonical schema-v1 role set above; unrecognized role strings are rejected rather than treated as open extensions
 - within one emitted artifact list, `primary-executable`, `primary-library`, and `primary-component` are each unique roles: at most one artifact may carry each of those roles
 - browser-bundle outputs therefore normally contain one `primary-executable` core `wasm-module` plus one `browser-glue` JS companion and one `source-map` debug companion, rather than two competing "primary" artifacts of the same executable flow
 - `binding-package` is the deterministic stem-specific bundle index emitted alongside the public embedding flows; it is a sidecar manifest rather than one of the primary linked-code artifacts

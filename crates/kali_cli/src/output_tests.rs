@@ -127,6 +127,34 @@ fn emitted_cli_envelopes_reject_duplicate_primary_artifact_roles() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_unrecognized_artifact_roles() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": "auxiliary", "bytes": 42},
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7}
+        ]),
+    );
+
+    let error =
+        validate_envelope_value(&value).expect_err("unrecognized artifact roles should fail");
+    assert!(
+        error.contains("canonical schema-v1 role") && error.contains("auxiliary"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_unexpected_artifact_keys() {
     let mut value = emit_envelope_value(
         "build",

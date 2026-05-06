@@ -1393,6 +1393,11 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
         if let Some(role) = object.get("role") {
             match role {
                 Value::String(role) => {
+                    if !is_canonical_artifact_role(role) {
+                        return Err(format!(
+                            "CLI envelope artifacts[{index}].role must be a canonical schema-v1 role, got `{role}`"
+                        ));
+                    }
                     match role.as_str() {
                         "primary-executable" => {
                             if seen_primary_executable {
@@ -1425,6 +1430,21 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn is_canonical_artifact_role(role: &str) -> bool {
+    matches!(
+        role,
+        "primary-executable"
+            | "primary-library"
+            | "primary-component"
+            | "browser-glue"
+            | "interface-wit"
+            | "embedding-header"
+            | "embedding-metadata"
+            | "binding-package-manifest"
+            | "debug-source-map"
+    )
 }
 
 fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
