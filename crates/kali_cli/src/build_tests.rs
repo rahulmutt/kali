@@ -9416,6 +9416,37 @@ fn validate_artifact_metadata_value_rejects_invalid_export_shape() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_unexpected_export_keys() {
+    let invalid_metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "artifactKind": "component",
+        "entrypoint": "src/main.ts",
+        "buildMode": "release",
+        "apiSurface": "browser",
+        "runtimeProfiles": ["wasm-threads"],
+        "maxSpecializations": 24,
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "kaliVersion": "1.2.3",
+        "sourceHash": "sha256-deadbeef",
+        "exports": [
+            {"name": "main", "signature": "(input) => number", "extra": true}
+        ]
+    });
+
+    let err = validate_artifact_metadata_value(&invalid_metadata)
+        .expect_err("unexpected artifact metadata export keys should fail validation");
+    assert!(
+        err.contains("artifact metadata exports[0]"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("unexpected key `extra`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_duplicate_export_names() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
