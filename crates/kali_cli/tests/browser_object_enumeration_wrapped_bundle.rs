@@ -95,10 +95,20 @@ function browserWrappedObjectEnumeration() {
   const objectEntries = Object.entries(wrappedObject);
   assertWrappedObjectEnumeration(objectKeys, objectValues, objectEntries);
 
+  const spreadObjectKeys = [...Object.keys(wrappedObject)];
+  const spreadObjectValues = [...Object.values(wrappedObject)];
+  const spreadObjectEntries = [...Object.entries(wrappedObject)];
+  assertWrappedObjectEnumeration(spreadObjectKeys, spreadObjectValues, spreadObjectEntries);
+
   const frozenKeys = Object.keys(frozenFromEntries);
   const frozenValues = Object.values(frozenFromEntries);
   const frozenEntries = Object.entries(frozenFromEntries);
   assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
+
+  const spreadFrozenKeys = [...Object.keys(frozenFromEntries)];
+  const spreadFrozenValues = [...Object.values(frozenFromEntries)];
+  const spreadFrozenEntries = [...Object.entries(frozenFromEntries)];
+  assertWrappedObjectEnumeration(spreadFrozenKeys, spreadFrozenValues, spreadFrozenEntries);
 }
 "##
 }
