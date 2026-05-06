@@ -2132,7 +2132,7 @@ fn validate_envelope_value_allows_schema_permitted_extension_keys() {
 }
 
 #[test]
-fn validate_envelope_value_allows_schema_permitted_timing_extensions() {
+fn validate_envelope_value_rejects_unexpected_timing_keys() {
     let extended_timings = json!({
         "schemaVersion": 1,
         "command": "doctor",
@@ -2151,8 +2151,12 @@ fn validate_envelope_value_allows_schema_permitted_timing_extensions() {
         }],
     });
 
-    validate_envelope_value(&extended_timings)
-        .expect("schema-permitted timing extensions should validate");
+    let err = validate_envelope_value(&extended_timings)
+        .expect_err("unexpected timing keys should fail validation");
+    assert!(
+        err.contains("timing") && err.contains("unexpected key `label`"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

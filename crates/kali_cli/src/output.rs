@@ -1474,6 +1474,7 @@ fn validate_timing_value(value: &Value) -> Result<(), String> {
             return Err(format!("timing is missing required key `{key}`"));
         }
     }
+    reject_unexpected_keys(object, &["phase", "milliseconds"], "timing")?;
 
     match object.get("phase") {
         Some(Value::String(_)) => {}

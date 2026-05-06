@@ -59,5 +59,5 @@ Remaining goals:
 - Widen Lean models for ownership, effects, type-system, and lowering slices in small named increments.
 - Update `proofs/BOUNDARY.md` before any proof-backed wording changes.
 - Expand proof CI triggers only when the published proof boundary claims implementation or spec paths outside the proof tree.
-- Continue hardening JSON payload, artifact-manifest, schema-drift, diagnostics, source spans, and CLI-doc contracts while respecting schema extension posture. Suggested-fix text edits now also reject reversed ranges, duplicate zero-length insertions, and unexpected keys, keeping the source-edit machine contract aligned with the span ordering rules.
+- Continue hardening JSON payload, artifact-manifest, schema-drift, diagnostics, source spans, and CLI-doc contracts while respecting schema extension posture. Suggested-fix text edits now also reject reversed ranges, duplicate zero-length insertions, and unexpected keys, timing objects now reject unexpected keys, and the source-edit machine contract stays aligned with the span ordering rules.
 - Avoid duplicating theorem inventories in plan files; `proofs/BOUNDARY.md` remains the sole proof-boundary inventory.

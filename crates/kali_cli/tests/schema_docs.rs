@@ -119,7 +119,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(envelope["properties"]["timings"]["items"]["type"], "object");
     assert_eq!(
         envelope["properties"]["timings"]["items"]["additionalProperties"],
-        true
+        false
     );
     assert_eq!(
         required_fields(&envelope["properties"]["timings"]["items"]),

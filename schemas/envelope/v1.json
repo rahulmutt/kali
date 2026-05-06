@@ -84,7 +84,7 @@
             "type": "number"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "exitCode": {

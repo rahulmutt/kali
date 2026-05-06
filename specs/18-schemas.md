@@ -386,6 +386,9 @@ Required fields:
 - `phase: string`
 - `milliseconds: number`
 
+Notes:
+- `PhaseTiming` objects are fixed-shape in schema v1; unexpected keys are rejected
+
 ### `Artifact`
 
 ```json
