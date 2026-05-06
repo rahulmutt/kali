@@ -2491,26 +2491,37 @@ fn collect_library_exports_from_statements(
             }
             Statement::ExportDefault(default_decl) => match default_decl {
                 ExportDefaultDeclaration::FunctionDeclaration(func) => {
-                    let export_name = if func.name.is_empty() {
-                        "default".to_string()
-                    } else {
-                        func.name.clone()
-                    };
-                    if exports
-                        .insert(
-                            export_name.clone(),
-                            infer_function_signature(&func.params, &func.body, func.is_async),
-                        )
-                        .is_some()
-                    {
-                        diagnostics.push(invalid_export_surface(
-                            source_path,
-                            &format!("duplicate export name `{export_name}`"),
+                    if func.generator {
+                        diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
                         ));
+                    } else {
+                        let export_name = if func.name.is_empty() {
+                            "default".to_string()
+                        } else {
+                            func.name.clone()
+                        };
+                        if exports
+                            .insert(
+                                export_name.clone(),
+                                infer_function_signature(&func.params, &func.body, func.is_async),
+                            )
+                            .is_some()
+                        {
+                            diagnostics.push(invalid_export_surface(
+                                source_path,
+                                &format!("duplicate export name `{export_name}`"),
+                            ));
+                        }
                     }
                 }
                 ExportDefaultDeclaration::Expression(expression) => {
-                    if let Some(signature) = infer_function_binding_signature(Some(expression)) {
+                    if let Some(signature) = infer_function_binding_signature(
+                        Some(expression),
+                        source_path,
+                        &mut diagnostics,
+                    ) {
                         if exports.insert("default".to_string(), signature).is_some() {
                             diagnostics.push(invalid_export_surface(
                                 source_path,
@@ -3054,6 +3065,14 @@ fn collect_declared_function_signatures(
     for statement in statements {
         match statement {
             Statement::FunctionDeclaration(func) => {
+                if func.generator {
+                    diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                    ));
+                    continue;
+                }
+
                 let signature = infer_function_signature(&func.params, &func.body, func.is_async);
                 if declared_function_signatures
                     .insert(func.name.clone(), signature)
@@ -3087,7 +3106,9 @@ fn collect_declared_function_binding_signatures(
     declared_function_signatures: &mut BTreeMap<String, String>,
 ) {
     for declarator in &declaration.declarations {
-        let Some(signature) = infer_function_binding_signature(declarator.init.as_ref()) else {
+        let Some(signature) =
+            infer_function_binding_signature(declarator.init.as_ref(), source_path, diagnostics)
+        else {
             continue;
         };
 
@@ -3107,11 +3128,19 @@ fn infer_function_signature(params: &[String], body: &BlockStatement, is_async: 
     function_signature(params, infer_block_return_type(body), is_async)
 }
 
-fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<String> {
+fn infer_function_binding_signature(
+    expression: Option<&Expression>,
+    source_path: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
     let expression = expression?;
     match expression {
         Expression::FunctionExpression(func) => {
             if func.generator {
+                diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                ));
                 return None;
             }
 
@@ -3139,40 +3168,60 @@ fn infer_function_binding_signature(expression: Option<&Expression>) -> Option<S
                 func.is_async,
             ))
         }
-        Expression::ParenthesizedExpression(parenthesized) => {
-            infer_function_binding_signature(Some(&parenthesized.expression))
-        }
-        Expression::TypeAssertion(type_assertion) => {
-            infer_function_binding_signature(Some(&type_assertion.expression))
-        }
-        Expression::SatisfiesExpression(satisfies_expression) => {
-            infer_function_binding_signature(Some(&satisfies_expression.expression))
-        }
+        Expression::ParenthesizedExpression(parenthesized) => infer_function_binding_signature(
+            Some(&parenthesized.expression),
+            source_path,
+            diagnostics,
+        ),
+        Expression::TypeAssertion(type_assertion) => infer_function_binding_signature(
+            Some(&type_assertion.expression),
+            source_path,
+            diagnostics,
+        ),
+        Expression::SatisfiesExpression(satisfies_expression) => infer_function_binding_signature(
+            Some(&satisfies_expression.expression),
+            source_path,
+            diagnostics,
+        ),
         Expression::OptionalChainExpression(optional_chain) => {
             match optional_chain.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => {
-                    infer_function_binding_signature(Some(object))
+                    infer_function_binding_signature(Some(object), source_path, diagnostics)
                 }
             }
         }
-        Expression::ChainExpression(chain_expression) => {
-            infer_function_binding_signature(Some(&chain_expression.expression))
-        }
-        Expression::AwaitExpression(await_expression) => {
-            infer_function_binding_signature(Some(&await_expression.argument))
-        }
+        Expression::ChainExpression(chain_expression) => infer_function_binding_signature(
+            Some(&chain_expression.expression),
+            source_path,
+            diagnostics,
+        ),
+        Expression::AwaitExpression(await_expression) => infer_function_binding_signature(
+            Some(&await_expression.argument),
+            source_path,
+            diagnostics,
+        ),
         Expression::SequenceExpression(sequence_expression) => sequence_expression
             .expressions
             .last()
-            .and_then(|expression| infer_function_binding_signature(Some(expression))),
-        Expression::DecoratedExpression(decorated_expression) => {
-            infer_function_binding_signature(Some(&decorated_expression.expression))
-        }
+            .and_then(|expression| {
+                infer_function_binding_signature(Some(expression), source_path, diagnostics)
+            }),
+        Expression::DecoratedExpression(decorated_expression) => infer_function_binding_signature(
+            Some(&decorated_expression.expression),
+            source_path,
+            diagnostics,
+        ),
         Expression::ConditionalExpression(conditional_expression) => {
-            let consequent =
-                infer_function_binding_signature(Some(conditional_expression.consequent.as_ref()));
-            let alternate =
-                infer_function_binding_signature(Some(conditional_expression.alternate.as_ref()));
+            let consequent = infer_function_binding_signature(
+                Some(conditional_expression.consequent.as_ref()),
+                source_path,
+                diagnostics,
+            );
+            let alternate = infer_function_binding_signature(
+                Some(conditional_expression.alternate.as_ref()),
+                source_path,
+                diagnostics,
+            );
             if consequent.is_some() && consequent == alternate {
                 consequent
             } else {
