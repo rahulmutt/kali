@@ -40,7 +40,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Promote additional operators, compound assignment targets, dynamic language forms, and built-ins only with checker/codegen/runtime evidence.
 - Keep unsupported `Math`, object-model, dynamic import, `eval`-adjacent, and reflective forms explicitly gated.
 - Verify observable JavaScript semantics before exposing optimization-sensitive folds.
-- Current progress: standalone `test` smoke now also covers the zero-base / positive-integer-exponent `Math.pow` slice in JS input, including JSON-output coverage, and `Object.is` now also accepts `Object.freeze`-wrapped same-reference aliases for statically-known object bindings; standalone `run` / `test` smoke now also covers the primitive-literal `Object.is` slice in JS input with JSON-output coverage.
+- Current progress: standalone `test` smoke now also covers the zero-base / positive-integer-exponent `Math.pow` slice in JS input, including JSON-output coverage, and `Object.is` now also accepts `Object.freeze`-wrapped same-reference aliases for statically-known object bindings; standalone `run` / `test` smoke now also covers the primitive-literal `Object.is` slice in JS input with JSON-output coverage, and browser-requested `run` / `test` browser-harness smoke now also exercises that same primitive-literal `Object.is` slice across JS, TS, JSX, and TSX input with JSON-output coverage.
 
 ### 16.3 TypeScript and JavaScript inference
 
