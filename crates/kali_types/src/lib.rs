@@ -693,6 +693,8 @@ impl TypeContext {
                 | r#"globalThis['Object'].values"#
                 | r#"globalThis['Object'].entries"#
                 | r#"globalThis['Object']['entries']"#
+                | "Reflect.ownKeys"
+                | "globalThis.Reflect.ownKeys"
         ) {
             return false;
         }
@@ -1493,6 +1495,10 @@ impl TypeContext {
                         && call.args.first().is_some_and(|argument| {
                             self.resolve_static_object_keys_target(argument)
                         })
+                    || Self::is_reflect_own_keys_call(call)
+                        && call.args.first().is_some_and(|argument| {
+                            self.resolve_static_object_keys_target(argument)
+                        })
             }
             Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
             _ => false,
@@ -1512,6 +1518,13 @@ impl TypeContext {
                 | Some(r#"Object['freeze']"#)
                 | Some(r#"globalThis.Object["freeze"]"#)
                 | Some(r#"globalThis.Object['freeze']"#)
+        ) && call.args.len() == 1
+    }
+
+    fn is_reflect_own_keys_call(call: &CallExpression) -> bool {
+        matches!(
+            Self::call_member_access_name(&call.callee).as_deref(),
+            Some("Reflect.ownKeys") | Some("globalThis.Reflect.ownKeys")
         ) && call.args.len() == 1
     }
 
