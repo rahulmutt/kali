@@ -141,6 +141,26 @@ fn assert_browser_requested_object_enumeration_spread(
 }
 
 #[test]
+fn run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_requested_object_enumeration_spread("run", "main.js", false);
+}
+
+#[test]
+fn json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_requested_object_enumeration_spread("run", "main.js", true);
+}
+
+#[test]
+fn test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_requested_object_enumeration_spread("test", "smoke.test.js", false);
+}
+
+#[test]
+fn json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_js_input() {
+    assert_browser_requested_object_enumeration_spread("test", "smoke.test.js", true);
+}
+
+#[test]
 fn run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input() {
     assert_browser_requested_object_enumeration_spread("run", "main.jsx", false);
 }
@@ -158,6 +178,26 @@ fn test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_j
 #[test]
 fn json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_jsx_input() {
     assert_browser_requested_object_enumeration_spread("test", "smoke.test.jsx", true);
+}
+
+#[test]
+fn run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_object_enumeration_spread("run", "main.ts", false);
+}
+
+#[test]
+fn json_run_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_object_enumeration_spread("run", "main.ts", true);
+}
+
+#[test]
+fn test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_object_enumeration_spread("test", "smoke.test.ts", false);
+}
+
+#[test]
+fn json_test_supports_object_enumeration_spread_in_browser_api_surface_with_harness_ts_input() {
+    assert_browser_requested_object_enumeration_spread("test", "smoke.test.ts", true);
 }
 
 #[test]
