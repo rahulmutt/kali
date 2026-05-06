@@ -717,6 +717,8 @@ fn validate_run_payload_value_rejects_non_string_provenance_fields() {
         ("runtimeBackend", json!(42)),
         ("hostContract", json!("")),
         ("runtimeBackend", json!("")),
+        ("hostContract", json!("   ")),
+        ("runtimeBackend", json!("   ")),
     ] {
         let payload = json!({
             "exitCode": 0,
@@ -849,6 +851,8 @@ fn validate_test_payload_value_rejects_non_string_provenance_fields() {
         ("runtimeBackend", json!(["wasmtime"])),
         ("hostContract", json!("")),
         ("runtimeBackend", json!("")),
+        ("hostContract", json!("   ")),
+        ("runtimeBackend", json!("   ")),
     ] {
         let payload = json!({
             "total": 4,

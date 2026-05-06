@@ -956,7 +956,7 @@ Interpretation rule:
 `kali run` and `kali test` result payloads may carry optional `hostContract` and `runtimeBackend` provenance labels.
 
 Interpretation rule:
-- when present, those provenance labels are non-empty strings and describe the execution contract that produced the result, not a separate public capability model
+- when present, those provenance labels are non-empty, non-whitespace strings and describe the execution contract that produced the result, not a separate public capability model
 
 ## Artifact Schema
 
@@ -975,7 +975,7 @@ Interpretation rule:
 - `source-map` is a valid artifact kind when debug/source-map output is emitted, and browser bundles may emit that companion artifact even when the bundle wrapper itself is the main product; ordinary Phase 1 builds do not need to produce source maps by default
 - when a command emits artifact metadata, it should include `role` whenever that makes the artifact mode clearer (for example distinguishing the default executable `wasm-module` from a `--lib` `wasm-module`)
 - artifact metadata sidecars may also carry provenance fields such as `runtimeProfiles`, `maxSpecializations`, `profileDataHash`, `hostContract`, and `runtimeBackend`; these describe the build/execution contract that produced the artifact, not a separate public embedding surface
-- required machine labels such as `kaliVersion` and `sourceHash`, along with the optional provenance strings above, are non-empty and remain deterministic machine labels rather than free-form prose
+- required machine labels such as `kaliVersion` and `sourceHash`, along with the optional provenance strings above, are non-empty, non-whitespace strings and remain deterministic machine labels rather than free-form prose
 - when present, `runtimeProfiles` is a semantic set encoded as an array: producers must deduplicate it and emit it in stable lexical order so artifact metadata stays deterministic
 - library-oriented export-name lists emitted in artifact metadata or build-result payloads must also be duplicate-free so the reported export surface stays deterministic
 - build result JSON envelopes may mirror the same provenance fields when the corresponding artifact mode emits them, so result payloads and sidecar metadata stay aligned instead of inventing two different provenance vocabularies; their required `sourceHash` label stays non-empty as well
