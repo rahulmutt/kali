@@ -20,7 +20,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Complete guest-facing threaded behavior beyond profile acceptance and helper plumbing.
 - Define valid positive thread budgets by command, API surface, and runtime profile.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
-- Current progress: the positive `--max-threads` rejection path now carries both the resource-budget and threaded-profile config hints in text diagnostics, while the JSON error payload keeps the canonical `resources.maxThreads` message stable.
+- Current progress: the positive `--max-threads` rejection path now carries both the resource-budget and threaded-profile config hints in text diagnostics, while the JSON error payload keeps the canonical `resources.maxThreads` message stable; runtime smoke now also exercises guest thread spawning through the host import path, including budget-exhaustion rejection for a second spawn under a one-thread limit.
 
 ### 17.2 Browser runtime contract
 

@@ -3713,29 +3713,6 @@ fn runtime_host_state_rolls_back_failed_thread_spawns() {
 }
 
 #[test]
-fn runtime_executes_thread_spawn_host_imports() {
-    let runtime = RuntimeCtx::with_api_surface(None, "deno")
-        .with_runtime_profiles(vec!["wasm-threads".to_string()])
-        .with_max_threads(Some(1));
-    let wasm = compile_wat(
-        r#"
-            (module
-                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
-                (memory (export "memory") 1)
-                (data (i32.const 0) "https://e.co/t.js")
-                (func (export "_start")
-                    i32.const 0
-                    i32.const 17
-                    call $thread_spawn
-                    drop))
-            "#,
-    );
-
-    let outcome = runtime.execute(&wasm).expect("thread spawn host import");
-    assert_eq!(outcome.runtime_profiles, vec!["wasm-threads".to_string()]);
-}
-
-#[test]
 fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
         .with_runtime_profiles(vec!["wasm-threads".to_string()])
@@ -3764,6 +3741,65 @@ fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
     assert!(diagnostics[0]
         .message
         .contains("active thread count 1 exceeds policy limit of 0"));
+}
+
+#[test]
+fn runtime_executes_thread_spawn_host_imports() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()])
+        .with_max_threads(Some(1));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://e.co/t.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 17
+                    call $thread_spawn
+                    drop))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("thread spawn host import");
+    assert_eq!(outcome.runtime_profiles, vec!["wasm-threads".to_string()]);
+}
+
+#[test]
+fn runtime_rejects_second_thread_spawn_host_import_when_budget_is_exhausted() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()])
+        .with_max_threads(Some(1));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://e.co/t.js")
+                (data (i32.const 32) "https://e.co/u.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 17
+                    call $thread_spawn
+                    drop
+                    i32.const 32
+                    i32.const 17
+                    call $thread_spawn
+                    drop))
+            "#,
+    );
+
+    let diagnostics = runtime
+        .execute(&wasm)
+        .expect_err("second thread spawn should exhaust the one-thread budget");
+    assert_eq!(
+        diagnostics[0].code,
+        Some(kali_error::_error_codes::e4::RESOURCE_LIMIT_EXCEEDED as u32)
+    );
+    assert!(diagnostics[0]
+        .message
+        .contains("active thread count 2 exceeds policy limit of 1"));
 }
 
 #[test]
