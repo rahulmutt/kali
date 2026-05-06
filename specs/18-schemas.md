@@ -383,11 +383,12 @@ Interpretation rules:
 ```
 
 Required fields:
-- `phase: string`
+- `phase: non-empty string`
 - `milliseconds: finite non-negative number`
 
 Notes:
 - `PhaseTiming` objects are fixed-shape in schema v1; unexpected keys are rejected
+- `phase` should be a canonical non-empty phase label string, and schema-v1 validators reject empty or whitespace-only values
 - schema-v1 timings are elapsed-duration metadata, so negative or non-finite values are rejected by producers and validators
 
 ### `Artifact`

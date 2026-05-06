@@ -9588,6 +9588,36 @@ fn validate_build_result_value_rejects_duplicate_export_names() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_unexpected_export_keys() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
+        ],
+        "exports": [
+            { "name": "main", "signature": "(input) => number", "extra": true }
+        ],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("unexpected export keys should fail validation");
+    assert!(
+        err.contains("build result exports[0]"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("unexpected key `extra`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_build_result_value_rejects_invalid_bundle_format() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

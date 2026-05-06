@@ -1744,14 +1744,8 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
                         "artifact metadata exports[{index}] must be an object, got {item}"
                     ));
                 };
-                if export.len() != 2
-                    || !export.contains_key("name")
-                    || !export.contains_key("signature")
-                {
-                    return Err(format!(
-                        "artifact metadata exports[{index}] must contain only 'name' and 'signature'"
-                    ));
-                }
+                let export_context = format!("artifact metadata exports[{index}]");
+                validate_name_signature_object(export, &export_context)?;
                 match export.get("name") {
                     Some(Value::String(name)) => {
                         if !seen_names.insert(name.clone()) {
@@ -2200,6 +2194,27 @@ fn validate_build_result_artifacts_array(
     Ok(())
 }
 
+fn validate_name_signature_object(
+    object: &serde_json::Map<String, Value>,
+    context: &str,
+) -> Result<(), String> {
+    validate_no_unexpected_keys(object, context, &["name", "signature"])?;
+
+    match object.get("name") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("{context}.name must be a string, got {other}")),
+        None => return Err(format!("{context} is missing required key `name`")),
+    }
+
+    match object.get("signature") {
+        Some(Value::String(_)) => {}
+        Some(other) => return Err(format!("{context}.signature must be a string, got {other}")),
+        None => return Err(format!("{context} is missing required key `signature`")),
+    }
+
+    Ok(())
+}
+
 fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> Result<(), String> {
     let Some(Value::Array(items)) = value else {
         return Err(format!("{context} must be an array"));
@@ -2211,11 +2226,8 @@ fn validate_build_result_exports_array(value: Option<&Value>, context: &str) -> 
         let Some(object) = item.as_object() else {
             return Err(format!("{context}[{index}] must be an object, got {item}"));
         };
-        if object.len() != 2 || !object.contains_key("name") || !object.contains_key("signature") {
-            return Err(format!(
-                "{context}[{index}] must contain only 'name' and 'signature'"
-            ));
-        }
+        let export_context = format!("{context}[{index}]");
+        validate_name_signature_object(object, &export_context)?;
         match object.get("name") {
             Some(Value::String(name)) => {
                 if !seen_names.insert(name.clone()) {

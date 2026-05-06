@@ -1557,7 +1557,8 @@ fn validate_timing_value(value: &Value) -> Result<String, String> {
     reject_unexpected_keys(object, &["phase", "milliseconds"], "timing")?;
 
     let phase = match object.get("phase") {
-        Some(Value::String(value)) => value.clone(),
+        Some(Value::String(value)) if !value.trim().is_empty() => value.clone(),
+        Some(Value::String(_)) => return Err("timing phase must be a non-empty string".to_string()),
         Some(other) => return Err(format!("timing phase must be a string, got {other}")),
         None => unreachable!("validated above"),
     };

@@ -2612,6 +2612,52 @@ fn validate_envelope_value_rejects_duplicate_timing_phases() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_empty_timing_phases() {
+    let empty_phase = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": "", "milliseconds": 1}],
+    });
+
+    let err = validate_envelope_value(&empty_phase)
+        .expect_err("empty timing phases should fail validation");
+    assert!(
+        err.contains("timing phase must be a non-empty string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_envelope_value_rejects_whitespace_only_timing_phases() {
+    let whitespace_phase = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": "   ", "milliseconds": 1}],
+    });
+
+    let err = validate_envelope_value(&whitespace_phase)
+        .expect_err("whitespace-only timing phases should fail validation");
+    assert!(
+        err.contains("timing phase must be a non-empty string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_fractional_exit_code() {
     let invalid_exit_code = json!({
         "schemaVersion": 1,
