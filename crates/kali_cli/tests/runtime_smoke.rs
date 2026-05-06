@@ -25700,6 +25700,63 @@ for (const entry of [...Object.entries(frozen)]) { console.log(entry[0]); consol
 "#
 }
 
+fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static str {
+    r#"Kali.test('browser frozen object enumeration spread', () => {
+  const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
+  for (const value of [...Object.values(frozen)]) { console.log(value); }
+  for (const key of [...Object.keys(frozen)]) { console.log(key); }
+  for (const entry of [...Object.entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+});
+"#
+}
+
+fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_input(
+    command: &str,
+    filename: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
+    assert_eq!(json["stdout"], "3\n2\nzed\nalpha\nzed\n3\nalpha\n2\n");
+    assert_eq!(json["stderr"], "");
+}
+
 fn assert_json_object_enumeration_semantics(command: &str, filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -25962,6 +26019,46 @@ fn test_supports_object_from_entries_has_own_semantics_in_tsx_input_when_browser
         "smoke.test.tsx",
         browser_runtime_object_from_entries_has_own_test_source(),
         false,
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_enumeration_spread_semantics_in_jsx_input_when_browser_harness_is_configured(
+) {
+    assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_input(
+        "run",
+        "main.jsx",
+        browser_runtime_frozen_object_enumeration_spread_source(),
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_enumeration_spread_semantics_in_tsx_input_when_browser_harness_is_configured(
+) {
+    assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_input(
+        "run",
+        "main.tsx",
+        browser_runtime_frozen_object_enumeration_spread_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_enumeration_spread_semantics_in_jsx_input_when_browser_harness_is_configured(
+) {
+    assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_input(
+        "test",
+        "smoke.test.jsx",
+        browser_runtime_frozen_object_enumeration_spread_test_source(),
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_enumeration_spread_semantics_in_tsx_input_when_browser_harness_is_configured(
+) {
+    assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_input(
+        "test",
+        "smoke.test.tsx",
+        browser_runtime_frozen_object_enumeration_spread_test_source(),
     );
 }
 
