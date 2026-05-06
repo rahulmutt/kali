@@ -154,6 +154,44 @@ await mod.browserObjectHasOwnFromEntries();
     );
 }
 
+fn assert_browser_check_object_has_own_from_entries_with_source(
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "check");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["filesChecked"], 1);
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    }
+}
+
 fn browser_harness_object_has_own_from_entries_run_source() -> &'static str {
     r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
@@ -273,6 +311,33 @@ fn assert_browser_harness_object_has_own_from_entries(
         if command == "test" {
             assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         }
+    }
+}
+
+#[test]
+fn check_emits_frozen_object_has_own_from_entries_in_js_input() {
+    assert_browser_check_object_has_own_from_entries_with_source(
+        "app.js",
+        &browser_bundle_object_has_own_frozen_from_entries_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_check_emits_frozen_object_has_own_from_entries_in_js_input() {
+    assert_browser_check_object_has_own_from_entries_with_source(
+        "app.js",
+        &browser_bundle_object_has_own_frozen_from_entries_source(),
+        true,
+    );
+}
+
+#[test]
+fn check_emits_frozen_object_has_own_from_entries_in_ts_jsx_tsx_input() {
+    let source = browser_bundle_object_has_own_frozen_from_entries_source();
+    for filename in ["app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_check_object_has_own_from_entries_with_source(filename, &source, false);
+        assert_browser_check_object_has_own_from_entries_with_source(filename, &source, true);
     }
 }
 
