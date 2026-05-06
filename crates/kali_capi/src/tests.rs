@@ -637,6 +637,56 @@ fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
 }
 
 #[test]
+fn cabi_metadata_parsing_rejects_unexpected_keys() {
+    let error = parse_metadata(
+        r#"{
+            "schemaVersion": 1,
+            "kind": "cabi-metadata",
+            "hostAbiVersion": 2,
+            "artifacts": {
+                "wasmModule": "sample.wasm",
+                "wit": "sample.wit",
+                "exportsHeader": "sample.h",
+                "extra": true
+            },
+            "unexpected": true
+        }"#,
+    )
+    .expect_err("unexpected cabi metadata keys should fail");
+
+    assert!(
+        error.contains("unexpected key"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn binding_package_manifest_parsing_rejects_unexpected_keys() {
+    let error = parse_binding_package_manifest(
+        r#"{
+            "schemaVersion": 1,
+            "kind": "binding-package",
+            "moduleName": "sample",
+            "hostAbiVersion": 2,
+            "artifacts": {
+                "library": "sample.capi.wasm",
+                "metadata": "sample.cabi.json",
+                "exportsHeader": "sample.h",
+                "glue": [],
+                "extra": true
+            },
+            "unexpected": true
+        }"#,
+    )
+    .expect_err("unexpected binding package manifest keys should fail");
+
+    assert!(
+        error.contains("unexpected key"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn binding_package_manifest_parsing_rejects_invalid_required_field_types() {
     let cases = [
         ("moduleName", serde_json::json!(1)),

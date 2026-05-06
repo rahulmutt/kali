@@ -204,6 +204,25 @@ fn validate_generated_binding_package_manifest(manifest: Value) -> Value {
 pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
     let metadata: Value = serde_json::from_str(metadata_text)
         .map_err(|error| format!("cabi metadata is not valid JSON: {}", error))?;
+    let metadata_object = metadata
+        .as_object()
+        .ok_or_else(|| "cabi metadata must be a JSON object".to_string())?;
+    reject_unexpected_keys(
+        metadata_object,
+        &[
+            "schemaVersion",
+            "kind",
+            "hostAbiVersion",
+            "minHostAbiVersion",
+            "runtimeProfiles",
+            "maxSpecializations",
+            "hostContract",
+            "runtimeBackend",
+            "profileDataHash",
+            "artifacts",
+        ],
+        "cabi metadata",
+    )?;
 
     let schema_version = metadata
         .get("schemaVersion")
@@ -239,6 +258,11 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
         .get("artifacts")
         .and_then(Value::as_object)
         .ok_or_else(|| "cabi metadata field 'artifacts' must be a JSON object".to_string())?;
+    reject_unexpected_keys(
+        artifacts,
+        &["wasmModule", "wit", "exportsHeader"],
+        "cabi metadata field 'artifacts'",
+    )?;
     let mut normalized_artifacts = serde_json::Map::new();
     for key in ["wasmModule", "wit", "exportsHeader"] {
         let value = artifacts
@@ -568,6 +592,25 @@ pub fn discover_binding_package_manifest_path_with_name(
 pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, String> {
     let mut manifest: Value = serde_json::from_str(manifest_text)
         .map_err(|error| format!("binding package manifest is not valid JSON: {}", error))?;
+    let manifest_object = manifest
+        .as_object()
+        .ok_or_else(|| "binding package manifest must be a JSON object".to_string())?;
+    reject_unexpected_keys(
+        manifest_object,
+        &[
+            "schemaVersion",
+            "kind",
+            "moduleName",
+            "hostAbiVersion",
+            "minHostAbiVersion",
+            "maxSpecializations",
+            "runtimeProfiles",
+            "hostContract",
+            "runtimeBackend",
+            "artifacts",
+        ],
+        "binding package manifest",
+    )?;
 
     validate_integer_field(
         manifest.get("schemaVersion").ok_or_else(|| {
@@ -628,6 +671,11 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         .ok_or_else(|| {
             "binding package manifest field 'artifacts' must be a JSON object".to_string()
         })?;
+    reject_unexpected_keys(
+        artifacts,
+        &["library", "metadata", "exportsHeader", "glue"],
+        "binding package manifest field 'artifacts'",
+    )?;
     for key in ["library", "metadata", "exportsHeader", "glue"] {
         if !artifacts.contains_key(key) {
             return Err(format!(
@@ -699,6 +747,19 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
     }
 
     Ok(manifest)
+}
+
+fn reject_unexpected_keys(
+    object: &serde_json::Map<String, Value>,
+    allowed_keys: &[&str],
+    context: &str,
+) -> Result<(), String> {
+    for key in object.keys() {
+        if !allowed_keys.contains(&key.as_str()) {
+            return Err(format!("{context} contains unexpected key `{key}`"));
+        }
+    }
+    Ok(())
 }
 
 fn validate_string_field(value: &Value, context: &str, field_name: &str) -> Result<(), String> {
