@@ -3599,15 +3599,31 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
             .get("testsFailed")
             .and_then(|value| value.as_u64())
             .map(|value| value as usize),
-        host_contract: object
-            .get("hostContract")
-            .and_then(|value| value.as_str())
-            .and_then(parse_runtime_host_contract_label),
-        runtime_backend: object
-            .get("runtimeBackend")
-            .and_then(|value| value.as_str())
-            .and_then(parse_runtime_backend_label),
+        host_contract: parse_optional_runtime_host_contract_label(object.get("hostContract")),
+        runtime_backend: parse_optional_runtime_backend_label(object.get("runtimeBackend")),
     })
+}
+
+fn parse_optional_runtime_host_contract_label(
+    value: Option<&serde_json::Value>,
+) -> Option<RuntimeHostContract> {
+    let label = value?.as_str()?;
+    if label.is_empty() {
+        return None;
+    }
+
+    parse_runtime_host_contract_label(label)
+}
+
+fn parse_optional_runtime_backend_label(
+    value: Option<&serde_json::Value>,
+) -> Option<RuntimeBackend> {
+    let label = value?.as_str()?;
+    if label.is_empty() {
+        return None;
+    }
+
+    parse_runtime_backend_label(label)
 }
 
 fn parse_browser_runtime_summary_opt(stdout: &str) -> Option<BrowserRuntimeSummary> {
