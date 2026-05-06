@@ -3513,6 +3513,7 @@ fn infer_function_signature(params: &[String], body: &BlockStatement, is_async: 
     function_signature(params, infer_block_return_type(body), is_async)
 }
 
+#[allow(clippy::only_used_in_recursion)]
 fn infer_function_binding_signature(
     expression: Option<&Expression>,
     source_path: &Path,

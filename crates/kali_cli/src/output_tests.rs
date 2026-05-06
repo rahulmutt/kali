@@ -1150,6 +1150,52 @@ fn validate_effects_payload_value_rejects_unexpected_nested_keys() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_dynamic_reasons_when_dynamic_effects_is_false() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": ["eval"],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("non-empty dynamicReasons should fail when dynamicEffects is false");
+    assert!(
+        err.contains("dynamicReasons") && err.contains("dynamicEffects is false"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_effects_payload_value_rejects_unsorted_dynamic_reasons() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": true,
+        "dynamicReasons": ["proxy-traps", "eval"],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("unsorted dynamicReasons should fail validation");
+    assert!(
+        err.contains("deduplicated and sorted in lexical order"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_effects_payload_value_rejects_duplicate_analysis_context_sets() {
     let value = json!({
         "schemaVersion": 1,

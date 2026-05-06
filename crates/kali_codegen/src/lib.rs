@@ -858,9 +858,7 @@ impl<'a> FunctionEmitter<'a> {
             }
 
             if self.is_object_freeze_call(node) {
-                let Some(argument) = node.children.get(1).copied() else {
-                    return None;
-                };
+                let argument = node.children.get(1).copied()?;
                 id = argument;
                 continue;
             }
@@ -1840,7 +1838,7 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if let Some(_) = self.math_pow_import_index(&callee_node) {
+        if self.math_pow_import_index(&callee_node).is_some() {
             let operands: Vec<_> = node.children.iter().skip(1).copied().collect();
             return self.emit_exponentiation_expression(function, &operands, "Math.pow");
         }
@@ -4172,10 +4170,10 @@ impl<'a> FunctionEmitter<'a> {
             .first()
             .and_then(|receiver| self.node(*receiver).text.as_deref())
             .unwrap_or_default();
-        match callee_node.text.as_deref() {
-            Some(text) if text == "fromEntries" || text.ends_with(".fromEntries") => true,
-            _ => false,
-        }
+        matches!(
+            callee_node.text.as_deref(),
+            Some(text) if text == "fromEntries" || text.ends_with(".fromEntries")
+        )
     }
 
     fn static_object_has_own(&self, object_id: LirNodeId, key: &str) -> Option<bool> {
@@ -4221,9 +4219,7 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
-        let Some(callee) = node.children.first().copied() else {
-            return None;
-        };
+        let callee = node.children.first().copied()?;
         let callee_node = self.node(callee);
         let mode = match callee_node.text.as_deref() {
             Some(text)
@@ -4283,9 +4279,7 @@ impl<'a> FunctionEmitter<'a> {
             _ => return None,
         };
 
-        let Some(object) = callee_node.children.first().copied() else {
-            return None;
-        };
+        let object = callee_node.children.first().copied()?;
         let object_text = self.node(object).text.as_deref().unwrap_or_default();
         if object_text.contains("Object") {
             Some(mode)

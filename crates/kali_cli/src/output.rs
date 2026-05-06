@@ -241,21 +241,33 @@ pub fn validate_effects_payload_value(value: &Value) -> Result<(), String> {
     )?;
     validate_effect_occurrences_value(object.get("effects"), "effects payload effects")?;
 
-    match object.get("dynamicEffects") {
-        Some(Value::Bool(_)) => {}
+    let dynamic_effects = match object.get("dynamicEffects") {
+        Some(Value::Bool(value)) => *value,
         Some(other) => {
             return Err(format!(
                 "effects payload dynamicEffects must be a boolean, got {other}"
             ))
         }
         None => unreachable!("validated above"),
-    }
+    };
 
-    validate_string_array_value(
+    validate_sorted_string_array_value(
         object.get("dynamicReasons"),
         "effects payload dynamicReasons",
         true,
     )?;
+
+    if !dynamic_effects
+        && object
+            .get("dynamicReasons")
+            .and_then(Value::as_array)
+            .is_some_and(|reasons| !reasons.is_empty())
+    {
+        return Err(
+            "effects payload dynamicReasons must be empty when dynamicEffects is false".to_string(),
+        );
+    }
+
     Ok(())
 }
 
