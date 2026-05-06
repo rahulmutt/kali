@@ -881,8 +881,13 @@ fn effect_analysis_marks_proxy_constructor_and_revocable_calls_as_dynamic() {
         r#"
 new Proxy({}, {});
 new globalThis.Proxy({}, {});
+new globalThis["Proxy"]({}, {});
 Proxy.revocable({}, {});
+Proxy["revocable"]({}, {});
 globalThis.Proxy.revocable({}, {});
+globalThis.Proxy["revocable"]({}, {});
+globalThis["Proxy"].revocable({}, {});
+globalThis["Proxy"]["revocable"]({}, {});
 "#,
     );
 

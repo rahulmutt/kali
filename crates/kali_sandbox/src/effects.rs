@@ -711,37 +711,37 @@ fn is_function_constructor(tokens: &[Token], index: usize) -> bool {
 
 fn is_proxy_constructor(tokens: &[Token], index: usize) -> bool {
     matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
-        && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
-        || matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
-            && matches!(tokens.get(index + 1), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
-            && matches!(tokens.get(index + 2).map(|t| t.kind), Some(TokenType::Dot))
-            && matches!(tokens.get(index + 3), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
+        && read_proxy_root(tokens, index + 1).is_some()
 }
 
 fn is_proxy_revocable_call(tokens: &[Token], index: usize) -> bool {
-    is_proxy_revocable_member_call(tokens, index) || is_global_proxy_revocable_call(tokens, index)
+    let Some((cursor, _computed_host_access)) = read_proxy_root(tokens, index) else {
+        return false;
+    };
+
+    let Some((member, next, _computed_member_access)) = read_property_segment(tokens, cursor)
+    else {
+        return false;
+    };
+
+    member == "revocable" && matches!(tokens.get(next).map(|t| t.kind), Some(TokenType::LeftParen))
 }
 
-fn is_proxy_revocable_member_call(tokens: &[Token], index: usize) -> bool {
-    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
-        && matches!(tokens.get(index + 1).map(|t| t.kind), Some(TokenType::Dot))
-        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::Identifier && token.value == "revocable")
-        && matches!(
-            tokens.get(index + 3).map(|t| t.kind),
-            Some(TokenType::LeftParen)
-        )
-}
-
-fn is_global_proxy_revocable_call(tokens: &[Token], index: usize) -> bool {
-    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
-        && matches!(tokens.get(index + 1).map(|t| t.kind), Some(TokenType::Dot))
-        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::Identifier && token.value == "Proxy")
-        && matches!(tokens.get(index + 3).map(|t| t.kind), Some(TokenType::Dot))
-        && matches!(tokens.get(index + 4), Some(token) if token.kind == TokenType::Identifier && token.value == "revocable")
-        && matches!(
-            tokens.get(index + 5).map(|t| t.kind),
-            Some(TokenType::LeftParen)
-        )
+fn read_proxy_root(tokens: &[Token], index: usize) -> Option<(usize, bool)> {
+    match tokens.get(index)? {
+        token if token.kind == TokenType::Identifier && token.value == "Proxy" => {
+            Some((index + 1, false))
+        }
+        token if token.kind == TokenType::Identifier && token.value == "globalThis" => {
+            let (root, next, computed) = read_property_segment(tokens, index + 1)?;
+            if root == "Proxy" {
+                Some((next, computed))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
 fn is_console_write_call(tokens: &[Token], index: usize) -> bool {
