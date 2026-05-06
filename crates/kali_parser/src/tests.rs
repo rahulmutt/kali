@@ -1563,6 +1563,40 @@ fn test_parse_async_generator_function_expression() {
     }
 }
 
+fn assert_parse_class_method_modifiers_are_rejected(source: &str) {
+    let tokens = lex(source);
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert!(
+        output.diagnostics.iter().any(|diag| diag
+            .message
+            .contains("class method async/generator lowering is unavailable")),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn test_parse_generator_class_method_is_rejected() {
+    assert_parse_class_method_modifiers_are_rejected("class Example { *main() { yield 1; } }");
+}
+
+#[test]
+fn test_parse_async_generator_class_method_is_rejected() {
+    assert_parse_class_method_modifiers_are_rejected(
+        "class Example { async *main() { yield 1; } }",
+    );
+}
+
 #[test]
 fn test_parse_async_function_expression() {
     let tokens = lex("const make = async function() { return 1; };");

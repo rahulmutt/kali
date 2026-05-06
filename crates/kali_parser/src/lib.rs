@@ -112,6 +112,29 @@ impl Parser {
         ));
     }
 
+    fn skip_class_body(&mut self) {
+        let mut brace_depth = 0usize;
+
+        while !self.stream.eof() {
+            match self.stream.current_kind() {
+                Some(TokenType::LeftBrace) => {
+                    brace_depth += 1;
+                    let _ = self.stream.advance();
+                }
+                Some(TokenType::RightBrace) => {
+                    let _ = self.stream.advance();
+                    if brace_depth == 0 {
+                        break;
+                    }
+                    brace_depth -= 1;
+                }
+                _ => {
+                    let _ = self.stream.advance();
+                }
+            }
+        }
+    }
+
     fn parse_parameter_list(&mut self) -> Vec<String> {
         let mut params = Vec::new();
         if self.stream.accept(TokenType::RightParen) {
@@ -327,6 +350,17 @@ impl Parser {
         loop {
             if self.stream.eof() || self.stream.current_kind() == Some(&TokenType::RightBrace) {
                 let _ = self.stream.accept(TokenType::RightBrace);
+                break;
+            }
+
+            if matches!(
+                self.stream.current_kind(),
+                Some(TokenType::Async) | Some(TokenType::Star)
+            ) {
+                self.push_feature_unavailable(
+                    "class method async/generator lowering is unavailable in the current phase; use a plain method or the later compatibility path",
+                );
+                self.skip_class_body();
                 break;
             }
 

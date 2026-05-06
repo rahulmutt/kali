@@ -5498,6 +5498,34 @@ fn check_source_file_rejects_async_generator_functions_in_browser_tsx_input() {
     assert_check_source_file_rejects_async_generator_lowering_in_input(ApiSurface::Browser, "tsx");
 }
 
+fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface: ApiSurface) {
+    for extension in ["ts", "js", "jsx", "tsx"] {
+        for source in [
+            "class Example { *main() { yield 1; } }\nnew Example();\n",
+            "class Example { async *main() { yield 1; } }\nnew Example();\n",
+        ] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(format!("main.{extension}"));
+            fs::write(&source_path, source).expect("write source");
+
+            let error = check_source_file(&source_path, api_surface, &[], false, false)
+                .expect_err("class generator method lowering should fail");
+
+            assert!(error.iter().any(|diagnostic| diagnostic.code
+                == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+            assert!(error.iter().any(|diagnostic| diagnostic
+                .message
+                .contains("class method async/generator lowering is unavailable")));
+        }
+    }
+}
+
+#[test]
+fn check_source_file_rejects_class_generator_methods_in_deno_and_browser_input() {
+    assert_check_source_file_rejects_class_generator_methods_in_input(ApiSurface::Deno);
+    assert_check_source_file_rejects_class_generator_methods_in_input(ApiSurface::Browser);
+}
+
 #[test]
 fn collect_library_exports_rejects_generator_default_export_expression() {
     let dir = tempdir().expect("tempdir");
@@ -5673,6 +5701,43 @@ fn build_source_file_rejects_async_generator_functions_in_browser_jsx_input() {
 #[test]
 fn build_source_file_rejects_async_generator_functions_in_browser_tsx_input() {
     assert_build_source_file_rejects_async_generator_lowering_in_browser_input("tsx");
+}
+
+fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface: ApiSurface) {
+    for extension in ["ts", "js", "jsx", "tsx"] {
+        for source in [
+            "class Example { *main() { yield 1; } }\nnew Example();\n",
+            "class Example { async *main() { yield 1; } }\nnew Example();\n",
+        ] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(format!("main.{extension}"));
+            fs::write(&source_path, source).expect("write source");
+
+            let error = build_source_file(
+                &source_path,
+                BuildMode::Fast,
+                api_surface,
+                false,
+                &[],
+                16,
+                None,
+                None,
+            )
+            .expect_err("class generator method lowering should fail");
+
+            assert!(error.iter().any(|diagnostic| diagnostic.code
+                == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+            assert!(error.iter().any(|diagnostic| diagnostic
+                .message
+                .contains("class method async/generator lowering is unavailable")));
+        }
+    }
+}
+
+#[test]
+fn build_source_file_rejects_class_generator_methods_in_deno_and_browser_input() {
+    assert_build_source_file_rejects_class_generator_methods_in_input(ApiSurface::Deno);
+    assert_build_source_file_rejects_class_generator_methods_in_input(ApiSurface::Browser);
 }
 
 fn assert_build_source_file_supports_for_await_array_iteration_in_input(
