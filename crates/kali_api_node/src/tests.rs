@@ -166,7 +166,7 @@ fn runtime_projection_exposes_deterministic_env_snapshot() {
         projection.env_delete("HOME"),
         Some(String::from("/tmp/home"))
     );
-    assert_eq!(projection.env_has("HOME"), false);
+    assert!(!projection.env_has("HOME"));
     assert_eq!(
         projection.env_to_json_value(),
         serde_json::json!({ "EDITOR": "nano" })

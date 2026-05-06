@@ -1887,8 +1887,7 @@ impl TypeContext {
                 || (method == "exp2"
                     && value.is_finite()
                     && value.fract() == 0.0
-                    && value >= 0.0
-                    && value <= 62.0)
+                    && (0.0..=62.0).contains(&value))
             {
                 return;
             }
