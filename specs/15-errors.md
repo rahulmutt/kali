@@ -352,8 +352,10 @@ Examples:
 - `kali package-effects https://example.com/mod.ts`
 - `kali package-effects ./local.ts`
 - `kali package-effects --api browser lodash` *(representative of any package-analysis-specific `--api` / `--compat` / `--wasm-threads` flag or `--sandbox` on `package-effects` in schema v1)*
+- `kali package-effects "   "`
 - `kali package-audit --api browser lodash` *(representative of any package-analysis-specific `--api` / `--compat` / `--wasm-threads` flag or `--sandbox` on `package-audit` in schema v1)*
 - `kali package-audit` with no package argument
+- `kali package-audit "   "`
 - `kali check --fix`
 - `kali check --pretty` without `--output json`
 - `kali package-audit --pretty lodash` without `--output json`

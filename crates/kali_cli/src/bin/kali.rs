@@ -3880,7 +3880,11 @@ fn require_single_registry_package_target(
     output: &CliOutputOptions,
 ) -> Result<String, i32> {
     let (message, exit_code) = match targets.as_slice() {
-        [target] => return Ok(target.clone()),
+        [target] if !target.trim().is_empty() => return Ok(target.clone()),
+        [target] if target.trim().is_empty() => (
+            format!("`{}` requires a non-empty package argument", command),
+            5,
+        ),
         [] => (
             format!("`{}` requires exactly one package argument", command),
             5,

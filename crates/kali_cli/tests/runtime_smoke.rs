@@ -61360,6 +61360,26 @@ fn package_registry_analysis_commands_require_exactly_one_package_argument() {
 }
 
 #[test]
+fn package_registry_analysis_commands_reject_whitespace_package_argument() {
+    for command in ["package-effects", "package-audit"] {
+        let output = Command::new(kali_bin())
+            .arg(command)
+            .arg("   ")
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("requires a non-empty package argument"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn json_package_registry_analysis_commands_require_exactly_one_package_argument() {
     for (command, args, expected_message) in [
         (
@@ -61406,6 +61426,37 @@ fn json_package_registry_analysis_commands_require_exactly_one_package_argument(
                 .as_str()
                 .expect("message string")
                 .contains(expected_message),
+            "json: {json}"
+        );
+    }
+}
+
+#[test]
+fn json_package_registry_analysis_commands_reject_whitespace_package_argument() {
+    for command in ["package-effects", "package-audit"] {
+        let output = Command::new(kali_bin())
+            .arg("--output")
+            .arg("json")
+            .arg(command)
+            .arg("   ")
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert!(!json["success"].as_bool().expect("success boolean"));
+        assert_eq!(json["exitCode"], 5);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(!errors.is_empty(), "errors: {errors:?}");
+        assert_eq!(errors[0]["code"], "E5508");
+        assert!(
+            errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("requires a non-empty package argument"),
             "json: {json}"
         );
     }

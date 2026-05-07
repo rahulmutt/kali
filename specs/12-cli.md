@@ -62,6 +62,7 @@ Canonical install-target and package-argument arity rule:
 - `kali package-effects <package>` and `kali package-audit <package>` follow the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md)
 - passing more than the allowed number of explicit install targets/package arguments is `E5508` rather than permission to invent an undocumented batch mode
 - omitting the required explicit registry-package argument for a registry-analysis command is also `E5508`
+- the single explicit package argument must be a non-empty registry identifier; whitespace-only strings are invalid usage and are rejected before registry lookup
 - flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5508`
 
 Canonical input-kind rule:
