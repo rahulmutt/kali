@@ -164,6 +164,46 @@ fn json_build_emits_for_of_break_continue_in_ts_input() {
 }
 
 #[test]
+fn build_emits_for_of_break_continue_in_jsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.jsx",
+        false,
+        for_of_break_continue_source(),
+        "forOfArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_break_continue_in_jsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.jsx",
+        true,
+        for_of_break_continue_source(),
+        "forOfArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_of_break_continue_in_tsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.tsx",
+        false,
+        for_of_break_continue_source(),
+        "forOfArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_of_break_continue_in_tsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.tsx",
+        true,
+        for_of_break_continue_source(),
+        "forOfArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
 fn build_emits_for_await_break_continue_in_js_input() {
     assert_browser_bundle_break_continue(
         "app.js",
@@ -197,6 +237,46 @@ fn build_emits_for_await_break_continue_in_ts_input() {
 fn json_build_emits_for_await_break_continue_in_ts_input() {
     assert_browser_bundle_break_continue(
         "app.ts",
+        true,
+        for_await_break_continue_source(),
+        "forAwaitArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_break_continue_in_jsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.jsx",
+        false,
+        for_await_break_continue_source(),
+        "forAwaitArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_break_continue_in_jsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.jsx",
+        true,
+        for_await_break_continue_source(),
+        "forAwaitArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn build_emits_for_await_break_continue_in_tsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.tsx",
+        false,
+        for_await_break_continue_source(),
+        "forAwaitArrayIterationBreakContinueWrapper",
+    );
+}
+
+#[test]
+fn json_build_emits_for_await_break_continue_in_tsx_input() {
+    assert_browser_bundle_break_continue(
+        "app.tsx",
         true,
         for_await_break_continue_source(),
         "forAwaitArrayIterationBreakContinueWrapper",

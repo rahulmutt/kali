@@ -32,7 +32,7 @@ The checked-in repository already includes:
 - Embedding/evidence surfaces: public embedding artifacts and bindings metadata, optimization modes, deterministic PGO profile validation, benchmark fixtures, and Lean proof infrastructure for the published boundary.
 
 - Browser-requested run/test browser-harness coverage now also exercises integer-like `Object.keys(...)` / `Object.values(...)` ordering in JS, TS, JSX, and TSX input with JSON-output coverage.
-- Browser-bundle smoke now also covers the `for...of` / `for await...of` break-and-continue slice over spread array iterations in JS and TS input with JSON-output coverage.
+- Browser-bundle smoke now also covers the `for...of` / `for await...of` break-and-continue slice over spread array iterations in JS and TS input with JSON-output coverage, and the same browser-bundle path now also covers that slice in JSX and TSX input with JSON-output coverage.
 - Optimizer regression coverage now also pins the mixed-bracket `globalThis.Reflect["ownKeys"]` spelling over literal object shapes across fast/release/release-advanced, keeping the `Reflect.ownKeys` canonicalization slice aligned with the existing alias coverage.
 
 ## Planning consequence
