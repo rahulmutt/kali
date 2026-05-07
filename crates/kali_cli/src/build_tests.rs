@@ -10479,6 +10479,33 @@ fn validate_build_result_value_rejects_non_string_bundle_format() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_empty_or_whitespace_bundle_format() {
+    for invalid_value in ["", "   "] {
+        let invalid_bundle = serde_json::json!({
+            "artifactKind": "bundle",
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+            "artifacts": [
+                { "kind": "js-glue", "path": "browser.js" },
+                { "kind": "wasm-module", "path": "browser.wasm" }
+            ],
+            "exports": [],
+            "bundleFormat": invalid_value
+        });
+
+        let err = validate_build_result_value(&invalid_bundle)
+            .expect_err("empty or whitespace bundleFormat should fail validation");
+        assert!(err.contains("bundleFormat"), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_empty_or_whitespace_build_mode() {
     for invalid_value in ["", "   "] {
         let invalid_bundle = serde_json::json!({

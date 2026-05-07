@@ -2040,6 +2040,12 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             )?;
             validate_build_result_exports_array(object.get("exports"), "build result exports")?;
             match object.get("bundleFormat") {
+                Some(Value::String(format)) if format.trim().is_empty() => {
+                    return Err(
+                        "build result bundleFormat must be a non-empty, non-whitespace string"
+                            .to_string(),
+                    );
+                }
                 Some(Value::String(format)) if matches!(format.as_str(), "esm" | "cjs") => {}
                 Some(Value::String(format)) => {
                     return Err(format!("unsupported build result bundleFormat '{format}'"));
