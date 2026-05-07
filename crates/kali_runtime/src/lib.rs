@@ -3566,11 +3566,15 @@ fn parse_runtime_backend_label(label: &str) -> Option<RuntimeBackend> {
     }
 }
 
-fn parse_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
     let items = value?.as_array()?;
     let mut strings = Vec::with_capacity(items.len());
     for item in items {
-        strings.push(item.as_str()?.to_owned());
+        let item = item.as_str()?;
+        if item.trim().is_empty() {
+            return None;
+        }
+        strings.push(item.to_owned());
     }
     Some(strings)
 }
@@ -3590,8 +3594,8 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
         return None;
     }
 
-    let args = parse_string_array_field(object.get("args"))?;
-    let tests = parse_string_array_field(object.get("tests"))?;
+    let args = parse_non_blank_string_array_field(object.get("args"))?;
+    let tests = parse_non_blank_string_array_field(object.get("tests"))?;
     Some(BrowserRuntimeSummary {
         args,
         tests,
