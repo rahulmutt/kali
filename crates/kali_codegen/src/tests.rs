@@ -227,7 +227,8 @@ fn object_is_lowers_through_parenthesized_same_reference_wrappers() {
 }
 
 #[test]
-fn for_of_object_enumeration_lowers_for_single_quoted_bracketed_aliases_over_frozen_from_entries_operands() {
+fn for_of_object_enumeration_lowers_for_single_quoted_bracketed_aliases_over_frozen_from_entries_operands(
+) {
     let program = parse_and_lower_lir(
         "for (const value of [...globalThis['Object']['values'](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(value); } for (const key of [...globalThis['Object']['keys'](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(key); } for (const entry of [...globalThis['Object']['entries'](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(entry[0]); console.log(entry[1]); }",
     );

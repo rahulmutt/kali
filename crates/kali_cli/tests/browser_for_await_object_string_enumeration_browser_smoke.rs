@@ -144,7 +144,7 @@ fn assert_browser_for_await_object_string_enumeration_support(
 
     if command == "build" {
         assert!(
-            !output.status.success(),
+            output.status.success(),
             "stdout: {}\nstderr: {}",
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
@@ -153,22 +153,8 @@ fn assert_browser_for_await_object_string_enumeration_support(
             let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
             assert_eq!(json["schemaVersion"], 1);
             assert_eq!(json["command"], command);
-            assert_eq!(json["success"], false);
-            assert!(
-                json["errors"]
-                    .as_array()
-                    .expect("errors array")
-                    .iter()
-                    .all(|error| error["code"] == "E5506"),
-                "expected E5506 browser-bundle rejection: {json}"
-            );
-        } else {
-            assert!(
-                String::from_utf8_lossy(&output.stderr).contains("E5506"),
-                "stdout: {}\nstderr: {}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
+            assert_eq!(json["success"], true);
+            assert!(json["errors"].as_array().expect("errors array").is_empty());
         }
         return;
     }

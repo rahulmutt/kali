@@ -1821,6 +1821,10 @@ impl Optimizer {
             self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
         if let Some(ConstantValue::String(string_text)) = literal_value(program, object_id) {
             if let Some(mode) = string_mode {
+                if mode == "entries" {
+                    return None;
+                }
+
                 let mut elements = Vec::with_capacity(string_text.chars().count());
                 match mode {
                     "keys" => {
@@ -1841,16 +1845,6 @@ impl Optimizer {
                                     format!("{:?}", value.to_string()),
                                 ),
                             );
-                        }
-                    }
-                    "entries" => {
-                        for (index, value) in string_text.chars().enumerate() {
-                            let key = self
-                                .clone_string_literal(program, format!("{:?}", index.to_string()));
-                            let value = self
-                                .clone_string_literal(program, format!("{:?}", value.to_string()));
-                            let pair = self.push_array_literal(program, vec![key, value]);
-                            elements.push(pair);
                         }
                     }
                     _ => unreachable!(),

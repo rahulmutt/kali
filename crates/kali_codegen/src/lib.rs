@@ -4391,6 +4391,12 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_object_enumeration_call(&self, node: &LirNode) -> Option<ObjectEnumerationMode> {
+        let node = if node.kind == LirNodeKind::Value && node.children.len() == 1 {
+            self.node(node.children[0])
+        } else {
+            node
+        };
+
         if node.kind != LirNodeKind::Call {
             return None;
         }
@@ -4534,6 +4540,15 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn render_static_string_value(&self, node: &LirNode) -> Option<String> {
+        let node = if node.kind == LirNodeKind::Value
+            && node.text.as_deref().is_some_and(|text| text.is_empty())
+            && node.children.len() == 1
+        {
+            self.node(node.children[0])
+        } else {
+            node
+        };
+
         let text = match node.kind {
             LirNodeKind::Literal if node.children.is_empty() => node.text.as_deref()?,
             LirNodeKind::Value if node.children.is_empty() => {
@@ -4637,7 +4652,18 @@ impl<'a> FunctionEmitter<'a> {
 
         let node = self.node(resolved_id);
         if matches!(node.kind, LirNodeKind::Literal) {
-            items.push(resolved_id);
+            let original = self.node(id);
+            if original.kind == LirNodeKind::Value
+                && original.children.is_empty()
+                && original
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| self.bindings.contains_key(text))
+            {
+                items.push(id);
+            } else {
+                items.push(resolved_id);
+            }
             return true;
         }
 
