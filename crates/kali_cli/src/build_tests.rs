@@ -9752,6 +9752,34 @@ fn validate_artifact_metadata_value_rejects_duplicate_export_names() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_empty_or_whitespace_build_mode() {
+    for (field, invalid_value) in [("buildMode", ""), ("buildMode", "   ")] {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": "component",
+            "entrypoint": "src/main.ts",
+            "buildMode": invalid_value,
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": []
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("empty or whitespace artifact metadata buildMode should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_empty_or_whitespace_entrypoint_and_api_surface() {
     for (field, invalid_value) in [
         ("entrypoint", ""),
@@ -10327,6 +10355,33 @@ fn validate_build_result_value_rejects_non_string_bundle_format() {
     let err = validate_build_result_value(&invalid_bundle)
         .expect_err("non-string bundleFormat should fail validation");
     assert!(err.contains("bundleFormat"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_empty_or_whitespace_build_mode() {
+    for invalid_value in ["", "   "] {
+        let invalid_bundle = serde_json::json!({
+            "artifactKind": "bundle",
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": invalid_value,
+            "sourceHash": "sha256-deadbeef",
+            "artifacts": [
+                { "kind": "js-glue", "path": "browser.js" },
+                { "kind": "wasm-module", "path": "browser.wasm" }
+            ],
+            "exports": [],
+            "bundleFormat": "esm"
+        });
+
+        let err = validate_build_result_value(&invalid_bundle)
+            .expect_err("empty or whitespace buildMode should fail validation");
+        assert!(err.contains("buildMode"), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]

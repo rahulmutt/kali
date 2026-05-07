@@ -1698,6 +1698,12 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
     }
 
     match object.get("buildMode") {
+        Some(Value::String(mode)) if mode.trim().is_empty() => {
+            return Err(
+                "artifact metadata buildMode must be a non-empty, non-whitespace string"
+                    .to_string(),
+            );
+        }
         Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
         Some(Value::String(mode)) => {
             return Err(format!("unsupported artifact metadata buildMode '{mode}'"));
@@ -1873,6 +1879,11 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
     const VALID_BUILD_MODES: [&str; 3] = ["fast", "release", "release-advanced"];
 
     match object.get("buildMode") {
+        Some(Value::String(mode)) if mode.trim().is_empty() => {
+            return Err(
+                "build result buildMode must be a non-empty, non-whitespace string".to_string(),
+            );
+        }
         Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
         Some(Value::String(mode)) => {
             return Err(format!("unsupported build result buildMode '{mode}'"));
