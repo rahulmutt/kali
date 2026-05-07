@@ -10,6 +10,7 @@ fn kali_bin() -> String {
 fn object_is_browser_harness_source() -> &'static str {
     r#"const zero = 0; const zeroAlias = zero;
 console.log(Object.is(zeroAlias, -0));
+console.log(Object.is(-0, +0));
 console.log(Object.is(+1, 1));
 console.log(Object.is(true, true));
 console.log(Object.is("hello", "hello"));
@@ -32,6 +33,7 @@ fn object_is_browser_harness_test_source() -> &'static str {
   const zero = 0;
   const zeroAlias = zero;
   console.log(Object.is(zeroAlias, -0));
+  console.log(Object.is(-0, +0));
   console.log(Object.is(+1, 1));
   console.log(Object.is(true, true));
   console.log(Object.is("hello", "hello"));
