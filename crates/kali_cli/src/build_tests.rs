@@ -8998,11 +8998,11 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const main = null ?? ((input) => 1); const helper = void 0 ?? ((value) => 2);",
+        "const main = null ?? ((input) => 1); const helper = void 0 ?? ((value) => 2); const asyncMain = null ?? (async (input) => 3); const asyncHelper = void 0 ?? (async (value) => 4);",
     )
     .expect("write source");
 
-    let arrow_function = |param: &str, value: f64| {
+    let arrow_function = |param: &str, value: f64, is_async: bool| {
         Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
             expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
                 kali_ast::ArrowFunctionExpression {
@@ -9010,7 +9010,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                         name: param.to_string(),
                     }],
                     body: Expression::Literal(kali_ast::LiteralValue::Number(value)),
-                    is_async: false,
+                    is_async,
                     returnType: None,
                 },
             ))),
@@ -9033,7 +9033,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                     id: "main".to_string(),
                     init: Some(nullish_expression(
                         Expression::Literal(kali_ast::LiteralValue::Null),
-                        arrow_function("input", 1.0),
+                        arrow_function("input", 1.0, false),
                     )),
                 },
                 kali_ast::VariableDeclarator {
@@ -9043,7 +9043,24 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                             operator: "void".to_string(),
                             argument: Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
                         })),
-                        arrow_function("value", 2.0),
+                        arrow_function("value", 2.0, false),
+                    )),
+                },
+                kali_ast::VariableDeclarator {
+                    id: "async_main".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::Literal(kali_ast::LiteralValue::Null),
+                        arrow_function("input", 3.0, true),
+                    )),
+                },
+                kali_ast::VariableDeclarator {
+                    id: "async_helper".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
+                            operator: "void".to_string(),
+                            argument: Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
+                        })),
+                        arrow_function("value", 4.0, true),
                     )),
                 },
             ],
@@ -9058,6 +9075,14 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                     local: "helper".to_string(),
                     exported: "secondary".to_string(),
                 },
+                kali_ast::ExportSpecifier {
+                    local: "async_main".to_string(),
+                    exported: "async_alias".to_string(),
+                },
+                kali_ast::ExportSpecifier {
+                    local: "async_helper".to_string(),
+                    exported: "async_secondary".to_string(),
+                },
             ],
             source: None,
         }),
@@ -9066,13 +9091,19 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
     let exports = collect_library_exports_from_statements(&statements, &source_path)
         .expect("library exports should collect");
 
-    assert_eq!(exports.len(), 2, "exports: {exports:?}");
+    assert_eq!(exports.len(), 4, "exports: {exports:?}");
     assert!(exports
         .iter()
         .any(|export| export.name == "alias" && export.signature == "(input) => number"));
     assert!(exports
         .iter()
         .any(|export| { export.name == "secondary" && export.signature == "(value) => number" }));
+    assert!(exports.iter().any(|export| {
+        export.name == "async_alias" && export.signature == "(input) => Promise<number>"
+    }));
+    assert!(exports.iter().any(|export| {
+        export.name == "async_secondary" && export.signature == "(value) => Promise<number>"
+    }));
 }
 
 #[test]
