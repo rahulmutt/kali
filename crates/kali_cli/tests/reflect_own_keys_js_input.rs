@@ -13,6 +13,10 @@ const keys = globalThis.Reflect.ownKeys(obj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+let syncCount = 0;
+for (const key of Reflect.ownKeys(obj)) {
+  syncCount += 1;
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -33,7 +37,8 @@ if (
   bracketedKeys[0] !== '1' ||
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
-  bracketedKeys[3] !== 'a'
+  bracketedKeys[3] !== 'a' ||
+  syncCount !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -48,6 +53,10 @@ fn reflect_own_keys_test_source() -> &'static str {
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  let syncCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    syncCount += 1;
+  }
   if (
     keys.length !== 4 ||
     keys[0] !== '1' ||
@@ -68,7 +77,8 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[0] !== '1' ||
     bracketedKeys[1] !== '2' ||
     bracketedKeys[2] !== 'b' ||
-    bracketedKeys[3] !== 'a'
+    bracketedKeys[3] !== 'a' ||
+    syncCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
