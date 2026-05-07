@@ -322,11 +322,7 @@ pub fn validate_init_payload_value(value: &Value) -> Result<(), String> {
     )?;
 
     for key in ["root", "manifestPath", "sourcePath"] {
-        match object.get(key) {
-            Some(Value::String(_)) => {}
-            Some(other) => return Err(format!("init payload {key} must be a string, got {other}")),
-            None => unreachable!("validated above"),
-        }
+        validate_non_empty_string_value(object.get(key), &format!("init payload {key}"))?;
     }
 
     match object.get("library") {

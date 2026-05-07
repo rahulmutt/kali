@@ -948,6 +948,32 @@ fn validate_init_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_init_payload_value_rejects_blank_paths() {
+    for (field, value) in [
+        ("root", json!("")),
+        ("manifestPath", json!("  \t ")),
+        ("sourcePath", json!("\n")),
+    ] {
+        let payload = json!({
+            "root": "/workspace/example",
+            "manifestPath": "/workspace/example/kali.json",
+            "sourcePath": "/workspace/example/src/main.ts",
+            "library": false,
+        });
+        let mut payload = payload.as_object().expect("init payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_init_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("blank init payload paths should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_fmt_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "filesFormatted": 2,

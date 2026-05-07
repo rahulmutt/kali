@@ -158,9 +158,9 @@ Malformed environment override values fail through the standard envelope diagnos
 ```
 
 Required fields:
-- `root: string` — effective project root where the scaffold was created
-- `manifestPath: string` — path to the written `kali.json`
-- `sourcePath: string` — path to the starter source file (`main.ts` or `lib.ts`)
+- `root: non-empty, non-whitespace string` — effective project root where the scaffold was created
+- `manifestPath: non-empty, non-whitespace string` — path to the written `kali.json`
+- `sourcePath: non-empty, non-whitespace string` — path to the starter source file (`main.ts` or `lib.ts`)
 - `library: boolean` — whether the selected scaffold template was `--lib`
 
 ## Common Source Location Types

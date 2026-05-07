@@ -556,7 +556,7 @@ kali init --output json --lib               # Emit the library scaffold result e
 ```
 
 Behavior:
-- `--output json` emits the standard command envelope with command name `init` and the `InitPayload` shape from [18 — Schemas](18-schemas.md), including `root`, `manifestPath`, `sourcePath`, and `library`
+- `--output json` emits the standard command envelope with command name `init` and the `InitPayload` shape from [18 — Schemas](18-schemas.md), including non-empty `root`, `manifestPath`, and `sourcePath` strings plus `library`
 
 Scaffold simplification rules:
 - `kali init` is **current-directory-scoped** in schema v1: it scaffolds the current working directory and does not retarget itself to an ancestor project root discovered above it.
