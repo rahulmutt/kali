@@ -158,6 +158,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     let build_variants = build["anyOf"].as_array().expect("anyOf array");
     assert_eq!(build_variants.len(), 6);
 
+    for variant in build_variants.iter().take(5) {
+        assert_eq!(variant["properties"]["sizeBytes"]["type"], "integer");
+        assert_eq!(variant["properties"]["sizeBytes"]["minimum"], 0);
+    }
+
     assert_eq!(
         build_variants[0]["properties"]["artifactKind"]["const"],
         "executable"
