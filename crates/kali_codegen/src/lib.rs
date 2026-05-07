@@ -3002,8 +3002,7 @@ impl<'a> FunctionEmitter<'a> {
         let base_zero = base_numeric_value.is_some_and(|value| value == 0.0);
         let exponent_positive_integer =
             exponent_numeric_value.is_some_and(|value| value > 0.0 && value.fract() == 0.0);
-        let exponent_negative_integer =
-            exponent_numeric_value.is_some_and(|value| value < 0.0 && value.fract() == 0.0);
+        let exponent_integer = exponent_numeric_value.is_some_and(|value| value.fract() == 0.0);
         if base_zero && exponent_positive_integer {
             let _ = self.emit_node(function, *base, true);
             function.instruction(&Instruction::Drop);
@@ -3048,7 +3047,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            if base_identity == -1.0 && exponent_negative_integer {
+            if base_identity == -1.0 && exponent_integer {
                 let _ = self.emit_node(function, *base, true);
                 function.instruction(&Instruction::Drop);
                 let produced = self.emit_node(function, *exponent, true);
