@@ -1486,6 +1486,39 @@ fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_unexpected_analysis_context_keys() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+                "unexpected": true,
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("unexpected analysisContext keys should fail validation");
+    assert!(err.contains("analysisContext"), "unexpected error: {err}");
+    assert!(
+        err.contains("unexpected key `unexpected`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_non_string_package_coordinate_fields() {
     for (field, value) in [
         ("name", json!(1)),
