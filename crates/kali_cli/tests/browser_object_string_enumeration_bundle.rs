@@ -304,6 +304,10 @@ export async function browserObjectStringEnumerationAwait() {
   for await (const key of globalThis["Object"]["keys"]('ab')) {
     fullyBracketedKeys.push(key);
   }
+  const singleBracketedKeys = [];
+  for await (const key of globalThis['Object']['keys']('ab')) {
+    singleBracketedKeys.push(key);
+  }
 
   const values = [];
   for await (const value of Object.values('ab')) {
@@ -324,6 +328,10 @@ export async function browserObjectStringEnumerationAwait() {
   const fullyBracketedValues = [];
   for await (const value of globalThis["Object"]["values"]('ab')) {
     fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of globalThis['Object']['values']('ab')) {
+    singleBracketedValues.push(value);
   }
 
   const entries = [];
@@ -346,22 +354,29 @@ export async function browserObjectStringEnumerationAwait() {
   for await (const entry of globalThis["Object"]["entries"]('ab')) {
     fullyBracketedEntries.push(entry);
   }
+  const singleBracketedEntries = [];
+  for await (const entry of globalThis['Object']['entries']('ab')) {
+    singleBracketedEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(globalKeys);
   assertObjectKeysIteration(mixedKeys);
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
   assertObjectValuesIteration(values);
   assertObjectValuesIteration(globalValues);
   assertObjectValuesIteration(mixedValues);
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
 }
 "##
 }
