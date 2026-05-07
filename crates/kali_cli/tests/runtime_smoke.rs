@@ -45832,6 +45832,22 @@ fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_confi
     }
 }
 
+#[test]
+fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_configured_in_ts_jsx_and_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+                    command,
+                    extension,
+                    json_output,
+                );
+            }
+        }
+    }
+}
+
 fn assert_class_generator_method_lowering_rejection(
     command: &str,
     json_output: bool,
