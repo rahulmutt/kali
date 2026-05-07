@@ -34,22 +34,26 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
   const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
   const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
   const collectedEntries = [...Object.entries(fromEntries)];
   const globalEntries = [...globalThis.Object.entries(fromEntries)];
   const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
   const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
   const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
 
   assertObjectKeysIteration(collectedKeys);
   assertObjectKeysIteration(globalKeys);
   assertObjectKeysIteration(mixedKeys);
   assertObjectKeysIteration(mixedBracketedKeys);
   assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
   assertObjectEntriesIteration(collectedEntries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
   console.log('browser object keys and entries spread iteration ok');
 });
 "#
@@ -81,22 +85,26 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   const mixedKeys = [...globalThis.Object["keys"](fromEntries)];
   const mixedBracketedKeys = [...globalThis["Object"].keys(fromEntries)];
   const bracketedKeys = [...globalThis["Object"]["keys"](fromEntries)];
+  const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
   const collectedEntries = [...Object.entries(fromEntries)];
   const globalEntries = [...globalThis.Object.entries(fromEntries)];
   const mixedEntries = [...globalThis.Object["entries"](fromEntries)];
   const mixedBracketedEntries = [...globalThis["Object"].entries(fromEntries)];
   const bracketedEntries = [...globalThis["Object"]["entries"](fromEntries)];
+  const singleBracketedEntries = [...globalThis['Object']['entries'](fromEntries)];
 
   assertObjectKeysIteration(collectedKeys);
   assertObjectKeysIteration(globalKeys);
   assertObjectKeysIteration(mixedKeys);
   assertObjectKeysIteration(mixedBracketedKeys);
   assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
   assertObjectEntriesIteration(collectedEntries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
   console.log('browser object keys and entries spread iteration ok');
 }
 
