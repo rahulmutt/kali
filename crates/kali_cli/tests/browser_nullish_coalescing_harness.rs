@@ -12,11 +12,11 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 }
 
 fn browser_run_source() -> &'static str {
-    "const value = null ?? 1; console.log(value);\n"
+    "const nullValue = null ?? 1; const voidValue = void 0 ?? 2; console.log(nullValue + voidValue);\n"
 }
 
 fn browser_test_source() -> &'static str {
-    "Kali.test('browser nullish coalescing', () => { const value = null ?? 1; return value; });\n"
+    "Kali.test('browser nullish coalescing', () => { const nullValue = null ?? 1; const voidValue = void 0 ?? 2; return nullValue + voidValue; });\n"
 }
 
 fn assert_browser_harness_nullish_coalescing(
