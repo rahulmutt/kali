@@ -10155,6 +10155,52 @@ fn validate_build_result_value_rejects_whitespace_profile_data_hash() {
 }
 
 #[test]
+fn validate_build_result_value_accepts_optional_provenance_fields() {
+    let value = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "release-advanced",
+        "sourceHash": "sha256-deadbeef",
+        "hostContract": "kali-hosted",
+        "runtimeBackend": "wasmtime",
+        "profileDataHash": "sha256-feedface",
+        "artifacts": [
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    validate_build_result_value(&value).expect("build result provenance fields should validate");
+}
+
+#[test]
+fn validate_build_result_value_rejects_whitespace_optional_provenance_fields() {
+    for key in ["hostContract", "runtimeBackend"] {
+        let invalid_bundle = serde_json::json!({
+            "artifactKind": "bundle",
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+            (key): "   ",
+            "artifacts": [
+                { "kind": "js-glue", "path": "browser.js" },
+                { "kind": "wasm-module", "path": "browser.wasm" }
+            ],
+            "exports": [],
+            "bundleFormat": "esm"
+        });
+
+        let err = validate_build_result_value(&invalid_bundle)
+            .expect_err("whitespace provenance field should fail validation");
+        assert!(err.contains(key), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_empty_source_hash() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

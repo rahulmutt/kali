@@ -353,11 +353,36 @@ fn core_schema_documents_match_current_cli_contracts() {
     }
 
     for (variant_index, expected_properties) in [
-        (0, vec!["profileDataHash"]),
-        (1, vec!["witPath", "profileDataHash"]),
-        (2, vec!["profileDataHash"]),
-        (3, vec!["witPath", "profileDataHash"]),
-        (4, vec!["witPath", "bindingPackagePath", "profileDataHash"]),
+        (0, vec!["hostContract", "runtimeBackend", "profileDataHash"]),
+        (
+            1,
+            vec![
+                "witPath",
+                "hostContract",
+                "runtimeBackend",
+                "profileDataHash",
+            ],
+        ),
+        (2, vec!["hostContract", "runtimeBackend", "profileDataHash"]),
+        (
+            3,
+            vec![
+                "witPath",
+                "hostContract",
+                "runtimeBackend",
+                "profileDataHash",
+            ],
+        ),
+        (
+            4,
+            vec![
+                "witPath",
+                "bindingPackagePath",
+                "hostContract",
+                "runtimeBackend",
+                "profileDataHash",
+            ],
+        ),
     ] {
         for property in expected_properties {
             assert!(
@@ -372,6 +397,16 @@ fn core_schema_documents_match_current_cli_contracts() {
     for variant_index in [0, 2] {
         assert_eq!(
             build_variants[variant_index]["properties"]["profileDataHash"]["type"],
+            "string"
+        );
+    }
+    for variant_index in [0, 1, 2, 3, 4] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["hostContract"]["type"],
+            "string"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["runtimeBackend"]["type"],
             "string"
         );
     }

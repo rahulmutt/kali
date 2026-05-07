@@ -1884,19 +1884,16 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    if let Some(profile_data_hash) = object.get("profileDataHash") {
-        match profile_data_hash {
-            Value::String(value) if !value.trim().is_empty() => {}
-            Value::String(_) => {
-                return Err(
-                    "build result profileDataHash must be a non-empty, non-whitespace string"
-                        .to_string(),
-                )
-            }
-            other => {
-                return Err(format!(
-                    "build result profileDataHash must be a string, got {other}"
-                ))
+    for key in ["hostContract", "runtimeBackend", "profileDataHash"] {
+        if let Some(value) = object.get(key) {
+            match value {
+                Value::String(value) if !value.trim().is_empty() => {}
+                Value::String(_) => {
+                    return Err(format!(
+                        "build result {key} must be a non-empty, non-whitespace string"
+                    ));
+                }
+                other => return Err(format!("build result {key} must be a string, got {other}")),
             }
         }
     }
@@ -1908,6 +1905,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             "sizeBytes",
             "buildMode",
             "sourceHash",
+            "hostContract",
+            "runtimeBackend",
             "profileDataHash",
         ],
         "lib" => &[
@@ -1916,6 +1915,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             "sizeBytes",
             "buildMode",
             "sourceHash",
+            "hostContract",
+            "runtimeBackend",
             "profileDataHash",
             "metadataPath",
             "witPath",
@@ -1928,6 +1929,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             "sizeBytes",
             "buildMode",
             "sourceHash",
+            "hostContract",
+            "runtimeBackend",
             "profileDataHash",
             "artifacts",
             "exports",
@@ -1939,6 +1942,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             "sizeBytes",
             "buildMode",
             "sourceHash",
+            "hostContract",
+            "runtimeBackend",
             "profileDataHash",
             "metadataPath",
             "witPath",
@@ -1952,6 +1957,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             "sizeBytes",
             "buildMode",
             "sourceHash",
+            "hostContract",
+            "runtimeBackend",
             "profileDataHash",
             "metadataPath",
             "witPath",

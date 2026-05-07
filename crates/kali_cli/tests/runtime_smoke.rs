@@ -49356,6 +49356,8 @@ fn json_build_emits_browser_bundle_artifacts_with_profile_data_hash() {
         .expect("build payload object");
     assert_eq!(payload["artifactKind"], "bundle");
     assert_eq!(payload["bundleFormat"], "esm");
+    assert_eq!(payload["hostContract"], "kali-hosted");
+    assert_eq!(payload["runtimeBackend"], "wasmtime");
 
     let profile_data = ProfileData::new(vec![ProfileSample::new(
         ProfileSampleKind::Function,

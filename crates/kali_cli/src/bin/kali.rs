@@ -1330,9 +1330,15 @@ fn build_result_artifact_role_rank(role: &str) -> usize {
 }
 
 impl BuildResult {
-    fn inject_profile_data_hash(mut value: Value, metadata: &build::ArtifactMetadata) -> Value {
-        if let Some(profile_data_hash) = &metadata.profile_data_hash {
-            if let Some(object) = value.as_object_mut() {
+    fn inject_metadata_fields(mut value: Value, metadata: &build::ArtifactMetadata) -> Value {
+        if let Some(object) = value.as_object_mut() {
+            if let Some(host_contract) = &metadata.host_contract {
+                object.insert("hostContract".to_string(), json!(host_contract));
+            }
+            if let Some(runtime_backend) = &metadata.runtime_backend {
+                object.insert("runtimeBackend".to_string(), json!(runtime_backend));
+            }
+            if let Some(profile_data_hash) = &metadata.profile_data_hash {
                 object.insert("profileDataHash".to_string(), json!(profile_data_hash));
             }
         }
@@ -1352,7 +1358,7 @@ impl BuildResult {
                 output_path,
                 wasm_bytes,
                 metadata,
-            } => Self::inject_profile_data_hash(
+            } => Self::inject_metadata_fields(
                 json!({
                     "artifactKind": "executable",
                     "outputPath": output_path,
@@ -1375,7 +1381,7 @@ impl BuildResult {
                     json!({ "kind": "meta-json", "path": meta_path }),
                 ];
                 Self::sort_build_result_artifacts(&mut artifacts);
-                Self::inject_profile_data_hash(
+                Self::inject_metadata_fields(
                     json!({
                         "artifactKind": "lib",
                         "outputPath": output_path,
@@ -1405,7 +1411,7 @@ impl BuildResult {
                     json!({ "kind": "cabi-metadata", "path": meta_path }),
                 ];
                 Self::sort_build_result_artifacts(&mut artifacts);
-                Self::inject_profile_data_hash(
+                Self::inject_metadata_fields(
                     json!({
                         "artifactKind": "capi",
                         "outputPath": output_path,
@@ -1436,7 +1442,7 @@ impl BuildResult {
                     json!({ "kind": "binding-package", "path": binding_package_path, "role": "binding-package-manifest" }),
                 ];
                 Self::sort_build_result_artifacts(&mut artifacts);
-                Self::inject_profile_data_hash(
+                Self::inject_metadata_fields(
                     json!({
                         "artifactKind": "component",
                         "outputPath": output_path,
@@ -1473,7 +1479,7 @@ impl BuildResult {
                     |artifact| json!({ "kind": artifact.kind.clone(), "path": artifact.path }),
                 ));
                 Self::sort_build_result_artifacts(&mut artifacts);
-                Self::inject_profile_data_hash(
+                Self::inject_metadata_fields(
                     json!({
                         "artifactKind": "bundle",
                         "outputPath": output_dir,
