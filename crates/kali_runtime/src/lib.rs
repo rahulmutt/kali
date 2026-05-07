@@ -3596,13 +3596,15 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
 
     let args = parse_non_blank_string_array_field(object.get("args"))?;
     let tests = parse_non_blank_string_array_field(object.get("tests"))?;
+    let tests_failed = match object.get("testsFailed") {
+        Some(value) => Some(value.as_u64()? as usize),
+        None => None,
+    };
+
     Some(BrowserRuntimeSummary {
         args,
         tests,
-        tests_failed: object
-            .get("testsFailed")
-            .and_then(|value| value.as_u64())
-            .map(|value| value as usize),
+        tests_failed,
         host_contract: parse_optional_runtime_host_contract_label(object.get("hostContract")),
         runtime_backend: parse_optional_runtime_backend_label(object.get("runtimeBackend")),
     })

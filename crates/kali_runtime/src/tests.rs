@@ -1581,8 +1581,8 @@ fn browser_runtime_summary_merges_stdout_metadata_when_summary_file_has_invalid_
     };
 
     let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
-    assert_eq!(summary.args, vec!["zeta".to_string()]);
-    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.args, vec!["stdout".to_string()]);
+    assert_eq!(summary.tests, vec!["stdout".to_string()]);
     assert_eq!(summary.tests_failed, Some(9));
     assert_eq!(
         summary.host_contract,
@@ -2213,7 +2213,7 @@ export async function loadWithImports(importObject) {
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert_eq!(outcome.tests_failed, 1);
-    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
@@ -2282,8 +2282,43 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert_eq!(outcome.tests_failed, 7);
-    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":7"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_has_invalid_tests_failed(
+) {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[\"file test\"],\"testsFailed\":\"oops\",\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"stdout test\"],\"testsFailed\":7,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
+        &wasm,
+        &["alpha".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 7);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["stdout test".to_string()]);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
     assert!(
@@ -2317,7 +2352,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert_eq!(outcome.tests_failed, 7);
-    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
@@ -2352,7 +2387,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert_eq!(outcome.tests_failed, 7);
-    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
@@ -2386,7 +2421,7 @@ fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_fil
     assert_eq!(outcome.command[0], "node");
     assert_eq!(outcome.status.code(), Some(0));
     assert_eq!(outcome.tests_failed, 7);
-    assert_eq!(outcome.reported_args, vec!["alpha".to_string()]);
+    assert_eq!(outcome.reported_args, vec!["stdout".to_string()]);
     assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
     assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
     assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
