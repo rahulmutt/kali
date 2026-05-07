@@ -735,6 +735,81 @@ fn validate_doctor_payload_value_rejects_empty_browser_runtime_host_description(
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_empty_browser_harness_command_items() {
+    for (field, payload, expected_fragment) in [
+        (
+            "browserHarness command",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", ""],
+                    "executable": "node",
+                    "args": ["--test"],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", "test"],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "command[1]",
+        ),
+        (
+            "browserHarness args",
+            json!({
+                "browserHarness": {
+                    "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                    "source": "env",
+                    "override": "node --test",
+                    "command": ["node", "--test"],
+                    "executable": "node",
+                    "args": ["--test", "   "],
+                    "executableAvailable": true,
+                },
+                "browserRuntimeContract": {
+                    "hostLabel": "browser-requested",
+                    "hostDescription": "real browser host",
+                    "hostDescriptionNote": "browser runtime host description: real browser host",
+                    "supportedCommands": ["run", "test"],
+                    "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                    "diagnosticNotes": [
+                        "supported browser runtime commands: run, test",
+                        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                        "browser runtime host description: real browser host"
+                    ]
+                }
+            }),
+            "args[1]",
+        ),
+    ] {
+        let err = validate_doctor_payload_value(&payload)
+            .expect_err("empty browser harness command item should fail");
+        assert!(
+            err.contains(expected_fragment),
+            "{field} error mismatch: {err}"
+        );
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_init_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "root": "/workspace/example",

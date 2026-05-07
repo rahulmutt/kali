@@ -1078,11 +1078,10 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
     match object.get("command") {
         Some(Value::Array(items)) if !items.is_empty() => {
             for (index, item) in items.iter().enumerate() {
-                if !item.is_string() {
-                    return Err(format!(
-                        "doctor browserHarness command[{index}] must be a string, got {item}"
-                    ));
-                }
+                validate_non_empty_string_value(
+                    Some(item),
+                    &format!("doctor browserHarness command[{index}]"),
+                )?;
             }
         }
         Some(Value::Array(_)) => {
@@ -1101,11 +1100,10 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
     match object.get("args") {
         Some(Value::Array(items)) => {
             for (index, item) in items.iter().enumerate() {
-                if !item.is_string() {
-                    return Err(format!(
-                        "doctor browserHarness args[{index}] must be a string, got {item}"
-                    ));
-                }
+                validate_non_empty_string_value(
+                    Some(item),
+                    &format!("doctor browserHarness args[{index}]"),
+                )?;
             }
         }
         Some(other) => {
