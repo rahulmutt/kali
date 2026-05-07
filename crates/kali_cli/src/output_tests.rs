@@ -1600,7 +1600,7 @@ fn validate_effects_payload_value_rejects_whitespace_analysis_context_api_surfac
 
 #[test]
 fn validate_effects_payload_value_rejects_whitespace_analysis_context_sets() {
-    for (field, analysis_context) in [
+    for (field, analysis_context, expected_fragment) in [
         (
             "runtimeProfiles",
             json!({
@@ -1608,6 +1608,16 @@ fn validate_effects_payload_value_rejects_whitespace_analysis_context_sets() {
                 "runtimeProfiles": ["   "],
                 "compatFeatures": [],
             }),
+            "non-empty, non-whitespace string",
+        ),
+        (
+            "runtimeProfiles",
+            json!({
+                "apiSurface": "browser",
+                "runtimeProfiles": [" wasm-threads "],
+                "compatFeatures": [],
+            }),
+            "leading or trailing whitespace",
         ),
         (
             "compatFeatures",
@@ -1616,6 +1626,16 @@ fn validate_effects_payload_value_rejects_whitespace_analysis_context_sets() {
                 "runtimeProfiles": [],
                 "compatFeatures": ["\n"],
             }),
+            "non-empty, non-whitespace string",
+        ),
+        (
+            "compatFeatures",
+            json!({
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [" eval "],
+            }),
+            "leading or trailing whitespace",
         ),
     ] {
         let value = json!({
@@ -1630,59 +1650,60 @@ fn validate_effects_payload_value_rejects_whitespace_analysis_context_sets() {
         let err = validate_effects_payload_value(&value)
             .expect_err("whitespace analysisContext set item should fail validation");
         assert!(err.contains(field), "unexpected error: {err}");
-        assert!(
-            err.contains("non-empty, non-whitespace string"),
-            "unexpected error: {err}"
-        );
+        assert!(err.contains(expected_fragment), "unexpected error: {err}");
     }
 }
 
 #[test]
 fn validate_effects_payload_value_rejects_whitespace_entry_points() {
-    let value = json!({
-        "schemaVersion": 1,
-        "analysisContext": {
-            "apiSurface": "browser",
-            "runtimeProfiles": [],
-            "compatFeatures": [],
-        },
-        "entryPoints": ["   "],
-        "effects": [],
-        "dynamicEffects": false,
-        "dynamicReasons": [],
-    });
+    for (invalid_value, expected_fragment) in [
+        ("   ", "non-empty, non-whitespace string"),
+        (" src/main.ts ", "leading or trailing whitespace"),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [invalid_value],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        });
 
-    let err = validate_effects_payload_value(&value)
-        .expect_err("whitespace entryPoints should fail validation");
-    assert!(err.contains("entryPoints[0]"), "unexpected error: {err}");
-    assert!(
-        err.contains("non-empty, non-whitespace string"),
-        "unexpected error: {err}"
-    );
+        let err = validate_effects_payload_value(&value)
+            .expect_err("whitespace entryPoints should fail validation");
+        assert!(err.contains("entryPoints[0]"), "unexpected error: {err}");
+        assert!(err.contains(expected_fragment), "unexpected error: {err}");
+    }
 }
 
 #[test]
 fn validate_effects_payload_value_rejects_whitespace_dynamic_reasons() {
-    let value = json!({
-        "schemaVersion": 1,
-        "analysisContext": {
-            "apiSurface": "browser",
-            "runtimeProfiles": [],
-            "compatFeatures": [],
-        },
-        "entryPoints": [],
-        "effects": [],
-        "dynamicEffects": true,
-        "dynamicReasons": ["   "],
-    });
+    for (invalid_value, expected_fragment) in [
+        ("   ", "non-empty, non-whitespace string"),
+        (" eval ", "leading or trailing whitespace"),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": true,
+            "dynamicReasons": [invalid_value],
+        });
 
-    let err = validate_effects_payload_value(&value)
-        .expect_err("whitespace dynamicReasons should fail validation");
-    assert!(err.contains("dynamicReasons[0]"), "unexpected error: {err}");
-    assert!(
-        err.contains("non-empty, non-whitespace string"),
-        "unexpected error: {err}"
-    );
+        let err = validate_effects_payload_value(&value)
+            .expect_err("whitespace dynamicReasons should fail validation");
+        assert!(err.contains("dynamicReasons[0]"), "unexpected error: {err}");
+        assert!(err.contains(expected_fragment), "unexpected error: {err}");
+    }
 }
 
 #[test]

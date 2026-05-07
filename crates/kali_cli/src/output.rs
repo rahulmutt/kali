@@ -768,6 +768,11 @@ fn validate_unique_string_array_value(
                 "{context}[{index}] must be a non-empty, non-whitespace string"
             ));
         }
+        if item.trim() != item {
+            return Err(format!(
+                "{context}[{index}] must not have leading or trailing whitespace"
+            ));
+        }
 
         if !seen.insert(item) {
             return Err(format!(
@@ -821,6 +826,11 @@ pub(crate) fn validate_sorted_string_array_value(
         if item.trim().is_empty() {
             return Err(format!(
                 "{context}[{index}] must be a non-empty, non-whitespace string"
+            ));
+        }
+        if item.trim() != item {
+            return Err(format!(
+                "{context}[{index}] must not have leading or trailing whitespace"
             ));
         }
 
@@ -978,9 +988,11 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
     for key in ["name", "version", "registry"] {
         match object.get(key) {
             Some(Value::String(value)) if !value.trim().is_empty() => {}
-            Some(Value::String(_)) => return Err(format!(
+            Some(Value::String(_)) => {
+                return Err(format!(
                 "package-effects payload package {key} must be a non-empty, non-whitespace string"
-            )),
+            ))
+            }
             Some(other) => {
                 return Err(format!(
                     "package-effects payload package {key} must be a string, got {other}"

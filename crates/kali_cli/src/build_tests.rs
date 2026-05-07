@@ -10147,10 +10147,17 @@ fn validate_artifact_metadata_value_rejects_duplicate_runtime_profiles() {
 
 #[test]
 fn validate_artifact_metadata_value_rejects_empty_or_whitespace_runtime_profiles() {
-    for (index, runtime_profiles) in [
-        vec!["".to_string()],
-        vec!["   ".to_string()],
-        vec!["wasm-threads".to_string(), "\t".to_string()],
+    for (index, (runtime_profiles, expected_fragment)) in [
+        (vec!["".to_string()], "non-empty, non-whitespace"),
+        (vec!["   ".to_string()], "non-empty, non-whitespace"),
+        (
+            vec!["wasm-threads".to_string(), "\t".to_string()],
+            "non-empty, non-whitespace",
+        ),
+        (
+            vec![" wasm-threads ".to_string()],
+            "leading or trailing whitespace",
+        ),
     ]
     .into_iter()
     .enumerate()
@@ -10176,7 +10183,7 @@ fn validate_artifact_metadata_value_rejects_empty_or_whitespace_runtime_profiles
             "unexpected error {index}: {err}"
         );
         assert!(
-            err.contains("empty or whitespace-only") || err.contains("non-empty, non-whitespace"),
+            err.contains(expected_fragment),
             "unexpected error {index}: {err}"
         );
     }
