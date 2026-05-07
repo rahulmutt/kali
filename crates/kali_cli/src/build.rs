@@ -1829,6 +1829,11 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         .get("artifactKind")
         .and_then(Value::as_str)
         .ok_or_else(|| "build result field 'artifactKind' must be a string".to_string())?;
+    if artifact_kind.trim().is_empty() {
+        return Err(
+            "build result artifactKind must be a non-empty, non-whitespace string".to_string(),
+        );
+    }
 
     for key in [
         "artifactKind",

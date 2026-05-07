@@ -10348,6 +10348,23 @@ fn validate_build_result_value_rejects_whitespace_source_hash() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_empty_artifact_kind() {
+    for artifact_kind in ["", "   "] {
+        let invalid_result = serde_json::json!({
+            "artifactKind": artifact_kind,
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+        });
+
+        let err = validate_build_result_value(&invalid_result)
+            .expect_err("empty artifact kind should fail validation");
+        assert!(err.contains("artifactKind"), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_unsupported_artifact_kind() {
     let invalid_result = serde_json::json!({
         "artifactKind": "meta-json",
