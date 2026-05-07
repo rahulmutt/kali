@@ -62,6 +62,24 @@ impl ProfileData {
         .normalized()
     }
 
+    /// Validate an externally supplied profile snapshot before normalization.
+    pub fn validate(&self) -> Result<(), String> {
+        for (index, sample) in self.samples.iter().enumerate() {
+            if sample.key.trim().is_empty() {
+                return Err(format!(
+                    "profile sample[{index}].key must be a non-empty, non-whitespace string"
+                ));
+            }
+            if sample.weight == 0 {
+                return Err(format!(
+                    "profile sample[{index}].weight must be greater than zero"
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Return a canonicalized copy of this profile snapshot.
     pub fn normalized(mut self) -> Self {
         self.version = PROFILE_DATA_VERSION;
@@ -195,6 +213,35 @@ mod tests {
                 .expect_err("unknown fields should be rejected");
 
         assert!(error.to_string().contains("unexpected"));
+    }
+
+    #[test]
+    fn profile_data_validate_rejects_blank_keys_and_zero_weights() {
+        let blank_key = ProfileData {
+            version: PROFILE_DATA_VERSION,
+            samples: vec![ProfileSample {
+                kind: ProfileSampleKind::Function,
+                key: "   ".to_string(),
+                weight: 1,
+            }],
+        };
+        let zero_weight = ProfileData {
+            version: PROFILE_DATA_VERSION,
+            samples: vec![ProfileSample {
+                kind: ProfileSampleKind::Function,
+                key: "hot-path".to_string(),
+                weight: 0,
+            }],
+        };
+
+        assert!(blank_key
+            .validate()
+            .expect_err("blank key should fail")
+            .contains("profile sample[0].key"));
+        assert!(zero_weight
+            .validate()
+            .expect_err("zero weight should fail")
+            .contains("profile sample[0].weight"));
     }
 
     #[test]

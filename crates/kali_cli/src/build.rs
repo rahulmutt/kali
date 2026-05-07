@@ -170,6 +170,17 @@ pub fn load_profile_data_file(
         )]);
     }
 
+    profile_data.validate().map_err(|error| {
+        vec![Diagnostic::error(
+            e5::INVALID_CONFIG as u32,
+            format!(
+                "failed to validate PGO profile data '{}': {}",
+                profile_path.display(),
+                error
+            ),
+        )]
+    })?;
+
     Ok(profile_data.normalized())
 }
 
