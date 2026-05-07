@@ -539,7 +539,7 @@ Required fields:
 Uses the `SourceLocation` shape plus optional effect-specific context: `file` is a non-empty string and `line` / `column` remain 1-based positive integers, matching diagnostic source locations.
 
 Optional fields:
-- `function: string` — nearest enclosing function or method name when available
+- `function: non-empty, non-whitespace string` — nearest enclosing function or method name when available
 
 Simplification rule:
 - schema v1 uses point locations for effect occurrences by default so effect reports stay compact for AI/tooling use

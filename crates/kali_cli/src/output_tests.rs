@@ -1609,6 +1609,11 @@ fn validate_effects_payload_value_rejects_invalid_effect_locations() {
             json!({"file": "src/main.ts", "line": 12, "column": 0, "function": "main"}),
             "column must be a positive integer",
         ),
+        (
+            "function",
+            json!({"file": "src/main.ts", "line": 12, "column": 3, "function": "   "}),
+            "non-empty, non-whitespace string",
+        ),
     ] {
         let value = json!({
             "schemaVersion": 1,

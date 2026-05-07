@@ -902,8 +902,16 @@ fn validate_effect_location_value(value: &Value, context: &str) -> Result<(), St
     }
 
     if let Some(other) = object.get("function") {
-        if !other.is_string() {
-            return Err(format!("{context} function must be a string, got {other}"));
+        match other {
+            Value::String(value) if !value.trim().is_empty() => {}
+            Value::String(_) => {
+                return Err(format!(
+                    "{context} function must be a non-empty, non-whitespace string"
+                ));
+            }
+            _ => {
+                return Err(format!("{context} function must be a string, got {other}"));
+            }
         }
     }
 
