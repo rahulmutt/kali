@@ -384,23 +384,17 @@ fn json_build_emits_object_entries_iteration_semantics_in_tsx_input() {
 }
 
 #[test]
-fn build_emits_direct_object_entries_iteration_semantics_in_js_input() {
-    assert_browser_bundle_direct_object_entries_iteration("app.js", false);
+fn build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_direct_object_entries_iteration(filename, false);
+    }
 }
 
 #[test]
-fn build_emits_direct_object_entries_iteration_semantics_in_ts_input() {
-    assert_browser_bundle_direct_object_entries_iteration("app.ts", false);
-}
-
-#[test]
-fn json_build_emits_direct_object_entries_iteration_semantics_in_js_input() {
-    assert_browser_bundle_direct_object_entries_iteration("app.js", true);
-}
-
-#[test]
-fn json_build_emits_direct_object_entries_iteration_semantics_in_ts_input() {
-    assert_browser_bundle_direct_object_entries_iteration("app.ts", true);
+fn json_build_emits_direct_object_entries_iteration_semantics_in_js_ts_jsx_tsx_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_direct_object_entries_iteration(filename, true);
+    }
 }
 
 #[test]
