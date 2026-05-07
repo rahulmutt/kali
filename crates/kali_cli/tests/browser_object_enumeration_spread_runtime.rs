@@ -19,6 +19,10 @@ const bracketedValues = [...globalThis["Object"].values(Object.fromEntries([["b"
 const bracketedEntries = [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const frozenKeys = [...Object.keys(frozenFromEntries)];
+const frozenValues = [...Object.values(frozenFromEntries)];
+const frozenMixedValues = [...globalThis.Object["values"](frozenFromEntries)];
+const frozenMixedBracketedValues = [...globalThis["Object"].values(frozenFromEntries)];
+const frozenBracketedValues = [...globalThis["Object"]["values"](frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
 const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
 const frozenReflectiveKeys = [...Reflect.ownKeys(Object.freeze({ "b": 1, "2": 2, "a": 3, "1": 4 }))];
@@ -68,6 +72,18 @@ if (
   frozenKeys.length !== 2 ||
   frozenKeys[0] !== 'b' ||
   frozenKeys[1] !== 'a' ||
+  frozenValues.length !== 2 ||
+  frozenValues[0] !== 3 ||
+  frozenValues[1] !== 2 ||
+  frozenMixedValues.length !== 2 ||
+  frozenMixedValues[0] !== 3 ||
+  frozenMixedValues[1] !== 2 ||
+  frozenMixedBracketedValues.length !== 2 ||
+  frozenMixedBracketedValues[0] !== 3 ||
+  frozenMixedBracketedValues[1] !== 2 ||
+  frozenBracketedValues.length !== 2 ||
+  frozenBracketedValues[0] !== 3 ||
+  frozenBracketedValues[1] !== 2 ||
   frozenEntries.length !== 2 ||
   frozenEntries[0][0] !== 'b' ||
   frozenEntries[0][1] !== 3 ||
