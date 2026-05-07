@@ -1000,6 +1000,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["apiSurface"]["minLength"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
             ["runtimeProfiles"]["type"],
         "array"
     );
@@ -1010,6 +1015,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["runtimeProfiles"]["items"]["minLength"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
             ["compatFeatures"]["type"],
         "array"
     );
@@ -1017,6 +1027,11 @@ fn core_schema_documents_match_current_cli_contracts() {
         package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
             ["compatFeatures"]["items"]["type"],
         "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["analysisContext"]["properties"]
+            ["compatFeatures"]["items"]["minLength"],
+        1
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["entryPoints"]["type"],
@@ -1090,6 +1105,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         "string"
     );
     assert_eq!(
+        package_effects["properties"]["report"]["properties"]["entryPoints"]["items"]["minLength"],
+        1
+    );
+    assert_eq!(
         package_effects["properties"]["report"]["properties"]["dynamicEffects"]["type"],
         "boolean"
     );
@@ -1100,6 +1119,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["dynamicReasons"]["items"]["type"],
         "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["dynamicReasons"]["items"]
+            ["minLength"],
+        1
     );
 
     let check: serde_json::Value = serde_json::from_str(
@@ -1255,6 +1279,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         false
     );
     assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["apiSurface"]["minLength"],
+        1
+    );
+    assert_eq!(
         effects["properties"]["analysisContext"]["properties"]["runtimeProfiles"]["type"],
         "array"
     );
@@ -1263,12 +1291,22 @@ fn core_schema_documents_match_current_cli_contracts() {
         "string"
     );
     assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["runtimeProfiles"]["items"]
+            ["minLength"],
+        1
+    );
+    assert_eq!(
         effects["properties"]["analysisContext"]["properties"]["compatFeatures"]["type"],
         "array"
     );
     assert_eq!(
         effects["properties"]["analysisContext"]["properties"]["compatFeatures"]["items"]["type"],
         "string"
+    );
+    assert_eq!(
+        effects["properties"]["analysisContext"]["properties"]["compatFeatures"]["items"]
+            ["minLength"],
+        1
     );
     assert_eq!(
         effects["properties"]["effects"]["items"]["required"]
@@ -1303,11 +1341,19 @@ fn core_schema_documents_match_current_cli_contracts() {
         effects["properties"]["entryPoints"]["items"]["type"],
         "string"
     );
+    assert_eq!(
+        effects["properties"]["entryPoints"]["items"]["minLength"],
+        1
+    );
     assert_eq!(effects["properties"]["dynamicEffects"]["type"], "boolean");
     assert_eq!(effects["properties"]["dynamicReasons"]["type"], "array");
     assert_eq!(
         effects["properties"]["dynamicReasons"]["items"]["type"],
         "string"
+    );
+    assert_eq!(
+        effects["properties"]["dynamicReasons"]["items"]["minLength"],
+        1
     );
 
     let doctor: serde_json::Value = serde_json::from_str(

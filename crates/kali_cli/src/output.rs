@@ -739,9 +739,7 @@ fn validate_string_array_value(
     }
 
     for (index, item) in items.iter().enumerate() {
-        if !item.is_string() {
-            return Err(format!("{context}[{index}] must be a string, got {item}"));
-        }
+        validate_non_empty_string_value(Some(item), &format!("{context}[{index}]"))?;
     }
 
     Ok(())
@@ -765,6 +763,11 @@ fn validate_unique_string_array_value(
         let Some(item) = item.as_str() else {
             return Err(format!("{context}[{index}] must be a string, got {item}"));
         };
+        if item.trim().is_empty() {
+            return Err(format!(
+                "{context}[{index}] must be a non-empty, non-whitespace string"
+            ));
+        }
 
         if !seen.insert(item) {
             return Err(format!(
@@ -815,6 +818,11 @@ pub(crate) fn validate_sorted_string_array_value(
         let Some(item) = item.as_str() else {
             return Err(format!("{context}[{index}] must be a string, got {item}"));
         };
+        if item.trim().is_empty() {
+            return Err(format!(
+                "{context}[{index}] must be a non-empty, non-whitespace string"
+            ));
+        }
 
         if let Some(previous) = previous {
             if previous >= item {
@@ -846,15 +854,7 @@ fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Resu
         context,
     )?;
 
-    match object.get("apiSurface") {
-        Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "{context} apiSurface must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_value(object.get("apiSurface"), &format!("{context} apiSurface"))?;
 
     validate_sorted_string_array_value(
         object.get("runtimeProfiles"),

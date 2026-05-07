@@ -474,10 +474,10 @@ Produced by `kali effects` once that Phase-2 command is available; Phase 1 may s
 ### Required fields
 - `schemaVersion: number`
 - `analysisContext: EffectAnalysisContext`
-- `entryPoints: string[]` — shared schema-v1 field for the report's **logical roots** (see the naming bridge in [SPEC.md](../SPEC.md)); the exact label form is producer-dependent: `kali effects <file>` uses normalized source-root paths such as `src/main.ts`, while nested/shared reuse of this same payload shape may use other logical-root labels such as a package identifier
+- `entryPoints: string[]` — shared schema-v1 field for the report's **logical roots** (see the naming bridge in [SPEC.md](../SPEC.md)); the exact label form is producer-dependent: `kali effects <file>` uses normalized source-root paths such as `src/main.ts`, while nested/shared reuse of this same payload shape may use other logical-root labels such as a package identifier; empty or whitespace-only labels are rejected so the machine contract stays deterministic
 - `effects: EffectOccurrence[]`
 - `dynamicEffects: boolean`
-- `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`
+- `dynamicReasons: string[]` — canonical reason codes explaining why the report is conservative/incomplete; empty when `dynamicEffects` is `false`; items are non-empty, whitespace-trimmed strings emitted in stable lexical order
 
 Naming shortcut:
 - other chapters may refer to this payload as **EffectReport** instead of repeating “the exact effect-report payload shape defined in `18-schemas`”
@@ -511,8 +511,8 @@ Required fields:
 Interpretation rules:
 - schema v1 uses the same canonical vocabulary as config/CLI: `apiSurface`, `runtimeProfiles`, and compatibility features
 - because config stores compatibility features under the nested key `compat.features`, the effect-report field name is flattened to `compatFeatures` for a compact self-contained payload; this is a shape simplification, not a second vocabulary
-- `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they must be deduplicated, and in machine-emitted payloads they should be sorted in stable lexical order
-- `apiSurface = "node"` or later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules, including for later effect-report commands that open their Node rows
+- `runtimeProfiles` and `compatFeatures` are semantic sets encoded as arrays; they must be deduplicated, and in machine-emitted payloads they should be sorted in stable lexical order; items are non-empty, whitespace-trimmed strings so the stable set vocabulary stays explicit
+- `apiSurface` is a non-empty string token in schema v1, and the documented values are the phase-owned surfaces (`"deno"`, `"node"`, or `"browser"`); later compatibility/runtime-profile values may appear only when those modes are actually implemented for the command/profile; the schema records the chosen context, it does not relax feature-maturity rules, including for later effect-report commands that open their Node rows
 - including `analysisContext` keeps effect payloads self-describing for caches, tooling, embedding, and AI-agent loops; the same logical root may have materially different effect results under different API surfaces or compatibility features
 
 ### `EffectOccurrence`

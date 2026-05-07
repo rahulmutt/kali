@@ -1499,6 +1499,81 @@ fn validate_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_whitespace_analysis_context_api_surface() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "   ",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("whitespace analysisContext apiSurface should fail validation");
+    assert!(
+        err.contains("analysisContext apiSurface"),
+        "unexpected error: {err}"
+    );
+    assert!(
+        err.contains("non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_effects_payload_value_rejects_whitespace_entry_points() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": ["   "],
+        "effects": [],
+        "dynamicEffects": false,
+        "dynamicReasons": [],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("whitespace entryPoints should fail validation");
+    assert!(err.contains("entryPoints[0]"), "unexpected error: {err}");
+    assert!(
+        err.contains("non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_effects_payload_value_rejects_whitespace_dynamic_reasons() {
+    let value = json!({
+        "schemaVersion": 1,
+        "analysisContext": {
+            "apiSurface": "browser",
+            "runtimeProfiles": [],
+            "compatFeatures": [],
+        },
+        "entryPoints": [],
+        "effects": [],
+        "dynamicEffects": true,
+        "dynamicReasons": ["   "],
+    });
+
+    let err = validate_effects_payload_value(&value)
+        .expect_err("whitespace dynamicReasons should fail validation");
+    assert!(err.contains("dynamicReasons[0]"), "unexpected error: {err}");
+    assert!(
+        err.contains("non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_effects_payload_value_rejects_duplicate_entry_points() {
     let value = json!({
         "schemaVersion": 1,
