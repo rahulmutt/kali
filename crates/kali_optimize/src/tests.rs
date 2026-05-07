@@ -86,6 +86,20 @@ fn build_object_enumeration_call(builder: &mut LirBuilder, callee_name: &str) ->
     call
 }
 
+fn build_object_string_enumeration_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+    string_value: &str,
+) -> LirNodeId {
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
+    let object_object = builder.alloc_text(LirNodeKind::Value, "Object");
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+    let string_literal = literal(builder, string_value);
+    builder.node_mut(call).unwrap().children = vec![callee, string_literal];
+    call
+}
+
 fn build_object_from_entries_call(builder: &mut LirBuilder) -> LirNodeId {
     let call = builder.alloc(LirNodeKind::Call);
     let callee = builder.alloc_text(LirNodeKind::Value, "fromEntries");
@@ -1539,6 +1553,63 @@ fn release_folds_object_values_calls_over_literal_object_shapes() {
         .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
         .collect();
     assert_eq!(values, vec!["4", "2", "1"]);
+}
+
+#[test]
+fn release_folds_object_enumeration_calls_over_string_literals() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let keys_call = build_object_string_enumeration_call(&mut builder, "keys", "\"ab\"");
+    let values_call = build_object_string_enumeration_call(&mut builder, r#"["values"]"#, "\"ab\"");
+    let entries_call =
+        build_object_string_enumeration_call(&mut builder, r#"["entries"]"#, "\"ab\"");
+    builder.node_mut(root).unwrap().children = vec![keys_call, values_call, entries_call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let keys_node = &program.nodes[keys_call.0 as usize];
+    assert_eq!(keys_node.kind, LirNodeKind::Value);
+    assert_eq!(
+        keys_node
+            .children
+            .iter()
+            .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["\"0\"", "\"1\""]
+    );
+
+    let values_node = &program.nodes[values_call.0 as usize];
+    assert_eq!(values_node.kind, LirNodeKind::Value);
+    assert_eq!(
+        values_node
+            .children
+            .iter()
+            .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["\"a\"", "\"b\""]
+    );
+
+    let entries_node = &program.nodes[entries_call.0 as usize];
+    assert_eq!(entries_node.kind, LirNodeKind::Value);
+    assert_eq!(
+        entries_node
+            .children
+            .iter()
+            .map(|entry_id| {
+                program.nodes[entry_id.0 as usize]
+                    .children
+                    .iter()
+                    .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>(),
+        vec![vec!["\"0\"", "\"a\""], vec!["\"1\"", "\"b\""]]
+    );
 }
 
 #[test]

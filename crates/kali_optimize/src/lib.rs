@@ -1803,25 +1803,61 @@ impl Optimizer {
         bindings: &BindingEnv,
     ) -> Option<LirNodeId> {
         let callee_name = self.normalized_member_access_name(program, callee_node)?;
-        let is_object_keys = matches!(
-            callee_name.as_str(),
-            "Object.keys"
-                | "globalThis.Object.keys"
-                | "Object.values"
-                | "globalThis.Object.values"
-                | "Object.entries"
-                | "globalThis.Object.entries"
-        );
+        let string_mode = match callee_name.as_str() {
+            "Object.keys" | "globalThis.Object.keys" => Some("keys"),
+            "Object.values" | "globalThis.Object.values" => Some("values"),
+            "Object.entries" | "globalThis.Object.entries" => Some("entries"),
+            _ => None,
+        };
         let is_reflect_own_keys = matches!(
             callee_name.as_str(),
             "Reflect.ownKeys" | "globalThis.Reflect.ownKeys"
         );
-        if !is_object_keys && !is_reflect_own_keys {
+        if string_mode.is_none() && !is_reflect_own_keys {
             return None;
         }
 
         let object_id =
             self.resolve_constant_binding(program, *snapshot.children.get(1)?, bindings)?;
+        if let Some(ConstantValue::String(string_text)) = literal_value(program, object_id) {
+            if let Some(mode) = string_mode {
+                let mut elements = Vec::with_capacity(string_text.chars().count());
+                match mode {
+                    "keys" => {
+                        for (index, _) in string_text.chars().enumerate() {
+                            elements.push(
+                                self.clone_string_literal(
+                                    program,
+                                    format!("{:?}", index.to_string()),
+                                ),
+                            );
+                        }
+                    }
+                    "values" => {
+                        for value in string_text.chars() {
+                            elements.push(
+                                self.clone_string_literal(
+                                    program,
+                                    format!("{:?}", value.to_string()),
+                                ),
+                            );
+                        }
+                    }
+                    "entries" => {
+                        for (index, value) in string_text.chars().enumerate() {
+                            let key = self
+                                .clone_string_literal(program, format!("{:?}", index.to_string()));
+                            let value = self
+                                .clone_string_literal(program, format!("{:?}", value.to_string()));
+                            let pair = self.push_array_literal(program, vec![key, value]);
+                            elements.push(pair);
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+                return Some(self.push_array_literal(program, elements));
+            }
+        }
         if !self.is_object_literal(program, object_id) {
             return None;
         }
