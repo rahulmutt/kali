@@ -1609,7 +1609,8 @@ fn core_schema_documents_match_current_cli_contracts() {
             ],
             "items": false,
             "minItems": 2,
-            "maxItems": 2
+            "maxItems": 2,
+            "uniqueItems": true
         })
     );
     assert_eq!(
@@ -1621,6 +1622,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         serde_json::json!({
             "type": "array",
             "minItems": 1,
+            "uniqueItems": true,
             "items": { "type": "string", "minLength": 1 }
         })
     );
