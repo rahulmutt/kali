@@ -29,6 +29,8 @@ The checked-in repository already includes:
 - Package evidence: registry/raw-URL/install flows, package-corpus probes by context/rung, registry-analysis commands, and negative evidence for unsupported native/binary/bootstrap-heavy or published-bin-entrypoint cases.
 - Embedding/evidence surfaces: public embedding artifacts and bindings metadata, optimization modes, deterministic PGO profile validation, benchmark fixtures, and Lean proof infrastructure for the published boundary.
 
+- Browser-requested run/test browser-harness coverage now also exercises integer-like `Object.keys(...)` / `Object.values(...)` ordering in JS, TS, JSX, and TSX input with JSON-output coverage.
+
 ## Planning consequence
 
 The active plan starts from remaining spec gaps only. It does not preserve line-by-line progress notes for implemented slices; those belong in tests, specs, maturity current-state notes, and proof-boundary documents.
