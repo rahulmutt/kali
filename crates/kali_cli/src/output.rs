@@ -1544,6 +1544,18 @@ fn artifact_role_rank(role: &str) -> usize {
     }
 }
 
+fn timing_sort_key(phase: &str) -> (usize, String) {
+    (timing_phase_rank(phase), phase.to_string())
+}
+
+fn timing_phase_rank(phase: &str) -> usize {
+    match phase {
+        "parse" => 0,
+        "typecheck" => 1,
+        _ => usize::MAX,
+    }
+}
+
 fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
     let Some(value) = value else {
         return Ok(());
@@ -1554,6 +1566,8 @@ fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
     };
 
     let mut seen_phases = HashSet::new();
+    let mut previous_sort_key: Option<(usize, String)> = None;
+    let mut previous_phase: Option<String> = None;
     for (index, item) in items.iter().enumerate() {
         let phase = validate_timing_value(item)
             .map_err(|err| format!("CLI envelope timings[{index}] is invalid: {err}"))?;
@@ -1562,6 +1576,20 @@ fn validate_timings_array(value: Option<&Value>) -> Result<(), String> {
                 "CLI envelope timings[{index}] duplicates phase `{phase}`"
             ));
         }
+
+        let sort_key = timing_sort_key(&phase);
+        if previous_sort_key
+            .as_ref()
+            .is_some_and(|previous| previous > &sort_key)
+        {
+            let previous_phase =
+                previous_phase.expect("previous phase is always set with previous sort key");
+            return Err(format!(
+                "CLI envelope timings[{index}] must be in canonical phase order, got `{previous_phase}` before `{phase}`"
+            ));
+        }
+        previous_sort_key = Some(sort_key);
+        previous_phase = Some(phase);
     }
 
     Ok(())

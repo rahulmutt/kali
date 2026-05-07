@@ -3426,6 +3426,32 @@ fn validate_envelope_value_rejects_duplicate_timing_phases() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_out_of_order_timing_phases() {
+    let out_of_order_timings = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [
+            {"phase": "typecheck", "milliseconds": 1},
+            {"phase": "parse", "milliseconds": 2},
+        ],
+    });
+
+    let err = validate_envelope_value(&out_of_order_timings)
+        .expect_err("out-of-order timing phases should fail validation");
+    assert!(
+        err.contains("canonical phase order") && err.contains("typecheck") && err.contains("parse"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_empty_timing_phases() {
     let empty_phase = json!({
         "schemaVersion": 1,
