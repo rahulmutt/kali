@@ -1912,10 +1912,58 @@ fn release_folds_object_has_own_calls_over_literal_object_shapes() {
 }
 
 #[test]
+fn release_folds_object_has_own_calls_over_frozen_from_entries_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    let from_entries = build_object_from_entries_call(&mut builder);
+    let frozen_from_entries = build_object_freeze_call(&mut builder, from_entries);
+    builder.node_mut(call).unwrap().children[1] = frozen_from_entries;
+    let key = literal(&mut builder, "\"a\"");
+    builder.node_mut(call).unwrap().children[2] = key;
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
 fn release_advanced_folds_object_has_own_calls_over_literal_object_shapes() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
     let call = build_object_has_own_call(&mut builder, "hasOwn");
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
+fn release_advanced_folds_object_has_own_calls_over_frozen_from_entries_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    let from_entries = build_object_from_entries_call(&mut builder);
+    let frozen_from_entries = build_object_freeze_call(&mut builder, from_entries);
+    builder.node_mut(call).unwrap().children[1] = frozen_from_entries;
+    let key = literal(&mut builder, "\"a\"");
+    builder.node_mut(call).unwrap().children[2] = key;
     builder.node_mut(root).unwrap().children = vec![call];
 
     let mut program = LirProgram {
