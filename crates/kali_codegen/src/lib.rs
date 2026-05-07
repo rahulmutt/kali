@@ -4667,6 +4667,18 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
 
+        if self.is_array_literal(node) {
+            let children = node.children.clone();
+            if children
+                .iter()
+                .all(|child| self.is_supported_for_of_array_iteration_item(*child))
+            {
+                items.push(resolved_id);
+                return true;
+            }
+            return false;
+        }
+
         if node.kind == LirNodeKind::Value
             && node.text.as_deref() == Some("spread")
             && node.children.len() == 1
@@ -4707,6 +4719,26 @@ impl<'a> FunctionEmitter<'a> {
             }
 
             return true;
+        }
+
+        false
+    }
+
+    fn is_supported_for_of_array_iteration_item(&mut self, id: LirNodeId) -> bool {
+        let Some(resolved_id) = self.resolve_literal_aggregate(id) else {
+            return false;
+        };
+
+        let node = self.node(resolved_id);
+        if matches!(node.kind, LirNodeKind::Literal) {
+            return true;
+        }
+
+        if self.is_array_literal(node) {
+            let children = node.children.clone();
+            return children
+                .iter()
+                .all(|child| self.is_supported_for_of_array_iteration_item(*child));
         }
 
         false

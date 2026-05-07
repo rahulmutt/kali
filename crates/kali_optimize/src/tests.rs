@@ -1624,7 +1624,38 @@ fn release_folds_object_enumeration_calls_over_string_literals() {
     );
 
     let entries_node = &program.nodes[entries_call.0 as usize];
-    assert_eq!(entries_node.kind, LirNodeKind::Call);
+    assert_eq!(entries_node.kind, LirNodeKind::Value);
+    let entries = entries_node
+        .children
+        .iter()
+        .map(|id| &program.nodes[id.0 as usize])
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), 2);
+    for (index, entry) in entries.iter().enumerate() {
+        assert_eq!(entry.kind, LirNodeKind::Value);
+        let pair = entry
+            .children
+            .iter()
+            .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(pair[0], format!("\"{}\"", index));
+    }
+    assert_eq!(
+        entries[0]
+            .children
+            .iter()
+            .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["\"0\"", "\"a\""]
+    );
+    assert_eq!(
+        entries[1]
+            .children
+            .iter()
+            .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["\"1\"", "\"b\""]
+    );
 }
 
 #[test]

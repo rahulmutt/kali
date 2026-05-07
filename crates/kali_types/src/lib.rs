@@ -724,6 +724,17 @@ impl TypeContext {
                         .resolve_static_object_identity_literal_value(expression)
                         .is_some()
             }
+            Expression::ArrayExpression(array) => {
+                array.elements.iter().all(|element| match element {
+                    Some(ExpressionOrSpread::Expression(expr)) => {
+                        self.is_static_array_iteration_element(expr)
+                    }
+                    Some(ExpressionOrSpread::Spread(spread)) => {
+                        self.is_static_array_iteration_target(&spread.argument)
+                    }
+                    Some(ExpressionOrSpread::Empty) | None => false,
+                })
+            }
             _ => false,
         }
     }
