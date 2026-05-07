@@ -1,0 +1,7 @@
+{
+  "benchmark": "object-string-enumeration-folding",
+  "version": 1,
+  "sourceFile": "object-string-enumeration-benchmark-v1.ts",
+  "sourceSha256": "sha256-432109c60d2f23c367198d7f555b51d1ddf861df188d6c35e9ce243bde9e16d0",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
