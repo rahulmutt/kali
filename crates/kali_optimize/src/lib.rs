@@ -1769,7 +1769,7 @@ impl Optimizer {
         callee_node: &LirNode,
         bindings: &BindingEnv,
     ) -> Option<LirNodeId> {
-        let callee_name = self.member_access_name(program, callee_node)?;
+        let callee_name = self.normalized_member_access_name(program, callee_node)?;
         if !matches!(
             callee_name.as_str(),
             "Object.hasOwn"
@@ -1802,11 +1802,21 @@ impl Optimizer {
         callee_node: &LirNode,
         bindings: &BindingEnv,
     ) -> Option<LirNodeId> {
-        let receiver = callee_node.children.first().copied()?;
-        let receiver_name = program.nodes.get(receiver.0 as usize)?.text.as_deref()?;
-        let is_object_receiver = matches!(receiver_name, "Object" | "globalThis.Object");
-        let is_reflect_receiver = matches!(receiver_name, "Reflect" | "globalThis.Reflect");
-        if !is_object_receiver && !is_reflect_receiver {
+        let callee_name = self.normalized_member_access_name(program, callee_node)?;
+        let is_object_keys = matches!(
+            callee_name.as_str(),
+            "Object.keys"
+                | "globalThis.Object.keys"
+                | "Object.values"
+                | "globalThis.Object.values"
+                | "Object.entries"
+                | "globalThis.Object.entries"
+        );
+        let is_reflect_own_keys = matches!(
+            callee_name.as_str(),
+            "Reflect.ownKeys" | "globalThis.Reflect.ownKeys"
+        );
+        if !is_object_keys && !is_reflect_own_keys {
             return None;
         }
 
@@ -1817,22 +1827,22 @@ impl Optimizer {
         }
 
         let properties = self.ordered_object_literal_properties(program, object_id)?;
-        match callee_node.text.as_deref()? {
-            "keys" if is_object_receiver => {
+        match callee_name.as_str() {
+            "Object.keys" | "globalThis.Object.keys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
                     elements.push(self.clone_string_literal(program, key));
                 }
                 Some(self.push_array_literal(program, elements))
             }
-            "ownKeys" if is_reflect_receiver => {
+            "Reflect.ownKeys" | "globalThis.Reflect.ownKeys" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, _) in properties {
                     elements.push(self.clone_string_literal(program, key));
                 }
                 Some(self.push_array_literal(program, elements))
             }
-            "values" if is_object_receiver => {
+            "Object.values" | "globalThis.Object.values" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (_, value) in properties {
                     elements.push(self.clone_subtree_with_substitution(
@@ -1844,7 +1854,7 @@ impl Optimizer {
                 }
                 Some(self.push_array_literal(program, elements))
             }
-            "entries" if is_object_receiver => {
+            "Object.entries" | "globalThis.Object.entries" => {
                 let mut elements = Vec::with_capacity(properties.len());
                 for (key, value) in properties {
                     let key_id = self.clone_string_literal(program, key);
@@ -1870,7 +1880,7 @@ impl Optimizer {
         callee_node: &LirNode,
         bindings: &BindingEnv,
     ) -> Option<LirNodeId> {
-        let callee_name = self.member_access_name(program, callee_node)?;
+        let callee_name = self.normalized_member_access_name(program, callee_node)?;
         if !matches!(
             callee_name.as_str(),
             "Object.fromEntries" | "globalThis.Object.fromEntries"
@@ -2044,7 +2054,8 @@ impl Optimizer {
             return false;
         };
         matches!(
-            self.member_access_name(program, callee_node).as_deref(),
+            self.normalized_member_access_name(program, callee_node)
+                .as_deref(),
             Some("Object.freeze") | Some("globalThis.Object.freeze")
         )
     }
@@ -2096,6 +2107,47 @@ impl Optimizer {
         };
 
         Some(format!("{}.{}", object_name, node.text.as_deref()?))
+    }
+
+    fn normalized_member_access_name(
+        &self,
+        program: &LirProgram,
+        node: &LirNode,
+    ) -> Option<String> {
+        let raw = self.member_access_name(program, node)?;
+        Some(Self::canonicalize_bracketed_member_access_name(&raw))
+    }
+
+    fn canonicalize_bracketed_member_access_name(name: &str) -> String {
+        let mut canonical = String::with_capacity(name.len());
+        let bytes = name.as_bytes();
+        let mut index = 0;
+
+        while index < bytes.len() {
+            if bytes[index] == b'[' && index + 2 < bytes.len() {
+                let quote = bytes[index + 1];
+                if quote == b'"' || quote == b'\'' {
+                    let mut end = index + 2;
+                    while end < bytes.len() && bytes[end] != quote {
+                        end += 1;
+                    }
+
+                    if end + 1 < bytes.len() && bytes[end + 1] == b']' {
+                        if !canonical.is_empty() && !canonical.ends_with('.') {
+                            canonical.push('.');
+                        }
+                        canonical.push_str(&name[index + 2..end]);
+                        index = end + 2;
+                        continue;
+                    }
+                }
+            }
+
+            canonical.push(bytes[index] as char);
+            index += 1;
+        }
+
+        canonical
     }
 
     fn constant_property_key(&self, program: &LirProgram, id: LirNodeId) -> Option<String> {
