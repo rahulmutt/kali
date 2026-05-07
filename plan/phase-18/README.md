@@ -33,6 +33,7 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Expand browser-targeted `check` / `build --bundle` and browser-harness package evidence by package shape.
 - Keep deployable-through-host, executable-through-browser-harness, and standalone browser runtime claims separate.
 - Reject packages whose browser path depends on unavailable host/native/binary behavior.
+- Current progress: browser replacement-map package evidence now also covers JSX/TSX input on both explicit and inherited browser surfaces for `check` and `build --bundle`, with JSON-output coverage.
 
 ### 18.4 Registry-analysis boundaries
 

@@ -8326,6 +8326,123 @@ fn browser_runtime_corpus_packages_with_browser_replacement_maps_remain_executab
 }
 
 #[test]
+fn browser_corpus_packages_with_browser_replacement_maps_remain_checkable_and_deployable_through_host_on_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        for explicit_browser_surface in [true, false] {
+            let dir = tempdir().expect("tempdir");
+            let package = "browser-replacement-map";
+            write_manifest(dir.path(), Some("browser"));
+            write_browser_replacement_map_package(
+                dir.path(),
+                package,
+                "export default function describe() { return 1; }\n",
+                "export default function describe() { return 0; }\n",
+                "internal",
+                "export default function helper() { return 1; }\n",
+                "export default function helper() { return 0; }\n",
+            );
+            write_types_stub_package(dir.path(), package);
+
+            let source_path = dir.path().join(format!("main.{extension}"));
+            fs::write(
+                &source_path,
+                format!(
+                    "import describe from '{package}';\nimport helper from '{package}/internal';\nconsole.log(describe(), helper());\n",
+                    package = package
+                ),
+            )
+            .expect("write browser source");
+
+            let source = source_path.to_str().unwrap();
+            let check = if explicit_browser_surface {
+                run_kali(dir.path(), ["check", "--api", "browser", source])
+            } else {
+                run_kali(dir.path(), ["check", source])
+            };
+            assert!(
+                check.status.success(),
+                "browser replacement-map package {package} should be checkable on the browser surface in {extension} input when the browser api surface is {}\nstdout: {}\nstderr: {}",
+                if explicit_browser_surface { "explicit" } else { "inherited" },
+                String::from_utf8_lossy(&check.stdout),
+                String::from_utf8_lossy(&check.stderr)
+            );
+
+            let check_json = if explicit_browser_surface {
+                run_kali(
+                    dir.path(),
+                    ["--output", "json", "check", "--api", "browser", source],
+                )
+            } else {
+                run_kali(dir.path(), ["--output", "json", "check", source])
+            };
+            assert!(
+                check_json.status.success(),
+                "browser replacement-map package {package} should be checkable on the browser surface in {extension} input with json output when the browser api surface is {}\nstdout: {}\nstderr: {}",
+                if explicit_browser_surface { "explicit" } else { "inherited" },
+                String::from_utf8_lossy(&check_json.stdout),
+                String::from_utf8_lossy(&check_json.stderr)
+            );
+            let check_envelope = parse_json_stdout(&check_json);
+            assert_eq!(check_envelope["schemaVersion"], 1);
+            assert_eq!(check_envelope["command"], "check");
+            assert_eq!(check_envelope["success"], true);
+            assert_eq!(check_envelope["exitCode"], 0);
+            assert_eq!(check_envelope["payload"]["filesChecked"], 1);
+            assert_eq!(check_envelope["payload"]["errorCount"], 0);
+            assert_eq!(check_envelope["payload"]["warningCount"], 0);
+
+            let build = if explicit_browser_surface {
+                run_kali(
+                    dir.path(),
+                    ["build", "--bundle", "--api", "browser", source],
+                )
+            } else {
+                run_kali(dir.path(), ["build", "--bundle", source])
+            };
+            assert!(
+                build.status.success(),
+                "browser replacement-map package {package} should be deployable-through-host via bundle on {extension} input when the browser api surface is {}\nstdout: {}\nstderr: {}",
+                if explicit_browser_surface { "explicit" } else { "inherited" },
+                String::from_utf8_lossy(&build.stdout),
+                String::from_utf8_lossy(&build.stderr)
+            );
+
+            let build_json = if explicit_browser_surface {
+                run_kali(
+                    dir.path(),
+                    [
+                        "--output", "json", "build", "--bundle", "--api", "browser", source,
+                    ],
+                )
+            } else {
+                run_kali(
+                    dir.path(),
+                    ["--output", "json", "build", "--bundle", source],
+                )
+            };
+            assert!(
+                build_json.status.success(),
+                "browser replacement-map package {package} should be deployable-through-host via bundle on {extension} input with json output when the browser api surface is {}\nstdout: {}\nstderr: {}",
+                if explicit_browser_surface { "explicit" } else { "inherited" },
+                String::from_utf8_lossy(&build_json.stdout),
+                String::from_utf8_lossy(&build_json.stderr)
+            );
+            let build_envelope = parse_json_stdout(&build_json);
+            assert_eq!(build_envelope["schemaVersion"], 1);
+            assert_eq!(build_envelope["command"], "build");
+            assert_eq!(build_envelope["success"], true);
+            assert_eq!(build_envelope["exitCode"], 0);
+            let payload = build_envelope["payload"]
+                .as_object()
+                .expect("build payload object");
+            assert_eq!(payload["artifactKind"], "bundle");
+            assert_eq!(payload["bundleFormat"], "esm");
+        }
+    }
+}
+
+#[test]
 fn json_browser_runtime_corpus_packages_with_browser_replacement_maps_remain_executable_and_testable_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     for package in ["solid-js", "lit"] {
