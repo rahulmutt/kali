@@ -209,12 +209,16 @@ pub struct DiagnosticContext {
     /// Where the effective value came from.
     pub origin: DiagnosticContextOrigin,
     /// Canonical config path when a discovered/inherited config value caused the diagnostic.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub config_path: Option<String>,
     /// Canonical CLI flag spelling when an explicit flag caused the diagnostic.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub flag: Option<String>,
     /// User-requested value before normalization, if relevant.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub requested_value: Option<String>,
     /// Normalized value the command actually validated against.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub effective_value: Option<String>,
 }
 

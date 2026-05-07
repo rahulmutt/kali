@@ -2154,22 +2154,10 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
     }
 
     for key in ["configPath", "flag"] {
-        if let Some(value) = object.get(key) {
-            match value {
-                Value::Null => {}
-                Value::String(value) if !value.trim().is_empty() => {}
-                Value::String(_) => {
-                    return Err(format!(
-                        "diagnostic context {key} must be a non-empty string when present"
-                    ))
-                }
-                other => {
-                    return Err(format!(
-                        "diagnostic context {key} must be string or null, got {other}"
-                    ))
-                }
-            }
-        }
+        validate_optional_non_empty_string_value(
+            object.get(key),
+            &format!("diagnostic context {key}"),
+        )?;
     }
 
     // schema v1 allows requestedValue/effectiveValue to carry any JSON shape, so

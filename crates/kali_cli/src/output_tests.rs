@@ -4731,59 +4731,48 @@ fn emit_envelope_value_rejects_non_array_warnings() {
 
 #[test]
 fn validate_envelope_value_rejects_non_string_context_fields() {
-    let invalid_config_path = json!({
-        "schemaVersion": 1,
-        "command": "doctor",
-        "success": false,
-        "errors": [
-            {
-                "severity": "error",
-                "code": "E5508",
-                "message": "bad diagnostic context",
-                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
-                "labels": [],
-                "related": [],
-                "fix": null,
-                "notes": [],
-                "context": {"origin": "config", "configPath": 42}
-            }
-        ],
-        "warnings": [],
-        "payload": null,
-        "stdout": null,
-        "stderr": null,
-        "exitCode": 1,
-    });
-    let err = validate_envelope_value(&invalid_config_path)
-        .expect_err("numeric configPath should fail validation");
-    assert!(err.contains("configPath"), "unexpected error: {err}");
-
-    let invalid_flag = json!({
-        "schemaVersion": 1,
-        "command": "doctor",
-        "success": false,
-        "errors": [
-            {
-                "severity": "error",
-                "code": "E5508",
-                "message": "bad diagnostic context",
-                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
-                "labels": [],
-                "related": [],
-                "fix": null,
-                "notes": [],
-                "context": {"origin": "cli", "flag": true}
-            }
-        ],
-        "warnings": [],
-        "payload": null,
-        "stdout": null,
-        "stderr": null,
-        "exitCode": 1,
-    });
-    let err =
-        validate_envelope_value(&invalid_flag).expect_err("boolean flag should fail validation");
-    assert!(err.contains("flag"), "unexpected error: {err}");
+    for (field, context, expected_fragment) in [
+        (
+            "configPath",
+            json!({"origin": "config", "configPath": 42}),
+            "configPath",
+        ),
+        (
+            "configPath",
+            json!({"origin": "config", "configPath": null}),
+            "configPath",
+        ),
+        ("flag", json!({"origin": "cli", "flag": true}), "flag"),
+        ("flag", json!({"origin": "cli", "flag": null}), "flag"),
+    ] {
+        let envelope = json!({
+            "schemaVersion": 1,
+            "command": "doctor",
+            "success": false,
+            "errors": [
+                {
+                    "severity": "error",
+                    "code": "E5508",
+                    "message": "bad diagnostic context",
+                    "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                    "labels": [],
+                    "related": [],
+                    "fix": null,
+                    "notes": [],
+                    "context": context
+                }
+            ],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 1,
+        });
+        let err = validate_envelope_value(&envelope)
+            .expect_err("non-string diagnostic context field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(err.contains(expected_fragment), "unexpected error: {err}");
+    }
 }
 
 #[test]
