@@ -1381,6 +1381,31 @@ fn core_schema_documents_match_current_cli_contracts() {
         serde_json::json!({"type": ["string", "null"]})
     );
     assert_eq!(
+        doctor["properties"]["browserHarness"]["allOf"]
+            .as_array()
+            .map(Vec::len),
+        Some(1)
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["allOf"][0]["if"],
+        serde_json::json!({
+            "properties": { "source": { "const": "env" } },
+            "required": ["source"]
+        })
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["allOf"][0]["then"],
+        serde_json::json!({
+            "properties": { "override": { "type": "string", "minLength": 1 } }
+        })
+    );
+    assert_eq!(
+        doctor["properties"]["browserHarness"]["allOf"][0]["else"],
+        serde_json::json!({
+            "properties": { "override": { "const": null } }
+        })
+    );
+    assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["command"],
         serde_json::json!({
             "type": "array",

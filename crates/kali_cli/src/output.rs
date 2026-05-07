@@ -1075,6 +1075,10 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         _ => unreachable!("validated above"),
     }
 
+    if matches!(source.as_str(), "env") {
+        validate_non_empty_string_value(object.get("override"), "doctor browserHarness override")?;
+    }
+
     match object.get("command") {
         Some(Value::Array(items)) if !items.is_empty() => {
             for (index, item) in items.iter().enumerate() {

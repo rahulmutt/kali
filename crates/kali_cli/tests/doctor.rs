@@ -401,21 +401,23 @@ fn doctor_reports_unavailable_browser_harness_executable_in_json() {
 
 #[test]
 fn doctor_reports_malformed_browser_harness_override_in_json() {
-    let output = Command::new(kali_bin())
-        .arg("--output")
-        .arg("json")
-        .arg("doctor")
-        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "   ")
-        .output()
-        .expect("run kali doctor");
+    for value in ["", "   "] {
+        let output = Command::new(kali_bin())
+            .arg("--output")
+            .arg("json")
+            .arg("doctor")
+            .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", value)
+            .output()
+            .expect("run kali doctor");
 
-    assert_eq!(output.status.code(), Some(5));
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "doctor");
-    assert_eq!(json["success"], false);
-    assert_eq!(json["errors"][0]["code"], "E5508");
-    assert!(json["errors"][0]["message"]
-        .as_str()
-        .expect("error message")
-        .contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], "doctor");
+        assert_eq!(json["success"], false);
+        assert_eq!(json["errors"][0]["code"], "E5508");
+        assert!(json["errors"][0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("KALI_BROWSER_BUNDLE_HARNESS_COMMAND"));
+    }
 }

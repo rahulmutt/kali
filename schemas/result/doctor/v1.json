@@ -61,7 +61,36 @@
         "executableAvailable": {
           "type": "boolean"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "env"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "override": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "override": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
     },
     "browserRuntimeContract": {
       "type": "object",
