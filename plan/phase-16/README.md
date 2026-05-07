@@ -47,7 +47,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Grow inference inside the bounded-inference contract only.
 - Require annotations or conservative `unknown` fallbacks at public/exported or cross-module boundaries when budgets are exceeded.
 - Mirror accepted and rejected cases in checker baselines and CLI JSON diagnostics.
-- Current progress: bounded library-export inference now also preserves obvious nullish-coalesce fallback literals in the cheap signature slice when the branch choice is statically known across JS, TS, JSX, and TSX inputs, including nullish-wrapped function bindings such as `null ?? fn`, `void 0 ?? fn`, and their async-function counterparts, keeping the public export metadata a little less conservative without widening the cross-module boundary contract. The effects command now also accepts the same nullish-coalescing slice across default, browser, and inherited-browser analysis contexts in JS/TS/JSX/TSX smoke.
+- Current progress: bounded library-export inference now also preserves obvious nullish-coalesce fallback literals in the cheap signature slice when the branch choice is statically known across JS, TS, JSX, and TSX inputs, including nullish-wrapped function bindings such as `null ?? fn`, `void 0 ?? fn`, `undefined ?? fn`, and their async-function counterparts, keeping the public export metadata a little less conservative without widening the cross-module boundary contract. The effects command now also accepts the same nullish-coalescing slice across default, browser, and inherited-browser analysis contexts in JS/TS/JSX/TSX smoke.
 
 ### 16.4 Conformance evidence hygiene
 

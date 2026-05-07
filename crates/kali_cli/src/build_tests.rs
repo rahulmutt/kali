@@ -9018,7 +9018,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const main = null ?? ((input) => 1); const helper = void 0 ?? ((value) => 2); const asyncMain = null ?? (async (input) => 3); const asyncHelper = void 0 ?? (async (value) => 4);",
+        "const main = null ?? ((input) => 1); const helper = void 0 ?? ((value) => 2); const undefinedMain = undefined ?? ((text) => 3); const asyncMain = null ?? (async (input) => 4); const asyncHelper = void 0 ?? (async (value) => 5); const undefinedAsync = undefined ?? (async (text) => 6);",
     )
     .expect("write source");
 
@@ -9067,10 +9067,17 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                     )),
                 },
                 kali_ast::VariableDeclarator {
+                    id: "undefined_main".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::Identifier("undefined".to_string()),
+                        arrow_function("text", 3.0, false),
+                    )),
+                },
+                kali_ast::VariableDeclarator {
                     id: "async_main".to_string(),
                     init: Some(nullish_expression(
                         Expression::Literal(kali_ast::LiteralValue::Null),
-                        arrow_function("input", 3.0, true),
+                        arrow_function("input", 4.0, true),
                     )),
                 },
                 kali_ast::VariableDeclarator {
@@ -9080,7 +9087,14 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                             operator: "void".to_string(),
                             argument: Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
                         })),
-                        arrow_function("value", 4.0, true),
+                        arrow_function("value", 5.0, true),
+                    )),
+                },
+                kali_ast::VariableDeclarator {
+                    id: "undefined_async".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::Identifier("undefined".to_string()),
+                        arrow_function("text", 6.0, true),
                     )),
                 },
             ],
@@ -9103,6 +9117,14 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
                     local: "async_helper".to_string(),
                     exported: "async_secondary".to_string(),
                 },
+                kali_ast::ExportSpecifier {
+                    local: "undefined_main".to_string(),
+                    exported: "undefined_alias".to_string(),
+                },
+                kali_ast::ExportSpecifier {
+                    local: "undefined_async".to_string(),
+                    exported: "undefined_async_alias".to_string(),
+                },
             ],
             source: None,
         }),
@@ -9111,7 +9133,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
     let exports = collect_library_exports_from_statements(&statements, &source_path)
         .expect("library exports should collect");
 
-    assert_eq!(exports.len(), 4, "exports: {exports:?}");
+    assert_eq!(exports.len(), 6, "exports: {exports:?}");
     assert!(exports
         .iter()
         .any(|export| export.name == "alias" && export.signature == "(input) => number"));
@@ -9123,6 +9145,12 @@ fn collect_library_exports_infers_function_binding_signatures_through_nullish_co
     }));
     assert!(exports.iter().any(|export| {
         export.name == "async_secondary" && export.signature == "(value) => Promise<number>"
+    }));
+    assert!(exports.iter().any(|export| {
+        export.name == "undefined_alias" && export.signature == "(text) => number"
+    }));
+    assert!(exports.iter().any(|export| {
+        export.name == "undefined_async_alias" && export.signature == "(text) => Promise<number>"
     }));
 }
 

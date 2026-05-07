@@ -3770,6 +3770,7 @@ fn infer_block_return_type(body: &BlockStatement) -> Option<&'static str> {
 fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
     match expression {
         Expression::Literal(value) => infer_literal_type(value),
+        Expression::Identifier(name) if name == "undefined" => Some("undefined"),
         Expression::BigIntLiteral(_) => Some("bigint"),
         Expression::ParenthesizedExpression(parenthesized) => {
             infer_expression_type(&parenthesized.expression)
