@@ -9754,6 +9754,87 @@ fn validate_artifact_metadata_value_rejects_duplicate_runtime_profiles() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_empty_or_whitespace_path_fields() {
+    for (field, invalid_result) in [
+        (
+            "outputPath",
+            serde_json::json!({
+                "artifactKind": "executable",
+                "outputPath": " ",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "metadataPath",
+            serde_json::json!({
+                "artifactKind": "lib",
+                "outputPath": "/workspace/dist/lib",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "",
+                "witPath": "lib.wit",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "headerPath",
+            serde_json::json!({
+                "artifactKind": "capi",
+                "outputPath": "/workspace/dist/capi",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "/workspace/dist/capi.cabi.json",
+                "witPath": "lib.wit",
+                "headerPath": "   ",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "bindingPackagePath",
+            serde_json::json!({
+                "artifactKind": "component",
+                "outputPath": "/workspace/dist/component",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "/workspace/dist/component.cabi.json",
+                "witPath": "lib.wit",
+                "bindingPackagePath": "",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "artifacts[0].path",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "artifacts": [
+                    { "kind": "js-glue", "path": "" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": "esm"
+            }),
+        ),
+    ] {
+        let err = validate_build_result_value(&invalid_result)
+            .expect_err("empty or whitespace build result path fields should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(err.contains("non-empty"), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_unexpected_top_level_keys() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

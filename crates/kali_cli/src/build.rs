@@ -1830,15 +1830,7 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         }
     }
 
-    match object.get("outputPath") {
-        Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "build result outputPath must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_field(object.get("outputPath"), "build result outputPath")?;
 
     match object.get("sizeBytes") {
         Some(Value::Number(number)) if number.as_u64().is_some() => {}
@@ -1967,22 +1959,11 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            match object.get("metadataPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result metadataPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
-            if let Some(wit_path) = object.get("witPath") {
-                if !wit_path.is_string() {
-                    return Err(format!(
-                        "build result witPath must be a string, got {wit_path}"
-                    ));
-                }
-            }
+            validate_non_empty_string_field(
+                object.get("metadataPath"),
+                "build result metadataPath",
+            )?;
+            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
             validate_build_result_artifacts_array(
                 object.get("artifacts"),
                 "build result artifacts",
@@ -2025,33 +2006,12 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            match object.get("metadataPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result metadataPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
-            match object.get("headerPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result headerPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
-            match object.get("witPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result witPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
+            validate_non_empty_string_field(
+                object.get("metadataPath"),
+                "build result metadataPath",
+            )?;
+            validate_non_empty_string_field(object.get("headerPath"), "build result headerPath")?;
+            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
             validate_build_result_artifacts_array(
                 object.get("artifacts"),
                 "build result artifacts",
@@ -2070,33 +2030,15 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            match object.get("metadataPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result metadataPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
-            match object.get("witPath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result witPath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
-            match object.get("bindingPackagePath") {
-                Some(Value::String(_)) => {}
-                Some(other) => {
-                    return Err(format!(
-                        "build result bindingPackagePath must be a string, got {other}"
-                    ))
-                }
-                None => unreachable!("validated above"),
-            }
+            validate_non_empty_string_field(
+                object.get("metadataPath"),
+                "build result metadataPath",
+            )?;
+            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
+            validate_non_empty_string_field(
+                object.get("bindingPackagePath"),
+                "build result bindingPackagePath",
+            )?;
             validate_build_result_artifacts_array(
                 object.get("artifacts"),
                 "build result artifacts",
@@ -2144,15 +2086,7 @@ fn validate_build_result_artifacts_array(
             }
             None => return Err(format!("{context}[{index}] is missing required key `kind`")),
         }
-        match object.get("path") {
-            Some(Value::String(_)) => {}
-            Some(other) => {
-                return Err(format!(
-                    "{context}[{index}].path must be a string, got {other}"
-                ))
-            }
-            None => return Err(format!("{context}[{index}] is missing required key `path`")),
-        }
+        validate_non_empty_string_field(object.get("path"), &format!("{context}[{index}].path"))?;
 
         let kind = object
             .get("kind")
@@ -2345,6 +2279,17 @@ fn validate_no_unexpected_keys(
     }
 
     Ok(())
+}
+
+fn validate_non_empty_string_field(value: Option<&Value>, context: &str) -> Result<(), String> {
+    match value {
+        Some(Value::String(value)) if !value.trim().is_empty() => Ok(()),
+        Some(Value::String(_)) => Err(format!(
+            "{context} must be a non-empty, non-whitespace string"
+        )),
+        Some(other) => Err(format!("{context} must be a string, got {other}")),
+        None => Err(format!("{context} is missing required key")),
+    }
 }
 
 fn is_canonical_artifact_role(role: &str) -> bool {

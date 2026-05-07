@@ -18,7 +18,8 @@
           "const": "executable"
         },
         "outputPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "sizeBytes": {
           "type": "integer",
@@ -55,7 +56,8 @@
           "const": "lib"
         },
         "outputPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "sizeBytes": {
           "type": "integer",
@@ -69,10 +71,12 @@
           "minLength": 1
         },
         "metadataPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "witPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "profileDataHash": {
           "type": "string",
@@ -123,7 +127,8 @@
           "const": "bundle"
         },
         "outputPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "sizeBytes": {
           "type": "integer",
@@ -194,7 +199,8 @@
           "const": "capi"
         },
         "outputPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "sizeBytes": {
           "type": "integer",
@@ -208,13 +214,16 @@
           "minLength": 1
         },
         "metadataPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "witPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "headerPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "profileDataHash": {
           "type": "string",
@@ -267,7 +276,8 @@
           "const": "component"
         },
         "outputPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "sizeBytes": {
           "type": "integer",
@@ -281,13 +291,16 @@
           "minLength": 1
         },
         "metadataPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "witPath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "bindingPackagePath": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "profileDataHash": {
           "type": "string",
@@ -349,7 +362,8 @@
           "type": "string"
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "role": {
           "type": "string"
