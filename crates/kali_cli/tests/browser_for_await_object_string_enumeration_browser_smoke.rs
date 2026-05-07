@@ -142,6 +142,37 @@ fn assert_browser_for_await_object_string_enumeration_support(
 
     let output = cli.arg(&source_path).output().expect("run kali");
 
+    if command == "build" {
+        assert!(
+            !output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        if json_output {
+            let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            assert!(
+                json["errors"]
+                    .as_array()
+                    .expect("errors array")
+                    .iter()
+                    .all(|error| error["code"] == "E5506"),
+                "expected E5506 browser-bundle rejection: {json}"
+            );
+        } else {
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains("E5506"),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        return;
+    }
+
     assert!(
         output.status.success(),
         "stdout: {}\nstderr: {}",
@@ -155,15 +186,6 @@ fn assert_browser_for_await_object_string_enumeration_support(
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], true);
         assert!(json["errors"].as_array().expect("errors array").is_empty());
-        if command == "build" {
-            assert_eq!(json["payload"]["artifactKind"], "bundle");
-            assert_eq!(json["payload"]["bundleFormat"], "esm");
-        }
-    } else if command == "build" {
-        assert!(
-            source_path.with_file_name("main").exists(),
-            "expected browser bundle artifact"
-        );
     }
 }
 

@@ -4018,6 +4018,73 @@ fn validate_envelope_value_rejects_related_item_with_non_positive_span() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_empty_source_location_files() {
+    let invalid_span_file = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad span file",
+                "span": {"file": "", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_span_file)
+        .expect_err("empty span file should fail validation");
+    assert!(err.contains("span file"), "unexpected error: {err}");
+    assert!(err.contains("non-empty"), "unexpected error: {err}");
+
+    let invalid_text_edit_file = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad text edit file",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": " ",
+                            "start": {"file": " ", "line": 1, "column": 1},
+                            "end": {"file": " ", "line": 1, "column": 2},
+                            "newText": "console.log(1);"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+    let err = validate_envelope_value(&invalid_text_edit_file)
+        .expect_err("whitespace text edit source location file should fail validation");
+    assert!(err.contains("text edit start"), "unexpected error: {err}");
+    assert!(err.contains("non-empty"), "unexpected error: {err}");
+}
+
+#[test]
 #[should_panic(expected = "CLI envelope errors must be an array")]
 fn emit_envelope_value_rejects_non_array_errors() {
     let _ = emit_envelope_value(

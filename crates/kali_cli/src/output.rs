@@ -1732,7 +1732,10 @@ fn validate_source_span(value: &Value) -> Result<(), String> {
     )?;
 
     match object.get("file") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err("span file must be a non-empty, non-whitespace string".to_string())
+        }
         Some(other) => return Err(format!("span file must be a string, got {other}")),
         None => unreachable!("validated above"),
     }
@@ -1939,7 +1942,12 @@ fn validate_source_location(value: &Value, context: &str) -> Result<(), String> 
     reject_unexpected_keys(object, &["file", "line", "column"], context)?;
 
     match object.get("file") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(format!(
+                "{context} source location file must be a non-empty, non-whitespace string"
+            ))
+        }
         Some(other) => {
             return Err(format!(
                 "{context} source location file must be a string, got {other}"

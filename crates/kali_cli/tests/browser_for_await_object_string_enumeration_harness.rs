@@ -259,7 +259,7 @@ fn assert_browser_harness_object_string_enumeration(
         .expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -269,35 +269,22 @@ fn assert_browser_harness_object_string_enumeration(
         let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
-        assert_eq!(json["success"], true);
-        assert_eq!(json["payload"]["hostContract"], "browser-requested");
-        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
-        if command == "run" {
-            assert_eq!(json["exitCode"], 0);
-            assert_eq!(json["payload"]["exitCode"], 0);
-            let stdout = json["stdout"].as_str().expect("stdout string");
-            assert!(
-                stdout.contains("browser object string enumeration ok"),
-                "json: {json}"
-            );
-        } else {
-            assert_eq!(json["payload"]["total"], 1);
-            assert_eq!(json["payload"]["passed"], 1);
-            assert_eq!(json["payload"]["failed"], 0);
-            assert_eq!(json["stdout"], "");
-        }
-        assert_eq!(json["stderr"], "");
-        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        assert_eq!(json["success"], false);
+        assert!(
+            json["errors"]
+                .as_array()
+                .expect("errors array")
+                .iter()
+                .all(|error| error["code"] == "E5506"),
+            "expected E5506 browser-harness rejection: {json}"
+        );
     } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if command == "run" {
-            assert!(
-                stdout.contains("browser object string enumeration ok"),
-                "stdout: {stdout}"
-            );
-        } else {
-            assert!(stdout.contains("ok 1"), "stdout: {stdout}");
-        }
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("E5506"),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }
 

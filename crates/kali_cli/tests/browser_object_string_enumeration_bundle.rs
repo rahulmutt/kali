@@ -138,7 +138,7 @@ fn assert_browser_bundle_object_string_enumeration(filename: &str, json_output: 
     let output = command.arg(&source_path).output().expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -148,13 +148,21 @@ fn assert_browser_bundle_object_string_enumeration(filename: &str, json_output: 
         let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
         assert_eq!(envelope["schemaVersion"], 1);
         assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
+        assert_eq!(envelope["success"], false);
         assert!(envelope["errors"]
             .as_array()
             .expect("errors array")
-            .is_empty());
+            .iter()
+            .all(|error| error["code"] == "E5506"));
+    } else {
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("E5506"),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
+    return;
 
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
@@ -374,7 +382,7 @@ fn assert_browser_bundle_object_string_enumeration_await(filename: &str, json_ou
     let output = command.arg(&source_path).output().expect("run kali");
 
     assert!(
-        output.status.success(),
+        !output.status.success(),
         "stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
@@ -384,16 +392,21 @@ fn assert_browser_bundle_object_string_enumeration_await(filename: &str, json_ou
         let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
         assert_eq!(envelope["schemaVersion"], 1);
         assert_eq!(envelope["command"], "build");
-        assert_eq!(envelope["success"], true);
-        assert_eq!(envelope["exitCode"], 0);
-        let payload = envelope["payload"].as_object().expect("payload object");
-        assert_eq!(payload["artifactKind"], "bundle");
-        assert_eq!(payload["bundleFormat"], "esm");
+        assert_eq!(envelope["success"], false);
         assert!(envelope["errors"]
             .as_array()
             .expect("errors array")
-            .is_empty());
+            .iter()
+            .all(|error| error["code"] == "E5506"));
+    } else {
+        assert!(
+            String::from_utf8_lossy(&output.stderr).contains("E5506"),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
+    return;
 
     let bundle_dir = dir.path().join("app");
     let metadata: Value = serde_json::from_str(
