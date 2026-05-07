@@ -1863,6 +1863,44 @@ fn release_advanced_folds_bracketed_reflect_own_keys_calls_over_literal_object_s
     assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
 }
 
+fn assert_mixed_bracketed_reflect_own_keys_folds(level: OptimizationLevel) {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_bracketed_reflect_own_keys_call(&mut builder, "ownKeys");
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(level).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Value);
+    let values: Vec<_> = call_node
+        .children
+        .iter()
+        .map(|id| program.nodes[id.0 as usize].text.as_deref().unwrap())
+        .collect();
+    assert_eq!(values, vec!["\"1\"", "\"2\"", "b"]);
+}
+
+#[test]
+fn fast_folds_mixed_bracketed_reflect_own_keys_calls_over_literal_object_shapes() {
+    assert_mixed_bracketed_reflect_own_keys_folds(OptimizationLevel::Fast);
+}
+
+#[test]
+fn release_folds_mixed_bracketed_reflect_own_keys_calls_over_literal_object_shapes() {
+    assert_mixed_bracketed_reflect_own_keys_folds(OptimizationLevel::Release);
+}
+
+#[test]
+fn release_advanced_folds_mixed_bracketed_reflect_own_keys_calls_over_literal_object_shapes() {
+    assert_mixed_bracketed_reflect_own_keys_folds(OptimizationLevel::ReleaseAdvanced);
+}
+
 #[test]
 fn release_folds_reflect_own_keys_calls_over_frozen_literal_object_shapes() {
     let mut builder = LirBuilder::new();
