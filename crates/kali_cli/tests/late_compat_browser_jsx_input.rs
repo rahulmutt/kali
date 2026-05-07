@@ -57,7 +57,7 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
 }
 
 fn late_object_model_source() -> &'static str {
-    r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.PluralRules; globalThis["Intl"]["PluralRules"]; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; new WeakRef(); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis.SharedArrayBuffer; globalThis.Atomics;"#
+    r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.RelativeTimeFormat; globalThis["Intl"].RelativeTimeFormat; globalThis.Intl["RelativeTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis.Intl.Collator; globalThis["Intl"].Collator; globalThis.Intl["Collator"]; globalThis["Intl"]["Collator"]; globalThis.Intl.DisplayNames; globalThis["Intl"].DisplayNames; globalThis.Intl["DisplayNames"]; globalThis["Intl"]["DisplayNames"]; globalThis.Intl.Segmenter; globalThis["Intl"].Segmenter; globalThis.Intl["Segmenter"]; globalThis["Intl"]["Segmenter"]; globalThis.Intl.Locale; globalThis["Intl"].Locale; globalThis.Intl["Locale"]; globalThis["Intl"]["Locale"]; globalThis.Intl.PluralRules; globalThis["Intl"]["PluralRules"]; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; new WeakRef(); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis.SharedArrayBuffer; globalThis.Atomics;"#
 }
 
 fn assert_browser_late_object_model_rejection(stderr: &str) {
@@ -66,6 +66,11 @@ fn assert_browser_late_object_model_rejection(stderr: &str) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
+        "globalThis.Intl.RelativeTimeFormat",
+        "globalThis.Intl.Collator",
+        "globalThis.Intl.DisplayNames",
+        "globalThis.Intl.Segmenter",
+        "globalThis.Intl.Locale",
         "globalThis.Intl.PluralRules",
         r#"globalThis["Intl"]["PluralRules"]"#,
         "Proxy",
@@ -109,6 +114,11 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
+        "globalThis.Intl.RelativeTimeFormat",
+        "globalThis.Intl.Collator",
+        "globalThis.Intl.DisplayNames",
+        "globalThis.Intl.Segmenter",
+        "globalThis.Intl.Locale",
         "globalThis.Intl.PluralRules",
         r#"globalThis["Intl"]["PluralRules"]"#,
         "Proxy",
