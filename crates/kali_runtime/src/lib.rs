@@ -3571,7 +3571,7 @@ fn parse_non_blank_string_array_field(value: Option<&serde_json::Value>) -> Opti
     let mut strings = Vec::with_capacity(items.len());
     for item in items {
         let item = item.as_str()?;
-        if item.trim().is_empty() {
+        if item.trim().is_empty() || item.trim() != item {
             return None;
         }
         strings.push(item.to_owned());
