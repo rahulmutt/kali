@@ -31758,58 +31758,60 @@ fn build_emits_conservative_unknown_signature_for_default_export_function_declar
 }
 
 #[test]
-fn build_emits_bounded_signature_for_coalesce_return_literal_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("math.js");
-    fs::write(
-        &source_path,
-        "export function main() { return null ?? 'fallback'; }",
-    )
-    .expect("write source");
+fn build_emits_bounded_signature_for_coalesce_return_literal_in_all_input_classes() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("math.{extension}"));
+        fs::write(
+            &source_path,
+            "export function main() { return null ?? 'fallback'; }",
+        )
+        .expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--lib")
-        .arg("--output")
-        .arg("json")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg("--lib")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
 
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "build");
-    assert_eq!(json["success"], true);
-    let payload = json["payload"].as_object().expect("build payload object");
-    assert_eq!(payload["artifactKind"], "lib");
-    let exports = payload["exports"].as_array().expect("exports array");
-    assert!(
-        exports
-            .iter()
-            .any(|export| { export["name"] == "main" && export["signature"] == "() => string" }),
-        "exports: {exports:?}"
-    );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], true);
+        let payload = json["payload"].as_object().expect("build payload object");
+        assert_eq!(payload["artifactKind"], "lib");
+        let exports = payload["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "() => string"
+            }),
+            "exports: {exports:?}"
+        );
 
-    let metadata: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_eq!(metadata["artifactKind"], "lib");
-    let exports = metadata["exports"].as_array().expect("exports array");
-    assert!(
-        exports
-            .iter()
-            .any(|export| { export["name"] == "main" && export["signature"] == "() => string" }),
-        "exports: {exports:?}"
-    );
+        let metadata: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(dir.path().join("math.lib.meta.json")).expect("read meta"),
+        )
+        .expect("parse metadata json");
+        assert_eq!(metadata["artifactKind"], "lib");
+        let exports = metadata["exports"].as_array().expect("exports array");
+        assert!(
+            exports.iter().any(|export| {
+                export["name"] == "main" && export["signature"] == "() => string"
+            }),
+            "exports: {exports:?}"
+        );
+    }
 }
 
 #[test]
