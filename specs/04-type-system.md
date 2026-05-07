@@ -31,6 +31,7 @@ Early-phase rules:
 - inference prefers stable, local conclusions over clever whole-program guesses
 - when inference cannot prove a precise representation cheaply, the compiler keeps the program valid by using `unknown`, unions, or dynamic/tagged layouts instead of inventing fragile static assumptions
 - JSDoc types are treated as contextual type hints where present, but are not required for efficient compilation
+- bounded local inference may also preserve obvious nullable fallbacks such as `null ?? "fallback"` / `void 0 ?? "fallback"` when the branch choice is statically known, while keeping other logical-operator cases conservative unless both sides agree
 
 This keeps JavaScript support aligned with the project goal: compile ordinary JS efficiently when the program is analyzable, and degrade conservatively when it is not.
 

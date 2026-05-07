@@ -3795,6 +3795,22 @@ fn infer_binary_expression_type(binary: &kali_ast::BinaryExpression) -> Option<&
                 None
             }
         }
+        "??" => {
+            if matches!(left, Some("null" | "undefined" | "void")) {
+                right
+            } else if left.is_some() {
+                left
+            } else {
+                None
+            }
+        }
+        "&&" | "||" => {
+            if left.is_some() && left == right {
+                left
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }
