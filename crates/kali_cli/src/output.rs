@@ -1286,8 +1286,11 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
     match object.get("diagnosticNotes") {
         Some(Value::Array(items)) => {
             for (index, item) in items.iter().enumerate() {
-                if !item.is_string() {
+                let Some(value) = item.as_str() else {
                     return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a string, got {item}"));
+                };
+                if value.trim().is_empty() {
+                    return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a non-empty, non-whitespace string"));
                 }
             }
             let expected_diagnostic_notes = [

@@ -1925,6 +1925,46 @@ fn validate_doctor_payload_value_rejects_empty_diagnostic_notes() {
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_empty_or_whitespace_diagnostic_note_items() {
+    for note in ["", " \n\t "] {
+        let value = json!({
+            "browserHarness": {
+                "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                "source": "auto",
+                "override": null,
+                "command": ["node", "--test"],
+                "executable": "node",
+                "args": ["--test"],
+                "executableAvailable": true,
+            },
+            "browserRuntimeContract": {
+                "hostLabel": "browser-requested",
+                "hostDescription": "real browser host",
+                "hostDescriptionNote": "browser runtime host description: real browser host",
+                "supportedCommands": ["run", "test"],
+                "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                "diagnosticNotes": [
+                    "supported browser runtime commands: run, test",
+                    note,
+                    "browser runtime host description: real browser host"
+                ],
+            }
+        });
+
+        let err = validate_doctor_payload_value(&value)
+            .expect_err("empty or whitespace diagnostic note item should fail");
+        assert!(
+            err.contains("diagnosticNotes[1]"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_diagnostic_notes_drift() {
     let value = json!({
         "browserHarness": {
