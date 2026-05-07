@@ -218,6 +218,30 @@ fn object_enumeration_frozen_literal_test_source() -> &'static str {
 "#
 }
 
+fn object_values_iteration_frozen_literal_run_source() -> &'static str {
+    r#"const seen = [];
+for (const value of Object.values(Object.freeze({ "b": 1, "a": 2 }))) {
+  seen.push(value);
+}
+if (seen.length !== 2 || seen[0] !== 1 || seen[1] !== 2) {
+  throw new Error('unexpected frozen Object.values iteration semantics');
+}
+"#
+}
+
+fn object_values_iteration_frozen_literal_test_source() -> &'static str {
+    r#"Kali.test('frozen object values iteration', () => {
+  const seen = [];
+  for (const value of Object.values(Object.freeze({ "b": 1, "a": 2 }))) {
+    seen.push(value);
+  }
+  if (seen.length !== 2 || seen[0] !== 1 || seen[1] !== 2) {
+    throw new Error('unexpected frozen Object.values iteration semantics');
+  }
+});
+"#
+}
+
 fn object_string_enumeration_run_source() -> &'static str {
     r#"const seen = [];
 for (const value of 'ab') {
@@ -630,6 +654,33 @@ fn test_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input() {
             "test",
             filename,
             object_enumeration_frozen_literal_test_source(),
+        );
+    }
+}
+
+#[test]
+fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_object_keys_iteration(
+            "run",
+            filename,
+            object_values_iteration_frozen_literal_run_source(),
+        );
+    }
+}
+
+#[test]
+fn test_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_object_keys_iteration(
+            "test",
+            filename,
+            object_values_iteration_frozen_literal_test_source(),
         );
     }
 }

@@ -53,7 +53,6 @@ function browserWrappedObjectEnumeration() {
   const frozenValues = Object.values(frozenFromEntries);
   const frozenEntries = Object.entries(frozenFromEntries);
   assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
-
   console.log('browser wrapped object enumeration ok');
 }
 
@@ -111,7 +110,6 @@ function browserWrappedObjectEnumeration() {
   const spreadFrozenValues = [...Object.values(frozenFromEntries)];
   const spreadFrozenEntries = [...Object.entries(frozenFromEntries)];
   assertWrappedObjectEnumeration(spreadFrozenKeys, spreadFrozenValues, spreadFrozenEntries);
-
   console.log('browser wrapped object enumeration ok');
 }
 
