@@ -87,9 +87,9 @@ fn browser_harness_test_atan2_source() -> &'static str {
 }
 
 #[test]
-fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input()
-{
-    for extension in ["jsx", "tsx"] {
+fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_harness_unsupported_math_rejection(
             "run",
             &format!("main.{extension}"),
@@ -106,9 +106,9 @@ fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness
 }
 
 #[test]
-fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
-    for extension in ["jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_harness_unsupported_math_rejection(
             "run",
             &format!("main.{extension}"),
@@ -125,9 +125,9 @@ fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harne
 }
 
 #[test]
-fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
-    for extension in ["jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_harness_unsupported_math_rejection(
             "test",
             &format!("smoke.test.{extension}"),
@@ -144,9 +144,9 @@ fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harnes
 }
 
 #[test]
-fn test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
-    for extension in ["jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_harness_unsupported_math_rejection(
             "test",
             &format!("smoke.test.{extension}"),
