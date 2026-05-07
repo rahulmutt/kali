@@ -238,19 +238,21 @@ fn json_test_supports_math_round_when_browser_harness_is_configured_in_ts_js_jsx
 }
 
 #[test]
-fn json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_and_js_input()
-{
+fn json_run_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input(
+) {
     for (filename, source) in [
         ("main.ts", browser_harness_math_round_alias_run_source()),
         ("main.js", browser_harness_math_round_alias_run_source()),
+        ("main.jsx", browser_harness_math_round_alias_run_source()),
+        ("main.tsx", browser_harness_math_round_alias_run_source()),
     ] {
         assert_browser_harness_math_round("run", filename, source, true);
     }
 }
 
 #[test]
-fn json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_and_js_input()
-{
+fn json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_in_ts_js_jsx_tsx_input(
+) {
     for (filename, source) in [
         (
             "smoke.test.ts",
@@ -258,6 +260,14 @@ fn json_test_supports_math_round_alias_chain_when_browser_harness_is_configured_
         ),
         (
             "smoke.test.js",
+            browser_harness_math_round_alias_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_math_round_alias_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
             browser_harness_math_round_alias_test_source(),
         ),
     ] {
