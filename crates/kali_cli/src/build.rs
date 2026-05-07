@@ -3679,6 +3679,20 @@ fn infer_function_binding_signature(
             source_path,
             diagnostics,
         ),
+        Expression::BinaryExpression(binary) if binary.operator == "??" => {
+            let left =
+                infer_function_binding_signature(Some(&binary.left), source_path, diagnostics);
+            if left.is_some() {
+                left
+            } else if matches!(
+                infer_expression_type(&binary.left),
+                Some("null" | "undefined" | "void")
+            ) {
+                infer_function_binding_signature(Some(&binary.right), source_path, diagnostics)
+            } else {
+                None
+            }
+        }
         Expression::ConditionalExpression(conditional_expression) => {
             let consequent = infer_function_binding_signature(
                 Some(conditional_expression.consequent.as_ref()),

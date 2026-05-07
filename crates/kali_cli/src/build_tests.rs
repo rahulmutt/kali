@@ -8992,6 +8992,90 @@ fn collect_library_exports_infers_function_binding_signatures_through_optional_c
 }
 
 #[test]
+fn collect_library_exports_infers_function_binding_signatures_through_nullish_coalescing_wrappers()
+{
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = null ?? ((input) => 1); const helper = void 0 ?? ((value) => 2);",
+    )
+    .expect("write source");
+
+    let arrow_function = |param: &str, value: f64| {
+        Expression::ParenthesizedExpression(Box::new(kali_ast::ParenthesizedExpression {
+            expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                kali_ast::ArrowFunctionExpression {
+                    params: vec![kali_ast::FunctionParam {
+                        name: param.to_string(),
+                    }],
+                    body: Expression::Literal(kali_ast::LiteralValue::Number(value)),
+                    is_async: false,
+                    returnType: None,
+                },
+            ))),
+        }))
+    };
+
+    let nullish_expression = |left: Expression, right: Expression| {
+        Expression::BinaryExpression(Box::new(kali_ast::BinaryExpression {
+            operator: "??".to_string(),
+            left,
+            right,
+        }))
+    };
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![
+                kali_ast::VariableDeclarator {
+                    id: "main".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::Literal(kali_ast::LiteralValue::Null),
+                        arrow_function("input", 1.0),
+                    )),
+                },
+                kali_ast::VariableDeclarator {
+                    id: "helper".to_string(),
+                    init: Some(nullish_expression(
+                        Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
+                            operator: "void".to_string(),
+                            argument: Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
+                        })),
+                        arrow_function("value", 2.0),
+                    )),
+                },
+            ],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![
+                kali_ast::ExportSpecifier {
+                    local: "main".to_string(),
+                    exported: "alias".to_string(),
+                },
+                kali_ast::ExportSpecifier {
+                    local: "helper".to_string(),
+                    exported: "secondary".to_string(),
+                },
+            ],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 2, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| export.name == "alias" && export.signature == "(input) => number"));
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "secondary" && export.signature == "(value) => number" }));
+}
+
+#[test]
 fn collect_library_exports_infers_function_binding_signatures_through_sequence_and_conditional_wrappers(
 ) {
     let dir = tempdir().expect("tempdir");
