@@ -10097,6 +10097,43 @@ fn validate_artifact_metadata_value_rejects_duplicate_runtime_profiles() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_empty_or_whitespace_runtime_profiles() {
+    for (index, runtime_profiles) in [
+        vec!["".to_string()],
+        vec!["   ".to_string()],
+        vec!["wasm-threads".to_string(), "\t".to_string()],
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": "component",
+            "entrypoint": "src/main.ts",
+            "buildMode": "release",
+            "apiSurface": "browser",
+            "runtimeProfiles": runtime_profiles,
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef"
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("blank runtime profiles should fail validation");
+        assert!(
+            err.contains("runtimeProfile"),
+            "unexpected error {index}: {err}"
+        );
+        assert!(
+            err.contains("empty or whitespace-only") || err.contains("non-empty, non-whitespace"),
+            "unexpected error {index}: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_empty_or_whitespace_path_fields() {
     for (field, invalid_result) in [
         (

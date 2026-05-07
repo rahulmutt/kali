@@ -1529,10 +1529,16 @@ pub fn validate_runtime_profiles(
 ) -> Result<Vec<String>, Vec<Diagnostic>> {
     let mut normalized = BTreeSet::new();
 
-    for profile in runtime_profiles {
+    for (index, profile) in runtime_profiles.iter().enumerate() {
         let profile = profile.trim();
         if profile.is_empty() {
-            continue;
+            return Err(vec![Diagnostic::error(
+                e5::INVALID_CONFIG as u32,
+                format!(
+                    "empty or whitespace-only runtimeProfile at index {index} in {}",
+                    source_label
+                ),
+            )]);
         }
 
         if !matches!(profile, "wasm-threads") {
