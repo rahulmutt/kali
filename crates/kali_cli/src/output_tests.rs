@@ -3933,6 +3933,47 @@ fn validate_envelope_value_rejects_mismatched_suggested_fix_edit_end_file_mirror
 }
 
 #[test]
+fn validate_envelope_value_rejects_whitespace_suggested_fix_edit_end_file() {
+    let invalid_fix = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "bad suggested fix end file",
+                "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": {
+                    "message": "adjust location",
+                    "edits": [
+                        {
+                            "file": "src/main.ts",
+                            "start": {"file": "src/main.ts", "line": 1, "column": 1},
+                            "end": {"file": " ", "line": 1, "column": 2},
+                            "newText": "console.log(1);"
+                        }
+                    ]
+                },
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_fix)
+        .expect_err("whitespace suggested-fix end file should fail validation");
+    assert!(err.contains("text edit end"), "unexpected error: {err}");
+    assert!(err.contains("non-empty"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_envelope_value_rejects_unexpected_diagnostic_keys() {
     let invalid_diagnostic = json!({
         "schemaVersion": 1,
