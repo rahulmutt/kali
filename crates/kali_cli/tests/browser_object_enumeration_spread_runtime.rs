@@ -12,6 +12,7 @@ fn object_enumeration_spread_source() -> &'static str {
 const entries = [...Object.entries(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const values = [...Object.values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const mixedValues = [...globalThis.Object["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const singleBracketedPropertyValues = [...globalThis['Object'].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const mixedKeys = [...globalThis["Object"].keys(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const mixedEntries = [...globalThis["Object"]["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const bracketedKeys = [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
@@ -21,6 +22,7 @@ const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], 
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenValues = [...Object.values(frozenFromEntries)];
 const frozenMixedValues = [...globalThis.Object["values"](frozenFromEntries)];
+const frozenSingleBracketedPropertyValues = [...globalThis['Object'].values(frozenFromEntries)];
 const frozenMixedBracketedValues = [...globalThis["Object"].values(frozenFromEntries)];
 const frozenBracketedValues = [...globalThis["Object"]["values"](frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
@@ -37,6 +39,9 @@ if (
   mixedValues.length !== 2 ||
   mixedValues[0] !== 3 ||
   mixedValues[1] !== 2 ||
+  singleBracketedPropertyValues.length !== 2 ||
+  singleBracketedPropertyValues[0] !== 3 ||
+  singleBracketedPropertyValues[1] !== 2 ||
   mixedKeys.length !== 2 ||
   mixedKeys[0] !== 'b' ||
   mixedKeys[1] !== 'a' ||
@@ -78,6 +83,9 @@ if (
   frozenMixedValues.length !== 2 ||
   frozenMixedValues[0] !== 3 ||
   frozenMixedValues[1] !== 2 ||
+  frozenSingleBracketedPropertyValues.length !== 2 ||
+  frozenSingleBracketedPropertyValues[0] !== 3 ||
+  frozenSingleBracketedPropertyValues[1] !== 2 ||
   frozenMixedBracketedValues.length !== 2 ||
   frozenMixedBracketedValues[0] !== 3 ||
   frozenMixedBracketedValues[1] !== 2 ||

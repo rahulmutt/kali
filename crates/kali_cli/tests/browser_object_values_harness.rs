@@ -604,12 +604,14 @@ fn browser_harness_object_values_spread_source(test_mode: bool) -> String {
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
   const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
   assertObjectValuesSpreadIteration(collected);
   assertObjectValuesSpreadIteration(globalCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
   assertObjectValuesSpreadIteration(bracketedCollected);
   console.log('browser object values spread iteration ok');
 });
@@ -630,12 +632,14 @@ fn browser_harness_object_values_spread_source(test_mode: bool) -> String {
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+  const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
   const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
   assertObjectValuesSpreadIteration(collected);
   assertObjectValuesSpreadIteration(globalCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
   assertObjectValuesSpreadIteration(bracketedCollected);
   console.log('browser object values spread iteration ok');
 }
