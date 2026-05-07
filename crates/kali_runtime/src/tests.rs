@@ -1838,6 +1838,36 @@ fn browser_runtime_summary_trims_labels_before_normalizing() {
 }
 
 #[test]
+fn browser_runtime_summary_trims_labels_and_preserves_stdout_tests_failed_fallback() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":["zeta"],"tests":["7"],"hostContract":" browser-requested ","runtimeBackend":" browser-harness "}"#,
+    )
+    .expect("write summary file with padded labels and missing testsFailed");
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["stdout"],"testsFailed":11,"hostContract":"kali-hosted","runtimeBackend":"wasmtime"}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["zeta".to_string()]);
+    assert_eq!(summary.tests, vec!["7".to_string()]);
+    assert_eq!(summary.tests_failed, Some(11));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+}
+
+#[test]
 fn browser_runtime_summary_prefers_the_last_json_line_from_stdout() {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let summary_path = tempdir.path().join("browser-runtime-summary.json");
