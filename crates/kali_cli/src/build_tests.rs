@@ -4118,48 +4118,70 @@ fn assert_build_source_file_supports_for_of_object_keys_const_bound_iterable_in_
 fn object_values_spread_iteration_source() -> &'static str {
     r##"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
 const values = Object.values(fromEntries);
 const frozenValues = Object.values(frozenFromEntries);
+const bracketedFromEntriesValues = Object.values(bracketedFromEntries);
 const globalValues = globalThis.Object.values(fromEntries);
 const frozenGlobalValues = globalThis.Object.values(frozenFromEntries);
+const bracketedGlobalValues = globalThis.Object.values(bracketedFromEntries);
 const mixedValues = globalThis.Object["values"](fromEntries);
 const frozenMixedValues = globalThis.Object["values"](frozenFromEntries);
+const bracketedMixedValues = globalThis.Object["values"](bracketedFromEntries);
 const mixedBracketedValues = globalThis["Object"].values(fromEntries);
 const frozenMixedBracketedValues = globalThis["Object"].values(frozenFromEntries);
+const bracketedMixedBracketedValues = globalThis["Object"].values(bracketedFromEntries);
 const bracketedValues = globalThis["Object"]["values"](fromEntries);
 const frozenBracketedValues = globalThis["Object"]["values"](frozenFromEntries);
+const bracketedBracketedValues = globalThis["Object"]["values"](bracketedFromEntries);
 for (const item of [...values]) { console.log(item); }
 for (const item of [...frozenValues]) { console.log(item); }
+for (const item of [...bracketedFromEntriesValues]) { console.log(item); }
 for (const item of [...globalValues]) { console.log(item); }
 for (const item of [...frozenGlobalValues]) { console.log(item); }
+for (const item of [...bracketedGlobalValues]) { console.log(item); }
 for (const item of [...mixedValues]) { console.log(item); }
 for (const item of [...frozenMixedValues]) { console.log(item); }
+for (const item of [...bracketedMixedValues]) { console.log(item); }
 for (const item of [...mixedBracketedValues]) { console.log(item); }
 for (const item of [...frozenMixedBracketedValues]) { console.log(item); }
+for (const item of [...bracketedMixedBracketedValues]) { console.log(item); }
 for (const item of [...bracketedValues]) { console.log(item); }
 for (const item of [...frozenBracketedValues]) { console.log(item); }
+for (const item of [...bracketedBracketedValues]) { console.log(item); }
 const asyncFromEntries = Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]);
 const frozenAsyncFromEntries = Object.freeze(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]));
+const asyncBracketedFromEntries = globalThis["Object"]["fromEntries"]([["c", 4], ["d", 5], ["c", 6]]);
 const asyncValues = Object.values(asyncFromEntries);
 const frozenAsyncValues = Object.values(frozenAsyncFromEntries);
+const asyncBracketedFromEntriesValues = Object.values(asyncBracketedFromEntries);
 const asyncGlobalValues = globalThis.Object.values(asyncFromEntries);
 const frozenAsyncGlobalValues = globalThis.Object.values(frozenAsyncFromEntries);
+const asyncBracketedGlobalValues = globalThis.Object.values(asyncBracketedFromEntries);
 const asyncMixedValues = globalThis.Object["values"](asyncFromEntries);
 const frozenAsyncMixedValues = globalThis.Object["values"](frozenAsyncFromEntries);
+const asyncBracketedMixedValues = globalThis.Object["values"](asyncBracketedFromEntries);
 const asyncMixedBracketedValues = globalThis["Object"].values(asyncFromEntries);
 const frozenAsyncMixedBracketedValues = globalThis["Object"].values(frozenAsyncFromEntries);
+const asyncBracketedMixedBracketedValues = globalThis["Object"].values(asyncBracketedFromEntries);
 const asyncBracketedValues = globalThis["Object"]["values"](asyncFromEntries);
 const frozenAsyncBracketedValues = globalThis["Object"]["values"](frozenAsyncFromEntries);
+const asyncBracketedBracketedValues = globalThis["Object"]["values"](asyncBracketedFromEntries);
 for await (const item of [...asyncValues]) { console.log(item); }
 for await (const item of [...frozenAsyncValues]) { console.log(item); }
+for await (const item of [...asyncBracketedFromEntriesValues]) { console.log(item); }
 for await (const item of [...asyncGlobalValues]) { console.log(item); }
 for await (const item of [...frozenAsyncGlobalValues]) { console.log(item); }
+for await (const item of [...asyncBracketedGlobalValues]) { console.log(item); }
 for await (const item of [...asyncMixedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncMixedValues]) { console.log(item); }
+for await (const item of [...asyncBracketedMixedValues]) { console.log(item); }
 for await (const item of [...asyncMixedBracketedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncMixedBracketedValues]) { console.log(item); }
+for await (const item of [...asyncBracketedMixedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncBracketedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncBracketedValues]) { console.log(item); }
+for await (const item of [...asyncBracketedBracketedValues]) { console.log(item); }
 "##
 }
 

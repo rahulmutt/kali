@@ -17,20 +17,25 @@ function assertObjectValuesSpreadIteration(values) {
 
 function browserObjectValuesSpreadIteration() {
   const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
   const collected = [...Object.values(fromEntries)];
   const globalCollected = [...globalThis.Object.values(fromEntries)];
+  const bracketedCollected = [...Object.values(bracketedFromEntries)];
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
   const singleBracketedPropertyCollected = [...globalThis['Object'].values(fromEntries)];
-  const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const bracketedAliasFromEntriesCollected = [...globalThis["Object"]["values"](bracketedFromEntries)];
   assertObjectValuesSpreadIteration(collected);
   assertObjectValuesSpreadIteration(globalCollected);
+  assertObjectValuesSpreadIteration(bracketedCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
-  assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(bracketedAliasFromEntriesCollected);
   console.log('browser object values spread iteration ok');
 }
 "##
