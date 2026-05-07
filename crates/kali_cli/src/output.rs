@@ -1226,10 +1226,10 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
     }
 
     match object.get("diagnosticHint") {
-        Some(Value::String(value)) if !value.is_empty() => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
         Some(Value::String(_)) => {
             return Err(
-                "doctor browserRuntimeContract diagnosticHint must be a non-empty string"
+                "doctor browserRuntimeContract diagnosticHint must be a non-empty, non-whitespace string"
                     .to_string(),
             )
         }
