@@ -929,7 +929,12 @@ fn validate_effect_occurrences_value(value: Option<&Value>, context: &str) -> Re
         )?;
 
         match object.get("kind") {
-            Some(Value::String(_)) => {}
+            Some(Value::String(value)) if !value.trim().is_empty() => {}
+            Some(Value::String(_)) => {
+                return Err(format!(
+                    "{context}[{index}] kind must be a non-empty, non-whitespace string"
+                ))
+            }
             Some(other) => {
                 return Err(format!(
                     "{context}[{index}] kind must be a string, got {other}"
@@ -972,7 +977,10 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
 
     for key in ["name", "version", "registry"] {
         match object.get(key) {
-            Some(Value::String(_)) => {}
+            Some(Value::String(value)) if !value.trim().is_empty() => {}
+            Some(Value::String(_)) => return Err(format!(
+                "package-effects payload package {key} must be a non-empty, non-whitespace string"
+            )),
             Some(other) => {
                 return Err(format!(
                     "package-effects payload package {key} must be a string, got {other}"

@@ -24,13 +24,16 @@
       ],
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "registry": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -96,7 +99,8 @@
             ],
             "properties": {
               "kind": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "locations": {
                 "type": "array",

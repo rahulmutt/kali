@@ -532,7 +532,7 @@ Interpretation rules:
 ```
 
 Required fields:
-- `kind: string`
+- `kind: non-empty string`
 - `locations: EffectLocation[]`
 
 ### `EffectLocation`
@@ -608,9 +608,9 @@ Naming note:
 ```
 
 Required fields:
-- `name: string`
-- `version: string`
-- `registry: "npm" | "jsr"`
+- `name: non-empty string`
+- `version: non-empty string`
+- `registry: non-empty string` (`"npm"` or `"jsr"`)
 
 Interpretation rules:
 - `PackageCoordinate` is for **registry packages only**; schema v1 package-effect payloads do not use this shape for raw URLs or local paths

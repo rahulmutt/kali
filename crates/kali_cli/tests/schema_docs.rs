@@ -948,6 +948,18 @@ fn core_schema_documents_match_current_cli_contracts() {
         false
     );
     assert_eq!(
+        package_effects["properties"]["package"]["properties"]["name"]["minLength"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["package"]["properties"]["version"]["minLength"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["package"]["properties"]["registry"]["minLength"],
+        1
+    );
+    assert_eq!(
         package_effects["properties"]["report"]["properties"]["analysisContext"]["required"]
             .as_array()
             .expect("package-effects analysisContext required array")
@@ -957,6 +969,16 @@ fn core_schema_documents_match_current_cli_contracts() {
                 .expect("package-effects analysisContext required string"))
             .collect::<Vec<_>>(),
         vec!["apiSurface", "runtimeProfiles", "compatFeatures"]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["kind"]["type"],
+        "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["kind"]["minLength"],
+        1
     );
     assert_eq!(
         package_effects["properties"]["report"]["required"]
@@ -1336,6 +1358,14 @@ fn core_schema_documents_match_current_cli_contracts() {
             .map(|value| value.as_str().expect("effects occurrence required string"))
             .collect::<Vec<_>>(),
         vec!["kind", "locations"]
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["kind"]["type"],
+        "string"
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["kind"]["minLength"],
+        1
     );
     assert_eq!(
         effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["required"]
