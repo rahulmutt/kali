@@ -3949,6 +3949,50 @@ fn check_source_file_supports_spread_of_reflect_own_keys_iterator_slices_in_brow
 }
 
 #[test]
+fn build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_deno_js_and_ts_input()
+{
+    for extension in ["js", "ts"] {
+        assert_build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+            ApiSurface::Deno,
+            extension,
+        );
+    }
+}
+
+#[test]
+fn build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_browser_api_surface_in_js_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
+fn check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_deno_js_and_ts_input()
+{
+    for extension in ["js", "ts"] {
+        assert_check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+            ApiSurface::Deno,
+            extension,
+        );
+    }
+}
+
+#[test]
+fn check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_browser_api_surface_in_js_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
 fn build_source_file_supports_for_of_object_keys_const_bound_iterable_in_browser_api_surface_in_js_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -4143,6 +4187,30 @@ for await (const item of frozenBracketedKeys) { console.log(item); }
 "##
 }
 
+fn reflect_own_keys_direct_iteration_source() -> &'static str {
+    r##"const object = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const alias = object;
+const keys = Reflect.ownKeys(object);
+const aliasKeys = Reflect.ownKeys(alias);
+const globalKeys = globalThis.Reflect.ownKeys(object);
+const mixedKeys = globalThis.Reflect["ownKeys"](alias);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
+const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+for (const item of keys) { console.log(item); }
+for (const item of aliasKeys) { console.log(item); }
+for (const item of globalKeys) { console.log(item); }
+for (const item of mixedKeys) { console.log(item); }
+for (const item of bracketedKeys) { console.log(item); }
+for (const item of frozenBracketedKeys) { console.log(item); }
+for await (const item of keys) { console.log(item); }
+for await (const item of aliasKeys) { console.log(item); }
+for await (const item of globalKeys) { console.log(item); }
+for await (const item of mixedKeys) { console.log(item); }
+for await (const item of bracketedKeys) { console.log(item); }
+for await (const item of frozenBracketedKeys) { console.log(item); }
+"##
+}
+
 fn assert_check_source_file_supports_spread_of_object_values_iterator_slices_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -4227,6 +4295,43 @@ fn assert_build_source_file_supports_spread_of_reflect_own_keys_iterator_slices_
         None,
     )
     .expect("spread of Reflect.ownKeys iterator slices should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+fn assert_check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, reflect_own_keys_direct_iteration_source()).expect("write source");
+
+    check_source_file(&source_path, api_surface, &[], false, false)
+        .expect("const-bound Reflect.ownKeys iterator sources should succeed");
+}
+
+fn assert_build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, reflect_own_keys_direct_iteration_source()).expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("const-bound Reflect.ownKeys iterator sources should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)

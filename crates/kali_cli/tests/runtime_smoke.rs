@@ -3694,6 +3694,124 @@ Kali.test('browser runtime smoke', () => {});
 "#
 }
 
+fn browser_runtime_reflect_own_keys_source() -> &'static str {
+    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const alias = obj;
+const keys = Reflect.ownKeys(obj);
+const aliasKeys = Reflect.ownKeys(alias);
+const globalKeys = globalThis.Reflect.ownKeys(obj);
+const mixedKeys = globalThis.Reflect["ownKeys"](alias);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  aliasKeys.length !== 4 ||
+  aliasKeys[0] !== '1' ||
+  aliasKeys[1] !== '2' ||
+  aliasKeys[2] !== 'b' ||
+  aliasKeys[3] !== 'a' ||
+  globalKeys.length !== 4 ||
+  globalKeys[0] !== '1' ||
+  globalKeys[1] !== '2' ||
+  globalKeys[2] !== 'b' ||
+  globalKeys[3] !== 'a' ||
+  mixedKeys.length !== 4 ||
+  mixedKeys[0] !== '1' ||
+  mixedKeys[1] !== '2' ||
+  mixedKeys[2] !== 'b' ||
+  mixedKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  frozenBracketedKeys.length !== 4 ||
+  frozenBracketedKeys[0] !== '1' ||
+  frozenBracketedKeys[1] !== '2' ||
+  frozenBracketedKeys[2] !== 'b' ||
+  frozenBracketedKeys[3] !== 'a'
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+for (const item of keys) { console.log(item); }
+for (const item of aliasKeys) { console.log(item); }
+for (const item of globalKeys) { console.log(item); }
+for (const item of mixedKeys) { console.log(item); }
+for (const item of bracketedKeys) { console.log(item); }
+for (const item of frozenBracketedKeys) { console.log(item); }
+for await (const item of keys) { console.log(item); }
+for await (const item of aliasKeys) { console.log(item); }
+for await (const item of globalKeys) { console.log(item); }
+for await (const item of mixedKeys) { console.log(item); }
+for await (const item of bracketedKeys) { console.log(item); }
+for await (const item of frozenBracketedKeys) { console.log(item); }
+console.log(keys.length);
+"#
+}
+
+fn browser_runtime_reflect_own_keys_test_source() -> &'static str {
+    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const alias = obj;
+const keys = Reflect.ownKeys(obj);
+const aliasKeys = Reflect.ownKeys(alias);
+const globalKeys = globalThis.Reflect.ownKeys(obj);
+const mixedKeys = globalThis.Reflect["ownKeys"](alias);
+const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+if (
+  keys.length !== 4 ||
+  keys[0] !== '1' ||
+  keys[1] !== '2' ||
+  keys[2] !== 'b' ||
+  keys[3] !== 'a' ||
+  aliasKeys.length !== 4 ||
+  aliasKeys[0] !== '1' ||
+  aliasKeys[1] !== '2' ||
+  aliasKeys[2] !== 'b' ||
+  aliasKeys[3] !== 'a' ||
+  globalKeys.length !== 4 ||
+  globalKeys[0] !== '1' ||
+  globalKeys[1] !== '2' ||
+  globalKeys[2] !== 'b' ||
+  globalKeys[3] !== 'a' ||
+  mixedKeys.length !== 4 ||
+  mixedKeys[0] !== '1' ||
+  mixedKeys[1] !== '2' ||
+  mixedKeys[2] !== 'b' ||
+  mixedKeys[3] !== 'a' ||
+  bracketedKeys.length !== 4 ||
+  bracketedKeys[0] !== '1' ||
+  bracketedKeys[1] !== '2' ||
+  bracketedKeys[2] !== 'b' ||
+  bracketedKeys[3] !== 'a' ||
+  frozenBracketedKeys.length !== 4 ||
+  frozenBracketedKeys[0] !== '1' ||
+  frozenBracketedKeys[1] !== '2' ||
+  frozenBracketedKeys[2] !== 'b' ||
+  frozenBracketedKeys[3] !== 'a'
+) {
+  throw new Error('unexpected Reflect.ownKeys ordering');
+}
+for (const item of keys) { console.log(item); }
+for (const item of aliasKeys) { console.log(item); }
+for (const item of globalKeys) { console.log(item); }
+for (const item of mixedKeys) { console.log(item); }
+for (const item of bracketedKeys) { console.log(item); }
+for (const item of frozenBracketedKeys) { console.log(item); }
+for await (const item of keys) { console.log(item); }
+for await (const item of aliasKeys) { console.log(item); }
+for await (const item of globalKeys) { console.log(item); }
+for await (const item of mixedKeys) { console.log(item); }
+for await (const item of bracketedKeys) { console.log(item); }
+for await (const item of frozenBracketedKeys) { console.log(item); }
+Kali.test('browser runtime reflect ownKeys', () => {});
+"#
+}
+
 fn browser_runtime_integer_like_object_enumeration_test_source() -> &'static str {
     r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
 const keys = Object.keys(obj);
@@ -10772,6 +10890,124 @@ fn json_run_supports_object_enumeration_semantics_when_browser_api_surface_is_in
         "json: {json}"
     );
     assert_eq!(json["stderr"], "");
+}
+
+fn assert_json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_input_when_a_browser_harness_command_is_configured(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, browser_runtime_reflect_own_keys_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1\n2\nb\na\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+fn assert_json_test_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_input_when_a_browser_harness_command_is_configured(
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("smoke.test.{extension}"));
+    fs::write(&source_path, browser_runtime_reflect_own_keys_test_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1\n2\nb\na\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_input_when_a_browser_harness_command_is_configured(extension);
+    }
+}
+
+#[test]
+fn json_test_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_json_test_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_input_when_a_browser_harness_command_is_configured(extension);
+    }
 }
 
 #[test]
