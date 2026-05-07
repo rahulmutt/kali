@@ -1876,7 +1876,7 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         Some(Value::Number(number)) if number.as_u64().is_some() => {}
         Some(other) => {
             return Err(format!(
-                "build result sizeBytes must be an integer, got {other}"
+                "build result sizeBytes must be a non-negative integer, got {other}"
             ))
         }
         None => unreachable!("validated above"),
