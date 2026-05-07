@@ -45883,6 +45883,53 @@ fn assert_class_generator_method_lowering_rejection_in_browser_context(
     }
 }
 
+fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_configured(
+    command: &str,
+    json_output: bool,
+    extension: &str,
+    source_contents: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source_contents).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        let messages = errors
+            .iter()
+            .map(|error| error["message"].as_str().expect("message"))
+            .collect::<Vec<_>>();
+        assert!(messages.iter().any(|message| {
+            message.contains("class method async/generator lowering is unavailable")
+        }));
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("class method async/generator lowering is unavailable"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
 #[test]
 fn check_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
     for source in [
@@ -46094,6 +46141,27 @@ fn json_test_rejects_class_generator_and_async_generator_method_lowering_in_js_i
         assert_class_generator_method_lowering_rejection("test", true, "js", source);
     }
 }
+
+#[test]
+fn run_and_test_reject_class_generator_and_async_generator_method_lowering_when_browser_harness_is_configured_in_js_input(
+) {
+    for command in ["run", "test"] {
+        for json_output in [false, true] {
+            for source in [
+                "class Example { *main() { yield 1; } }\nnew Example();",
+                "class Example { async *main() { yield 1; } }\nnew Example();",
+            ] {
+                assert_class_generator_method_lowering_rejection_when_browser_harness_is_configured(
+                    command,
+                    json_output,
+                    "js",
+                    source,
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn run_rejects_async_generator_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
