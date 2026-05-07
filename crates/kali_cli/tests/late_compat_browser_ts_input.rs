@@ -19,6 +19,62 @@ fn async_generator_function_source() -> &'static str {
     "async function* main() { yield 1; }\nmain();"
 }
 
+fn late_process_control_source() -> &'static str {
+    "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"];"
+}
+
+fn assert_browser_late_process_control_rejection(stderr: &str) {
+    assert!(stderr.contains("E3100"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("undefined identifier 'process'"),
+        "stderr: {stderr}"
+    );
+    for expected in [
+        "process.kill",
+        "globalThis.process.kill",
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors
+            .iter()
+            .all(|error| matches!(error["code"].as_str(), Some("E3100") | Some("E5506"))),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| error["code"] == "E3100"),
+        "expected at least one E3100 error: {errors:?}"
+    );
+    for expected in [
+        "process.kill",
+        "globalThis.process.kill",
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process["kill"]"#,
+        "undefined identifier 'process'",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
+}
+
 #[test]
 fn run_and_test_reject_generator_function_lowering_in_browser_api_surface_ts_input() {
     for (command, source_name) in [("run", "main.ts"), ("test", "smoke.test.ts")] {
@@ -78,6 +134,49 @@ fn run_and_test_reject_generator_function_lowering_in_browser_api_surface_ts_inp
                         "stderr: {stderr}"
                     );
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_late_process_control_members_in_browser_api_surface_ts_input() {
+    for (command, source_name) in [("run", "main.ts"), ("test", "smoke.test.ts")] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, late_process_control_source()).expect("write source");
+
+            let mut cli = Command::new(kali_bin());
+            cli.current_dir(dir.path())
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+            if output_json {
+                cli.arg("--output").arg("json");
+            }
+            let output = cli
+                .arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg("--max-threads")
+                .arg("0")
+                .arg("--max-spawned-processes")
+                .arg("0")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_browser_late_process_control_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_browser_late_process_control_rejection(&stderr);
             }
         }
     }
