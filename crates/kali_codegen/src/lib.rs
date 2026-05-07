@@ -4348,7 +4348,13 @@ impl<'a> FunctionEmitter<'a> {
             .unwrap_or_default();
         matches!(
             callee_node.text.as_deref(),
-            Some(text) if text == "fromEntries" || text.ends_with(".fromEntries")
+            Some(text)
+                if text == "fromEntries"
+                    || text.ends_with(".fromEntries")
+                    || text.ends_with("[\"fromEntries\"]")
+                    || text.ends_with("['fromEntries']")
+                    || text == r#"globalThis["Object"]["fromEntries"]"#
+                    || text == r#"globalThis['Object']['fromEntries']"#
         )
     }
 
