@@ -8564,6 +8564,88 @@ fn collect_library_exports_infers_default_function_expression_exports_through_aw
 }
 
 #[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_nullish_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "export default null ?? ((input) => 1);").expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::BinaryExpression(Box::new(
+            kali_ast::BinaryExpression {
+                operator: "??".to_string(),
+                left: Expression::Literal(kali_ast::LiteralValue::Null),
+                right: Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                            kali_ast::ArrowFunctionExpression {
+                                params: vec![kali_ast::FunctionParam {
+                                    name: "input".to_string(),
+                                }],
+                                body: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                                is_async: false,
+                                returnType: None,
+                            },
+                        ))),
+                    },
+                )),
+            },
+        ))),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
+fn collect_library_exports_infers_default_async_function_expression_exports_through_nullish_wrapper(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "export default void 0 ?? (async (input) => 1);",
+    )
+    .expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::BinaryExpression(Box::new(
+            kali_ast::BinaryExpression {
+                operator: "??".to_string(),
+                left: Expression::UnaryExpression(Box::new(kali_ast::UnaryExpression {
+                    operator: "void".to_string(),
+                    argument: Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
+                })),
+                right: Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                            kali_ast::ArrowFunctionExpression {
+                                params: vec![kali_ast::FunctionParam {
+                                    name: "input".to_string(),
+                                }],
+                                body: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                                is_async: true,
+                                returnType: None,
+                            },
+                        ))),
+                    },
+                )),
+            },
+        ))),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => Promise<number>");
+}
+
+#[test]
 fn collect_library_exports_infers_default_async_function_expression_exports_through_await_wrapper()
 {
     let dir = tempdir().expect("tempdir");
