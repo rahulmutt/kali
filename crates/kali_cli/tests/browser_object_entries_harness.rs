@@ -71,6 +71,20 @@ fn browser_harness_object_entries_test_source() -> &'static str {
 "##
 }
 
+fn browser_harness_object_entries_frozen_run_source() -> String {
+    browser_harness_object_entries_run_source().replace(
+        "  const values = { \"b\": 1, \"a\": 2 };",
+        "  const values = Object.freeze({ \"b\": 1, \"a\": 2 });",
+    )
+}
+
+fn browser_harness_object_entries_frozen_test_source() -> String {
+    browser_harness_object_entries_test_source().replace(
+        "  const values = { \"b\": 1, \"a\": 2 };",
+        "  const values = Object.freeze({ \"b\": 1, \"a\": 2 });",
+    )
+}
+
 fn assert_browser_harness_object_entries(
     command: &str,
     filename: &str,
@@ -297,6 +311,174 @@ fn json_test_supports_object_entries_iteration_when_browser_harness_is_configure
         "test",
         "smoke.test.tsx",
         browser_harness_object_entries_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.js",
+        &browser_harness_object_entries_frozen_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.ts",
+        &browser_harness_object_entries_frozen_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.jsx",
+        &browser_harness_object_entries_frozen_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.tsx",
+        &browser_harness_object_entries_frozen_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.js",
+        &browser_harness_object_entries_frozen_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.ts",
+        &browser_harness_object_entries_frozen_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.jsx",
+        &browser_harness_object_entries_frozen_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.tsx",
+        &browser_harness_object_entries_frozen_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.js",
+        &browser_harness_object_entries_frozen_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.ts",
+        &browser_harness_object_entries_frozen_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.jsx",
+        &browser_harness_object_entries_frozen_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_object_entries(
+        "run",
+        "main.tsx",
+        &browser_harness_object_entries_frozen_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.js",
+        &browser_harness_object_entries_frozen_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.ts",
+        &browser_harness_object_entries_frozen_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.jsx",
+        &browser_harness_object_entries_frozen_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_frozen_object_entries_iteration_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_object_entries(
+        "test",
+        "smoke.test.tsx",
+        &browser_harness_object_entries_frozen_test_source(),
         true,
     );
 }
