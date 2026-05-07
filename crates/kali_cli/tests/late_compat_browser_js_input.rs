@@ -65,11 +65,11 @@ fn non_literal_dynamic_import_test_source() -> &'static str {
 }
 
 fn generator_function_source() -> &'static str {
-    "function* main() { yield 1; }\nmain();"
+    "function* main() { yield* []; }\nmain();"
 }
 
 fn async_generator_function_source() -> &'static str {
-    "async function* main() { yield 1; }\nmain();"
+    "async function* main() { yield* []; }\nmain();"
 }
 
 #[test]
