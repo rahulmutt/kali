@@ -45333,6 +45333,30 @@ fn assert_generator_function_lowering_rejection_when_browser_harness_is_configur
     }
 }
 
+#[test]
+fn check_rejects_generator_function_lowering_in_browser_api_surface_js_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("check", false, "js");
+}
+
+#[test]
+fn build_rejects_generator_function_lowering_in_browser_api_surface_js_input() {
+    assert_generator_function_lowering_rejection_in_browser_context("build", true, "js");
+}
+
+#[test]
+fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_configured_in_js_input()
+{
+    for command in ["run", "test"] {
+        for json_output in [false, true] {
+            assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+                command,
+                "js",
+                json_output,
+            );
+        }
+    }
+}
+
 fn assert_class_generator_method_lowering_rejection(
     command: &str,
     json_output: bool,
