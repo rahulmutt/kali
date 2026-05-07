@@ -3483,6 +3483,140 @@ fn validate_envelope_value_rejects_unexpected_related_item_source_span_keys() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_empty_nested_source_span_files() {
+    for (context, payload) in [
+        (
+            "labels[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad label span file",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [
+                            {
+                                "span": {"file": "", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                                "message": "label",
+                                "style": "primary"
+                            }
+                        ],
+                        "related": [],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+        (
+            "labels[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad label span file",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [
+                            {
+                                "span": {"file": "   ", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                                "message": "label",
+                                "style": "primary"
+                            }
+                        ],
+                        "related": [],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+        (
+            "related[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad related span file",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [],
+                        "related": [
+                            {
+                                "message": "follow-up note",
+                                "span": {"file": "", "line": 1, "column": 1, "endLine": 1, "endColumn": 2}
+                            }
+                        ],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+        (
+            "related[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad related span file",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [],
+                        "related": [
+                            {
+                                "message": "follow-up note",
+                                "span": {"file": "   ", "line": 1, "column": 1, "endLine": 1, "endColumn": 2}
+                            }
+                        ],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+    ] {
+        let err = validate_envelope_value(&payload)
+            .expect_err("empty nested source-span files should fail validation");
+        assert!(err.contains(context), "unexpected error: {err}");
+        assert!(err.contains("span file"), "unexpected error: {err}");
+        assert!(err.contains("non-empty"), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_suggested_fix_edits() {
     let invalid_fix = json!({
         "schemaVersion": 1,
