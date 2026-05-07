@@ -11103,3 +11103,37 @@ fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_browser_
         "ts",
     );
 }
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_jsx_input() {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_tsx_input() {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_exponent_assignment_on_mutable_binding_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_exponent_assignment_on_mutable_binding_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
