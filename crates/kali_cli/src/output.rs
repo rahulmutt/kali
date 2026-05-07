@@ -1037,18 +1037,14 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
 
     validate_non_empty_string_value(object.get("envVar"), "doctor browserHarness envVar")?;
 
-    match object.get("source") {
-        Some(Value::String(value)) if matches!(value.as_str(), "env" | "auto") => {}
-        Some(other) => {
-            return Err(format!(
-                "doctor browserHarness source must be `env` or `auto`, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
-
     let source = match object.get("source") {
-        Some(Value::String(value)) if matches!(value.as_str(), "env" | "auto") => value,
+        Some(Value::String(value)) if !value.trim().is_empty() => value,
+        Some(Value::String(_)) => {
+            return Err(
+                "doctor browserHarness source must be a non-empty, non-whitespace string"
+                    .to_string(),
+            )
+        }
         Some(other) => {
             return Err(format!(
                 "doctor browserHarness source must be `env` or `auto`, got {other}"
@@ -1056,6 +1052,15 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         }
         None => unreachable!("validated above"),
     };
+
+    match source.as_str() {
+        "env" | "auto" => {}
+        _ => {
+            return Err(format!(
+                "doctor browserHarness source must be `env` or `auto`, got `{source}`"
+            ))
+        }
+    }
 
     let override_value = match object.get("override") {
         Some(Value::Null) | Some(Value::String(_)) => {

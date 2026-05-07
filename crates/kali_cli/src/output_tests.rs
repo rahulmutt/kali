@@ -546,7 +546,7 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_override() {
 
 #[test]
 fn validate_doctor_payload_value_rejects_invalid_browser_harness_source() {
-    for source in [json!("browser"), json!(" \n\t "), json!(42)] {
+    for source in [json!("browser"), json!(42)] {
         let value = json!({
             "browserHarness": {
                 "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
@@ -580,6 +580,42 @@ fn validate_doctor_payload_value_rejects_invalid_browser_harness_source() {
             "unexpected error: {err}"
         );
     }
+}
+
+#[test]
+fn validate_doctor_payload_value_rejects_whitespace_browser_harness_source() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": " \n\t ",
+            "override": null,
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("whitespace browserHarness source should fail");
+    assert!(
+        err.contains("non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
