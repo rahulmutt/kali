@@ -1675,6 +1675,12 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
     }
 
     match object.get("artifactKind") {
+        Some(Value::String(kind)) if kind.trim().is_empty() => {
+            return Err(
+                "artifact metadata artifactKind must be a non-empty, non-whitespace string"
+                    .to_string(),
+            )
+        }
         Some(Value::String(kind)) if VALID_ARTIFACT_KINDS.contains(&kind.as_str()) => {}
         Some(Value::String(kind)) => {
             return Err(format!("unsupported artifact metadata kind '{kind}'"));

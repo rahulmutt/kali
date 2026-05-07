@@ -9801,6 +9801,34 @@ fn validate_artifact_metadata_value_rejects_duplicate_export_names() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_empty_or_whitespace_artifact_kind() {
+    for artifact_kind in ["", "   "] {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": artifact_kind,
+            "entrypoint": "src/main.ts",
+            "buildMode": "release",
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": []
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("empty artifact kind should fail validation");
+        assert!(err.contains("artifactKind"), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_empty_or_whitespace_build_mode() {
     for (field, invalid_value) in [("buildMode", ""), ("buildMode", "   ")] {
         let invalid_metadata = serde_json::json!({
