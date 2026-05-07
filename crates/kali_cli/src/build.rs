@@ -2173,13 +2173,23 @@ fn validate_name_signature_object(
     validate_no_unexpected_keys(object, context, &["name", "signature"])?;
 
     match object.get("name") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(format!(
+                "{context}.name must be a non-empty, non-whitespace string"
+            ))
+        }
         Some(other) => return Err(format!("{context}.name must be a string, got {other}")),
         None => return Err(format!("{context} is missing required key `name`")),
     }
 
     match object.get("signature") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(format!(
+                "{context}.signature must be a non-empty, non-whitespace string"
+            ))
+        }
         Some(other) => return Err(format!("{context}.signature must be a string, got {other}")),
         None => return Err(format!("{context} is missing required key `signature`")),
     }

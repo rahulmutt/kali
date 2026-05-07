@@ -9512,6 +9512,48 @@ fn validate_artifact_metadata_value_rejects_duplicate_export_names() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_empty_or_whitespace_export_names_and_signatures() {
+    for (field, invalid_value) in [
+        ("name", ""),
+        ("name", "   "),
+        ("signature", ""),
+        ("signature", " \n\t "),
+    ] {
+        let mut export = serde_json::json!({
+            "name": "main",
+            "signature": "(input) => number",
+        });
+        export
+            .as_object_mut()
+            .expect("export object")
+            .insert(field.to_string(), serde_json::json!(invalid_value));
+
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": "component",
+            "entrypoint": "src/main.ts",
+            "buildMode": "release",
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": [export]
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("empty or whitespace export field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields() {
     for (field, invalid_metadata) in [
         (
@@ -9899,6 +9941,47 @@ fn validate_build_result_value_rejects_duplicate_export_names() {
     let err = validate_build_result_value(&invalid_bundle)
         .expect_err("duplicate export names should fail validation");
     assert!(err.contains("duplicates `main`"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_empty_or_whitespace_export_names_and_signatures() {
+    for (field, invalid_value) in [
+        ("name", ""),
+        ("name", "   "),
+        ("signature", ""),
+        ("signature", " \n\t "),
+    ] {
+        let mut export = serde_json::json!({
+            "name": "main",
+            "signature": "(input) => number",
+        });
+        export
+            .as_object_mut()
+            .expect("export object")
+            .insert(field.to_string(), serde_json::json!(invalid_value));
+
+        let invalid_bundle = serde_json::json!({
+            "artifactKind": "bundle",
+            "outputPath": "/workspace/dist/browser",
+            "sizeBytes": 42,
+            "buildMode": "release-advanced",
+            "sourceHash": "sha256-deadbeef",
+            "artifacts": [
+                { "kind": "js-glue", "path": "browser.js" },
+                { "kind": "wasm-module", "path": "browser.wasm" }
+            ],
+            "exports": [export],
+            "bundleFormat": "esm"
+        });
+
+        let err = validate_build_result_value(&invalid_bundle)
+            .expect_err("empty or whitespace export field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]

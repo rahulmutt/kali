@@ -51,6 +51,34 @@ fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_empty_or_whitespace_command() {
+    for command in ["", " \n\t "] {
+        let mut value = emit_envelope_value(
+            "doctor",
+            true,
+            json!([]),
+            json!([]),
+            json!({"answer": 42}),
+            None,
+            None,
+            0,
+        );
+        value
+            .as_object_mut()
+            .expect("envelope object")
+            .insert("command".to_string(), json!(command));
+
+        let error = validate_envelope_value(&value)
+            .expect_err("empty or whitespace command should fail validation");
+        assert!(error.contains("command"), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_run_text_output() {
     let value = emit_envelope_value(
         "run",
@@ -2629,6 +2657,28 @@ fn validate_envelope_value_rejects_wrong_top_level_shapes() {
     });
     let err = validate_envelope_value(&missing_key).expect_err("missing exitCode should fail");
     assert!(err.contains("exitCode"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_rejects_empty_or_whitespace_command() {
+    for command in ["", "   "] {
+        let value = json!({
+            "schemaVersion": 1,
+            "command": command,
+            "success": true,
+            "errors": [],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 0,
+        });
+
+        let err =
+            validate_envelope_value(&value).expect_err("empty command should fail validation");
+        assert!(err.contains("command"), "unexpected error: {err}");
+        assert!(err.contains("non-empty"), "unexpected error: {err}");
+    }
 }
 
 #[test]

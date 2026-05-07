@@ -110,10 +110,15 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
     }
 
     match object.get("command") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(
+                "CLI envelope command must be a non-empty, non-whitespace string".to_string(),
+            )
+        }
         Some(other) => {
             return Err(format!(
-                "CLI envelope command must be a string, got {other}"
+                "CLI envelope command must be a non-empty, non-whitespace string, got {other}"
             ))
         }
         None => unreachable!("validated above"),

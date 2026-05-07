@@ -51,7 +51,7 @@ Used by commands that opt into `--output json`.
 
 ### Required fields
 - `schemaVersion: number`
-- `command: string`
+- `command: non-empty, non-whitespace string`
 - `success: boolean`
 - `errors: Diagnostic[]`
 - `warnings: Diagnostic[]`
@@ -68,7 +68,7 @@ Used by commands that opt into `--output json`.
 ### Notes
 - `payload` holds command-specific structured data
 - when a command defines a structured success payload, schema-v1 producers should keep that object fixed-shape unless the owning subsection explicitly says otherwise
-- `command` is intentionally an open-ended string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
+- `command` is intentionally an open-ended non-empty string so new CLI subcommands do not force a schema-version bump; stable built-in command names should mirror the CLI subcommand path in kebab-case (for example `check`, `build`, `package-effects`)
 - `payload` is always present in the schema-v1 command envelope so consumers can rely on one stable top-level shape; commands without a dedicated success payload emit `payload: null`
 - a command may support `--output json` with the canonical **envelope-only JSON command** model from [SPEC.md](../SPEC.md) even when schema v1 does **not** define a dedicated success-payload schema for it; in that case the envelope itself is the stable contract and schema-v1 producers should emit `payload: null` rather than populating it with an ad hoc object
 - envelope-only JSON command behavior is an output-format rule only; it does **not** promote a command to an earlier phase, create a second command surface, or bypass the command's ordinary maturity/context gates
@@ -986,7 +986,7 @@ Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
 - they should also prefer the canonical `role` values above instead of per-command ad hoc labels
 - within one emitted artifact list, the `(kind, path)` pair should be unique; producers should not emit duplicate artifact entries and consumers should not silently deduplicate them away
-- export arrays attached to build-result payloads and artifact-metadata sidecars should be unique by export `name`
+- export arrays attached to build-result payloads and artifact-metadata sidecars should be unique by export `name`, and each exported `name` / `signature` string should be non-empty and non-whitespace so the machine contract stays deterministic
 - adding a new stable artifact `kind` or `role` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
 ## C ABI Metadata Schema (schema v1)
