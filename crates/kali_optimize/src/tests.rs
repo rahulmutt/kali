@@ -190,6 +190,39 @@ fn build_global_this_object_from_entries_call(builder: &mut LirBuilder) -> LirNo
     call
 }
 
+fn build_bracketed_global_this_object_from_entries_call(
+    builder: &mut LirBuilder,
+    callee_name: &str,
+) -> LirNodeId {
+    let call = builder.alloc(LirNodeKind::Call);
+    let callee = builder.alloc_text(LirNodeKind::Value, callee_name);
+    let object_object = builder.alloc_text(LirNodeKind::Value, r#"["Object"]"#);
+    let global_this = builder.alloc_text(LirNodeKind::Value, "globalThis");
+    builder.node_mut(object_object).unwrap().children = vec![global_this];
+    builder.node_mut(callee).unwrap().children = vec![object_object];
+
+    let entries = builder.alloc(LirNodeKind::Value);
+    let entry_b = builder.alloc(LirNodeKind::Value);
+    let entry_b_key = literal(builder, "\"b\"");
+    let entry_b_value = literal(builder, "1");
+    builder.node_mut(entry_b).unwrap().children = vec![entry_b_key, entry_b_value];
+
+    let entry_a = builder.alloc(LirNodeKind::Value);
+    let entry_a_key = literal(builder, "\"a\"");
+    let entry_a_value = literal(builder, "2");
+    builder.node_mut(entry_a).unwrap().children = vec![entry_a_key, entry_a_value];
+
+    let entry_b_overwrite = builder.alloc(LirNodeKind::Value);
+    let entry_b_overwrite_key = literal(builder, "\"b\"");
+    let entry_b_overwrite_value = literal(builder, "3");
+    builder.node_mut(entry_b_overwrite).unwrap().children =
+        vec![entry_b_overwrite_key, entry_b_overwrite_value];
+
+    builder.node_mut(entries).unwrap().children = vec![entry_b, entry_a, entry_b_overwrite];
+    builder.node_mut(call).unwrap().children = vec![callee, entries];
+    call
+}
+
 fn build_bracketed_global_this_object_enumeration_call(
     builder: &mut LirBuilder,
     callee_name: &str,
@@ -2361,6 +2394,31 @@ fn release_folds_object_has_own_calls_over_frozen_from_entries_shapes() {
 }
 
 #[test]
+fn release_folds_object_has_own_calls_over_frozen_bracketed_from_entries_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    let from_entries =
+        build_bracketed_global_this_object_from_entries_call(&mut builder, r#"["fromEntries"]"#);
+    let frozen_from_entries = build_object_freeze_call(&mut builder, from_entries);
+    builder.node_mut(call).unwrap().children[1] = frozen_from_entries;
+    let key = literal(&mut builder, "\"a\"");
+    builder.node_mut(call).unwrap().children[2] = key;
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
 fn release_advanced_folds_object_has_own_calls_over_literal_object_shapes() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
@@ -2385,6 +2443,31 @@ fn release_advanced_folds_object_has_own_calls_over_frozen_from_entries_shapes()
     let root = builder.alloc(LirNodeKind::Program);
     let call = build_object_has_own_call(&mut builder, "hasOwn");
     let from_entries = build_object_from_entries_call(&mut builder);
+    let frozen_from_entries = build_object_freeze_call(&mut builder, from_entries);
+    builder.node_mut(call).unwrap().children[1] = frozen_from_entries;
+    let key = literal(&mut builder, "\"a\"");
+    builder.node_mut(call).unwrap().children[2] = key;
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::ReleaseAdvanced).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
+fn release_advanced_folds_object_has_own_calls_over_frozen_bracketed_from_entries_shapes() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+    let from_entries =
+        build_bracketed_global_this_object_from_entries_call(&mut builder, r#"["fromEntries"]"#);
     let frozen_from_entries = build_object_freeze_call(&mut builder, from_entries);
     builder.node_mut(call).unwrap().children[1] = frozen_from_entries;
     let key = literal(&mut builder, "\"a\"");
