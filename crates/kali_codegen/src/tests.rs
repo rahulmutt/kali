@@ -253,10 +253,10 @@ fn for_of_object_enumeration_lowers_for_single_quoted_bracketed_aliases_over_fro
 }
 
 #[test]
-fn for_await_spread_of_object_enumeration_lowers_for_remaining_bracketed_global_this_object_spellings_over_frozen_from_entries_operands(
+fn for_await_spread_of_object_enumeration_lowers_for_remaining_global_this_object_spellings_over_frozen_from_entries_operands(
 ) {
     let program = parse_and_lower_lir(
-        "for await (const value of [...globalThis[\"Object\"].values(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(value); } for await (const key of [...globalThis.Object[\"keys\"](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(key); } for await (const entry of [...globalThis[\"Object\"][\"entries\"](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(entry[0]); console.log(entry[1]); }",
+        "for await (const value of [...globalThis[\"Object\"].values(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(value); } for await (const value of [...globalThis.Object.values(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(value); } for await (const key of [...globalThis.Object[\"keys\"](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(key); } for await (const entry of [...globalThis[\"Object\"][\"entries\"](Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(entry[0]); console.log(entry[1]); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
