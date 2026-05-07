@@ -15587,6 +15587,10 @@ fn json_run_rejects_positive_spawned_process_budget_override() {
             .contains("resources.maxSpawnedProcesses"),
         "json: {json}"
     );
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--max-spawned-processes");
+    assert_eq!(errors[0]["context"]["requestedValue"], "1");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "1");
 }
 
 #[test]
@@ -21384,6 +21388,10 @@ fn json_test_rejects_positive_spawned_process_budget_override() {
             .contains("resources.maxSpawnedProcesses"),
         "json: {json}"
     );
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--max-spawned-processes");
+    assert_eq!(errors[0]["context"]["requestedValue"], "1");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "1");
 }
 
 #[test]

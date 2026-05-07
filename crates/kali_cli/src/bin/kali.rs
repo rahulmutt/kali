@@ -1159,12 +1159,22 @@ fn reject_unavailable_spawned_process_budget(
         return Ok(());
     }
 
-    let diagnostic = Diagnostic::error(
+    let mut diagnostic = Diagnostic::error(
         e5::FEATURE_UNAVAILABLE as u32,
         "selected resource budget(s) [\"resources.maxSpawnedProcesses\"] are unavailable in this phase",
     )
     .note("canonical CLI flag: --max-spawned-processes")
     .note("canonical config path: resources.maxSpawnedProcesses");
+
+    if let Some(count) = max_spawned_processes {
+        diagnostic = diagnostic.with_context(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--max-spawned-processes")
+                .with_requested_value(count.to_string())
+                .with_effective_value(count.to_string()),
+        );
+    }
+
     emit_diagnostics_and_exit(
         command,
         vec![diagnostic],
