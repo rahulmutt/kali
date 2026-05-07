@@ -28,7 +28,8 @@
       ]
     },
     "entrypoint": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "buildMode": {
       "type": "string",
@@ -39,7 +40,8 @@
       ]
     },
     "apiSurface": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "runtimeProfiles": {
       "type": "array",
@@ -81,10 +83,12 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "signature": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         }
       }

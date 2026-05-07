@@ -251,6 +251,15 @@ fn core_schema_documents_match_current_cli_contracts() {
                 .map(|value| value.to_string())
                 .collect::<Vec<_>>()
         );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["exports"]["items"]["properties"]["name"],
+            serde_json::json!({"type": "string", "minLength": 1})
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["exports"]["items"]["properties"]
+                ["signature"],
+            serde_json::json!({"type": "string", "minLength": 1})
+        );
     }
 
     let build_artifact = &build["$defs"]["buildArtifact"];
@@ -475,13 +484,19 @@ fn core_schema_documents_match_current_cli_contracts() {
         artifact_meta["properties"]["artifactKind"]["enum"],
         serde_json::json!(["executable", "lib", "bundle", "capi", "component"])
     );
-    assert_eq!(artifact_meta["properties"]["entrypoint"]["type"], "string");
+    assert_eq!(
+        artifact_meta["properties"]["entrypoint"],
+        serde_json::json!({"type": "string", "minLength": 1})
+    );
     assert_eq!(artifact_meta["properties"]["buildMode"]["type"], "string");
     assert_eq!(
         artifact_meta["properties"]["buildMode"]["enum"],
         serde_json::json!(["fast", "release", "release-advanced"])
     );
-    assert_eq!(artifact_meta["properties"]["apiSurface"]["type"], "string");
+    assert_eq!(
+        artifact_meta["properties"]["apiSurface"],
+        serde_json::json!({"type": "string", "minLength": 1})
+    );
     assert_eq!(
         artifact_meta["properties"]["runtimeProfiles"]["type"],
         "array"
@@ -522,12 +537,12 @@ fn core_schema_documents_match_current_cli_contracts() {
         serde_json::json!(["name", "signature"])
     );
     assert_eq!(
-        artifact_meta["properties"]["exports"]["items"]["properties"]["name"]["type"],
-        "string"
+        artifact_meta["properties"]["exports"]["items"]["properties"]["name"],
+        serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(
-        artifact_meta["properties"]["exports"]["items"]["properties"]["signature"]["type"],
-        "string"
+        artifact_meta["properties"]["exports"]["items"]["properties"]["signature"],
+        serde_json::json!({"type": "string", "minLength": 1})
     );
 
     let schemas_18 =
@@ -1398,12 +1413,12 @@ fn core_schema_documents_match_current_cli_contracts() {
         serde_json::json!({
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string" }
+            "items": { "type": "string", "minLength": 1 }
         })
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticNotes"]["items"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"type": "string", "minLength": 1})
     );
 
     let init: serde_json::Value = serde_json::from_str(

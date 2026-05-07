@@ -1671,7 +1671,13 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
     }
 
     match object.get("entrypoint") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(
+                "artifact metadata entrypoint must be a non-empty, non-whitespace string"
+                    .to_string(),
+            )
+        }
         Some(other) => {
             return Err(format!(
                 "artifact metadata entrypoint must be a string, got {other}"
@@ -1694,7 +1700,13 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
     }
 
     match object.get("apiSurface") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => {
+            return Err(
+                "artifact metadata apiSurface must be a non-empty, non-whitespace string"
+                    .to_string(),
+            )
+        }
         Some(other) => {
             return Err(format!(
                 "artifact metadata apiSurface must be a string, got {other}"
