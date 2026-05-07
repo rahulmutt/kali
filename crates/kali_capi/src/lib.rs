@@ -302,21 +302,15 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
         normalized.insert("maxSpecializations".to_string(), max_specializations);
     }
     if let Some(host_contract) = host_contract {
-        if !host_contract.is_string() {
-            return Err("cabi metadata field 'hostContract' must be a string".to_string());
-        }
+        validate_non_empty_string_field(&host_contract, "cabi metadata", "hostContract")?;
         normalized.insert("hostContract".to_string(), host_contract);
     }
     if let Some(runtime_backend) = runtime_backend {
-        if !runtime_backend.is_string() {
-            return Err("cabi metadata field 'runtimeBackend' must be a string".to_string());
-        }
+        validate_non_empty_string_field(&runtime_backend, "cabi metadata", "runtimeBackend")?;
         normalized.insert("runtimeBackend".to_string(), runtime_backend);
     }
     if let Some(profile_data_hash) = profile_data_hash {
-        if !profile_data_hash.is_string() {
-            return Err("cabi metadata field 'profileDataHash' must be a string".to_string());
-        }
+        validate_non_empty_string_field(&profile_data_hash, "cabi metadata", "profileDataHash")?;
         normalized.insert("profileDataHash".to_string(), profile_data_hash);
     }
     normalized.insert("artifacts".to_string(), Value::Object(normalized_artifacts));
@@ -370,14 +364,28 @@ pub fn cabi_metadata_summary(metadata: &Value) -> Result<Value, String> {
         .get("runtimeProfiles")
         .cloned()
         .unwrap_or_else(|| Value::Array(Vec::new()));
-    let host_contract = metadata
-        .get("hostContract")
-        .cloned()
-        .unwrap_or_else(|| Value::String("kali-hosted".to_string()));
-    let runtime_backend = metadata
-        .get("runtimeBackend")
-        .cloned()
-        .unwrap_or_else(|| Value::String("wasmtime".to_string()));
+    let host_contract = match metadata.get("hostContract") {
+        Some(host_contract) => {
+            validate_non_empty_string_field(
+                host_contract,
+                "cabi metadata summary",
+                "hostContract",
+            )?;
+            host_contract.clone()
+        }
+        None => Value::String("kali-hosted".to_string()),
+    };
+    let runtime_backend = match metadata.get("runtimeBackend") {
+        Some(runtime_backend) => {
+            validate_non_empty_string_field(
+                runtime_backend,
+                "cabi metadata summary",
+                "runtimeBackend",
+            )?;
+            runtime_backend.clone()
+        }
+        None => Value::String("wasmtime".to_string()),
+    };
 
     let mut summary = serde_json::Map::new();
     summary.insert("schemaVersion".to_string(), schema_version);
@@ -395,6 +403,11 @@ pub fn cabi_metadata_summary(metadata: &Value) -> Result<Value, String> {
         );
     }
     if let Some(profile_data_hash) = metadata.get("profileDataHash") {
+        validate_non_empty_string_field(
+            profile_data_hash,
+            "cabi metadata summary",
+            "profileDataHash",
+        )?;
         summary.insert("profileDataHash".to_string(), profile_data_hash.clone());
     }
 
@@ -726,11 +739,11 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
     }
 
     if let Some(host_contract) = manifest.get("hostContract") {
-        validate_string_field(host_contract, "binding package manifest", "hostContract")?;
+        validate_non_empty_string_field(host_contract, "binding package manifest", "hostContract")?;
     }
 
     if let Some(runtime_backend) = manifest.get("runtimeBackend") {
-        validate_string_field(
+        validate_non_empty_string_field(
             runtime_backend,
             "binding package manifest",
             "runtimeBackend",
@@ -770,6 +783,24 @@ fn validate_string_field(value: &Value, context: &str, field_name: &str) -> Resu
             "{} field '{}' must be a string",
             context, field_name
         ))
+    }
+}
+
+fn validate_non_empty_string_field(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<(), String> {
+    match value {
+        Value::String(value) if !value.trim().is_empty() => Ok(()),
+        Value::String(_) => Err(format!(
+            "{} field '{}' must be a non-empty, non-whitespace string",
+            context, field_name
+        )),
+        _ => Err(format!(
+            "{} field '{}' must be a string",
+            context, field_name
+        )),
     }
 }
 
@@ -1024,7 +1055,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     };
     let host_contract = match manifest.get("hostContract") {
         Some(host_contract) => {
-            validate_string_field(
+            validate_non_empty_string_field(
                 host_contract,
                 "binding package manifest summary",
                 "hostContract",
@@ -1035,7 +1066,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     };
     let runtime_backend = match manifest.get("runtimeBackend") {
         Some(runtime_backend) => {
-            validate_string_field(
+            validate_non_empty_string_field(
                 runtime_backend,
                 "binding package manifest summary",
                 "runtimeBackend",

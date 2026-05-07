@@ -720,6 +720,34 @@ fn binding_package_manifest_parsing_rejects_invalid_required_field_types() {
 }
 
 #[test]
+fn cabi_metadata_helpers_reject_empty_provenance_fields() {
+    for (field, value) in [
+        ("hostContract", serde_json::json!("")),
+        ("runtimeBackend", serde_json::json!("   ")),
+        ("profileDataHash", serde_json::json!("\t")),
+    ] {
+        let mut metadata = generate_metadata_with_provenance(
+            "sample.capi.wasm",
+            "sample.wit",
+            "sample.h",
+            &[],
+            8,
+            Some("kali-hosted"),
+            Some("wasmtime"),
+        );
+        metadata[field] = value;
+
+        let error =
+            parse_metadata(&metadata.to_string()).expect_err("empty provenance field should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+
+        let error =
+            cabi_metadata_summary(&metadata).expect_err("empty provenance field should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
 fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
     for (field, value) in [
         ("hostContract", serde_json::json!(1)),
@@ -731,6 +759,25 @@ fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
         let error = parse_binding_package_manifest(&manifest.to_string())
             .expect_err("invalid provenance field should fail");
 
+        assert!(error.contains(field), "unexpected error: {error}");
+    }
+}
+
+#[test]
+fn binding_package_manifest_helpers_reject_empty_provenance_fields() {
+    for (field, value) in [
+        ("hostContract", serde_json::json!("")),
+        ("runtimeBackend", serde_json::json!("   ")),
+    ] {
+        let mut manifest = valid_binding_package_manifest();
+        manifest[field] = value;
+
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("empty provenance field should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("empty provenance field should fail");
         assert!(error.contains(field), "unexpected error: {error}");
     }
 }
