@@ -326,12 +326,18 @@ impl HirLowerer {
             Statement::BreakStatement(BreakStatement { label }) => self.builder.alloc_text(
                 HirNodeKind::BreakStmt,
                 None,
-                label.clone().unwrap_or_default(),
+                match label {
+                    Some(label) if !label.is_empty() => format!("break:{label}"),
+                    _ => "break".to_string(),
+                },
             ),
             Statement::ContinueStatement(ContinueStatement { label }) => self.builder.alloc_text(
                 HirNodeKind::ContinueStmt,
                 None,
-                label.clone().unwrap_or_default(),
+                match label {
+                    Some(label) if !label.is_empty() => format!("continue:{label}"),
+                    _ => "continue".to_string(),
+                },
             ),
             Statement::WithStatement(WithStatement { object, body }) => {
                 let id = self.builder.alloc(HirNodeKind::WithStmt, None);

@@ -140,6 +140,19 @@ enum ObjectEnumerationMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ControlFlowLabelKind {
+    If,
+    LoopBreak,
+    LoopContinue,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LoopFrame {
+    break_index: usize,
+    continue_index: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct EmittedValue {
     produced: bool,
     shape: ValueShape,
@@ -191,6 +204,8 @@ struct FunctionEmitter<'a> {
     locals: BTreeMap<String, u32>,
     bindings: BTreeMap<String, LirNodeId>,
     reported_placeholder_fallbacks: HashSet<String>,
+    control_frames: Vec<ControlFlowLabelKind>,
+    loop_frames: Vec<LoopFrame>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -235,6 +250,81 @@ impl<'a> FunctionEmitter<'a> {
             locals,
             bindings: BTreeMap::new(),
             reported_placeholder_fallbacks: HashSet::new(),
+            control_frames: Vec::new(),
+            loop_frames: Vec::new(),
+        }
+    }
+
+    fn push_control_frame(&mut self, kind: ControlFlowLabelKind) -> usize {
+        self.control_frames.push(kind);
+        self.control_frames.len() - 1
+    }
+
+    fn pop_control_frame(&mut self, kind: ControlFlowLabelKind) {
+        let popped = self.control_frames.pop();
+        debug_assert_eq!(popped, Some(kind));
+    }
+
+    fn control_frame_depth(&self, target_index: usize) -> u32 {
+        debug_assert!(target_index < self.control_frames.len());
+        (self.control_frames.len() - 1 - target_index) as u32
+    }
+
+    fn emit_break_or_continue(
+        &mut self,
+        function: &mut Function,
+        is_continue: bool,
+        node: &LirNode,
+    ) -> EmittedValue {
+        let Some(loop_frame) = self.loop_frames.last().copied() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "break and continue are unavailable outside the supported static loop lowering path; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        };
+
+        let control_text = node.text.as_deref().unwrap_or_default();
+        let (keyword, label) = if let Some(label) = control_text.strip_prefix("break:") {
+            ("break", label)
+        } else if let Some(label) = control_text.strip_prefix("continue:") {
+            ("continue", label)
+        } else if control_text == "break" {
+            ("break", "")
+        } else if control_text == "continue" {
+            ("continue", "")
+        } else {
+            (control_text, "")
+        };
+
+        if !label.is_empty() {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "{keyword} labels are unavailable in the current phase; use an unlabeled {keyword} inside the supported static loop lowering path or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        let target_index = if is_continue {
+            loop_frame.continue_index
+        } else {
+            loop_frame.break_index
+        };
+        let depth = self.control_frame_depth(target_index);
+        function.instruction(&Instruction::Br(depth));
+        EmittedValue {
+            produced: false,
+            shape: ValueShape::Unknown,
         }
     }
 
@@ -407,6 +497,12 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value => self.emit_value(function, &node, want_value),
             LirNodeKind::Call => self.emit_call(function, &node),
             LirNodeKind::Branch => match node.text.as_deref() {
+                Some(text) if text.starts_with("break") => {
+                    self.emit_break_or_continue(function, false, &node)
+                }
+                Some(text) if text.starts_with("continue") => {
+                    self.emit_break_or_continue(function, true, &node)
+                }
                 Some("for-of") | Some("for-await-of") => {
                     self.emit_for_of_array_iteration(function, &node)
                 }
@@ -1134,6 +1230,25 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::Unknown,
             };
+        }
+
+        if matches!(op, "===" | "!==") {
+            if let (Some(left_value), Some(right_value)) = (
+                self.static_bigint_literal_value(left),
+                self.static_bigint_literal_value(right),
+            ) {
+                function.instruction(&Instruction::I64Const(
+                    if (left_value == right_value) == (op == "===") {
+                        1
+                    } else {
+                        0
+                    },
+                ));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Boolean,
+                };
+            }
         }
 
         if op != "??" && op != "**" {
@@ -3487,6 +3602,16 @@ impl<'a> FunctionEmitter<'a> {
         Some(i64::from(uint32.leading_zeros()))
     }
 
+    fn static_bigint_literal_value(&self, id: LirNodeId) -> Option<i64> {
+        let id = self.resolve_bound_node(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Literal {
+            return None;
+        }
+
+        parse_number_literal(node.text.as_deref()?)
+    }
+
     fn math_sign_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
         let rendered = self.render_static_value(arg)?;
         let value = parse_numeric_literal_value(&rendered)?;
@@ -4017,6 +4142,8 @@ impl<'a> FunctionEmitter<'a> {
 
         let body = node.children.get(2).copied();
         if let Some(string_text) = self.render_static_string_value(&array) {
+            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+            function.instruction(&Instruction::Block(BlockType::Empty));
             for value in string_text.chars() {
                 let literal = self.alloc_scratch_node(
                     LirNodeKind::Literal,
@@ -4024,6 +4151,12 @@ impl<'a> FunctionEmitter<'a> {
                     vec![],
                 );
                 let previous_binding = self.bindings.insert(loop_name.clone(), literal);
+                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.push(LoopFrame {
+                    break_index,
+                    continue_index,
+                });
+                function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
                     let _ = self.emit_node(function, body, false);
                 }
@@ -4032,7 +4165,12 @@ impl<'a> FunctionEmitter<'a> {
                 } else {
                     self.bindings.remove(&loop_name);
                 }
+                function.instruction(&Instruction::End);
+                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.pop();
             }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
             return EmittedValue {
                 produced: false,
@@ -4088,8 +4226,16 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
 
+            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+            function.instruction(&Instruction::Block(BlockType::Empty));
             for child in items {
                 let previous_binding = self.bindings.insert(loop_name.clone(), child);
+                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.push(LoopFrame {
+                    break_index,
+                    continue_index,
+                });
+                function.instruction(&Instruction::Block(BlockType::Empty));
                 if let Some(body) = body {
                     let _ = self.emit_node(function, body, false);
                 }
@@ -4098,7 +4244,12 @@ impl<'a> FunctionEmitter<'a> {
                 } else {
                     self.bindings.remove(&loop_name);
                 }
+                function.instruction(&Instruction::End);
+                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.pop();
             }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
             return EmittedValue {
                 produced: false,
@@ -4133,8 +4284,16 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+        function.instruction(&Instruction::Block(BlockType::Empty));
         for child in items {
             let previous_binding = self.bindings.insert(loop_name.clone(), child);
+            let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+            self.loop_frames.push(LoopFrame {
+                break_index,
+                continue_index,
+            });
+            function.instruction(&Instruction::Block(BlockType::Empty));
             if let Some(body) = body {
                 let _ = self.emit_node(function, body, false);
             }
@@ -4143,7 +4302,12 @@ impl<'a> FunctionEmitter<'a> {
             } else {
                 self.bindings.remove(&loop_name);
             }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+            self.loop_frames.pop();
         }
+        function.instruction(&Instruction::End);
+        self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
         EmittedValue {
             produced: false,
@@ -4580,6 +4744,7 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I32Eqz);
             }
         }
+        let if_index = self.push_control_frame(ControlFlowLabelKind::If);
         function.instruction(&Instruction::If(if want_value {
             BlockType::Result(ValType::I64)
         } else {
@@ -4611,6 +4776,8 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         function.instruction(&Instruction::End);
+        self.pop_control_frame(ControlFlowLabelKind::If);
+        debug_assert!(self.control_frames.get(if_index).is_none());
         EmittedValue {
             produced: want_value,
             shape: ValueShape::Unknown,
