@@ -504,17 +504,7 @@ pub fn validate_run_payload_value(value: &Value) -> Result<(), String> {
     }
 
     for key in ["hostContract", "runtimeBackend"] {
-        if let Some(value) = object.get(key) {
-            match value {
-                Value::String(value) if !value.trim().is_empty() => {}
-                Value::String(_) => {
-                    return Err(format!(
-                        "run payload {key} must be a non-empty, non-whitespace string"
-                    ));
-                }
-                _ => return Err(format!("run payload {key} must be a string, got {value}")),
-            }
-        }
+        validate_optional_non_empty_string_value(object.get(key), &format!("run payload {key}"))?;
     }
 
     Ok(())
@@ -546,17 +536,7 @@ pub fn validate_test_payload_value(value: &Value) -> Result<(), String> {
     }
 
     for key in ["hostContract", "runtimeBackend"] {
-        if let Some(value) = object.get(key) {
-            match value {
-                Value::String(value) if !value.trim().is_empty() => {}
-                Value::String(_) => {
-                    return Err(format!(
-                        "test payload {key} must be a non-empty, non-whitespace string"
-                    ));
-                }
-                _ => return Err(format!("test payload {key} must be a string, got {value}")),
-            }
-        }
+        validate_optional_non_empty_string_value(object.get(key), &format!("test payload {key}"))?;
     }
 
     validate_test_payload_coverage_value(object.get("coverage"))?;
@@ -800,6 +780,16 @@ fn validate_non_empty_string_value(value: Option<&Value>, context: &str) -> Resu
         Some(other) => Err(format!("{context} must be a string, got {other}")),
         None => unreachable!("validated above"),
     }
+}
+
+fn validate_optional_non_empty_string_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    if let Some(value) = value {
+        validate_non_empty_string_value(Some(value), context)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_sorted_string_array_value(
