@@ -56432,74 +56432,78 @@ fn effects_command_is_deterministic_across_repeated_default_invocations_under_in
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_default_analysis_context_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["dynamicEffects"], false);
-    let kinds = json["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["dynamicEffects"], false);
+        let kinds = json["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_default_analysis_context_in_js_input_in_json_output() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg("--output")
-        .arg("json")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "effects");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["dynamicEffects"], false);
-    let kinds = json["payload"]["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "effects");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["dynamicEffects"], false);
+        let kinds = json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
@@ -57754,175 +57758,183 @@ fn effects_uses_inherited_browser_api_surface_in_js_input() {
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_browser_analysis_context_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["analysisContext"]["apiSurface"], "browser");
-    assert_eq!(json["dynamicEffects"], false);
-    let kinds = json["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["analysisContext"]["apiSurface"], "browser");
+        assert_eq!(json["dynamicEffects"], false);
+        let kinds = json["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_browser_analysis_context_in_js_input_in_json_output() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg("--output")
-        .arg("json")
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--output")
+            .arg("json")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "effects");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
-    assert_eq!(json["payload"]["dynamicEffects"], false);
-    let kinds = json["payload"]["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "effects");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
+        assert_eq!(json["payload"]["dynamicEffects"], false);
+        let kinds = json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_inherited_browser_analysis_context_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
-    fs::write(
-        dir.path().join("kali.json"),
-        r#"{
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser"
   }
 }"#,
-    )
-    .expect("write manifest");
+        )
+        .expect("write manifest");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["analysisContext"]["apiSurface"], "browser");
-    assert_eq!(json["dynamicEffects"], false);
-    let kinds = json["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["analysisContext"]["apiSurface"], "browser");
+        assert_eq!(json["dynamicEffects"], false);
+        let kinds = json["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
 fn effects_accepts_nullish_coalescing_in_inherited_browser_analysis_context_in_js_input_in_json_output(
 ) {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        "const value = null ?? 1;\nconsole.log(value);\n",
-    )
-    .expect("write source");
-    fs::write(
-        dir.path().join("kali.json"),
-        r#"{
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "const value = null ?? 1;\nconsole.log(value);\n",
+        )
+        .expect("write source");
+        fs::write(
+            dir.path().join("kali.json"),
+            r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser"
   }
 }"#,
-    )
-    .expect("write manifest");
+        )
+        .expect("write manifest");
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("effects")
-        .arg("--output")
-        .arg("json")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("effects")
+            .arg("--output")
+            .arg("json")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
 
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "effects");
-    assert_eq!(json["success"], true);
-    assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
-    assert_eq!(json["payload"]["dynamicEffects"], false);
-    let kinds = json["payload"]["effects"]
-        .as_array()
-        .expect("effects array")
-        .iter()
-        .map(|entry| entry["kind"].as_str().expect("kind string"))
-        .collect::<Vec<_>>();
-    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "effects");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["analysisContext"]["apiSurface"], "browser");
+        assert_eq!(json["payload"]["dynamicEffects"], false);
+        let kinds = json["payload"]["effects"]
+            .as_array()
+            .expect("effects array")
+            .iter()
+            .map(|entry| entry["kind"].as_str().expect("kind string"))
+            .collect::<Vec<_>>();
+        assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+    }
 }
 
 #[test]
