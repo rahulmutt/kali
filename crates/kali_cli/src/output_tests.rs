@@ -546,7 +546,7 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_override() {
 
 #[test]
 fn validate_doctor_payload_value_rejects_invalid_browser_harness_source() {
-    for source in [json!("browser"), json!(42)] {
+    for source in [json!("browser"), json!(" \n\t "), json!(42)] {
         let value = json!({
             "browserHarness": {
                 "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
