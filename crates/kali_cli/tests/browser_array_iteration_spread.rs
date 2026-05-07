@@ -51,6 +51,9 @@ export async function objectEnumerationSpreadWrapper() {
   for (const value of [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(value);
   }
+  for (const value of [...globalThis['Object']['values'](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
+    console.log(value);
+  }
   for (const value of [...globalThis["Object"]["values"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))]) {
     console.log(value);
   }
@@ -99,6 +102,9 @@ export async function objectEnumerationSpreadWrapper() {
     console.log(value);
   }
   for await (const value of [...globalThis["Object"].values(Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
+    console.log(value);
+  }
+  for await (const value of [...globalThis['Object']['values'](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
     console.log(value);
   }
   for await (const value of [...globalThis["Object"]["values"](Object.fromEntries([["c", 4], ["d", 5], ["c", 6]]))]) {
@@ -348,7 +354,7 @@ await mod.{harness_function}();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
     let mut expected = Vec::new();
-    for _ in 0..5 {
+    for _ in 0..6 {
         expected.extend(["3", "2"]);
     }
     for _ in 0..5 {
@@ -357,7 +363,7 @@ await mod.{harness_function}();
     for _ in 0..5 {
         expected.extend(["b", "3", "a", "2"]);
     }
-    for _ in 0..5 {
+    for _ in 0..6 {
         expected.extend(["6", "5"]);
     }
     for _ in 0..5 {

@@ -21,11 +21,13 @@ function browserObjectValuesSpreadIteration() {
   const globalCollected = [...globalThis.Object.values(fromEntries)];
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
+  const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
   const bracketedCollected = [...globalThis["Object"]["values"](fromEntries)];
   assertObjectValuesSpreadIteration(collected);
   assertObjectValuesSpreadIteration(globalCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(singleBracketedCollected);
   assertObjectValuesSpreadIteration(bracketedCollected);
   console.log('browser object values spread iteration ok');
 }
