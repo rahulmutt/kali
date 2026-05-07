@@ -1526,6 +1526,45 @@ fn validate_effects_payload_value_rejects_whitespace_analysis_context_api_surfac
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_whitespace_analysis_context_sets() {
+    for (field, analysis_context) in [
+        (
+            "runtimeProfiles",
+            json!({
+                "apiSurface": "browser",
+                "runtimeProfiles": ["   "],
+                "compatFeatures": [],
+            }),
+        ),
+        (
+            "compatFeatures",
+            json!({
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": ["\n"],
+            }),
+        ),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "analysisContext": analysis_context,
+            "entryPoints": [],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        });
+
+        let err = validate_effects_payload_value(&value)
+            .expect_err("whitespace analysisContext set item should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_effects_payload_value_rejects_whitespace_entry_points() {
     let value = json!({
         "schemaVersion": 1,
@@ -1933,6 +1972,53 @@ fn validate_package_effects_payload_value_rejects_duplicate_analysis_context_set
         err.contains("runtimeProfiles") || err.contains("compatFeatures"),
         "unexpected error: {err}"
     );
+}
+
+#[test]
+fn validate_package_effects_payload_value_rejects_whitespace_analysis_context_sets() {
+    for (field, analysis_context) in [
+        (
+            "runtimeProfiles",
+            json!({
+                "apiSurface": "default",
+                "runtimeProfiles": ["   "],
+                "compatFeatures": [],
+            }),
+        ),
+        (
+            "compatFeatures",
+            json!({
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": ["\n"],
+            }),
+        ),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "package": {
+                "name": "semver",
+                "version": "7.6.3",
+                "registry": "npm",
+            },
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": analysis_context,
+                "entryPoints": [],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
+
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("whitespace analysisContext set item should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]
