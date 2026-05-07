@@ -1499,6 +1499,48 @@ fn validate_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_effects_payload_value_rejects_invalid_effect_locations() {
+    for (field, location, expected_fragment) in [
+        (
+            "file",
+            json!({"file": "   ", "line": 12, "column": 3, "function": "main"}),
+            "non-empty, non-whitespace string",
+        ),
+        (
+            "line",
+            json!({"file": "src/main.ts", "line": 0, "column": 3, "function": "main"}),
+            "line must be a positive integer",
+        ),
+        (
+            "column",
+            json!({"file": "src/main.ts", "line": 12, "column": 0, "function": "main"}),
+            "column must be a positive integer",
+        ),
+    ] {
+        let value = json!({
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["src/main.ts"],
+            "effects": [{
+                "kind": "Network.Fetch",
+                "locations": [location],
+            }],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        });
+
+        let err = validate_effects_payload_value(&value)
+            .expect_err("invalid effect location should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(err.contains(expected_fragment), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_effects_payload_value_rejects_whitespace_analysis_context_api_surface() {
     let value = json!({
         "schemaVersion": 1,

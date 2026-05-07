@@ -881,20 +881,14 @@ fn validate_effect_location_value(value: &Value, context: &str) -> Result<(), St
     }
     reject_unexpected_keys(object, &["file", "line", "column", "function"], context)?;
 
-    match object.get("file") {
-        Some(Value::String(_)) => {}
-        Some(other) => return Err(format!("{context} file must be a string, got {other}")),
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_value(object.get("file"), &format!("{context} file"))?;
 
     for key in ["line", "column"] {
         match object.get(key) {
-            Some(Value::Number(number))
-                if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {
-            }
+            Some(value) if is_positive_integer(value) => {}
             Some(other) => {
                 return Err(format!(
-                    "{context} {key} must be a non-negative integer, got {other}"
+                    "{context} {key} must be a positive integer, got {other}"
                 ))
             }
             None => unreachable!("validated above"),

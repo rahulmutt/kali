@@ -536,7 +536,7 @@ Required fields:
 - `locations: EffectLocation[]`
 
 ### `EffectLocation`
-Uses the `SourceLocation` shape plus optional effect-specific context.
+Uses the `SourceLocation` shape plus optional effect-specific context: `file` is a non-empty string and `line` / `column` remain 1-based positive integers, matching diagnostic source locations.
 
 Optional fields:
 - `function: string` — nearest enclosing function or method name when available

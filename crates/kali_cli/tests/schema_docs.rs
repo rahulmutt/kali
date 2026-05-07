@@ -1073,6 +1073,16 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["properties"]["file"]["type"],
+        "string"
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["properties"]["file"]["minLength"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
             ["locations"]["items"]["required"]
             .as_array()
             .expect("package-effects effect location required array")
@@ -1082,6 +1092,16 @@ fn core_schema_documents_match_current_cli_contracts() {
                 .expect("package-effects effect location required string"))
             .collect::<Vec<_>>(),
         vec!["file", "line", "column"]
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["properties"]["line"]["minimum"],
+        1
+    );
+    assert_eq!(
+        package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
+            ["locations"]["items"]["properties"]["column"]["minimum"],
+        1
     );
     assert_eq!(
         package_effects["properties"]["report"]["properties"]["effects"]["items"]["properties"]
@@ -1330,6 +1350,35 @@ fn core_schema_documents_match_current_cli_contracts() {
         effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]
             ["additionalProperties"],
         false
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]
+            ["file"]["type"],
+        "string"
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]
+            ["file"]["minLength"],
+        1
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["required"]
+            .as_array()
+            .expect("effects location required array")
+            .iter()
+            .map(|value| value.as_str().expect("effects location required string"))
+            .collect::<Vec<_>>(),
+        vec!["file", "line", "column"]
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]
+            ["line"]["minimum"],
+        1
+    );
+    assert_eq!(
+        effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]
+            ["column"]["minimum"],
+        1
     );
     assert_eq!(
         effects["properties"]["effects"]["items"]["properties"]["locations"]["items"]["properties"]

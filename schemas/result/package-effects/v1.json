@@ -110,15 +110,16 @@
                   ],
                   "properties": {
                     "file": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "line": {
                       "type": "integer",
-                      "minimum": 0
+                      "minimum": 1
                     },
                     "column": {
                       "type": "integer",
-                      "minimum": 0
+                      "minimum": 1
                     },
                     "function": {
                       "type": "string"
