@@ -2384,3 +2384,59 @@ pub fn json_string_list(values: impl IntoIterator<Item = impl ToString>) -> Valu
             .collect(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn browser_runtime_contract_fixture() -> Value {
+        json!({
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "use kali check --api browser for browser-facing analysis",
+            "diagnosticNotes": [
+                "supported browser runtime commands: run, test",
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                "browser runtime host description: real browser host"
+            ]
+        })
+    }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_supported_commands_items() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["supportedCommands"] = json!(["run", "  "]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("whitespace-only supportedCommands item should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract supportedCommands[1] must be a non-empty, non-whitespace string"
+        );
+    }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_diagnostic_notes_items() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["diagnosticNotes"] = json!([
+            "supported browser runtime commands: run, test",
+            " ",
+            "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+            "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+            "browser runtime host description: real browser host"
+        ]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("whitespace-only diagnosticNotes item should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract diagnosticNotes[1] must be a non-empty, non-whitespace string"
+        );
+    }
+}
