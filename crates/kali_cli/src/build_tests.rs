@@ -9893,6 +9893,27 @@ fn validate_build_result_value_rejects_non_string_bundle_format() {
 }
 
 #[test]
+fn validate_build_result_value_rejects_unsupported_build_mode() {
+    let invalid_bundle = serde_json::json!({
+        "artifactKind": "bundle",
+        "outputPath": "/workspace/dist/browser",
+        "sizeBytes": 42,
+        "buildMode": "debug",
+        "sourceHash": "sha256-deadbeef",
+        "artifacts": [
+            { "kind": "js-glue", "path": "browser.js" },
+            { "kind": "wasm-module", "path": "browser.wasm" }
+        ],
+        "exports": [],
+        "bundleFormat": "esm"
+    });
+
+    let err = validate_build_result_value(&invalid_bundle)
+        .expect_err("unsupported buildMode should fail validation");
+    assert!(err.contains("buildMode"), "unexpected error: {err}");
+}
+
+#[test]
 fn validate_build_result_value_rejects_empty_profile_data_hash() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

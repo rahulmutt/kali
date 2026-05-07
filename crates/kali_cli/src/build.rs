@@ -1850,8 +1850,13 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
+    const VALID_BUILD_MODES: [&str; 3] = ["fast", "release", "release-advanced"];
+
     match object.get("buildMode") {
-        Some(Value::String(_)) => {}
+        Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
+        Some(Value::String(mode)) => {
+            return Err(format!("unsupported build result buildMode '{mode}'"));
+        }
         Some(other) => {
             return Err(format!(
                 "build result buildMode must be a string, got {other}"

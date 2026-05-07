@@ -978,7 +978,7 @@ Interpretation rule:
 - required machine labels such as `kaliVersion` and `sourceHash`, along with the optional provenance strings above, are non-empty, non-whitespace strings and remain deterministic machine labels rather than free-form prose
 - when present, `runtimeProfiles` is a semantic set encoded as an array: producers must deduplicate it and emit it in stable lexical order so artifact metadata stays deterministic
 - library-oriented export-name lists emitted in artifact metadata or build-result payloads must also be duplicate-free so the reported export surface stays deterministic
-- build result JSON envelopes may mirror the same provenance fields when the corresponding artifact mode emits them, so result payloads and sidecar metadata stay aligned instead of inventing two different provenance vocabularies; their required `sourceHash` label stays non-empty as well
+- build result JSON envelopes may mirror the same provenance fields when the corresponding artifact mode emits them, so result payloads and sidecar metadata stay aligned instead of inventing two different provenance vocabularies; their required `sourceHash` label stays non-empty as well, and their `buildMode` field uses the same canonical `fast` / `release` / `release-advanced` vocabulary as compiler options and artifact metadata
 - IR validation via `kali build --validate-ir` does not change the schema-v1 artifact payload shape; it only makes the build fail earlier if the lowered HIR/MIR/LIR trees are structurally inconsistent
 
 Simplification rule:
