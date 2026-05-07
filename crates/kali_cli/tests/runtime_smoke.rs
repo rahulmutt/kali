@@ -25767,18 +25767,18 @@ fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
 
 fn browser_runtime_frozen_object_enumeration_spread_source() -> &'static str {
     r#"const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
-for (const value of [...Object.values(frozen)]) { console.log(value); }
-for (const key of [...Object.keys(frozen)]) { console.log(key); }
-for (const entry of [...Object.entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+for (const value of [...globalThis["Object"]["values"](frozen)]) { console.log(value); }
+for (const key of [...globalThis.Object["keys"](frozen)]) { console.log(key); }
+for (const entry of [...globalThis["Object"].entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
 "#
 }
 
 fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static str {
     r#"Kali.test('browser frozen object enumeration spread', () => {
   const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
-  for (const value of [...Object.values(frozen)]) { console.log(value); }
-  for (const key of [...Object.keys(frozen)]) { console.log(key); }
-  for (const entry of [...Object.entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+  for (const value of [...globalThis["Object"]["values"](frozen)]) { console.log(value); }
+  for (const key of [...globalThis.Object["keys"](frozen)]) { console.log(key); }
+  for (const entry of [...globalThis["Object"].entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
 });
 "#
 }
