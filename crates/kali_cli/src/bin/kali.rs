@@ -4146,6 +4146,12 @@ fn package_audit_command(
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
             "`--preview` is no longer accepted for package-audit",
+        )
+        .with_context(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--preview")
+                .with_requested_value("true")
+                .with_effective_value("true"),
         );
         return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
     }

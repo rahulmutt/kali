@@ -64786,11 +64786,16 @@ fn package_audit_rejects_preview_compatibility_shim_in_json_output() {
     assert_eq!(json["success"], false);
     assert_eq!(json["exitCode"], 5);
     assert_eq!(json["payload"], serde_json::Value::Null);
-    assert!(json["errors"]
+    let error = json["errors"]
         .as_array()
         .expect("errors array")
-        .iter()
-        .any(|entry| entry["code"] == "E5508"));
+        .first()
+        .expect("error entry");
+    assert_eq!(error["code"], "E5508");
+    assert_eq!(error["context"]["origin"], "cli");
+    assert_eq!(error["context"]["flag"], "--preview");
+    assert_eq!(error["context"]["requestedValue"], "true");
+    assert_eq!(error["context"]["effectiveValue"], "true");
     assert!(json["stdout"].is_null());
     assert!(json["warnings"]
         .as_array()
@@ -64837,6 +64842,10 @@ fn package_audit_rejects_preview_compatibility_shim_without_package_argument() {
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["code"], "E5508");
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--preview");
+    assert_eq!(errors[0]["context"]["requestedValue"], "true");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "true");
     assert!(
         errors[0]["message"]
             .as_str()
