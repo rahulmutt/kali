@@ -1302,7 +1302,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["envVar"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["source"],
@@ -1322,7 +1322,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["executable"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["args"],
@@ -1366,11 +1366,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["hostLabel"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"const": "browser-requested", "type": "string"})
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescription"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["hostDescriptionNote"],

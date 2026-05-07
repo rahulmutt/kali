@@ -23,7 +23,8 @@
       ],
       "properties": {
         "envVar": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "source": {
           "type": "string",
@@ -46,7 +47,8 @@
           }
         },
         "executable": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "args": {
           "type": "array",
@@ -72,10 +74,12 @@
       ],
       "properties": {
         "hostLabel": {
-          "type": "string"
+          "type": "string",
+          "const": "browser-requested"
         },
         "hostDescription": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "hostDescriptionNote": {
           "const": "browser runtime host description: real browser host"
