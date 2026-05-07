@@ -124,11 +124,11 @@ Required fields:
 ### `BrowserHarnessDoctor`
 
 Required fields:
-- `envVar: string` — the environment variable that controls the browser bundle/runtime harness command
+- `envVar: non-empty, non-whitespace string` — the environment variable that controls the browser bundle/runtime harness command
 - `source: "env" | "auto"` — whether the selected command came from the environment override or from Kali's auto-detection fallback
 - `override: string | null` — raw environment override value when `source` is `env`; otherwise `null`
 - `command: string[]` — argv-style resolved command vector, including executable and pre-script harness arguments
-- `executable: string` — first entry from `command`; producers/validators should keep it coherent with `command[0]`
+- `executable: non-empty, non-whitespace string` — first entry from `command`; producers/validators should keep it coherent with `command[0]`
 - `args: string[]` — remaining entries from `command`; producers/validators should keep it coherent with `command[1..]`
 - `executableAvailable: boolean` — best-effort local executable probe result; this is diagnostic metadata only and is not a browser-runtime support claim
 
@@ -136,7 +136,7 @@ Required fields:
 
 Required fields:
 - `hostLabel: const` `"browser-requested"` — canonical label for the browser-requested host contract used in diagnostics
-- `hostDescription: string` — short human-readable description of the intended browser host
+- `hostDescription: non-empty, non-whitespace string` — short human-readable description of the intended browser host
 - `hostDescriptionNote: const` `"browser runtime host description: real browser host"` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output
 - `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, and the current contract serializes it as `[`run`, `test`]`
 - `diagnosticHint: non-empty, non-whitespace string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane

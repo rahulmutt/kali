@@ -791,6 +791,17 @@ fn validate_unique_string_array_value(
     Ok(())
 }
 
+fn validate_non_empty_string_value(value: Option<&Value>, context: &str) -> Result<(), String> {
+    match value {
+        Some(Value::String(value)) if !value.trim().is_empty() => Ok(()),
+        Some(Value::String(_)) => Err(format!(
+            "{context} must be a non-empty, non-whitespace string"
+        )),
+        Some(other) => Err(format!("{context} must be a string, got {other}")),
+        None => unreachable!("validated above"),
+    }
+}
+
 pub(crate) fn validate_sorted_string_array_value(
     value: Option<&Value>,
     context: &str,
@@ -1019,15 +1030,7 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         "doctor browserHarness",
     )?;
 
-    match object.get("envVar") {
-        Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "doctor browserHarness envVar must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_value(object.get("envVar"), "doctor browserHarness envVar")?;
 
     match object.get("source") {
         Some(Value::String(value)) if matches!(value.as_str(), "env" | "auto") => {}
@@ -1098,15 +1101,7 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    match object.get("executable") {
-        Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "doctor browserHarness executable must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_value(object.get("executable"), "doctor browserHarness executable")?;
 
     match object.get("args") {
         Some(Value::Array(items)) => {
@@ -1215,15 +1210,10 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         None => unreachable!("validated above"),
     }
 
-    match object.get("hostDescription") {
-        Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract hostDescription must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_non_empty_string_value(
+        object.get("hostDescription"),
+        "doctor browserRuntimeContract hostDescription",
+    )?;
 
     match object.get("diagnosticHint") {
         Some(Value::String(value)) if !value.trim().is_empty() => {}
