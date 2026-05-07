@@ -2894,10 +2894,16 @@ const exported = {{ load, loadWithImports, loadDynamicImport }};
     }
     match format {
         BundleFormat::Esm => content.push_str(&format!("//# sourceMappingURL={}\n", map_file)),
-        BundleFormat::Cjs => content.push_str(&format!(
-            "module.exports = exported;\n//# sourceMappingURL={}\n",
-            map_file
-        )),
+        BundleFormat::Cjs => {
+            content.push_str("module.exports = exported;\n");
+            for export in exports {
+                content.push_str(&format!(
+                    "module.exports.{0} = exported.{0};\n",
+                    export.name
+                ));
+            }
+            content.push_str(&format!("//# sourceMappingURL={}\n", map_file));
+        }
     }
     content
 }

@@ -47735,6 +47735,10 @@ fn build_emits_browser_bundle_cjs_math_max_semantics_in_js_input() {
     assert!(js.contains("console_debug"), "bundle js: {js}");
     assert!(js.contains("module.exports = exported"), "bundle js: {js}");
     assert!(
+        js.contains("module.exports.maxSmoke = exported.maxSmoke"),
+        "bundle js: {js}"
+    );
+    assert!(
         js.contains("sourceMappingURL=app.cjs.map"),
         "bundle js: {js}"
     );
