@@ -2116,6 +2116,8 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
         return Err("diagnostic context must be a JSON object".to_string());
     };
 
+    const CANONICAL_DIAGNOSTIC_CONTEXT_ORIGINS: [&str; 4] = ["cli", "config", "default", "source"];
+
     reject_unexpected_keys(
         object,
         &[
@@ -2130,7 +2132,7 @@ fn validate_diagnostic_context(value: &Value) -> Result<(), String> {
 
     match object.get("origin") {
         Some(Value::String(value))
-            if matches!(value.as_str(), "cli" | "config" | "default" | "source") => {}
+            if CANONICAL_DIAGNOSTIC_CONTEXT_ORIGINS.contains(&value.as_str()) => {}
         Some(other) => {
             return Err(format!(
                 "diagnostic context origin must be a canonical origin string, got {other}"

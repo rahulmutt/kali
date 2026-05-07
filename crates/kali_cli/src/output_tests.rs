@@ -4512,6 +4512,42 @@ fn validate_envelope_value_rejects_invalid_diagnostic_context_origin() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_empty_or_whitespace_diagnostic_context_origin() {
+    for origin in ["", "   "] {
+        let value = json!({
+            "schemaVersion": 1,
+            "command": "doctor",
+            "success": false,
+            "errors": [
+                {
+                    "severity": "error",
+                    "code": "E5508",
+                    "message": "bad diagnostic context origin",
+                    "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                    "labels": [],
+                    "related": [],
+                    "fix": null,
+                    "notes": [],
+                    "context": {"origin": origin}
+                }
+            ],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 1,
+        });
+
+        let err = validate_envelope_value(&value)
+            .expect_err("empty or whitespace diagnostic context origin should fail validation");
+        assert!(
+            err.contains("canonical origin string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_envelope_value_rejects_empty_diagnostic_context_paths() {
     for (field, context) in [
         ("configPath", json!({"origin": "config", "configPath": ""})),
