@@ -182,7 +182,7 @@ This distinction prevents drift between the implementation-oriented frontend spe
 ```
 
 Required fields:
-- `file: string`
+- `file: non-empty, non-whitespace string`
 - `line: number` *(1-based)*
 - `column: number` *(1-based)*
 
@@ -202,7 +202,7 @@ Interpretation rules:
 ```
 
 Required fields:
-- `file: string`
+- `file: non-empty, non-whitespace string`
 - `line: number` *(1-based)*
 - `column: number` *(1-based)*
 - `endLine: number` *(1-based, inclusive line of end position)*

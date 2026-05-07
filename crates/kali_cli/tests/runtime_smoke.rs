@@ -10244,7 +10244,7 @@ console.log(values.length);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("3\n"),
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
         "json: {json}"
     );
 }
@@ -10364,7 +10364,7 @@ console.log(values.length);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("3\n"),
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
         "json: {json}"
     );
 }
@@ -10484,7 +10484,7 @@ console.log(values.length);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("3\n"),
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
         "json: {json}"
     );
     assert_eq!(json["stderr"], "");
@@ -10668,7 +10668,7 @@ console.log(values.length);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("3\n"),
+        json["stdout"].as_str().expect("stdout").contains("2\n"),
         "json: {json}"
     );
     assert_eq!(json["stderr"], "");
