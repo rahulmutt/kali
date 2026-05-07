@@ -394,20 +394,38 @@ fn core_schema_documents_match_current_cli_contracts() {
         }
     }
 
-    for variant_index in [0, 2] {
+    for variant_index in [0, 1, 2, 3, 4] {
         assert_eq!(
-            build_variants[variant_index]["properties"]["profileDataHash"]["type"],
+            build_variants[variant_index]["properties"]["buildMode"]["type"],
             "string"
         );
-    }
-    for variant_index in [0, 1, 2, 3, 4] {
+        assert_eq!(
+            build_variants[variant_index]["properties"]["buildMode"]["enum"],
+            serde_json::json!(["fast", "release", "release-advanced"])
+        );
         assert_eq!(
             build_variants[variant_index]["properties"]["hostContract"]["type"],
             "string"
         );
         assert_eq!(
+            build_variants[variant_index]["properties"]["hostContract"]["minLength"],
+            1
+        );
+        assert_eq!(
             build_variants[variant_index]["properties"]["runtimeBackend"]["type"],
             "string"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["runtimeBackend"]["minLength"],
+            1
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["profileDataHash"]["type"],
+            "string"
+        );
+        assert_eq!(
+            build_variants[variant_index]["properties"]["profileDataHash"]["minLength"],
+            1
         );
     }
     for variant_index in [1, 3, 4] {
@@ -1367,7 +1385,7 @@ fn core_schema_documents_match_current_cli_contracts() {
         serde_json::json!({
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string" }
+            "items": { "type": "string", "minLength": 1 }
         })
     );
     assert_eq!(
@@ -1378,12 +1396,12 @@ fn core_schema_documents_match_current_cli_contracts() {
         doctor["properties"]["browserHarness"]["properties"]["args"],
         serde_json::json!({
             "type": "array",
-            "items": { "type": "string" }
+            "items": { "type": "string", "minLength": 1 }
         })
     );
     assert_eq!(
         doctor["properties"]["browserHarness"]["properties"]["args"]["items"],
-        serde_json::json!({"type": "string"})
+        serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["type"],

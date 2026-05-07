@@ -26,20 +26,28 @@
           "minimum": 0
         },
         "buildMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "fast",
+            "release",
+            "release-advanced"
+          ]
         },
         "sourceHash": {
           "type": "string",
           "minLength": 1
         },
         "hostContract": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "runtimeBackend": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "profileDataHash": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -70,17 +78,24 @@
           "minimum": 0
         },
         "buildMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "fast",
+            "release",
+            "release-advanced"
+          ]
         },
         "sourceHash": {
           "type": "string",
           "minLength": 1
         },
         "hostContract": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "runtimeBackend": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "metadataPath": {
           "type": "string",
@@ -149,17 +164,24 @@
           "minimum": 0
         },
         "buildMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "fast",
+            "release",
+            "release-advanced"
+          ]
         },
         "sourceHash": {
           "type": "string",
           "minLength": 1
         },
         "hostContract": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "runtimeBackend": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "profileDataHash": {
           "type": "string",
@@ -229,17 +251,24 @@
           "minimum": 0
         },
         "buildMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "fast",
+            "release",
+            "release-advanced"
+          ]
         },
         "sourceHash": {
           "type": "string",
           "minLength": 1
         },
         "hostContract": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "runtimeBackend": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "metadataPath": {
           "type": "string",
@@ -314,17 +343,24 @@
           "minimum": 0
         },
         "buildMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "fast",
+            "release",
+            "release-advanced"
+          ]
         },
         "sourceHash": {
           "type": "string",
           "minLength": 1
         },
         "hostContract": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "runtimeBackend": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "metadataPath": {
           "type": "string",
