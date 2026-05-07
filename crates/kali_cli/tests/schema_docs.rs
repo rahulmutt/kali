@@ -1380,13 +1380,14 @@ fn core_schema_documents_match_current_cli_contracts() {
         doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"],
         serde_json::json!({
             "type": "array",
-            "minItems": 1,
-            "items": { "type": "string" }
+            "prefixItems": [
+                { "const": "run", "type": "string" },
+                { "const": "test", "type": "string" }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
         })
-    );
-    assert_eq!(
-        doctor["properties"]["browserRuntimeContract"]["properties"]["supportedCommands"]["items"],
-        serde_json::json!({"type": "string"})
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"],
