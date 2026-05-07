@@ -10,6 +10,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   KALI_BROWSER_BUNDLE_HARNESS_COMMAND: node
 
 jobs:
@@ -21,6 +22,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install latest Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          check-latest: true
+
+      - name: Verify Node.js version
+        run: node --version
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -87,6 +97,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install latest Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          check-latest: true
+
+      - name: Verify Node.js version
+        run: node --version
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -113,6 +132,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install latest Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          check-latest: true
+
+      - name: Verify Node.js version
+        run: node --version
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -135,6 +163,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install latest Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          check-latest: true
+
+      - name: Verify Node.js version
+        run: node --version
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
