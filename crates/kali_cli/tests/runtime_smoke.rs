@@ -25350,6 +25350,52 @@ fn run_supports_bigint_addition_semantics_in_js_input() {
 }
 
 #[test]
+fn run_supports_bigint_multiplication_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1n * 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_bigint_multiplication_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(1n * 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_object_keys_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -28043,6 +28089,29 @@ fn test_supports_bigint_addition_semantics_in_js_input() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("3\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_supports_bigint_multiplication_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, "console.log(1n * 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
@@ -35235,6 +35304,82 @@ fn build_emits_browser_bundle_bigint_addition_semantics_in_js_input() {
     fs::write(
         &source_path,
         "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  const result = 1n + 2n;\n  if (result !== 3n) {\n    throw new Error('unexpected bigint');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_bigint_multiplication_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  const result = 1n * 2n;\n  if (result !== 2n) {\n    throw new Error('unexpected bigint');\n  }\n  return 0n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
+#[test]
+fn build_emits_browser_bundle_bigint_multiplication_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  const result = 1n * 2n;\n  if (result !== 2n) {\n    throw new Error('unexpected bigint');\n  }\n  return 0n;\n}\n",
     )
     .expect("write source");
 
