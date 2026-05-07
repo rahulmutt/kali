@@ -26148,6 +26148,51 @@ fn assert_json_object_from_entries_semantics(command: &str, filename: &str) {
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
+fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_runtime_frozen_object_enumeration_spread_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    } else {
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+        assert_eq!(json["payload"]["hostContract"], "kali-hosted");
+        assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
+    }
+    assert_eq!(json["stdout"], "3\n2\nzed\nalpha\nzed\n3\nalpha\n2\n");
+    assert_eq!(json["stderr"], "");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
 #[test]
 fn json_run_supports_object_enumeration_semantics_in_js_input() {
     assert_json_object_enumeration_semantics("run", "main.js");
@@ -26166,6 +26211,26 @@ fn json_run_supports_object_from_entries_enumeration_semantics_in_js_input() {
 #[test]
 fn json_test_supports_object_from_entries_enumeration_semantics_in_js_input() {
     assert_json_object_from_entries_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_run_supports_frozen_object_enumeration_spread_semantics_in_js_input() {
+    assert_json_frozen_object_enumeration_spread_semantics("run", "main.js");
+}
+
+#[test]
+fn json_run_supports_frozen_object_enumeration_spread_semantics_in_ts_input() {
+    assert_json_frozen_object_enumeration_spread_semantics("run", "main.ts");
+}
+
+#[test]
+fn json_test_supports_frozen_object_enumeration_spread_semantics_in_js_input() {
+    assert_json_frozen_object_enumeration_spread_semantics("test", "smoke.test.js");
+}
+
+#[test]
+fn json_test_supports_frozen_object_enumeration_spread_semantics_in_ts_input() {
+    assert_json_frozen_object_enumeration_spread_semantics("test", "smoke.test.ts");
 }
 
 #[test]
