@@ -6077,6 +6077,83 @@ fn collect_library_exports_rejects_generator_exported_binding() {
     );
 }
 
+#[test]
+fn collect_library_exports_rejects_async_generator_default_export_expression() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::FunctionExpression(Box::new(
+            kali_ast::FunctionExpression {
+                id: None,
+                params: vec![],
+                body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
+                is_async: true,
+                generator: true,
+            },
+        ))),
+    )];
+
+    let error = collect_library_exports_from_statements(&statements, &source_path)
+        .expect_err("async generator default exports should fail");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn collect_library_exports_rejects_async_generator_exported_binding() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "exported".to_string(),
+                init: Some(Expression::FunctionExpression(Box::new(
+                    kali_ast::FunctionExpression {
+                        id: None,
+                        params: vec![],
+                        body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
+                        is_async: true,
+                        generator: true,
+                    },
+                ))),
+            }],
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "exported".to_string(),
+                exported: "exported".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let error = collect_library_exports_from_statements(&statements, &source_path)
+        .expect_err("async generator exported bindings should fail");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
 fn assert_build_source_file_rejects_generator_lowering_in_browser_input(extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
