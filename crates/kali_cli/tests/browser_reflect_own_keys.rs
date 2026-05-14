@@ -17,9 +17,17 @@ let syncCount = 0;
 for (const key of globalThis.Reflect.ownKeys(obj)) {
   syncCount += 1;
 }
+let sequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
 let asyncCount = 0;
 for await (const key of globalThis.Reflect.ownKeys(obj)) {
   asyncCount += 1;
+}
+let asyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+  asyncSequenceCount += 1;
 }
 if (
   keys.length !== 4 ||
@@ -43,7 +51,9 @@ if (
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
   syncCount !== 4 ||
-  asyncCount !== 4
+  sequenceCount !== 4 ||
+  asyncCount !== 4 ||
+  asyncSequenceCount !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -62,9 +72,17 @@ fn reflect_own_keys_test_source() -> &'static str {
   for (const key of globalThis.Reflect.ownKeys(obj)) {
     syncCount += 1;
   }
+  let sequenceCount = 0;
+  for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
   let asyncCount = 0;
   for await (const key of globalThis.Reflect.ownKeys(obj)) {
     asyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
   }
   if (
     keys.length !== 4 ||
@@ -88,7 +106,9 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
     syncCount !== 4 ||
-    asyncCount !== 4
+    sequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    asyncSequenceCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
@@ -108,9 +128,17 @@ async function reflectOwnKeysSmoke(left, right) {
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
   }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
   let asyncCount = 0;
   for await (const key of Reflect.ownKeys(obj)) {
     asyncCount += 1;
+  }
+  let asyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(obj))) {
+    asyncSequenceCount += 1;
   }
   if (
     keys.length !== 4 ||
@@ -134,7 +162,9 @@ async function reflectOwnKeysSmoke(left, right) {
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
     syncCount !== 4 ||
-    asyncCount !== 4
+    sequenceCount !== 4 ||
+    asyncCount !== 4 ||
+    asyncSequenceCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }

@@ -17,6 +17,14 @@ let syncCount = 0;
 for (const key of Reflect.ownKeys(obj)) {
   syncCount += 1;
 }
+let sequenceCount = 0;
+for (const key of (0, Reflect.ownKeys(obj))) {
+  sequenceCount += 1;
+}
+let mixedSequenceCount = 0;
+for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {
+  mixedSequenceCount += 1;
+}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -38,7 +46,9 @@ if (
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
-  syncCount !== 4
+  syncCount !== 4 ||
+  sequenceCount !== 4 ||
+  mixedSequenceCount !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -56,6 +66,14 @@ fn reflect_own_keys_test_source() -> &'static str {
   let syncCount = 0;
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
+  }
+  let sequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(obj))) {
+    sequenceCount += 1;
+  }
+  let mixedSequenceCount = 0;
+  for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {
+    mixedSequenceCount += 1;
   }
   if (
     keys.length !== 4 ||
@@ -78,7 +96,9 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[1] !== '2' ||
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
-    syncCount !== 4
+    syncCount !== 4 ||
+    sequenceCount !== 4 ||
+    mixedSequenceCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
