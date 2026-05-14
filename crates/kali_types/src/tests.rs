@@ -2720,7 +2720,7 @@ fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable(
 }
 
 #[test]
-fn test_resolution_accepts_number_is_finite_and_is_nan_static_values() {
+fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values() {
     let mut ctx = TypeContext::new();
     let statements = vec![
         Statement::VariableDeclaration(VariableDeclaration {
@@ -2737,6 +2737,15 @@ fn test_resolution_accepts_number_is_finite_and_is_nan_static_values() {
                     property: "isFinite".to_string(),
                 })),
                 args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Number".to_string()),
+                    property: "isInteger".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
             }))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
@@ -2762,13 +2771,13 @@ fn test_resolution_accepts_number_is_finite_and_is_nan_static_values() {
 }
 
 #[test]
-fn test_resolution_rejects_number_is_finite_with_dynamic_values_as_unavailable() {
+fn test_resolution_rejects_number_is_integer_with_dynamic_values_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
         expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
             callee: Expression::MemberExpression(Box::new(MemberExpression {
                 object: Expression::Identifier("Number".to_string()),
-                property: "isFinite".to_string(),
+                property: "isInteger".to_string(),
             })),
             args: vec![Expression::Identifier("value".to_string())],
         }))),
@@ -2781,7 +2790,7 @@ fn test_resolution_rejects_number_is_finite_with_dynamic_values_as_unavailable()
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(result.diagnostics[0].message.contains(
-        "Number.isFinite is unavailable unless the argument is a statically-known primitive value"
+        "Number.isInteger is unavailable unless the argument is a statically-known primitive value"
     ));
 }
 

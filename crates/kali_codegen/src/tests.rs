@@ -161,9 +161,9 @@ fn object_is_lowers_for_same_static_reference() {
 }
 
 #[test]
-fn number_is_finite_and_is_nan_lowers_for_static_primitive_values() {
+fn number_is_finite_is_integer_and_is_nan_lowers_for_static_primitive_values() {
     let program = parse_and_lower_lir(
-        "const alias = 1; console.log(Number.isFinite(alias)); console.log(Number.isFinite(\"hello\")); console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); console.log(globalThis.Number.isNaN(1));",
+        "const alias = 1; console.log(Number.isFinite(alias)); console.log(Number.isInteger(alias)); console.log(Number.isInteger(1.5)); console.log(Number.isFinite(\"hello\")); console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); console.log(globalThis.Number.isNaN(1));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

@@ -1970,7 +1970,7 @@ impl TypeContext {
             return false;
         };
 
-        if !matches!(method, "isFinite" | "isNaN") {
+        if !matches!(method, "isFinite" | "isNaN" | "isInteger") {
             return false;
         }
 
@@ -2000,13 +2000,12 @@ impl TypeContext {
         }
 
         let _ = match value {
-            StaticObjectIdentityValue::Number(number) => {
-                if method == "isFinite" {
-                    number.is_finite()
-                } else {
-                    number.is_nan()
-                }
-            }
+            StaticObjectIdentityValue::Number(number) => match method {
+                "isFinite" => number.is_finite(),
+                "isNaN" => number.is_nan(),
+                "isInteger" => number.is_finite() && number.fract() == 0.0,
+                _ => false,
+            },
             _ => false,
         };
 

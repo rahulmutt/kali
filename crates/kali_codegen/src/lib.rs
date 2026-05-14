@@ -1621,7 +1621,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_number_object(&callee_node)
             && matches!(
                 callee_node.text.as_deref(),
-                Some("isFinite") | Some("isNaN")
+                Some("isFinite") | Some("isNaN") | Some("isInteger")
             )
         {
             let method = callee_node.text.as_deref().unwrap_or("isFinite");
@@ -1655,13 +1655,12 @@ impl<'a> FunctionEmitter<'a> {
             };
 
             let supported = match value {
-                StaticObjectIdentityValue::Number(number) => {
-                    if method == "isFinite" {
-                        number.is_finite()
-                    } else {
-                        number.is_nan()
-                    }
-                }
+                StaticObjectIdentityValue::Number(number) => match method {
+                    "isFinite" => number.is_finite(),
+                    "isNaN" => number.is_nan(),
+                    "isInteger" => number.is_finite() && number.fract() == 0.0,
+                    _ => false,
+                },
                 _ => false,
             };
 
