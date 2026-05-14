@@ -683,6 +683,7 @@ impl TypeContext {
                 let right = self.resolve_static_string_iterable_expression(&expr.right)?;
                 Some(format!("{left}{right}"))
             }
+            Expression::TemplateLiteral(_) => self.resolve_static_string_expression(expression),
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_string_iterable_expression(&expr.expression)
             }

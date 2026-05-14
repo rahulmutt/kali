@@ -8352,6 +8352,54 @@ fn test_resolution_supports_for_of_string_concatenation_iteration_in_js_input() 
 }
 
 #[test]
+fn test_resolution_supports_for_of_template_literal_string_iteration_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const ch of `hello`) { console.log(ch); }",
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "ch".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::TemplateLiteral(kali_ast::TemplateLiteral {
+            quasis: vec![kali_ast::TemplateElement {
+                value: "hello".to_string(),
+                tail: true,
+            }],
+            expressions: vec![],
+        }),
+        body: Box::new(Statement::BlockStatement(BlockStatement {
+            body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("console".to_string()),
+                        property: "log".to_string(),
+                    })),
+                    args: vec![Expression::Identifier("ch".to_string())],
+                }))),
+            })],
+        })),
+        is_await: false,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_of_array_iteration_with_const_numeric_alias_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
