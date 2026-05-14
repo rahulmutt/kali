@@ -1,13 +1,14 @@
 use super::*;
 use kali_ast::{
-    ArrowFunctionExpression, AssignmentExpression, AssignmentOperator, BinaryExpression,
-    BlockStatement, CallExpression, ClassBody, ClassDeclaration, DecoratedExpression,
-    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
-    ExpressionStatement, ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression,
-    LiteralValue, MemberExpression, MethodDefinition, ObjectExpression, ObjectProperty,
-    ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
-    TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion, UnaryExpression,
-    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
+    ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
+    BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
+    DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
+    Expression, ExpressionOrSpread, ExpressionStatement, ForOfLefthand, ForOfStatement,
+    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, MethodDefinition,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
+    SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion,
+    UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
+    YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -2744,6 +2745,64 @@ fn test_resolution_accepts_object_is_with_void_undefined_literals() {
                         operator: "void".to_string(),
                         argument: Expression::Literal(LiteralValue::Number(1.0)),
                     })),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_accepts_object_is_for_distinct_object_and_array_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            kind: ObjectPropertyKind::Init,
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                        }],
+                    }),
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            kind: ObjectPropertyKind::Init,
+                            key: PropertyName::Identifier("a".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(1.0)),
+                        }],
+                    }),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::ArrayExpression(ArrayExpression {
+                        elements: vec![Some(ExpressionOrSpread::Expression(Expression::Literal(
+                            LiteralValue::Number(1.0),
+                        )))],
+                    }),
+                    Expression::ArrayExpression(ArrayExpression {
+                        elements: vec![Some(ExpressionOrSpread::Expression(Expression::Literal(
+                            LiteralValue::Number(1.0),
+                        )))],
+                    }),
                 ],
             }))),
         }),

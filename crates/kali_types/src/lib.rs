@@ -1510,6 +1510,7 @@ impl TypeContext {
                         )
                 })
             }
+            Expression::ArrayExpression(_) => true,
             Expression::CallExpression(call) => {
                 self.resolve_static_object_from_entries_call(call)
                     || Self::is_object_freeze_call(call)
@@ -1921,28 +1922,34 @@ impl TypeContext {
             }
         }
 
-        let Some(left_value) = self.resolve_static_object_identity_literal_value(left) else {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
-            ));
+        let left_value = self.resolve_static_object_identity_literal_value(left);
+        let right_value = self.resolve_static_object_identity_literal_value(right);
+        if let (Some(left_value), Some(right_value)) = (left_value, right_value) {
+            let _ = left_value.same_value(&right_value);
+            self.resolve_expression(left);
+            self.resolve_expression(right);
+            for arg in expr.args.iter().skip(2) {
+                self.resolve_expression(arg);
+            }
             return true;
-        };
-        let Some(right_value) = self.resolve_static_object_identity_literal_value(right) else {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
-            ));
-            return true;
-        };
-
-        let _ = left_value.same_value(&right_value);
-        self.resolve_expression(left);
-        self.resolve_expression(right);
-        for arg in expr.args.iter().skip(2) {
-            self.resolve_expression(arg);
         }
-        true
+
+        if self.resolve_static_object_model_target(left)
+            || self.resolve_static_object_model_target(right)
+        {
+            self.resolve_expression(left);
+            self.resolve_expression(right);
+            for arg in expr.args.iter().skip(2) {
+                self.resolve_expression(arg);
+            }
+            return true;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
+        ));
+        return true;
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {
