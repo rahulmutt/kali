@@ -37,18 +37,33 @@ fn browser_harness_object_string_enumeration_sequence_wrappers_source() -> &'sta
   for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
     keys.push(key);
   }
+  const singleQuotedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleQuotedKeys.push(key);
+  }
   const values = [];
   for await (const value of (0, globalThis.Object["values"]('ab'))) {
     values.push(value);
+  }
+  const singleQuotedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleQuotedValues.push(value);
   }
   const entries = [];
   for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
     entries.push(entry);
   }
+  const singleQuotedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleQuotedEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(singleQuotedKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(singleQuotedValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(singleQuotedEntries);
   console.log('browser object string enumeration sequence wrappers ok');
 }
 
@@ -86,18 +101,33 @@ fn browser_harness_object_string_enumeration_sequence_wrappers_test_source() -> 
   for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
     keys.push(key);
   }
+  const singleQuotedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleQuotedKeys.push(key);
+  }
   const values = [];
   for await (const value of (0, globalThis.Object["values"]('ab'))) {
     values.push(value);
+  }
+  const singleQuotedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleQuotedValues.push(value);
   }
   const entries = [];
   for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
     entries.push(entry);
   }
+  const singleQuotedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleQuotedEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(singleQuotedKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(singleQuotedValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(singleQuotedEntries);
   console.log('browser object string enumeration sequence wrappers ok');
 }
 
