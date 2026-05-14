@@ -89,6 +89,31 @@ fn function_plans_are_detected_from_instruction_shape() {
     assert_eq!(plans[0].params, vec!["a", "b"]);
 }
 
+#[test]
+fn function_plans_preserve_generator_flavor_metadata_for_class_methods() {
+    let program = parse_and_lower_lir(
+        "class Example { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+    );
+    let plans = collect_functions(&program);
+
+    let outer = plans
+        .iter()
+        .find(|plan| plan.name == "outer")
+        .expect("outer function plan");
+    let inner = plans
+        .iter()
+        .find(|plan| plan.name == "inner")
+        .expect("inner function plan");
+    let plain = plans
+        .iter()
+        .find(|plan| plan.name == "plain")
+        .expect("plain function plan");
+
+    assert_eq!(outer.flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.flavor, Some(FunctionFlavor::Sync));
+}
+
 fn parse_and_lower_lir(source: &str) -> LirProgram {
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
     let tokens = lexer.lex_all().tokens;
