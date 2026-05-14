@@ -121,6 +121,41 @@ fn test_mir_lowering_preserves_function_flavor_metadata_for_class_methods() {
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_flavor_metadata_for_class_expressions() {
+    let hir = parse_and_lower_hir(
+        "const Example = class NamedExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } };",
+    );
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let class_expr = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("NamedExample"))
+        .expect("named class expression node");
+    assert_eq!(class_expr.function_flavor, None);
+
+    let outer = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer class expression method node");
+    let inner = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner class expression method node");
+    let plain = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("plain"))
+        .expect("plain class expression method node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.function_flavor, Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_call_expressions_lower_to_call_nodes() {
     let hir = parse_and_lower_hir("foo(bar, 1);");
     let mir = MirLowerer::new().lower_hir_result(&hir);

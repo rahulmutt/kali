@@ -93,6 +93,41 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_class_methods() {
 }
 
 #[test]
+fn test_lir_lowering_preserves_function_flavor_metadata_for_class_expressions() {
+    let mir = parse_and_lower(
+        "const Example = class NamedExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } };",
+    );
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let class_expr = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("NamedExample"))
+        .expect("named class expression node");
+    assert_eq!(class_expr.function_flavor, None);
+
+    let outer = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer lir class expression node");
+    let inner = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner lir class expression node");
+    let plain = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("plain"))
+        .expect("plain lir class expression node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.function_flavor, Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_lir_validation_rejects_out_of_bounds_children() {
     let lir = LirProgram {
         root: LirNodeId::new(0),
