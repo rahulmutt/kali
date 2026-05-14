@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 kali_common = { workspace = true }
 kali_error = { workspace = true }
+kali_hir = { workspace = true }
 kali_mir = { workspace = true }
 
 [dev-dependencies]

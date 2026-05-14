@@ -36,6 +36,26 @@ fn test_mir_lowering_preserves_program_shape() {
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_nodes_with_flavor_metadata() {
+    let hir = parse_and_lower_hir("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let outer = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer MIR node");
+    let inner = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner MIR node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+}
+
+#[test]
 fn test_mir_lowering_preserves_function_flavor_metadata() {
     let hir =
         parse_and_lower_hir("async function* outer() { yield 1; } function* inner() { yield 2; }");
@@ -578,6 +598,7 @@ fn test_mir_validation_rejects_out_of_bounds_children() {
             kind: MirNodeKind::Program,
             text: None,
             children: vec![MirNodeId::new(1)],
+            function_flavor: None,
         }],
         functions: Vec::new(),
     };

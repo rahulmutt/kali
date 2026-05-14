@@ -44,6 +44,26 @@ fn test_lir_lowering_preserves_child_order_and_text_payloads() {
 }
 
 #[test]
+fn test_lir_lowering_preserves_function_flavor_metadata() {
+    let mir = parse_and_lower("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let outer = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer lir node");
+    let inner = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner lir node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+}
+
+#[test]
 fn test_lir_validation_rejects_out_of_bounds_children() {
     let lir = LirProgram {
         root: LirNodeId::new(0),
@@ -51,6 +71,7 @@ fn test_lir_validation_rejects_out_of_bounds_children() {
             kind: LirNodeKind::Program,
             text: None,
             children: vec![LirNodeId::new(1)],
+            function_flavor: None,
         }],
     };
 

@@ -10,7 +10,7 @@ use kali_error::{
     _error_codes::{e3, e5, e8},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
 };
-use kali_lir::{LirNode, LirNodeId, LirNodeKind, LirProgram};
+use kali_lir::{FunctionFlavor, LirNode, LirNodeId, LirNodeKind, LirProgram};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use wasm_encoder::{
@@ -123,6 +123,7 @@ struct FunctionPlan {
     body: LirNodeId,
     result: bool,
     is_entry: bool,
+    flavor: Option<FunctionFlavor>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -349,6 +350,7 @@ impl<'a> FunctionEmitter<'a> {
             kind,
             text,
             children,
+            function_flavor: None,
         });
         id
     }
@@ -4956,6 +4958,18 @@ impl<'a> FunctionEmitter<'a> {
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
+    if function_plans.iter().any(|plan| {
+        matches!(plan.flavor, Some(FunctionFlavor::Generator | FunctionFlavor::AsyncGenerator))
+    }) {
+        diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        ));
+        return CodegenResult {
+            wasm_bytes: Vec::new(),
+            diagnostics,
+        };
+    }
     let mut function_name_to_index = BTreeMap::new();
     let mut string_pool = StringPool::new(ENV_GET_BUFFER_RESERVED);
     let uses_env_get = program_uses_env_get(lir);
@@ -5047,6 +5061,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         body: lir.root,
         result: false,
         is_entry: true,
+        flavor: None,
     });
     all_functions.extend(function_plans);
 
@@ -5570,6 +5585,7 @@ fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
         return None;
     }
     let name = node.text.clone()?;
+    let flavor = node.function_flavor;
     if node.children.is_empty() {
         return None;
     }
@@ -5595,6 +5611,7 @@ fn function_plan(nodes: &[LirNode], id: LirNodeId) -> Option<FunctionPlan> {
         body: body_id,
         result: true,
         is_entry: false,
+        flavor,
     })
 }
 

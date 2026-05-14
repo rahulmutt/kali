@@ -539,6 +539,7 @@ impl Optimizer {
                     kind: LirNodeKind::Literal,
                     text: Some(length.to_string()),
                     children: Vec::new(),
+                    function_flavor: None,
                 };
                 return true;
             }
@@ -1317,6 +1318,7 @@ impl Optimizer {
             kind: original.kind,
             text: Some(specialized_name),
             children,
+            function_flavor: original.function_flavor,
         });
         new_id
     }
@@ -1757,6 +1759,7 @@ impl Optimizer {
             kind: snapshot.kind,
             text: snapshot.text,
             children,
+            function_flavor: snapshot.function_flavor,
         });
         memo.insert(id, new_id);
         new_id
@@ -2127,6 +2130,7 @@ impl Optimizer {
             kind: LirNodeKind::Literal,
             text: Some(value.to_string()),
             children: Vec::new(),
+            function_flavor: None,
         };
         let new_id = LirNodeId(program.nodes.len() as u32);
         program.nodes.push(node);
@@ -2194,6 +2198,7 @@ impl Optimizer {
             kind: LirNodeKind::Literal,
             text: Some(text),
             children: Vec::new(),
+            function_flavor: None,
         };
         let new_id = LirNodeId(program.nodes.len() as u32);
         program.nodes.push(node);
@@ -2206,6 +2211,7 @@ impl Optimizer {
             kind: LirNodeKind::Value,
             text: None,
             children: elements,
+            function_flavor: None,
         });
         new_id
     }
@@ -2223,6 +2229,7 @@ impl Optimizer {
                 kind: LirNodeKind::Value,
                 text: Some("init".to_string()),
                 children: vec![key_id, value],
+                function_flavor: None,
             });
             property_nodes.push(property_id);
         }
@@ -2232,6 +2239,7 @@ impl Optimizer {
             kind: LirNodeKind::Value,
             text: None,
             children: property_nodes,
+            function_flavor: None,
         });
         new_id
     }

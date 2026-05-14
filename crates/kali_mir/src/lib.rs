@@ -346,6 +346,7 @@ pub struct MirNode {
     pub kind: MirNodeKind,
     pub text: Option<String>,
     pub children: Vec<MirNodeId>,
+    pub function_flavor: Option<FunctionFlavor>,
 }
 
 impl MirNode {
@@ -354,6 +355,7 @@ impl MirNode {
             kind,
             text: None,
             children: Vec::new(),
+            function_flavor: None,
         }
     }
 
@@ -362,6 +364,7 @@ impl MirNode {
             kind,
             text: Some(text.into()),
             children: Vec::new(),
+            function_flavor: None,
         }
     }
 }
@@ -551,7 +554,7 @@ impl MirLowerer {
 
     pub fn lower_hir_result(&self, hir: &HirLoweringResult) -> MirProgram {
         let mut builder = MirBuilder::new();
-        let root = self.lower_hir_node(&mut builder, &hir.nodes, hir.root);
+        let root = self.lower_hir_node(&mut builder, &hir.nodes, hir.root, hir);
         let functions =
             OwnershipAnalyzer::new(&hir.nodes, &hir.function_flavors).analyze_program(hir.root);
         MirProgram {
@@ -566,6 +569,7 @@ impl MirLowerer {
         builder: &mut MirBuilder,
         nodes: &[HirNode],
         id: HirNodeId,
+        hir: &HirLoweringResult,
     ) -> MirNodeId {
         let node = &nodes[id.0 as usize];
         let kind = map_kind(&node.kind);
@@ -573,14 +577,27 @@ impl MirLowerer {
             Some(text) => builder.alloc_text(kind, text.clone()),
             None => builder.alloc(kind),
         };
+        if let Some(mir_node) = builder.node_mut(mir_id) {
+            mir_node.function_flavor = self.function_flavor(hir, id);
+        }
         let mut children = Vec::with_capacity(node.children.len());
         for child in &node.children {
-            children.push(self.lower_hir_node(builder, nodes, *child));
+            children.push(self.lower_hir_node(builder, nodes, *child, hir));
         }
         if let Some(mir_node) = builder.node_mut(mir_id) {
             mir_node.children = children;
         }
         mir_id
+    }
+    fn function_flavor(
+        &self,
+        hir: &HirLoweringResult,
+        id: HirNodeId,
+    ) -> Option<FunctionFlavor> {
+        hir.function_flavors
+            .iter()
+            .find(|(node_id, _)| *node_id == id)
+            .map(|(_, flavor)| *flavor)
     }
 }
 

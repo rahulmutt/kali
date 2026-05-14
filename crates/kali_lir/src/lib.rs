@@ -4,6 +4,7 @@
 //! implementation keeps the lowering deterministic and structurally faithful so
 //! later WASM emission can build on a stable node order.
 
+pub use kali_hir::FunctionFlavor;
 use kali_mir::{MirNode, MirNodeId, MirNodeKind, MirProgram};
 
 /// LIR node kind.
@@ -35,6 +36,7 @@ pub struct LirNode {
     pub kind: LirNodeKind,
     pub text: Option<String>,
     pub children: Vec<LirNodeId>,
+    pub function_flavor: Option<FunctionFlavor>,
 }
 
 impl LirNode {
@@ -43,6 +45,7 @@ impl LirNode {
             kind,
             text: None,
             children: Vec::new(),
+            function_flavor: None,
         }
     }
 
@@ -51,6 +54,7 @@ impl LirNode {
             kind,
             text: Some(text.into()),
             children: Vec::new(),
+            function_flavor: None,
         }
     }
 }
@@ -141,6 +145,9 @@ impl LirLowerer {
             Some(text) => builder.alloc_text(kind, text.clone()),
             None => builder.alloc(kind),
         };
+        if let Some(lir_node) = builder.node_mut(lir_id) {
+            lir_node.function_flavor = node.function_flavor;
+        }
         let mut children = Vec::with_capacity(node.children.len());
         for child in &node.children {
             children.push(self.lower_mir_node(builder, nodes, *child));

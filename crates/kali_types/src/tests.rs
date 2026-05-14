@@ -2760,6 +2760,18 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
                 args: vec![Expression::Identifier("NaN".to_string())],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Number".to_string(),
+                    })),
+                    property: "isInteger".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
