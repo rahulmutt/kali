@@ -1797,7 +1797,7 @@ fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
         ("proofs/BOUNDARY.md", summary),
         ("specs/17-verification.md", summary),
         ("specs/19-feature-maturity.md", proof_backed_phrase),
-        ("plan/phase-20/README.md", "proofs/BOUNDARY.md"),
+        ("plan/phase-25/README.md", "proofs/BOUNDARY.md"),
     ];
 
     for (relative, expected_summary) in summary_docs {
@@ -1809,11 +1809,11 @@ fn proof_boundary_summary_docs_reference_the_canonical_boundary() {
     }
 
     let stage_doc =
-        fs::read_to_string(root.join("plan/phase-20/README.md")).expect("read phase 20 doc");
+        fs::read_to_string(root.join("plan/phase-25/README.md")).expect("read phase 25 doc");
     assert!(
         stage_doc.contains("proofs/BOUNDARY.md")
             && stage_doc.contains("sole theorem/property inventory"),
-        "phase 20 doc should point to the canonical proof boundary without duplicating it"
+        "phase 25 doc should point to the canonical proof boundary without duplicating it"
     );
 
     let boundary = fs::read_to_string(root.join("proofs/BOUNDARY.md")).expect("read boundary");
@@ -1870,15 +1870,15 @@ fn active_plan_tracks_language_semantics_phase() {
     let root = repo_root();
     let plan = fs::read_to_string(root.join("PLAN.md")).expect("read active plan");
     let phase =
-        fs::read_to_string(root.join("plan/phase-16/README.md")).expect("read phase 16 README");
+        fs::read_to_string(root.join("plan/phase-21/README.md")).expect("read phase 21 README");
 
     for expected in [
-        "Phase 16 — Semantic Closure and Conformance Promotion",
-        "generator and async-generator lowering",
-        "for...of",
-        "dynamic import",
-        "bounded-inference contract",
-        "Conformance evidence hygiene",
+        "Phase 21 — Semantic Completeness and Conformance",
+        "Generators and async generators",
+        "Iterator and async-iterator protocols",
+        "Dynamic language and built-in semantics",
+        "Bounded TS/JS inference",
+        "Conformance hygiene",
     ] {
         assert!(
             phase.contains(expected),
@@ -1887,7 +1887,7 @@ fn active_plan_tracks_language_semantics_phase() {
     }
 
     assert!(
-        plan.contains("phase-16/README.md"),
+        plan.contains("phase-21/README.md"),
         "top-level PLAN should link the active language phase"
     );
 }
@@ -2200,10 +2200,10 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 fn active_plan_tracks_runtime_host_phase() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-17/README.md")).expect("read phase 17 README");
+        fs::read_to_string(root.join("plan/phase-22/README.md")).expect("read phase 22 README");
 
     for expected in [
-        "Phase 17 — Host/Runtime Contract Expansion",
+        "Phase 22 — Host/Runtime Capability Contracts",
         "Threaded runtime semantics",
         "Browser runtime contract",
         "Late host APIs and resources",
@@ -2221,10 +2221,10 @@ fn active_plan_tracks_runtime_host_phase() {
 fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-18/README.md")).expect("read phase 18 README");
+        fs::read_to_string(root.join("plan/phase-23/README.md")).expect("read phase 23 README");
 
     for expected in [
-        "Phase 18 — Ecosystem Compatibility by Rung",
+        "Phase 23 — Ecosystem Compatibility by Rung",
         "Package-corpus stewardship",
         "Node ecosystem breadth",
         "Browser package deployability",
@@ -2492,10 +2492,10 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
 fn active_plan_tracks_verification_and_contract_hardening_phase() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-20/README.md")).expect("read phase 20 README");
+        fs::read_to_string(root.join("plan/phase-25/README.md")).expect("read phase 25 README");
 
     for expected in [
-        "Phase 20 — Verification and Machine Contracts",
+        "Phase 25 — Verification and Machine Contracts",
         "Proof-boundary hygiene",
         "Model widening",
         "Proof CI triggers",
@@ -2513,10 +2513,10 @@ fn active_plan_tracks_verification_and_contract_hardening_phase() {
 fn active_plan_tracks_optimization_phase_without_inventory_journal() {
     let root = repo_root();
     let phase =
-        fs::read_to_string(root.join("plan/phase-19/README.md")).expect("read phase 19 README");
+        fs::read_to_string(root.join("plan/phase-24/README.md")).expect("read phase 24 README");
 
     for expected in [
-        "Phase 19 — Optimization and Performance Evidence",
+        "Phase 24 — Optimization and Performance Evidence",
         "Optimization inventory upkeep",
         "Specialization depth",
         "PGO input hardening",
