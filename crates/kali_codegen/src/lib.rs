@@ -137,6 +137,7 @@ enum ObjectEnumerationMode {
     Keys,
     Values,
     Entries,
+    ReflectOwnKeys,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -4182,7 +4183,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -4193,7 +4194,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -4210,7 +4211,7 @@ impl<'a> FunctionEmitter<'a> {
             ) {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), or Object.entries(...) slice with string literal keys; use a supported loop form or the later compatibility path",
+                    "for-of array iteration lowering is unavailable unless the iterable is a supported Object.keys(...), Object.values(...), Object.entries(...), or Reflect.ownKeys(...) slice with string literal keys; use a supported loop form or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -4429,6 +4430,24 @@ impl<'a> FunctionEmitter<'a> {
                 ObjectEnumerationMode::Keys
             }
             Some(text)
+                if text == "ownKeys"
+                    || text.ends_with(".ownKeys")
+                    || text.ends_with("[\"ownKeys\"]")
+                    || text.ends_with("['ownKeys']")
+                    || text == "Reflect.ownKeys"
+                    || text == "Reflect[\"ownKeys\"]"
+                    || text == "Reflect['ownKeys']"
+                    || text == "globalThis.Reflect.ownKeys"
+                    || text == "globalThis.Reflect[\"ownKeys\"]"
+                    || text == "globalThis.Reflect['ownKeys']"
+                    || text == r#"globalThis["Reflect"].ownKeys"#
+                    || text == r#"globalThis["Reflect"]["ownKeys"]"#
+                    || text == r#"globalThis['Reflect'].ownKeys"#
+                    || text == r#"globalThis['Reflect']['ownKeys']"# =>
+            {
+                ObjectEnumerationMode::ReflectOwnKeys
+            }
+            Some(text)
                 if text == "values"
                     || text.ends_with(".values")
                     || text.ends_with("[\"values\"]")
@@ -4469,7 +4488,7 @@ impl<'a> FunctionEmitter<'a> {
 
         let object = callee_node.children.first().copied()?;
         let object_text = self.node(object).text.as_deref().unwrap_or_default();
-        if object_text.contains("Object") {
+        if object_text.contains("Object") || object_text.contains("Reflect") {
             Some(mode)
         } else {
             None
@@ -4483,6 +4502,9 @@ impl<'a> FunctionEmitter<'a> {
         items: &mut Vec<LirNodeId>,
     ) -> bool {
         if let Some(string_text) = self.render_static_string_value(node) {
+            if matches!(mode, ObjectEnumerationMode::ReflectOwnKeys) {
+                return false;
+            }
             for (index, value) in string_text.chars().enumerate() {
                 let key = self.alloc_scratch_node(
                     LirNodeKind::Literal,
@@ -4495,7 +4517,9 @@ impl<'a> FunctionEmitter<'a> {
                     vec![],
                 );
                 match mode {
-                    ObjectEnumerationMode::Keys => items.push(key),
+                    ObjectEnumerationMode::Keys | ObjectEnumerationMode::ReflectOwnKeys => {
+                        items.push(key)
+                    }
                     ObjectEnumerationMode::Values => items.push(value),
                     ObjectEnumerationMode::Entries => {
                         let pair =
@@ -4522,7 +4546,9 @@ impl<'a> FunctionEmitter<'a> {
                 }
 
                 match mode {
-                    ObjectEnumerationMode::Keys => items.push(key),
+                    ObjectEnumerationMode::Keys | ObjectEnumerationMode::ReflectOwnKeys => {
+                        items.push(key)
+                    }
                     ObjectEnumerationMode::Values => items.push(property.children[1]),
                     ObjectEnumerationMode::Entries => {
                         let pair = self.alloc_scratch_node(
@@ -4634,11 +4660,13 @@ impl<'a> FunctionEmitter<'a> {
 
         for (key_text, value_id) in ordered {
             match mode {
-                ObjectEnumerationMode::Keys => items.push(self.alloc_scratch_node(
-                    LirNodeKind::Literal,
-                    Some(format!("{key_text:?}")),
-                    vec![],
-                )),
+                ObjectEnumerationMode::Keys | ObjectEnumerationMode::ReflectOwnKeys => {
+                    items.push(self.alloc_scratch_node(
+                        LirNodeKind::Literal,
+                        Some(format!("{key_text:?}")),
+                        vec![],
+                    ))
+                }
                 ObjectEnumerationMode::Values => items.push(value_id),
                 ObjectEnumerationMode::Entries => {
                     let key = self.alloc_scratch_node(
