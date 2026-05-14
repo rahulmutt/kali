@@ -1882,7 +1882,7 @@ fn active_plan_tracks_language_semantics_phase() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 16 README should mention {expected}"
+            "phase 21 README should mention {expected}"
         );
     }
 
@@ -1895,6 +1895,14 @@ fn active_plan_tracks_language_semantics_phase() {
 #[test]
 fn active_plan_removes_historical_phase_dashboards() {
     let root = repo_root();
+
+    for phase in 1..=20 {
+        let removed = format!("plan/phase-{phase}");
+        assert!(
+            !root.join(&removed).exists(),
+            "historical phase directory should not remain active: {removed}"
+        );
+    }
 
     for removed in [
         "plan/phase-4/02-formal-verification-depth.md",
@@ -2212,7 +2220,7 @@ fn active_plan_tracks_runtime_host_phase() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 17 README should mention {expected}"
+            "phase 22 README should mention {expected}"
         );
     }
 }
@@ -2233,7 +2241,7 @@ fn active_plan_tracks_ecosystem_phase_without_package_matrix_journal() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 18 README should mention {expected}"
+            "phase 23 README should mention {expected}"
         );
     }
 }
@@ -2504,7 +2512,7 @@ fn active_plan_tracks_verification_and_contract_hardening_phase() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 20 README should mention {expected}"
+            "phase 25 README should mention {expected}"
         );
     }
 }
@@ -2525,7 +2533,7 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
     ] {
         assert!(
             phase.contains(expected),
-            "phase 19 README should mention {expected}"
+            "phase 24 README should mention {expected}"
         );
     }
 }
