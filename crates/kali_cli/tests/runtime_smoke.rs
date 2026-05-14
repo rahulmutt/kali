@@ -12360,12 +12360,17 @@ fn run_supports_try_finally_sequencing_when_browser_harness_is_configured_in_js_
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"try {
-  0;
-} finally {
-  console.log(2);
+        r#"function main() {
+  try {
+    for (const value of [1, 2]) {
+      console.log(value);
+      break;
+    }
+  } finally {
+    console.log(3);
+  }
 }
-console.log(1);
+main();
 "#,
     )
     .expect("write source");
@@ -12396,7 +12401,7 @@ console.log(1);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        json["stdout"].as_str().expect("stdout").contains("1\n3"),
         "json: {json}"
     );
 }
@@ -19070,12 +19075,17 @@ fn test_supports_try_finally_sequencing_when_browser_harness_is_configured_in_js
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        r#"try {
-  0;
-} finally {
-  console.log(2);
+        r#"async function main() {
+  try {
+    for await (const value of [1, 2]) {
+      console.log(value);
+      break;
+    }
+  } finally {
+    console.log(3);
+  }
 }
-console.log(1);
+main();
 "#,
     )
     .expect("write source");
@@ -19104,7 +19114,7 @@ console.log(1);
     assert_eq!(json["payload"]["hostContract"], "browser-requested");
     assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("2\n1"),
+        json["stdout"].as_str().expect("stdout").contains("1\n3"),
         "json: {json}"
     );
 }
@@ -24819,12 +24829,17 @@ fn test_supports_try_finally_sequencing_in_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        r#"try {
-  0;
-} finally {
-  console.log(2);
+        r#"async function main() {
+  try {
+    for await (const value of [1, 2]) {
+      console.log(value);
+      break;
+    }
+  } finally {
+    console.log(3);
+  }
 }
-console.log(1);
+main();
 "#,
     )
     .expect("write source");
@@ -24843,7 +24858,7 @@ console.log(1);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\n1\nok 1"), "stdout: {stdout}");
+    assert!(stdout.contains("1\n3\nok 1"), "stdout: {stdout}");
 }
 
 #[test]
@@ -25476,12 +25491,17 @@ fn run_supports_try_finally_sequencing_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"try {
-  0;
-} finally {
-  console.log(2);
+        r#"function main() {
+  try {
+    for (const value of [1, 2]) {
+      console.log(value);
+      break;
+    }
+  } finally {
+    console.log(3);
+  }
 }
-console.log(1);
+main();
 "#,
     )
     .expect("write source");
@@ -25500,7 +25520,7 @@ console.log(1);
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "2\n1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "1\n3", "stdout: {stdout}");
 }
 
 #[test]
