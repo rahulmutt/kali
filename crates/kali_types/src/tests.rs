@@ -2751,6 +2751,24 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Number".to_string()),
+                    property: "isSafeInteger".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Number".to_string()),
+                    property: "isSafeInteger".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.5))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
                     object: Expression::MemberExpression(Box::new(MemberExpression {
                         object: Expression::Identifier("globalThis".to_string()),
                         property: "Number".to_string(),
@@ -2803,6 +2821,30 @@ fn test_resolution_rejects_number_is_integer_with_dynamic_values_as_unavailable(
     );
     assert!(result.diagnostics[0].message.contains(
         "Number.isInteger is unavailable unless the argument is a statically-known primitive value"
+    ));
+}
+
+#[test]
+fn test_resolution_rejects_number_is_safe_integer_with_dynamic_values_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Number".to_string()),
+                property: "isSafeInteger".to_string(),
+            })),
+            args: vec![Expression::Identifier("value".to_string())],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0].message.contains(
+        "Number.isSafeInteger is unavailable unless the argument is a statically-known primitive value"
     ));
 }
 

@@ -1970,7 +1970,7 @@ impl TypeContext {
             return false;
         };
 
-        if !matches!(method, "isFinite" | "isNaN" | "isInteger") {
+        if !matches!(method, "isFinite" | "isNaN" | "isInteger" | "isSafeInteger") {
             return false;
         }
 
@@ -2004,6 +2004,11 @@ impl TypeContext {
                 "isFinite" => number.is_finite(),
                 "isNaN" => number.is_nan(),
                 "isInteger" => number.is_finite() && number.fract() == 0.0,
+                "isSafeInteger" => {
+                    number.is_finite()
+                        && number.fract() == 0.0
+                        && number.abs() <= 9007199254740991.0
+                }
                 _ => false,
             },
             _ => false,

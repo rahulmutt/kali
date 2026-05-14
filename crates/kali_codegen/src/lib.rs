@@ -1623,7 +1623,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_number_object(&callee_node)
             && matches!(
                 callee_node.text.as_deref(),
-                Some("isFinite") | Some("isNaN") | Some("isInteger")
+                Some("isFinite") | Some("isNaN") | Some("isInteger") | Some("isSafeInteger")
             )
         {
             let method = callee_node.text.as_deref().unwrap_or("isFinite");
@@ -1661,6 +1661,11 @@ impl<'a> FunctionEmitter<'a> {
                     "isFinite" => number.is_finite(),
                     "isNaN" => number.is_nan(),
                     "isInteger" => number.is_finite() && number.fract() == 0.0,
+                    "isSafeInteger" => {
+                        number.is_finite()
+                            && number.fract() == 0.0
+                            && number.abs() <= 9007199254740991.0
+                    }
                     _ => false,
                 },
                 _ => false,

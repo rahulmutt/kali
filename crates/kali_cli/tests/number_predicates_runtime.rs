@@ -11,12 +11,15 @@ fn number_predicates_source() -> &'static str {
     r#"const alias = 1;
 console.log(Number.isFinite(alias));
 console.log(Number.isInteger(alias));
+console.log(Number.isSafeInteger(alias));
 console.log(Number.isInteger(1.5));
 console.log(Number.isFinite("hello"));
+console.log(Number.isSafeInteger(1.5));
 console.log(globalThis["Number"]["isNaN"](NaN));
 console.log(globalThis.Number.isNaN(1));
 console.log(globalThis["Number"]["isFinite"](alias));
 console.log(globalThis["Number"]["isInteger"](alias));
+console.log(globalThis["Number"]["isSafeInteger"](alias));
 "#
 }
 
@@ -25,12 +28,15 @@ fn number_predicates_test_source() -> &'static str {
   const alias = 1;
   console.log(Number.isFinite(alias));
   console.log(Number.isInteger(alias));
+  console.log(Number.isSafeInteger(alias));
   console.log(Number.isInteger(1.5));
   console.log(Number.isFinite("hello"));
+  console.log(Number.isSafeInteger(1.5));
   console.log(globalThis["Number"]["isNaN"](NaN));
   console.log(globalThis.Number.isNaN(1));
   console.log(globalThis["Number"]["isFinite"](alias));
   console.log(globalThis["Number"]["isInteger"](alias));
+  console.log(globalThis["Number"]["isSafeInteger"](alias));
 });
 "#
 }
@@ -63,11 +69,15 @@ fn assert_run_supports_number_predicates_in_js_input(json_output: bool) {
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n0\n0\n1\n0\n1\n1\n");
+        assert_eq!(json["stdout"], "1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout.trim(), "1\n1\n0\n0\n1\n0\n1\n1", "stdout: {stdout}");
+        assert_eq!(
+            stdout.trim(),
+            "1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1",
+            "stdout: {stdout}"
+        );
     }
 }
 
@@ -105,7 +115,7 @@ fn assert_test_supports_number_predicates_in_js_input(json_output: bool) {
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n1\n0\n0\n1\n0\n1\n1"),
+            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1"),
             "stdout: {stdout}"
         );
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
