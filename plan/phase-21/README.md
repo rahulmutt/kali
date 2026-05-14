@@ -21,7 +21,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Implement resumable generator and async-generator state-machine lowering.
 - Cover `yield`, `yield*`, `return`, `throw`, `try/finally`, iterator close/finalization, and async interaction.
 - Preserve generator/function-kind metadata through parser, AST, HIR, MIR, LIR, codegen, and export analysis.
-- Async class methods now ride the shared async-function lowering path; generator class methods remain gated.
+- Async class methods now ride the shared async-function lowering path; generator class methods remain gated, and the direct runtime-entrypoint gate now also covers generator class expressions in JS/JSX/TSX input plus async-generator default-export class expressions in JS input.
 - Current coverage also exercises async class methods through build smoke in TS, JS, JSX, and TSX input on both the Deno and browser artifact paths.
 - The parser now accepts class-expression forms with preserved async/generator metadata, and direct `run` / `test` entrypoints now gate those async class expressions too; generator class expressions now also hit the direct runtime E5506 gate before lowering.
 - HIR, MIR, LIR, and function-plan tests now also preserve class-expression generator metadata alongside the existing class-method coverage.
