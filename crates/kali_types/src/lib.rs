@@ -661,7 +661,6 @@ impl TypeContext {
                     Some(ExpressionOrSpread::Empty) | None => false,
                 })
             }
-            Expression::Literal(LiteralValue::String(_)) => true,
             Expression::Identifier(name) => {
                 self.resolve_static_array_binding_name(name)
                     || self.resolve_static_string_binding(name).is_some()
@@ -669,7 +668,41 @@ impl TypeContext {
             Expression::CallExpression(call) => {
                 self.is_static_object_enumeration_iteration_target(call)
             }
-            _ => false,
+            other => self
+                .resolve_static_string_iterable_expression(other)
+                .is_some(),
+        }
+    }
+
+    fn resolve_static_string_iterable_expression(&self, expression: &Expression) -> Option<String> {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::Literal(LiteralValue::String(value)) => Some(value.clone()),
+            Expression::Identifier(name) => self.resolve_static_string_binding(name),
+            Expression::BinaryExpression(expr) if expr.operator == "+" => {
+                let left = self.resolve_static_string_iterable_expression(&expr.left)?;
+                let right = self.resolve_static_string_iterable_expression(&expr.right)?;
+                Some(format!("{left}{right}"))
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.resolve_static_string_iterable_expression(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.resolve_static_string_iterable_expression(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.resolve_static_string_iterable_expression(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                self.resolve_static_string_iterable_expression(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.resolve_static_string_iterable_expression(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(|expression| self.resolve_static_string_iterable_expression(expression)),
+            _ => None,
         }
     }
 
@@ -1506,7 +1539,6 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
             }
-            Expression::Literal(LiteralValue::String(_)) => true,
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 properties.iter().all(|property| {
                     matches!(
@@ -1534,7 +1566,9 @@ impl TypeContext {
                         })
             }
             Expression::Identifier(name) => self.resolve_static_object_keys_binding_name(name),
-            _ => false,
+            other => self
+                .resolve_static_string_iterable_expression(other)
+                .is_some(),
         }
     }
 

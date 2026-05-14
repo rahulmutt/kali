@@ -29805,6 +29805,33 @@ fn run_supports_array_iteration_semantics_with_const_string_alias_in_js_input() 
 }
 
 #[test]
+fn run_supports_array_iteration_semantics_with_string_concatenation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const prefix = "he"; const suffix = "llo"; for (const item of prefix + suffix) {
+  console.log(item);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["h", "e", "l", "l", "o"], "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_for_await_array_iteration_semantics_for_now() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -29873,6 +29900,33 @@ fn run_supports_for_await_array_iteration_semantics_with_const_string_alias_in_j
 
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_semantics_with_string_concatenation_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const prefix = "he"; const suffix = "llo"; for await (const item of prefix + suffix) {
+  console.log(item);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["h", "e", "l", "l", "o"], "stdout: {stdout}");
 }
 
 #[test]

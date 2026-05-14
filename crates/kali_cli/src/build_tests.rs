@@ -4651,6 +4651,35 @@ fn assert_build_source_file_supports_for_of_array_iteration_with_const_string_al
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const prefix = \"he\"; const suffix = \"llo\"; for (const ch of prefix + suffix) { console.log(ch); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for-of string concatenation iteration should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 fn assert_build_source_file_supports_for_of_array_iteration_with_const_boolean_alias_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -4819,6 +4848,35 @@ fn assert_build_source_file_supports_for_await_array_iteration_with_parenthesize
         None,
     )
     .expect("for await array iteration with parenthesized const alias should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+fn assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const prefix = \"he\"; const suffix = \"llo\"; for await (const ch of prefix + suffix) { console.log(ch); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("for await string concatenation iteration should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
@@ -5052,6 +5110,14 @@ fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_
 }
 
 #[test]
+fn build_source_file_supports_for_await_string_concatenation_iteration_in_js_input() {
+    assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
 fn build_source_file_supports_for_of_array_iteration_with_const_boolean_alias_in_js_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_const_boolean_alias_in_input(
         ApiSurface::Deno,
@@ -5133,6 +5199,40 @@ fn build_source_file_supports_for_of_array_iteration_with_spread_of_const_bound_
 fn build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_browser_api_surface_in_ts_input(
 ) {
     assert_build_source_file_supports_for_of_array_iteration_with_const_string_alias_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_js_input() {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_ts_input() {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
         ApiSurface::Browser,
         "ts",
     );

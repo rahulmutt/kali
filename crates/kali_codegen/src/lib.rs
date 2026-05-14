@@ -4555,6 +4555,15 @@ impl<'a> FunctionEmitter<'a> {
             node
         };
 
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some("+")
+            && node.children.len() == 2
+        {
+            let left = self.render_static_string_value(self.node(node.children[0]))?;
+            let right = self.render_static_string_value(self.node(node.children[1]))?;
+            return Some(format!("{left}{right}"));
+        }
+
         let text = match node.kind {
             LirNodeKind::Literal if node.children.is_empty() => node.text.as_deref()?,
             LirNodeKind::Value if node.children.is_empty() => {
