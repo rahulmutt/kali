@@ -161,6 +161,29 @@ fn object_is_lowers_for_same_static_reference() {
 }
 
 #[test]
+fn number_is_finite_and_is_nan_lowers_for_static_primitive_values() {
+    let program = parse_and_lower_lir(
+        "const alias = 1; console.log(Number.isFinite(alias)); console.log(Number.isFinite(\"hello\")); console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); console.log(globalThis.Number.isNaN(1));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn object_is_lowers_for_fresh_object_and_array_literals() {
     let program = parse_and_lower_lir(
         "console.log(Object.is({}, {})); console.log(Object.is([], [])); console.log(Object.is({ a: 1 }, { a: 1 })); console.log(Object.is([1], [1]));",

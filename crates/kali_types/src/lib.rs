@@ -1753,6 +1753,9 @@ impl TypeContext {
         if self.resolve_static_object_identity_call(expr) {
             return;
         }
+        if self.resolve_number_identity_call(expr) {
+            return;
+        }
 
         self.resolve_expression(&expr.callee);
         for arg in &expr.args {
@@ -1950,6 +1953,63 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
         ));
+        return true;
+    }
+
+    fn resolve_number_identity_call(&mut self, expr: &CallExpression) -> bool {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+            return false;
+        };
+
+        let Some(method) = callee_name
+            .strip_prefix("Number.")
+            .or_else(|| callee_name.strip_prefix("globalThis.Number."))
+            .or_else(|| callee_name.strip_prefix(r#"globalThis["Number"]."#))
+            .or_else(|| callee_name.strip_prefix(r#"globalThis['Number']."#))
+        else {
+            return false;
+        };
+
+        if !matches!(method, "isFinite" | "isNaN") {
+            return false;
+        }
+
+        let Some(value_expr) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Number.{method} requires at least one statically-known primitive value in the current phase; use an explicit constant or the later compatibility path"
+                ),
+            ));
+            return true;
+        };
+
+        let Some(value) = self.resolve_static_object_identity_literal_value(value_expr) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "Number.{method} is unavailable unless the argument is a statically-known primitive value in the current phase; use an explicit constant or the later compatibility path"
+                ),
+            ));
+            return true;
+        };
+
+        self.resolve_expression(value_expr);
+        for arg in expr.args.iter().skip(1) {
+            self.resolve_expression(arg);
+        }
+
+        let _ = match value {
+            StaticObjectIdentityValue::Number(number) => {
+                if method == "isFinite" {
+                    number.is_finite()
+                } else {
+                    number.is_nan()
+                }
+            }
+            _ => false,
+        };
+
         return true;
     }
 

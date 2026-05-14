@@ -1618,6 +1618,67 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_number_object(&callee_node)
+            && matches!(
+                callee_node.text.as_deref(),
+                Some("isFinite") | Some("isNaN")
+            )
+        {
+            let method = callee_node.text.as_deref().unwrap_or("isFinite");
+            let mut args = node.children.iter().skip(1);
+            let Some(value) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Number.{method} requires at least one statically-known primitive value in the current phase; use an explicit constant or the later compatibility path"
+                    ),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let Some(value) = self.resolve_static_object_identity_value(*value) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    format!(
+                        "Number.{method} is unavailable unless the argument is a statically-known primitive value in the current phase; use an explicit constant or the later compatibility path"
+                    ),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+
+            let supported = match value {
+                StaticObjectIdentityValue::Number(number) => {
+                    if method == "isFinite" {
+                        number.is_finite()
+                    } else {
+                        number.is_nan()
+                    }
+                }
+                _ => false,
+            };
+
+            for arg in args {
+                let produced = self.emit_node(function, *arg, true);
+                if produced.produced {
+                    function.instruction(&Instruction::Drop);
+                }
+            }
+
+            function.instruction(&Instruction::I64Const(if supported { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
             let args: Vec<_> = node.children.iter().skip(1).copied().collect();
             let Some(first_arg) = args.first() else {
@@ -2866,6 +2927,19 @@ impl<'a> FunctionEmitter<'a> {
                 | Some("globalThis.Object")
                 | Some(r#"globalThis["Object"]"#)
                 | Some(r#"globalThis['Object']"#)
+        )
+    }
+
+    fn is_number_object(&self, callee_node: &LirNode) -> bool {
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(object).text.as_deref(),
+            Some("Number")
+                | Some("globalThis.Number")
+                | Some(r#"globalThis["Number"]"#)
+                | Some(r#"globalThis['Number']"#)
         )
     }
 
