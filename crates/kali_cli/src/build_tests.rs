@@ -5163,6 +5163,42 @@ fn build_source_file_supports_for_await_string_concatenation_iteration_in_js_inp
 }
 
 #[test]
+fn build_source_file_supports_for_await_string_concatenation_iteration_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_string_concatenation_iteration_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_string_concatenation_iteration_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_await_string_concatenation_iteration_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_await_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
 fn build_source_file_supports_for_of_array_iteration_with_const_boolean_alias_in_js_input() {
     assert_build_source_file_supports_for_of_array_iteration_with_const_boolean_alias_in_input(
         ApiSurface::Deno,
@@ -5305,6 +5341,24 @@ fn build_source_file_supports_for_of_string_concatenation_iteration_in_browser_a
     assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_for_of_string_concatenation_iteration_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_for_of_string_concatenation_iteration_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 

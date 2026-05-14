@@ -30,9 +30,9 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 ### 21.2 Iterator and async-iterator protocols
 
-- Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices.
+- Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices; current smoke now also covers the direct string-concatenation slice in browser bundle JS, TS, JSX, and TSX input.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization.
-- Current smoke now also covers the single-quoted bracketed `Reflect` alias over frozen object literals in the direct and browser-harness paths, plus sequence-expression wrappers around the supported static `Reflect.ownKeys(...)` slice in JS input.
+- Current smoke now also covers the single-quoted bracketed `Reflect` alias over frozen object literals in the direct and browser-harness paths, plus sequence-expression wrappers around the supported static `Reflect.ownKeys(...)` slice in JS input, and the browser-bundle string-concatenation slice across `for...of` / `for await...of` in JS, TS, JSX, and TSX input.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 
 ### 21.3 Dynamic language and built-in semantics
