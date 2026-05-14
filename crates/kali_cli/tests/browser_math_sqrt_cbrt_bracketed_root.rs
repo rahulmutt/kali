@@ -201,6 +201,16 @@ fn build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_ts_input() {
 }
 
 #[test]
+fn build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_math_sqrt_cbrt("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_math_sqrt_cbrt("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_js_input() {
     assert_browser_bundle_bracketed_math_sqrt_cbrt("app.js", true);
 }
@@ -208,6 +218,16 @@ fn json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_js_input() {
 #[test]
 fn json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_ts_input() {
     assert_browser_bundle_bracketed_math_sqrt_cbrt("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_jsx_input() {
+    assert_browser_bundle_bracketed_math_sqrt_cbrt("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_math_sqrt_and_cbrt_zero_identities_in_tsx_input() {
+    assert_browser_bundle_bracketed_math_sqrt_cbrt("app.tsx", true);
 }
 
 #[test]
@@ -227,6 +247,28 @@ fn run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harnes
     assert_browser_harness_bracketed_math_sqrt_cbrt(
         "run",
         "main.ts",
+        browser_harness_bracketed_math_sqrt_cbrt_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "run",
+        "main.jsx",
+        browser_harness_bracketed_math_sqrt_cbrt_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "run",
+        "main.tsx",
         browser_harness_bracketed_math_sqrt_cbrt_run_source(),
         false,
     );
@@ -255,6 +297,28 @@ fn test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harne
 }
 
 #[test]
+fn test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_bracketed_math_sqrt_cbrt_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_bracketed_math_sqrt_cbrt_test_source(),
+        false,
+    );
+}
+
+#[test]
 fn json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_js_input(
 ) {
     assert_browser_harness_bracketed_math_sqrt_cbrt(
@@ -277,6 +341,28 @@ fn json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_h
 }
 
 #[test]
+fn json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "run",
+        "main.jsx",
+        browser_harness_bracketed_math_sqrt_cbrt_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "run",
+        "main.tsx",
+        browser_harness_bracketed_math_sqrt_cbrt_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_js_input(
 ) {
     assert_browser_harness_bracketed_math_sqrt_cbrt(
@@ -293,6 +379,28 @@ fn json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_
     assert_browser_harness_bracketed_math_sqrt_cbrt(
         "test",
         "smoke.test.ts",
+        browser_harness_bracketed_math_sqrt_cbrt_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_jsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_bracketed_math_sqrt_cbrt_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_bracketed_math_sqrt_and_cbrt_zero_identities_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_browser_harness_bracketed_math_sqrt_cbrt(
+        "test",
+        "smoke.test.tsx",
         browser_harness_bracketed_math_sqrt_cbrt_test_source(),
         true,
     );
