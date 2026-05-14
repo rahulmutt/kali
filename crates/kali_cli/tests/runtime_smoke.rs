@@ -67136,3 +67136,184 @@ fn json_test_supports_integer_like_object_enumeration_semantics_when_browser_har
     );
     assert_eq!(json["stderr"], "");
 }
+
+#[test]
+fn run_supports_number_predicates_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            r#"const alias = 1;
+if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) {
+  throw new Error('expected positive integer predicates');
+}
+if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) {
+  throw new Error('expected negative primitive predicate cases');
+}
+if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) {
+  throw new Error('expected bracketed Number predicate aliases');
+}
+console.log('number predicates ok');
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&output.stdout).contains("number predicates ok"),
+            "stdout: {}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+    }
+}
+
+#[test]
+fn json_run_supports_number_predicates_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            r#"const alias = 1;
+if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) {
+  throw new Error('expected positive integer predicates');
+}
+if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) {
+  throw new Error('expected negative primitive predicate cases');
+}
+if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) {
+  throw new Error('expected bracketed Number predicate aliases');
+}
+console.log('number predicates ok');
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert!(json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("number predicates ok"));
+    }
+}
+
+#[test]
+fn test_supports_number_predicates_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(
+            &source_path,
+            r#"Kali.test('number predicates', () => {
+  const alias = 1;
+  if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) {
+    throw new Error('expected positive integer predicates');
+  }
+  if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) {
+    throw new Error('expected negative primitive predicate cases');
+  }
+  if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) {
+    throw new Error('expected bracketed Number predicate aliases');
+  }
+});
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("test")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}
+stderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn json_test_supports_number_predicates_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(
+            &source_path,
+            r#"Kali.test('number predicates', () => {
+  const alias = 1;
+  if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) {
+    throw new Error('expected positive integer predicates');
+  }
+  if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) {
+    throw new Error('expected negative primitive predicate cases');
+  }
+  if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) {
+    throw new Error('expected bracketed Number predicate aliases');
+  }
+});
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], true);
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(json["payload"]["total"], 1);
+        assert_eq!(json["payload"]["passed"], 1);
+        assert_eq!(json["payload"]["failed"], 0);
+    }
+}
