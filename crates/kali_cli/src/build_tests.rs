@@ -5691,23 +5691,23 @@ fn assert_build_source_file_supports_async_class_method_in_input(
 }
 
 #[test]
-fn build_source_file_supports_async_class_method_in_ts_input() {
-    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Deno, false, "ts");
-}
-
-#[test]
-fn build_source_file_supports_async_class_method_in_js_input() {
-    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Deno, false, "js");
-}
-
-#[test]
-fn build_source_file_supports_async_class_method_in_browser_api_surface_in_ts_input() {
-    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Browser, true, "ts");
-}
-
-#[test]
-fn build_source_file_supports_async_class_method_in_browser_api_surface_in_js_input() {
-    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Browser, true, "js");
+fn build_source_file_supports_async_class_method_in_supported_inputs() {
+    for (api_surface, bundle, extension) in [
+        (ApiSurface::Deno, false, "ts"),
+        (ApiSurface::Deno, false, "js"),
+        (ApiSurface::Deno, false, "jsx"),
+        (ApiSurface::Deno, false, "tsx"),
+        (ApiSurface::Browser, true, "ts"),
+        (ApiSurface::Browser, true, "js"),
+        (ApiSurface::Browser, true, "jsx"),
+        (ApiSurface::Browser, true, "tsx"),
+    ] {
+        assert_build_source_file_supports_async_class_method_in_input(
+            api_surface,
+            bundle,
+            extension,
+        );
+    }
 }
 
 #[test]
