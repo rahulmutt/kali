@@ -695,7 +695,10 @@ impl HirLowerer {
                 self.lower_statement(&Statement::BlockStatement((**body).clone()))
             );
         }
-        self.record_function_flavor(id, FunctionFlavor::Sync);
+        self.record_function_flavor(
+            id,
+            FunctionFlavor::from_flags(method.is_async, method.generator),
+        );
         id
     }
 

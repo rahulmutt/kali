@@ -1,13 +1,13 @@
 use super::*;
 use kali_ast::{
     ArrowFunctionExpression, AssignmentExpression, AssignmentOperator, BinaryExpression,
-    BlockStatement, CallExpression, DecoratedExpression, ExportDefaultDeclaration,
-    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionStatement, ForOfLefthand,
-    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
-    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion,
-    UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
-    YieldExpression,
+    BlockStatement, CallExpression, ClassBody, ClassDeclaration, DecoratedExpression,
+    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
+    ExpressionStatement, ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression,
+    LiteralValue, MemberExpression, MethodDefinition, ObjectExpression, ObjectProperty,
+    ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
+    TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion, UnaryExpression,
+    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
@@ -7079,6 +7079,45 @@ fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
     assert!(result.diagnostics[0]
         .message
         .contains("generator function lowering is unavailable"));
+}
+
+#[test]
+fn test_resolution_rejects_class_method_generator_lowering() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        name: "Example".to_string(),
+        body: Box::new(ClassBody {
+            methods: vec![MethodDefinition {
+                name: "main".to_string(),
+                params: vec![],
+                body: Some(Box::new(BlockStatement {
+                    body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
+                        argument: Some(Expression::Literal(LiteralValue::Number(1.0))),
+                    })],
+                })),
+                is_async: true,
+                generator: true,
+            }],
+        }),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("class method async/generator lowering is unavailable"));
 }
 
 #[test]

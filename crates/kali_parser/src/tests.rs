@@ -1580,37 +1580,53 @@ fn test_parse_async_generator_function_expression() {
     }
 }
 
-fn assert_parse_class_method_modifiers_are_rejected(source: &str) {
+fn assert_parse_class_method_modifiers_are_preserved(
+    source: &str,
+    is_async: bool,
+    generator: bool,
+) {
     let tokens = lex(source);
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        output.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
-    assert!(
-        output.diagnostics.iter().any(|diag| diag
-            .message
-            .contains("class method async/generator lowering is unavailable")),
-        "unexpected diagnostics: {:?}",
-        output.diagnostics
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ClassDeclaration(class_decl) => {
+            assert_eq!(class_decl.body.methods.len(), 1);
+            let method = &class_decl.body.methods[0];
+            assert_eq!(method.name, "main");
+            assert_eq!(method.is_async, is_async);
+            assert_eq!(method.generator, generator);
+            assert!(
+                method.body.is_some(),
+                "expected class method body to be preserved"
+            );
+        }
+        other => panic!("Expected ClassDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_parse_generator_class_method_preserves_generator_flag() {
+    assert_parse_class_method_modifiers_are_preserved(
+        "class Example { *main() { yield 1; } }",
+        false,
+        true,
     );
 }
 
 #[test]
-fn test_parse_generator_class_method_is_rejected() {
-    assert_parse_class_method_modifiers_are_rejected("class Example { *main() { yield 1; } }");
-}
-
-#[test]
-fn test_parse_async_generator_class_method_is_rejected() {
-    assert_parse_class_method_modifiers_are_rejected(
+fn test_parse_async_generator_class_method_preserves_generator_flags() {
+    assert_parse_class_method_modifiers_are_preserved(
         "class Example { async *main() { yield 1; } }",
+        true,
+        true,
     );
 }
 

@@ -33,6 +33,8 @@ enum ModuleItem {
 - `WithStatement` (flagged for sandbox/strict-mode analysis)
 - `DebuggerStatement`
 
+Class method definitions preserve async/generator metadata on the method node so later phases can gate lowering without losing the original function kind.
+
 ### Expressions
 - `Identifier`, `Literal` (number, string, boolean, null, bigint, regexp)
 - `BinaryExpression`, `UnaryExpression`, `UpdateExpression`, `LogicalExpression`

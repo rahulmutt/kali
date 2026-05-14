@@ -354,32 +354,48 @@ impl Parser {
                 break;
             }
 
-            if matches!(
-                self.stream.current_kind(),
-                Some(TokenType::Async) | Some(TokenType::Star)
-            ) {
-                self.push_feature_unavailable(
-                    "class method async/generator lowering is unavailable in the current phase; use a plain method or the later compatibility path",
-                );
-                self.skip_class_body();
-                break;
-            }
+            let is_async = if self.stream.current_kind() == Some(&TokenType::Async)
+                && matches!(
+                    self.stream.peek_next_kind(),
+                    Some(TokenType::Star) | Some(TokenType::Identifier)
+                ) {
+                let _ = self.stream.advance();
+                true
+            } else {
+                false
+            };
+            let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
+                let _ = self.stream.advance();
+                true
+            } else {
+                false
+            };
 
             let is_method = matches!(self.stream.current_kind(), Some(TokenType::Identifier))
-                && matches!(self.stream.peek_next_kind(), Some(TokenType::LeftParen));
+                && matches!(self.stream.peek_next_kind(), Some(TokenType::LeftParen))
+                || matches!(self.stream.current_kind(), Some(TokenType::Async))
+                    && matches!(self.stream.peek_next_kind(), Some(TokenType::LeftParen));
 
             if is_method {
                 let method_name = self.stream.advance().map(|t| t.value).unwrap_or_default();
                 let _ = self.stream.accept(TokenType::LeftParen);
                 let params = self.parse_parameter_list();
+                let previous_async = self.in_async_function;
+                let previous_generator = self.in_generator_function;
+                self.in_async_function = is_async;
+                self.in_generator_function = generator;
                 let body = match self.parse_block_statement() {
                     Some(Statement::BlockStatement(bs)) => bs,
                     _ => BlockStatement { body: Vec::new() },
                 };
+                self.in_generator_function = previous_generator;
+                self.in_async_function = previous_async;
                 methods.push(kali_ast::MethodDefinition {
                     name: method_name,
                     params,
                     body: Some(Box::new(body)),
+                    is_async,
+                    generator,
                 });
             } else {
                 let _ = self.stream.advance();

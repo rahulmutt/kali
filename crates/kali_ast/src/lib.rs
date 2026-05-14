@@ -225,6 +225,8 @@ pub struct MethodDefinition {
     pub name: String,
     pub params: Vec<String>,
     pub body: Option<Box<BlockStatement>>,
+    pub is_async: bool,
+    pub generator: bool,
 }
 
 // Variable declaration
