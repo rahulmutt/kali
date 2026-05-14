@@ -4,24 +4,24 @@
 
 | Phase | Name | Can begin when | Promotion gate |
 |---|---|---|---|
-| 16 | Semantic closure and conformance promotion | now | supported vs gated semantics are backed by conformance, minimized regressions, and canonical diagnostics |
-| 17 | Host/runtime contract expansion | after relevant Phase-16 semantics are stable | host/runtime capabilities have sandbox, effect, resource-budget, and JSON evidence |
-| 18 | Ecosystem compatibility by rung | after related Phase-16/17 capabilities exist | package claims name package shape, support rung, command, API surface, and evidence |
-| 19 | Optimization and performance evidence | after optimization-sensitive semantics are stable | performance claims are benchmark-backed, deterministic, and mode-specific |
-| 20 | Verification and machine contracts | can run in parallel | `proofs/BOUNDARY.md`, proof CI, schemas, diagnostics, and CLI contracts match any widened claim |
+| 21 | Semantic completeness and conformance | now | supported vs gated semantics are backed by conformance, minimized regressions, and canonical diagnostics |
+| 22 | Host/runtime capability contracts | after relevant Phase-21 semantics are stable | host/runtime capabilities have sandbox, effect, resource-budget, and JSON evidence |
+| 23 | Ecosystem compatibility by rung | after related Phase-21/22 capabilities exist | package claims name package shape, support rung, command, API surface, and evidence |
+| 24 | Optimization and performance evidence | after optimization-sensitive semantics are stable | performance claims are benchmark-backed, deterministic, and mode-specific |
+| 25 | Verification and machine contracts | can run in parallel | `proofs/BOUNDARY.md`, proof CI, schemas, diagnostics, and CLI contracts match any widened claim |
 
 ## Parallelism
 
 Safe parallel work:
 
-- Phase 16 parser/checker/runtime fixtures and Phase 20 proof modeling may proceed together if proof claims do not cite unimplemented Rust behavior.
-- Phase 17 host-contract design and Phase 18 package-corpus triage may proceed together, but package support cannot be promoted until the needed host surface exists.
-- Phase 19 benchmark harness work may proceed before all optimizations are implemented, as long as no public performance claim is made early.
+- Phase 21 parser/checker/runtime fixtures and Phase 25 proof modeling may proceed together if proof claims do not cite unimplemented Rust behavior.
+- Phase 22 host-contract design and Phase 23 package-corpus triage may proceed together, but package support cannot be promoted until the needed host surface exists.
+- Phase 24 benchmark harness work may proceed before all optimizations are implemented, as long as no public performance claim is made early.
 
 Unsafe parallel work:
 
-- Do not implement package compatibility by silently widening host APIs before Phase 17 contracts and sandbox effects exist.
-- Do not add optimization passes that change observable semantics without Phase 16 conformance coverage.
+- Do not implement package compatibility by silently widening host APIs before Phase 22 contracts and sandbox effects exist.
+- Do not add optimization passes that change observable semantics without Phase 21 conformance coverage.
 - Do not widen proof-backed wording from implementation intuition; mechanize the boundary and update `proofs/BOUNDARY.md` first.
 
 ## Default packet size

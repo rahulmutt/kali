@@ -12,11 +12,11 @@ This directory contains only active continuation planning. Completed implementat
 
 ## Active phases
 
-- [`phase-16/`](./phase-16/README.md) — semantic closure and conformance promotion.
-- [`phase-17/`](./phase-17/README.md) — host/runtime contract expansion.
-- [`phase-18/`](./phase-18/README.md) — ecosystem compatibility by rung.
-- [`phase-19/`](./phase-19/README.md) — optimization and performance evidence.
-- [`phase-20/`](./phase-20/README.md) — verification and machine contracts.
+- [`phase-21/`](./phase-21/README.md) — semantic completeness and conformance.
+- [`phase-22/`](./phase-22/README.md) — host/runtime capability contracts.
+- [`phase-23/`](./phase-23/README.md) — ecosystem compatibility by rung.
+- [`phase-24/`](./phase-24/README.md) — optimization and performance evidence.
+- [`phase-25/`](./phase-25/README.md) — verification and machine contracts.
 
 ## Rules
 

@@ -1,4 +1,4 @@
-# Phase 18 — Ecosystem Compatibility by Rung
+# Phase 23 — Ecosystem Compatibility by Rung
 
 ## Goal
 
@@ -16,30 +16,29 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 
 ## Work packets
 
-### 18.1 Package-corpus stewardship
+### 23.1 Package-corpus stewardship
 
 - Group evidence by package shape, source class, API surface, command, and support rung.
 - Keep expected failures for native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint cases.
 - Keep corpus snapshots deterministic and concise.
 
-### 18.2 Node ecosystem breadth
+### 23.2 Node ecosystem breadth
 
 - Add Node package support only when required built-ins and process semantics are explicitly supported.
-- Keep late Node modules and process/thread/network APIs gated until Phase 17 contracts exist.
+- Keep late Node modules and process/thread/network APIs gated until Phase 22 contracts exist.
 - Separate package-content support from published CLI/bin entrypoint support.
 
-### 18.3 Browser package deployability
+### 23.3 Browser package deployability
 
 - Expand browser-targeted `check` / `build --bundle` and browser-harness package evidence by package shape.
 - Keep deployable-through-host, executable-through-browser-harness, and standalone browser runtime claims separate.
 - Reject packages whose browser path depends on unavailable host/native/binary behavior.
-- Current progress: browser replacement-map package evidence now also covers JSX/TSX input on both explicit and inherited browser surfaces for `check` and `build --bundle`, with JSON-output coverage.
 
-### 18.4 Registry-analysis boundaries
+### 23.4 Registry-analysis boundaries
 
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
-- Do not add batch, raw-URL, local-path, or project-discovery behavior without spec/schema revisions.
-- Current progress: registry-analysis command-shape coverage now also pins extra-argument failures in JSON mode, including `--output json` and `--pretty --output json`, so presentation flags do not bypass the single-package contract.
+- Do not add batch, raw-URL, local-path, project-discovery, or package-set behavior without spec/schema revisions.
+- Preserve deterministic version selection and schema-v1 JSON payload validation.
 
 ## Exit gate
 
