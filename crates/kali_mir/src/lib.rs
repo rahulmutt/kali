@@ -589,11 +589,7 @@ impl MirLowerer {
         }
         mir_id
     }
-    fn function_flavor(
-        &self,
-        hir: &HirLoweringResult,
-        id: HirNodeId,
-    ) -> Option<FunctionFlavor> {
+    fn function_flavor(&self, hir: &HirLoweringResult, id: HirNodeId) -> Option<FunctionFlavor> {
         hir.function_flavors
             .iter()
             .find(|(node_id, _)| *node_id == id)

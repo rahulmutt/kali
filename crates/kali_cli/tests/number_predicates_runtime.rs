@@ -104,7 +104,10 @@ fn assert_test_supports_number_predicates_in_js_input(json_output: bool) {
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n1\n0\n0\n1\n0\n1\n1"), "stdout: {stdout}");
+        assert!(
+            stdout.contains("1\n1\n0\n0\n1\n0\n1\n1"),
+            "stdout: {stdout}"
+        );
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
 }

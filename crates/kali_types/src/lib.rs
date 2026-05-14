@@ -1953,7 +1953,7 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
         ));
-        return true;
+        true
     }
 
     fn resolve_number_identity_call(&mut self, expr: &CallExpression) -> bool {
@@ -2009,7 +2009,7 @@ impl TypeContext {
             _ => false,
         };
 
-        return true;
+        true
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {

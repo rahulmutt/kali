@@ -37,7 +37,8 @@ fn test_mir_lowering_preserves_program_shape() {
 
 #[test]
 fn test_mir_lowering_preserves_function_nodes_with_flavor_metadata() {
-    let hir = parse_and_lower_hir("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let hir =
+        parse_and_lower_hir("async function* outer() { yield 1; } function* inner() { yield 2; }");
     let mir = MirLowerer::new().lower_hir_result(&hir);
 
     let outer = mir

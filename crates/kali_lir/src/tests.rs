@@ -45,7 +45,8 @@ fn test_lir_lowering_preserves_child_order_and_text_payloads() {
 
 #[test]
 fn test_lir_lowering_preserves_function_flavor_metadata() {
-    let mir = parse_and_lower("async function* outer() { yield 1; } function* inner() { yield 2; }");
+    let mir =
+        parse_and_lower("async function* outer() { yield 1; } function* inner() { yield 2; }");
     let lir = LirLowerer::new().lower_program(&mir);
 
     let outer = lir

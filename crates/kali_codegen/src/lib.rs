@@ -4959,7 +4959,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     let mut diagnostics = Vec::new();
     let function_plans = collect_functions(lir);
     if function_plans.iter().any(|plan| {
-        matches!(plan.flavor, Some(FunctionFlavor::Generator | FunctionFlavor::AsyncGenerator))
+        matches!(
+            plan.flavor,
+            Some(FunctionFlavor::Generator | FunctionFlavor::AsyncGenerator)
+        )
     }) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
