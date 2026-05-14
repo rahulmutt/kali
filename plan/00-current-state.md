@@ -21,6 +21,7 @@ The checked-in repository already includes:
 - Host/API slices: default standalone Deno-oriented APIs, browser-targeted `check` / `build --bundle`, configured browser-harness execution, and documented Node-compatible analysis/build/runtime slices.
 - Package evidence: registry/raw-URL/install flows, package-corpus probes by context/rung, registry-analysis commands, and negative evidence for unsupported native/binary/bootstrap-heavy or published-bin-entrypoint cases.
 - Embedding/evidence surfaces: public embedding artifacts and bindings metadata, optimization modes, deterministic PGO profile validation, benchmark fixtures, and Lean proof infrastructure for the published boundary.
+- CLI/config diagnostics: malformed `compat.features` and `compilerOptions.runtimeProfiles` manifest entries now carry structured config-context metadata in JSON diagnostics.
 
 ## Planning consequence
 

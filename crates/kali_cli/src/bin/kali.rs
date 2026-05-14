@@ -812,6 +812,17 @@ fn resolve_effective_api_surface(
     manifest_api_surface(&manifest).map(|surface| surface.unwrap_or(kali_cli::ApiSurface::Deno))
 }
 
+fn config_diagnostic_context(config_path: &str) -> DiagnosticContext {
+    DiagnosticContext::new(DiagnosticContextOrigin::Config).with_config_path(config_path)
+}
+
+fn config_diagnostic_context_with_value(
+    config_path: &str,
+    value: impl Into<String>,
+) -> DiagnosticContext {
+    config_diagnostic_context(config_path).with_effective_value(value)
+}
+
 fn manifest_api_surface(
     manifest: &ProjectManifest,
 ) -> Result<Option<kali_cli::ApiSurface>, Vec<Diagnostic>> {
@@ -823,7 +834,8 @@ fn manifest_api_surface(
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compilerOptions` must be a JSON object",
-        )]);
+        )
+        .with_context(config_diagnostic_context("compilerOptions"))]);
     };
 
     let Some(value) = options.get("apiSurface") else {
@@ -834,7 +846,8 @@ fn manifest_api_surface(
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compilerOptions.apiSurface` must be a string",
-        )]);
+        )
+        .with_context(config_diagnostic_context("compilerOptions.apiSurface"))]);
     };
 
     match api_surface {
@@ -844,7 +857,11 @@ fn manifest_api_surface(
         _ => Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             format!("unsupported apiSurface '{}' in kali.json", api_surface),
-        )]),
+        )
+        .with_context(config_diagnostic_context_with_value(
+            "compilerOptions.apiSurface",
+            api_surface,
+        ))]),
     }
 }
 
@@ -918,7 +935,8 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compat` must be a JSON object",
-        )]);
+        )
+        .with_context(config_diagnostic_context("compat"))]);
     };
 
     let Some(features) = compat.get("features") else {
@@ -929,7 +947,8 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compat.features` must be an array of strings",
-        )]);
+        )
+        .with_context(config_diagnostic_context("compat.features"))]);
     };
 
     let mut normalized = BTreeSet::new();
@@ -938,7 +957,8 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
             return Err(vec![Diagnostic::error(
                 e5::INVALID_CONFIG as u32,
                 "`compat.features` entries must be strings",
-            )]);
+            )
+            .with_context(config_diagnostic_context("compat.features"))]);
         };
 
         let feature = feature.trim();
@@ -950,14 +970,22 @@ fn manifest_compat_features(manifest: &ProjectManifest) -> Result<Vec<String>, V
             return Err(vec![Diagnostic::error(
                 e5::INVALID_CONFIG as u32,
                 format!("unsupported compat.feature '{}' in kali.json", feature),
-            )]);
+            )
+            .with_context(config_diagnostic_context_with_value(
+                "compat.features",
+                feature,
+            ))]);
         }
 
         if !normalized.insert(feature.to_string()) {
             return Err(vec![Diagnostic::error(
                 e5::INVALID_CONFIG as u32,
                 format!("duplicate compat.feature '{}' in kali.json", feature),
-            )]);
+            )
+            .with_context(config_diagnostic_context_with_value(
+                "compat.features",
+                feature,
+            ))]);
         }
     }
 
@@ -973,7 +1001,8 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compilerOptions` must be a JSON object",
-        )]);
+        )
+        .with_context(config_diagnostic_context("compilerOptions"))]);
     };
 
     let Some(profiles) = options.get("runtimeProfiles") else {
@@ -984,7 +1013,10 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
         return Err(vec![Diagnostic::error(
             e5::INVALID_CONFIG as u32,
             "`compilerOptions.runtimeProfiles` must be an array of strings",
-        )]);
+        )
+        .with_context(config_diagnostic_context(
+            "compilerOptions.runtimeProfiles",
+        ))]);
     };
 
     let mut raw_profiles = Vec::new();
@@ -993,12 +1025,23 @@ fn manifest_runtime_profiles(manifest: &ProjectManifest) -> Result<Vec<String>, 
             return Err(vec![Diagnostic::error(
                 e5::INVALID_CONFIG as u32,
                 "`compilerOptions.runtimeProfiles` entries must be strings",
-            )]);
+            )
+            .with_context(config_diagnostic_context(
+                "compilerOptions.runtimeProfiles",
+            ))]);
         };
         raw_profiles.push(profile.to_string());
     }
 
-    build::validate_runtime_profiles(&raw_profiles, "kali.json")
+    build::validate_runtime_profiles(&raw_profiles, "kali.json").map_err(|diagnostics| {
+        diagnostics
+            .into_iter()
+            .map(|diagnostic| {
+                diagnostic
+                    .with_context(config_diagnostic_context("compilerOptions.runtimeProfiles"))
+            })
+            .collect()
+    })
 }
 
 fn manifest_max_specializations(
@@ -4918,10 +4961,14 @@ fn single_diagnostic_to_values(
 
 #[cfg(test)]
 mod tests {
-    use super::{emit_native_json_payload, sort_package_audit_findings, CliOutputOptions};
+    use super::{
+        emit_native_json_payload, manifest_compat_features, manifest_runtime_profiles,
+        sort_package_audit_findings, CliOutputOptions,
+    };
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
-    use kali_error::{_error_codes::e5, Diagnostic};
+    use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContextOrigin};
+    use kali_npm::ProjectManifest;
     use serde_json::json;
 
     fn diagnostic_with_span(file_id: u32, start: u32, end: u32) -> Diagnostic {
@@ -4983,6 +5030,42 @@ mod tests {
         assert!(
             result.is_err(),
             "invalid effects payload should panic before emission"
+        );
+    }
+
+    #[test]
+    fn manifest_compat_features_attach_config_context() {
+        let manifest = ProjectManifest {
+            compat: Some(json!({"features": ["eval", "future"]})),
+            ..ProjectManifest::minimal()
+        };
+
+        let diagnostics = manifest_compat_features(&manifest)
+            .expect_err("unsupported compat feature should fail manifest validation");
+        let diagnostic = diagnostics.first().expect("diagnostic");
+        let context = diagnostic.context.as_deref().expect("diagnostic context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Config);
+        assert_eq!(context.config_path.as_deref(), Some("compat.features"));
+        assert_eq!(context.effective_value.as_deref(), Some("future"));
+    }
+
+    #[test]
+    fn manifest_runtime_profiles_attach_config_context() {
+        let manifest = ProjectManifest {
+            compiler_options: Some(json!({"runtimeProfiles": ["future"]})),
+            ..ProjectManifest::minimal()
+        };
+
+        let diagnostics = manifest_runtime_profiles(&manifest)
+            .expect_err("unsupported runtime profile should fail manifest validation");
+        let diagnostic = diagnostics.first().expect("diagnostic");
+        let context = diagnostic.context.as_deref().expect("diagnostic context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Config);
+        assert_eq!(
+            context.config_path.as_deref(),
+            Some("compilerOptions.runtimeProfiles")
         );
     }
 }
