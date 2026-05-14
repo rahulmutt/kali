@@ -93,6 +93,34 @@ fn test_mir_lowering_preserves_function_flavor_metadata_for_function_expressions
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_flavor_metadata_for_class_methods() {
+    let hir = parse_and_lower_hir(
+        "class Example { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+    );
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let outer = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer class method node");
+    let inner = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner class method node");
+    let plain = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("plain"))
+        .expect("plain class method node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.function_flavor, Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_call_expressions_lower_to_call_nodes() {
     let hir = parse_and_lower_hir("foo(bar, 1);");
     let mir = MirLowerer::new().lower_hir_result(&hir);
