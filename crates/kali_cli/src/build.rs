@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use kali_ast::{
-    BlockStatement, ExportDefaultDeclaration, Expression, LiteralValue, OptionalChainInner,
-    Statement, VariableDeclaration,
+    BlockStatement, ClassDeclaration, ExportDefaultDeclaration, Expression, LiteralValue,
+    OptionalChainInner, Statement, VariableDeclaration,
 };
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
 use kali_common::{template::resolve_interpolated_template_literal, FileId};
@@ -2861,6 +2861,117 @@ fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnosti
     }
 
     Ok(parsed.statements)
+}
+
+pub fn reject_async_class_methods_in_runtime_entrypoint(
+    source_path: &Path,
+) -> Result<(), Vec<Diagnostic>> {
+    fn collect_statement(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
+        match statement {
+            Statement::ClassDeclaration(class)
+                if class
+                    .body
+                    .methods
+                    .iter()
+                    .any(|method| method.is_async && !method.generator) =>
+            {
+                diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
+                ));
+            }
+            Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
+                ClassDeclaration { body, .. },
+            )) if body
+                .methods
+                .iter()
+                .any(|method| method.is_async && !method.generator) =>
+            {
+                diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
+                ));
+            }
+            Statement::BlockStatement(block) => {
+                for nested in &block.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            Statement::LabeledStatement(label) => collect_statement(&label.body, diagnostics),
+            Statement::IfStatement(if_stmt) => {
+                for nested in &if_stmt.consequent.body {
+                    collect_statement(nested, diagnostics);
+                }
+                if let Some(alternate) = &if_stmt.alternate {
+                    for nested in &alternate.body {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+            }
+            Statement::TryStatement(try_stmt) => {
+                for nested in &try_stmt.block.body {
+                    collect_statement(nested, diagnostics);
+                }
+                if let Some(handler) = &try_stmt.handler {
+                    for nested in &handler.body.body {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+                if let Some(finalizer) = &try_stmt.finalizer {
+                    for nested in &finalizer.body {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+            }
+            Statement::ForStatement(for_stmt) => {
+                for nested in &for_stmt.body.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            Statement::ForInStatement(for_in_stmt) => {
+                collect_statement(&for_in_stmt.body, diagnostics);
+            }
+            Statement::ForOfStatement(for_of_stmt) => {
+                collect_statement(&for_of_stmt.body, diagnostics);
+            }
+            Statement::WhileStatement(while_stmt) => {
+                for nested in &while_stmt.body.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            Statement::DoWhileStatement(do_while_stmt) => {
+                for nested in &do_while_stmt.body.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            Statement::SwitchStatement(switch_stmt) => {
+                for case in &switch_stmt.cases {
+                    for nested in &case.consequent {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+            }
+            Statement::FunctionDeclaration(function) => {
+                for nested in &function.body.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let statements = parse_source_file(source_path)?;
+    let mut diagnostics = Vec::new();
+
+    for statement in &statements {
+        collect_statement(statement, &mut diagnostics);
+    }
+
+    if diagnostics.is_empty() {
+        Ok(())
+    } else {
+        Err(diagnostics)
+    }
 }
 
 fn validate_unique_export_names_from_statements(

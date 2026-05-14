@@ -3042,6 +3042,16 @@ fn run_command(
     if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
+    if let Err(diagnostics) = build::reject_async_class_methods_in_runtime_entrypoint(&source) {
+        return emit_diagnostics_and_exit(
+            "run",
+            diagnostics,
+            1,
+            output,
+            Some(&source),
+            fs::read_to_string(&source).ok().as_deref(),
+        );
+    }
 
     let wasm_bytes = match build::compile_source_file_with_specialization_cap_and_validation(
         &source,
@@ -3261,6 +3271,16 @@ fn test_command(
                 "test",
                 vec![diagnostic],
                 5,
+                output,
+                Some(&source),
+                fs::read_to_string(&source).ok().as_deref(),
+            );
+        }
+        if let Err(diagnostics) = build::reject_async_class_methods_in_runtime_entrypoint(&source) {
+            return emit_diagnostics_and_exit(
+                "test",
+                diagnostics,
+                1,
                 output,
                 Some(&source),
                 fs::read_to_string(&source).ok().as_deref(),

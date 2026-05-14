@@ -24045,6 +24045,198 @@ main();
 }
 
 #[test]
+fn run_rejects_async_class_method_sequencing_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            r#"async function main() {
+  class Example {
+    async main() {
+      await Promise.resolve();
+      return 1;
+    }
+  }
+
+  const value = await new Example().main();
+  if (value !== 1) {
+    throw new Error(`unexpected async class method result ${value}`);
+  }
+}
+main();
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("async class method lowering is unavailable"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn json_run_rejects_async_class_method_sequencing_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            r#"async function main() {
+  class Example {
+    async main() {
+      await Promise.resolve();
+      return 1;
+    }
+  }
+
+  const value = await new Example().main();
+  if (value !== 1) {
+    throw new Error(`unexpected async class method result ${value}`);
+  }
+}
+main();
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("run")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "run");
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        assert!(errors.iter().any(|error| error["message"]
+            .as_str()
+            .unwrap()
+            .contains("async class method lowering is unavailable")));
+    }
+}
+
+#[test]
+fn test_rejects_async_class_method_sequencing_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(
+            &source_path,
+            r#"Kali.test('async class method', () => {
+  async function main() {
+    class Example {
+      async main() {
+        await Promise.resolve();
+        return 1;
+      }
+    }
+
+    const value = await new Example().main();
+    if (value !== 1) {
+      throw new Error(`unexpected async class method result ${value}`);
+    }
+  }
+
+  return main();
+});
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("test")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("async class method lowering is unavailable"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn json_test_rejects_async_class_method_sequencing_in_ts_and_js_input() {
+    for extension in ["ts", "js"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(
+            &source_path,
+            r#"Kali.test('async class method', () => {
+  async function main() {
+    class Example {
+      async main() {
+        await Promise.resolve();
+        return 1;
+      }
+    }
+
+    const value = await new Example().main();
+    if (value !== 1) {
+      throw new Error(`unexpected async class method result ${value}`);
+    }
+  }
+
+  return main();
+});
+"#,
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(1));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        assert!(errors.iter().any(|error| error["message"]
+            .as_str()
+            .unwrap()
+            .contains("async class method lowering is unavailable")));
+    }
+}
+
+#[test]
 fn test_supports_queue_microtask_ordering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
