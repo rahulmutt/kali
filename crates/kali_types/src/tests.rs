@@ -8439,6 +8439,68 @@ fn test_resolution_supports_for_of_string_concatenation_iteration_in_js_input() 
 }
 
 #[test]
+fn test_resolution_supports_for_await_string_concatenation_iteration_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const prefix = \"he\"; const suffix = \"llo\"; for await (const ch of prefix + suffix) { console.log(ch); }",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "prefix".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String("he".to_string()))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "suffix".to_string(),
+                init: Some(Expression::Literal(LiteralValue::String("llo".to_string()))),
+            }],
+        }),
+        Statement::ForOfStatement(ForOfStatement {
+            left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "ch".to_string(),
+                    init: None,
+                }],
+            }),
+            right: Expression::BinaryExpression(Box::new(BinaryExpression {
+                left: Expression::Identifier("prefix".to_string()),
+                operator: "+".to_string(),
+                right: Expression::Identifier("suffix".to_string()),
+            })),
+            body: Box::new(Statement::BlockStatement(BlockStatement {
+                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                    expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                        callee: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("console".to_string()),
+                            property: "log".to_string(),
+                        })),
+                        args: vec![Expression::Identifier("ch".to_string())],
+                    }))),
+                })],
+            })),
+            is_await: true,
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_of_template_literal_string_iteration_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
