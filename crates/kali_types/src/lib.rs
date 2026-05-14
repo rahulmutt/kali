@@ -3438,10 +3438,10 @@ impl TypeContext {
     fn resolve_class_body(&mut self, body: &ClassBody) {
         self.push_scope(ScopeType::Class);
         for method in &body.methods {
-            if method.is_async || method.generator {
+            if method.generator {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "class method async/generator lowering is unavailable in the current phase; use a plain method or the later compatibility path",
+                    "class generator method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path",
                 ));
                 continue;
             }

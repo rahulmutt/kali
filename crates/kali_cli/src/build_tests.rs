@@ -5660,6 +5660,56 @@ fn assert_build_source_file_rejects_async_generator_lowering_in_input(extension:
     );
 }
 
+fn assert_build_source_file_supports_async_class_method_in_input(
+    api_surface: ApiSurface,
+    bundle: bool,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "class Example { async main() { return 1; } }\nnew Example().main();\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        bundle,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("async class method lowering should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_async_class_method_in_ts_input() {
+    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Deno, false, "ts");
+}
+
+#[test]
+fn build_source_file_supports_async_class_method_in_js_input() {
+    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Deno, false, "js");
+}
+
+#[test]
+fn build_source_file_supports_async_class_method_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Browser, true, "ts");
+}
+
+#[test]
+fn build_source_file_supports_async_class_method_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_async_class_method_in_input(ApiSurface::Browser, true, "js");
+}
+
 #[test]
 fn build_source_file_rejects_generator_functions_in_ts_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("ts");
@@ -5845,7 +5895,7 @@ fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface
                 == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
             assert!(error.iter().any(|diagnostic| diagnostic
                 .message
-                .contains("class method async/generator lowering is unavailable")));
+                .contains("class generator method lowering is unavailable")));
         }
     }
 }
@@ -6059,7 +6109,7 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
                 == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
             assert!(error.iter().any(|diagnostic| diagnostic
                 .message
-                .contains("class method async/generator lowering is unavailable")));
+                .contains("class generator method lowering is unavailable")));
         }
     }
 }

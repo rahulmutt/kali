@@ -21,6 +21,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Implement resumable generator and async-generator state-machine lowering.
 - Cover `yield`, `yield*`, `return`, `throw`, `try/finally`, iterator close/finalization, and async interaction.
 - Preserve generator/function-kind metadata through parser, AST, HIR, MIR, LIR, codegen, and export analysis.
+- Async class methods now ride the shared async-function lowering path; generator class methods remain gated.
 - Keep all unsupported forms behind canonical `E5506` gates until the full runtime path exists.
 
 ### 21.2 Iterator and async-iterator protocols

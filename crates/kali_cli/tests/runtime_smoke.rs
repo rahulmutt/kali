@@ -46145,14 +46145,14 @@ fn assert_class_generator_method_lowering_rejection(
             .iter()
             .map(|error| error["message"].as_str().expect("message"))
             .collect::<Vec<_>>();
-        assert!(messages.iter().any(|message| {
-            message.contains("class method async/generator lowering is unavailable")
-        }));
+        assert!(messages
+            .iter()
+            .any(|message| { message.contains("class generator method lowering is unavailable") }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
         assert!(
-            stderr.contains("class method async/generator lowering is unavailable"),
+            stderr.contains("class generator method lowering is unavailable"),
             "stderr: {stderr}"
         );
     }
@@ -46193,14 +46193,14 @@ fn assert_class_generator_method_lowering_rejection_in_browser_context(
             .iter()
             .map(|error| error["message"].as_str().expect("message"))
             .collect::<Vec<_>>();
-        assert!(messages.iter().any(|message| {
-            message.contains("class method async/generator lowering is unavailable")
-        }));
+        assert!(messages
+            .iter()
+            .any(|message| { message.contains("class generator method lowering is unavailable") }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
         assert!(
-            stderr.contains("class method async/generator lowering is unavailable"),
+            stderr.contains("class generator method lowering is unavailable"),
             "stderr: {stderr}"
         );
     }
@@ -46240,14 +46240,14 @@ fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_conf
             .iter()
             .map(|error| error["message"].as_str().expect("message"))
             .collect::<Vec<_>>();
-        assert!(messages.iter().any(|message| {
-            message.contains("class method async/generator lowering is unavailable")
-        }));
+        assert!(messages
+            .iter()
+            .any(|message| { message.contains("class generator method lowering is unavailable") }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
         assert!(
-            stderr.contains("class method async/generator lowering is unavailable"),
+            stderr.contains("class generator method lowering is unavailable"),
             "stderr: {stderr}"
         );
     }
