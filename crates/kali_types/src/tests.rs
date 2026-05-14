@@ -2790,6 +2790,75 @@ fn test_resolution_accepts_number_is_finite_is_integer_and_is_nan_static_values(
                 args: vec![Expression::Identifier("alias".to_string())],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Number".to_string(),
+                    })),
+                    property: "isSafeInteger".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_accepts_number_is_alias_spellings() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Literal(LiteralValue::Number(1.0))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Number".to_string(),
+                    })),
+                    property: "isFinite".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Number".to_string(),
+                    })),
+                    property: "isInteger".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Number".to_string(),
+                    })),
+                    property: "isSafeInteger".to_string(),
+                })),
+                args: vec![Expression::Identifier("alias".to_string())],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
@@ -2873,6 +2942,67 @@ fn test_resolution_accepts_object_is_with_void_undefined_literals() {
                     Expression::UnaryExpression(Box::new(UnaryExpression {
                         operator: "void".to_string(),
                         argument: Expression::Literal(LiteralValue::Number(1.0)),
+                    })),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_accepts_object_is_alias_spellings() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        kind: ObjectPropertyKind::Init,
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                    }],
+                })),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Object".to_string(),
+                    })),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("object".to_string()),
+                    Expression::Identifier("object".to_string()),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Object".to_string(),
+                    })),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("object".to_string())),
+                    })),
+                    Expression::ParenthesizedExpression(Box::new(ParenthesizedExpression {
+                        expression: Box::new(Expression::Identifier("object".to_string())),
                     })),
                 ],
             }))),
