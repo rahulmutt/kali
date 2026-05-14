@@ -5749,6 +5749,29 @@ fn assert_runtime_entrypoint_rejects_async_class_expression_in_input(
     );
 }
 
+fn assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+    extension: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source).expect("write source");
+
+    let error = reject_async_class_methods_in_runtime_entrypoint(&source_path)
+        .expect_err("generator class method lowering should fail in the direct runtime path");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "expected an E5506 diagnostic: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("class generator method lowering is unavailable in the direct runtime path")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
 #[test]
 fn runtime_entrypoint_rejects_async_class_expressions_in_js_input() {
     assert_runtime_entrypoint_rejects_async_class_expression_in_input(
@@ -5762,6 +5785,22 @@ fn runtime_entrypoint_rejects_async_default_export_class_expressions_in_ts_input
     assert_runtime_entrypoint_rejects_async_class_expression_in_input(
         "ts",
         "export default (class NamedExample { async main() { return 1; } });\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_generator_class_expressions_in_js_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "js",
+        "const Example = class NamedExample { *main() { yield 1; } };\nnew Example();\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_in_ts_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "ts",
+        "export default (class NamedExample { async *main() { yield 1; } });\n",
     );
 }
 
