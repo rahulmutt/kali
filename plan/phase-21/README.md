@@ -23,6 +23,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Preserve generator/function-kind metadata through parser, AST, HIR, MIR, LIR, codegen, and export analysis.
 - Async class methods now ride the shared async-function lowering path; generator class methods remain gated.
 - Current coverage also exercises async class methods through build smoke in TS, JS, JSX, and TSX input on both the Deno and browser artifact paths.
+- The parser now accepts class-expression forms with preserved async/generator metadata, and direct `run` / `test` entrypoints now gate those async class expressions too.
 - Direct `run` / `test` execution for async class methods now has an explicit E5506 gate; keep generator-class lowering gated until the dedicated packet lands.
 - Keep all unsupported forms behind canonical `E5506` gates until the full runtime path exists.
 

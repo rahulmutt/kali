@@ -53,7 +53,7 @@ struct Token {
   - All statement and expression types
   - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties and literal computed keys that canonicalize to static property names
   - Destructuring (nested, with defaults)
-  - Generators and async generators, including class-method forms whose async/generator metadata is preserved in the AST while later phases still gate lowering
+  - Generators and async generators, including class-expression and class-method forms whose async/generator metadata is preserved in the AST while later phases still gate lowering
   - Arrow function expressions, including async arrow forms and optional return type annotations
   - `for-in`, `for-of`, `for-await-of`
   - Optional chaining (`?.`), nullish coalescing (`??`), and the corresponding assignment forms (`??=`, `&&=`, `||=`)

@@ -2866,39 +2866,254 @@ fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnosti
 pub fn reject_async_class_methods_in_runtime_entrypoint(
     source_path: &Path,
 ) -> Result<(), Vec<Diagnostic>> {
+    fn push_async_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>) {
+        diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
+        ));
+    }
+
+    fn class_body_has_async_method(body: &kali_ast::ClassBody) -> bool {
+        body.methods
+            .iter()
+            .any(|method| method.is_async && !method.generator)
+    }
+
+    fn collect_expression(expression: &Expression, diagnostics: &mut Vec<Diagnostic>) {
+        match expression {
+            Expression::ClassExpression(class) if class_body_has_async_method(&class.body) => {
+                push_async_class_method_diagnostic(diagnostics);
+            }
+            Expression::ClassExpression(_) => {}
+            Expression::ParenthesizedExpression(parenthesized) => {
+                collect_expression(&parenthesized.expression, diagnostics);
+            }
+            Expression::SequenceExpression(sequence) => {
+                for nested in &sequence.expressions {
+                    collect_expression(nested, diagnostics);
+                }
+            }
+            Expression::ConditionalExpression(conditional) => {
+                collect_expression(&conditional.test, diagnostics);
+                collect_expression(&conditional.consequent, diagnostics);
+                collect_expression(&conditional.alternate, diagnostics);
+            }
+            Expression::LogicalExpression(logical) => {
+                collect_expression(&logical.left, diagnostics);
+                collect_expression(&logical.right, diagnostics);
+            }
+            Expression::UnaryExpression(unary) => {
+                collect_expression(&unary.argument, diagnostics);
+            }
+            Expression::BinaryExpression(binary) => {
+                collect_expression(&binary.left, diagnostics);
+                collect_expression(&binary.right, diagnostics);
+            }
+            Expression::CallExpression(call) => {
+                collect_expression(&call.callee, diagnostics);
+                for arg in &call.args {
+                    collect_expression(arg, diagnostics);
+                }
+            }
+            Expression::MemberExpression(member) => {
+                collect_expression(&member.object, diagnostics);
+            }
+            Expression::ArrayExpression(array) => {
+                for element in &array.elements {
+                    match element {
+                        Some(kali_ast::ExpressionOrSpread::Expression(expr)) => {
+                            collect_expression(expr, diagnostics);
+                        }
+                        Some(kali_ast::ExpressionOrSpread::Spread(spread)) => {
+                            collect_expression(&spread.argument, diagnostics);
+                        }
+                        Some(kali_ast::ExpressionOrSpread::Empty) | None => {}
+                    }
+                }
+            }
+            Expression::ObjectExpression(object) => {
+                for property in &object.properties {
+                    collect_expression(&property.value, diagnostics);
+                }
+            }
+            Expression::FunctionExpression(function) => {
+                if let Some(body) = &function.body {
+                    for nested in &body.body {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+            }
+            Expression::ArrowFunctionExpression(arrow) => {
+                collect_expression(&arrow.body, diagnostics);
+            }
+            Expression::NewExpression(new_expression) => {
+                collect_expression(&new_expression.callee, diagnostics);
+                for arg in &new_expression.args {
+                    collect_expression(arg, diagnostics);
+                }
+            }
+            Expression::TemplateLiteral(template) => {
+                for expr in &template.expressions {
+                    collect_expression(expr, diagnostics);
+                }
+            }
+            Expression::TaggedTemplateExpression(tagged) => {
+                collect_expression(&tagged.tag, diagnostics);
+                for expr in &tagged.template.expressions {
+                    collect_expression(expr, diagnostics);
+                }
+            }
+            Expression::UpdateExpression(update) => {
+                collect_expression(&update.argument, diagnostics);
+            }
+            Expression::AssignmentExpression(assignment) => {
+                collect_expression(&assignment.left, diagnostics);
+                collect_expression(&assignment.right, diagnostics);
+            }
+            Expression::YieldExpression(yield_expression) => {
+                if let Some(argument) = &yield_expression.argument {
+                    collect_expression(argument, diagnostics);
+                }
+            }
+            Expression::AwaitExpression(await_expression) => {
+                collect_expression(&await_expression.argument, diagnostics);
+            }
+            Expression::OptionalChainExpression(optional_chain) => {
+                match optional_chain.inner.as_ref() {
+                    OptionalChainInner::NonNull { object, .. } => {
+                        collect_expression(object, diagnostics);
+                    }
+                }
+            }
+            Expression::ChainExpression(chain) => {
+                collect_expression(&chain.expression, diagnostics);
+            }
+            Expression::SpreadElement(spread) => {
+                collect_expression(&spread.argument, diagnostics);
+            }
+            Expression::RestElement(rest) => {
+                collect_expression(&rest.argument, diagnostics);
+            }
+            Expression::ImportExpression(import_expression) => {
+                collect_expression(&import_expression.source, diagnostics);
+            }
+            Expression::DecoratedExpression(decorated) => {
+                collect_expression(&decorated.expression, diagnostics);
+            }
+            Expression::JsxElement(element) => {
+                for attribute in &element.opening_element.attributes {
+                    match attribute {
+                        kali_ast::JsxAttributeItem::JsxAttribute(attribute) => {
+                            match &attribute.value {
+                                kali_ast::JsxAttributeValue::String(_) => {}
+                                kali_ast::JsxAttributeValue::JsxElement(child) => {
+                                    collect_expression(
+                                        &Expression::JsxElement((**child).clone()),
+                                        diagnostics,
+                                    );
+                                }
+                                kali_ast::JsxAttributeValue::JsxExpression(container) => {
+                                    if let Some(expression) = &container.expression {
+                                        collect_expression(expression, diagnostics);
+                                    }
+                                }
+                            }
+                        }
+                        kali_ast::JsxAttributeItem::JsxSpreadAttribute(spread) => {
+                            collect_expression(&spread.argument, diagnostics);
+                        }
+                    }
+                }
+
+                for child in &element.children {
+                    match child {
+                        kali_ast::JsxChild::JsxText(_) => {}
+                        kali_ast::JsxChild::JsxExpression(container) => {
+                            if let Some(expression) = &container.expression {
+                                collect_expression(expression, diagnostics);
+                            }
+                        }
+                        kali_ast::JsxChild::JsxElement(child_element) => {
+                            collect_expression(
+                                &Expression::JsxElement((**child_element).clone()),
+                                diagnostics,
+                            );
+                        }
+                        kali_ast::JsxChild::JsxFragment(fragment) => {
+                            collect_expression(
+                                &Expression::JsxFragment((**fragment).clone()),
+                                diagnostics,
+                            );
+                        }
+                    }
+                }
+            }
+            Expression::JsxFragment(fragment) => {
+                for child in &fragment.children {
+                    match child {
+                        kali_ast::JsxChild::JsxText(_) => {}
+                        kali_ast::JsxChild::JsxExpression(container) => {
+                            if let Some(expression) = &container.expression {
+                                collect_expression(expression, diagnostics);
+                            }
+                        }
+                        kali_ast::JsxChild::JsxElement(child_element) => {
+                            collect_expression(
+                                &Expression::JsxElement((**child_element).clone()),
+                                diagnostics,
+                            );
+                        }
+                        kali_ast::JsxChild::JsxFragment(child_fragment) => {
+                            collect_expression(
+                                &Expression::JsxFragment((**child_fragment).clone()),
+                                diagnostics,
+                            );
+                        }
+                    }
+                }
+            }
+            Expression::TypeAssertion(assertion) => {
+                collect_expression(&assertion.expression, diagnostics);
+            }
+            Expression::SatisfiesExpression(satisfies) => {
+                collect_expression(&satisfies.expression, diagnostics);
+            }
+            Expression::Literal(_)
+            | Expression::Identifier(_)
+            | Expression::MetaProperty(_)
+            | Expression::ThisExpression
+            | Expression::SuperExpression
+            | Expression::PrivateIdentifier(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::JsxEmptyExpression => {}
+        }
+    }
+
     fn collect_statement(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
         match statement {
-            Statement::ClassDeclaration(class)
-                if class
-                    .body
-                    .methods
-                    .iter()
-                    .any(|method| method.is_async && !method.generator) =>
-            {
-                diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
-                ));
+            Statement::ClassDeclaration(class) if class_body_has_async_method(&class.body) => {
+                push_async_class_method_diagnostic(diagnostics);
             }
             Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
                 ClassDeclaration { body, .. },
-            )) if body
-                .methods
-                .iter()
-                .any(|method| method.is_async && !method.generator) =>
-            {
-                diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
-                ));
+            )) if class_body_has_async_method(body) => {
+                push_async_class_method_diagnostic(diagnostics);
             }
-            Statement::BlockStatement(block) => {
-                for nested in &block.body {
-                    collect_statement(nested, diagnostics);
+            Statement::ExpressionStatement(expression) => {
+                collect_expression(&expression.expression, diagnostics);
+            }
+            Statement::ReturnStatement(return_statement) => {
+                if let Some(argument) = &return_statement.argument {
+                    collect_expression(argument, diagnostics);
                 }
+            }
+            Statement::WithStatement(with_statement) => {
+                collect_expression(&with_statement.object, diagnostics);
+                collect_statement(&with_statement.body, diagnostics);
             }
             Statement::LabeledStatement(label) => collect_statement(&label.body, diagnostics),
             Statement::IfStatement(if_stmt) => {
+                collect_expression(&if_stmt.test, diagnostics);
                 for nested in &if_stmt.consequent.body {
                     collect_statement(nested, diagnostics);
                 }
@@ -2907,6 +3122,20 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
                         collect_statement(nested, diagnostics);
                     }
                 }
+            }
+            Statement::SwitchStatement(switch_stmt) => {
+                collect_expression(&switch_stmt.discriminant, diagnostics);
+                for case in &switch_stmt.cases {
+                    if let Some(test) = &case.test {
+                        collect_expression(test, diagnostics);
+                    }
+                    for nested in &case.consequent {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
+            }
+            Statement::ThrowStatement(throw_statement) => {
+                collect_expression(&throw_statement.argument, diagnostics);
             }
             Statement::TryStatement(try_stmt) => {
                 for nested in &try_stmt.block.body {
@@ -2924,17 +3153,64 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
                 }
             }
             Statement::ForStatement(for_stmt) => {
+                if let Some(init) = &for_stmt.init {
+                    match init {
+                        kali_ast::ForInit::VariableDeclaration(declaration) => {
+                            for declarator in &declaration.declarations {
+                                if let Some(expression) = &declarator.init {
+                                    collect_expression(expression, diagnostics);
+                                }
+                            }
+                        }
+                        kali_ast::ForInit::Expression(expression) => {
+                            collect_expression(expression, diagnostics);
+                        }
+                    }
+                }
+                if let Some(test) = &for_stmt.test {
+                    collect_expression(test, diagnostics);
+                }
+                if let Some(update) = &for_stmt.update {
+                    collect_expression(update, diagnostics);
+                }
                 for nested in &for_stmt.body.body {
                     collect_statement(nested, diagnostics);
                 }
             }
             Statement::ForInStatement(for_in_stmt) => {
+                match &for_in_stmt.left {
+                    kali_ast::ForInLefthand::VariableDeclaration(declaration) => {
+                        for declarator in &declaration.declarations {
+                            if let Some(expression) = &declarator.init {
+                                collect_expression(expression, diagnostics);
+                            }
+                        }
+                    }
+                    kali_ast::ForInLefthand::Expression(expression) => {
+                        collect_expression(expression, diagnostics);
+                    }
+                }
+                collect_expression(&for_in_stmt.right, diagnostics);
                 collect_statement(&for_in_stmt.body, diagnostics);
             }
             Statement::ForOfStatement(for_of_stmt) => {
+                match &for_of_stmt.left {
+                    kali_ast::ForOfLefthand::VariableDeclaration(declaration) => {
+                        for declarator in &declaration.declarations {
+                            if let Some(expression) = &declarator.init {
+                                collect_expression(expression, diagnostics);
+                            }
+                        }
+                    }
+                    kali_ast::ForOfLefthand::Expression(expression) => {
+                        collect_expression(expression, diagnostics);
+                    }
+                }
+                collect_expression(&for_of_stmt.right, diagnostics);
                 collect_statement(&for_of_stmt.body, diagnostics);
             }
             Statement::WhileStatement(while_stmt) => {
+                collect_expression(&while_stmt.test, diagnostics);
                 for nested in &while_stmt.body.body {
                     collect_statement(nested, diagnostics);
                 }
@@ -2943,16 +3219,32 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
                 for nested in &do_while_stmt.body.body {
                     collect_statement(nested, diagnostics);
                 }
-            }
-            Statement::SwitchStatement(switch_stmt) => {
-                for case in &switch_stmt.cases {
-                    for nested in &case.consequent {
-                        collect_statement(nested, diagnostics);
-                    }
-                }
+                collect_expression(&do_while_stmt.test, diagnostics);
             }
             Statement::FunctionDeclaration(function) => {
                 for nested in &function.body.body {
+                    collect_statement(nested, diagnostics);
+                }
+            }
+            Statement::VariableDeclaration(declaration) => {
+                for declarator in &declaration.declarations {
+                    if let Some(expression) = &declarator.init {
+                        collect_expression(expression, diagnostics);
+                    }
+                }
+            }
+            Statement::ExportDefault(ExportDefaultDeclaration::Expression(expression)) => {
+                collect_expression(expression, diagnostics);
+            }
+            Statement::EnumDeclaration(enum_declaration) => {
+                for member in &enum_declaration.members {
+                    if let Some(expression) = &member.value {
+                        collect_expression(expression, diagnostics);
+                    }
+                }
+            }
+            Statement::BlockStatement(block) => {
+                for nested in &block.body {
                     collect_statement(nested, diagnostics);
                 }
             }

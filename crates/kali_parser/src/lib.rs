@@ -2,12 +2,12 @@
 use kali_ast::{
     ASTBuilder, ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     BinaryExpression, BlockStatement, BreakStatement, CallExpression, CatchClause,
-    ClassDeclaration, ContinueStatement, DebuggerStatement, DoWhileStatement, ExportAllDeclaration,
-    ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier, Expression,
-    ExpressionOrSpread, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
-    FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
-    ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier, LiteralValue,
-    MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ClassDeclaration, ClassExpression, ContinueStatement, DebuggerStatement, DoWhileStatement,
+    ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
+    Expression, ExpressionOrSpread, ExpressionStatement, ForInit, ForOfLefthand, ForOfStatement,
+    ForStatement, FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement,
+    ImportDeclaration, ImportExpression, ImportName, ImportNamedSpecifier, ImportSpecifier,
+    LiteralValue, MemberExpression, ObjectExpression, ObjectProperty, ObjectPropertyKind,
     ParenthesizedExpression, PropertyName, ReturnStatement, SatisfiesExpression, SpreadElement,
     Statement, SwitchCase, SwitchStatement, ThrowStatement, TryStatement, TypeAssertion,
     UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
@@ -341,10 +341,7 @@ impl Parser {
         }))
     }
 
-    fn parse_class_declaration(&mut self) -> Option<Statement> {
-        let _ = self.stream.advance();
-        let name_token = self.stream.advance()?;
-        let name = name_token.value;
+    fn parse_class_body(&mut self) -> kali_ast::ClassBody {
         let _ = self.stream.accept(TokenType::LeftBrace);
 
         let mut methods = Vec::new();
@@ -402,9 +399,33 @@ impl Parser {
             }
         }
 
+        kali_ast::ClassBody { methods }
+    }
+
+    fn parse_class_declaration(&mut self) -> Option<Statement> {
+        let _ = self.stream.advance();
+        let name_token = self.stream.advance()?;
+        let name = name_token.value;
+        let body = self.parse_class_body();
+
         Some(Statement::ClassDeclaration(ClassDeclaration {
             name,
-            body: Box::new(kali_ast::ClassBody { methods }),
+            body: Box::new(body),
+        }))
+    }
+
+    fn parse_class_expression(&mut self) -> Expression {
+        let _ = self.stream.advance();
+        let id = if self.stream.current_kind() == Some(&TokenType::Identifier) {
+            self.stream.advance().map(|token| token.value)
+        } else {
+            None
+        };
+        let body = self.parse_class_body();
+
+        Expression::ClassExpression(Box::new(ClassExpression {
+            id,
+            body: Box::new(body),
         }))
     }
 
@@ -2020,6 +2041,7 @@ impl Parser {
                 }
             }
             TokenType::Function => self.parse_function_expression_with_async(false),
+            TokenType::Class => self.parse_class_expression(),
             TokenType::Import => {
                 let _ = self.stream.advance();
                 if self.stream.accept(TokenType::LeftParen) {
