@@ -139,6 +139,26 @@ fn run_supports_number_predicates_when_browser_harness_is_configured_in_ts_input
 }
 
 #[test]
+fn run_supports_number_predicates_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_number_predicates(
+        "run",
+        "main.jsx",
+        browser_number_predicates_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_number_predicates_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_number_predicates(
+        "run",
+        "main.tsx",
+        browser_number_predicates_run_source(),
+        false,
+    );
+}
+
+#[test]
 fn test_supports_number_predicates_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_number_predicates(
         "test",
@@ -153,6 +173,26 @@ fn test_supports_number_predicates_when_browser_harness_is_configured_in_ts_inpu
     assert_browser_harness_number_predicates(
         "test",
         "smoke.test.ts",
+        browser_number_predicates_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_number_predicates_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_number_predicates(
+        "test",
+        "smoke.test.jsx",
+        browser_number_predicates_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_number_predicates_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_number_predicates(
+        "test",
+        "smoke.test.tsx",
         browser_number_predicates_test_source(),
         false,
     );
@@ -179,6 +219,26 @@ fn json_run_supports_number_predicates_when_browser_harness_is_configured_in_ts_
 }
 
 #[test]
+fn json_run_supports_number_predicates_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_number_predicates(
+        "run",
+        "main.jsx",
+        browser_number_predicates_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_number_predicates_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_number_predicates(
+        "run",
+        "main.tsx",
+        browser_number_predicates_run_source(),
+        true,
+    );
+}
+
+#[test]
 fn json_test_supports_number_predicates_when_browser_harness_is_configured_in_js_input() {
     assert_browser_harness_number_predicates(
         "test",
@@ -193,6 +253,26 @@ fn json_test_supports_number_predicates_when_browser_harness_is_configured_in_ts
     assert_browser_harness_number_predicates(
         "test",
         "smoke.test.ts",
+        browser_number_predicates_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_number_predicates_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_number_predicates(
+        "test",
+        "smoke.test.jsx",
+        browser_number_predicates_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_number_predicates_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_number_predicates(
+        "test",
+        "smoke.test.tsx",
         browser_number_predicates_test_source(),
         true,
     );
