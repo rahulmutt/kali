@@ -39777,7 +39777,7 @@ fn run_supports_object_is_numeric_literals_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Object.is(-0, 0) ? 'base-true' : 'base-false');\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1) ? 'bracket-true' : 'bracket-false');\nconsole.log(globalThis.Object[\"is\"](1, 1) ? 'object-dot-bracket-true' : 'object-dot-bracket-false');\nconsole.log(globalThis[\"Object\"].is(1, 1) ? 'bracket-dot-true' : 'bracket-dot-false');\nconsole.log(globalThis.Object.is(1, 1) ? 'dot-dot-true' : 'dot-dot-false');\n",
+        "console.log(Object.is(-0, 0) ? 'base-true' : 'base-false');\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1) ? 'bracket-true' : 'bracket-false');\nconsole.log(globalThis.Object[\"is\"](1, 1) ? 'object-dot-bracket-true' : 'object-dot-bracket-false');\nconsole.log(globalThis[\"Object\"].is(1, 1) ? 'bracket-dot-true' : 'bracket-dot-false');\nconsole.log(globalThis.Object.is(1, 1) ? 'dot-dot-true' : 'dot-dot-false');\nconsole.log(Object.is(1n, 1n) ? 'bigint-true' : 'bigint-false');\nconsole.log(Object.is(-1n, -1n) ? 'neg-bigint-true' : 'neg-bigint-false');\n",
     )
     .expect("write source");
 
@@ -39791,7 +39791,7 @@ fn run_supports_object_is_numeric_literals_in_js_input() {
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "0\n1\n1\n1\n1", "stdout: {stdout}");
+    assert_eq!(stdout.trim(), "0\n1\n1\n1\n1\n1\n1", "stdout: {stdout}");
 }
 
 #[test]
@@ -39800,7 +39800,7 @@ fn json_run_supports_object_is_numeric_literals_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Object.is(-0, 0) ? 'base-true' : 'base-false');\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1) ? 'bracket-true' : 'bracket-false');\nconsole.log(globalThis.Object[\"is\"](1, 1) ? 'object-dot-bracket-true' : 'object-dot-bracket-false');\nconsole.log(globalThis[\"Object\"].is(1, 1) ? 'bracket-dot-true' : 'bracket-dot-false');\nconsole.log(globalThis.Object.is(1, 1) ? 'dot-dot-true' : 'dot-dot-false');\n",
+        "console.log(Object.is(-0, 0) ? 'base-true' : 'base-false');\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1) ? 'bracket-true' : 'bracket-false');\nconsole.log(globalThis.Object[\"is\"](1, 1) ? 'object-dot-bracket-true' : 'object-dot-bracket-false');\nconsole.log(globalThis[\"Object\"].is(1, 1) ? 'bracket-dot-true' : 'bracket-dot-false');\nconsole.log(globalThis.Object.is(1, 1) ? 'dot-dot-true' : 'dot-dot-false');\nconsole.log(Object.is(1n, 1n) ? 'bigint-true' : 'bigint-false');\nconsole.log(Object.is(-1n, -1n) ? 'neg-bigint-true' : 'neg-bigint-false');\n",
     )
     .expect("write source");
 
@@ -39819,7 +39819,7 @@ fn json_run_supports_object_is_numeric_literals_in_js_input() {
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n");
+    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n1\n1\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -40003,7 +40003,7 @@ fn json_run_supports_object_is_numeric_literals_in_browser_api_surface_with_harn
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        "console.log(Object.is(-0, 0));\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1));\nconsole.log(globalThis.Object[\"is\"](1, 1));\nconsole.log(globalThis[\"Object\"].is(1, 1));\nconsole.log(globalThis.Object.is(1, 1));\n",
+        "console.log(Object.is(-0, 0));\nconsole.log(globalThis[\"Object\"][\"is\"](1, 1));\nconsole.log(globalThis.Object[\"is\"](1, 1));\nconsole.log(globalThis[\"Object\"].is(1, 1));\nconsole.log(globalThis.Object.is(1, 1));\nconsole.log(Object.is(1n, 1n));\nconsole.log(Object.is(-1n, -1n));\n",
     )
     .expect("write source");
 
@@ -40025,7 +40025,7 @@ fn json_run_supports_object_is_numeric_literals_in_browser_api_surface_with_harn
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
-    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n");
+    assert_eq!(json["stdout"], "0\n1\n1\n1\n1\n1\n1\n");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
@@ -40035,7 +40035,7 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     let source_path = dir.path().join("smoke.test.tsx");
     fs::write(
         &source_path,
-        "Kali.test('browser object.is', () => { console.log(Object.is(-0, 0)); console.log(globalThis[\"Object\"][\"is\"](1, 1)); console.log(globalThis.Object[\"is\"](1, 1)); console.log(globalThis[\"Object\"].is(1, 1)); console.log(globalThis.Object.is(1, 1)); });\n",
+        "Kali.test('browser object.is', () => { console.log(Object.is(-0, 0)); console.log(globalThis[\"Object\"][\"is\"](1, 1)); console.log(globalThis.Object[\"is\"](1, 1)); console.log(globalThis[\"Object\"].is(1, 1)); console.log(globalThis.Object.is(1, 1)); console.log(Object.is(1n, 1n)); console.log(Object.is(-1n, -1n)); });\n",
     )
     .expect("write source");
 
@@ -40052,7 +40052,7 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     assert!(output.status.success());
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0\n1\n1\n1\n1"), "stdout: {stdout}");
+    assert!(stdout.contains("0\n1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
 }
 
 #[test]
