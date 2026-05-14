@@ -32,6 +32,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 - Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization.
+- Current smoke now also covers the single-quoted bracketed `Reflect` alias over frozen object literals in the direct and browser-harness paths.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 
 ### 21.3 Dynamic language and built-in semantics

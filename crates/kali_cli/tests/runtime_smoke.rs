@@ -26268,19 +26268,26 @@ fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
 }
 
 fn browser_runtime_frozen_object_enumeration_spread_source() -> &'static str {
-    r#"const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
+    r#"const frozen = Object.freeze({ "zed": 1, "alpha": 2 });
 for (const value of [...globalThis["Object"]["values"](frozen)]) { console.log(value); }
 for (const key of [...globalThis.Object["keys"](frozen)]) { console.log(key); }
 for (const entry of [...globalThis["Object"].entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+const frozenKeys = Reflect.ownKeys(frozen);
+const frozenGlobalKeys = globalThis['Reflect']['ownKeys'](frozen);
+for (const key of frozenKeys) { console.log(key); }
+for await (const key of frozenGlobalKeys) { console.log(key); }
 "#
 }
-
 fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static str {
     r#"Kali.test('browser frozen object enumeration spread', () => {
-  const frozen = Object.freeze(Object.fromEntries([["zed", 1], ["alpha", 2], ["zed", 3]]));
+  const frozen = Object.freeze({ "zed": 1, "alpha": 2 });
   for (const value of [...globalThis["Object"]["values"](frozen)]) { console.log(value); }
   for (const key of [...globalThis.Object["keys"](frozen)]) { console.log(key); }
   for (const entry of [...globalThis["Object"].entries(frozen)]) { console.log(entry[0]); console.log(entry[1]); }
+  const frozenKeys = Reflect.ownKeys(frozen);
+  const frozenGlobalKeys = globalThis['Reflect']['ownKeys'](frozen);
+  for (const key of frozenKeys) { console.log(key); }
+  for await (const key of frozenGlobalKeys) { console.log(key); }
 });
 "#
 }
@@ -26328,7 +26335,10 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
         assert_eq!(json["payload"]["hostContract"], "browser-requested");
         assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     }
-    assert_eq!(json["stdout"], "3\n2\nzed\nalpha\nzed\n3\nalpha\n2\n");
+    assert_eq!(
+        json["stdout"],
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\nalpha\nzed\nalpha\n"
+    );
     assert_eq!(json["stderr"], "");
 }
 
@@ -26454,7 +26464,10 @@ fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filenam
         assert_eq!(json["payload"]["hostContract"], "kali-hosted");
         assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     }
-    assert_eq!(json["stdout"], "3\n2\nzed\nalpha\nzed\n3\nalpha\n2\n");
+    assert_eq!(
+        json["stdout"],
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\nalpha\nzed\nalpha\n"
+    );
     assert_eq!(json["stderr"], "");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
 }

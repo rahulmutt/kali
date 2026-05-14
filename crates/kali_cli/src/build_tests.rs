@@ -4188,20 +4188,28 @@ for await (const item of [...asyncBracketedBracketedValues]) { console.log(item)
 fn reflect_own_keys_spread_iteration_source() -> &'static str {
     r##"const object = { "b": 1, "2": 2, "a": 3, "1": 4 };
 const alias = object;
+const frozenObject = Object.freeze(object);
+const frozenAlias = Object.freeze(alias);
 const keys = Reflect.ownKeys(object);
 const aliasKeys = Reflect.ownKeys(alias);
+const frozenKeys = Reflect.ownKeys(frozenObject);
+const frozenAliasKeys = Reflect.ownKeys(frozenAlias);
 const globalKeys = globalThis.Reflect.ownKeys(object);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
-const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
 for (const item of [...keys]) { console.log(item); }
 for (const item of [...aliasKeys]) { console.log(item); }
+for (const item of [...frozenKeys]) { console.log(item); }
+for (const item of [...frozenAliasKeys]) { console.log(item); }
 for (const item of [...globalKeys]) { console.log(item); }
 for (const item of [...mixedKeys]) { console.log(item); }
 for (const item of [...bracketedKeys]) { console.log(item); }
 for (const item of [...frozenBracketedKeys]) { console.log(item); }
 for await (const item of keys) { console.log(item); }
 for await (const item of aliasKeys) { console.log(item); }
+for await (const item of frozenKeys) { console.log(item); }
+for await (const item of frozenAliasKeys) { console.log(item); }
 for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
@@ -4221,7 +4229,7 @@ const frozenAliasKeys = Reflect.ownKeys(frozenAlias);
 const globalKeys = globalThis.Reflect.ownKeys(object);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
-const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
 for (const item of keys) { console.log(item); }
 for (const item of aliasKeys) { console.log(item); }
 for (const item of frozenKeys) { console.log(item); }
