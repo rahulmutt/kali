@@ -20,6 +20,7 @@ function browserNumberPredicates() {
     Number.isSafeInteger(1.5) !== false ||
     globalThis["Number"]["isNaN"](NaN) !== true ||
     globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
     globalThis["Number"]["isFinite"](alias) !== true ||
     globalThis["Number"]["isInteger"](alias) !== true ||
     globalThis["Number"]["isSafeInteger"](alias) !== true ||
@@ -48,6 +49,7 @@ function browserNumberPredicates() {
     Number.isSafeInteger(1.5) !== false ||
     globalThis["Number"]["isNaN"](NaN) !== true ||
     globalThis.Number.isNaN(1) !== false ||
+    globalThis["Number"].isNaN(1) !== false ||
     globalThis["Number"]["isFinite"](alias) !== true ||
     globalThis["Number"]["isInteger"](alias) !== true ||
     globalThis["Number"]["isSafeInteger"](alias) !== true ||
