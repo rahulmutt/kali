@@ -20,6 +20,10 @@ console.log(globalThis.Number.isNaN(1));
 console.log(globalThis["Number"]["isFinite"](alias));
 console.log(globalThis["Number"]["isInteger"](alias));
 console.log(globalThis["Number"]["isSafeInteger"](alias));
+console.log(globalThis.Number["isNaN"](1));
+console.log(globalThis["Number"].isFinite(alias));
+console.log(globalThis.Number["isInteger"](alias));
+console.log(globalThis["Number"].isSafeInteger(alias));
 "#
 }
 
@@ -37,6 +41,10 @@ fn browser_number_predicates_test_source() -> &'static str {
   console.log(globalThis["Number"]["isFinite"](alias));
   console.log(globalThis["Number"]["isInteger"](alias));
   console.log(globalThis["Number"]["isSafeInteger"](alias));
+  console.log(globalThis.Number["isNaN"](1));
+  console.log(globalThis["Number"].isFinite(alias));
+  console.log(globalThis.Number["isInteger"](alias));
+  console.log(globalThis["Number"].isSafeInteger(alias));
 });
 "#
 }
@@ -83,7 +91,10 @@ fn assert_browser_harness_number_predicates(
         if command == "run" {
             assert_eq!(json["exitCode"], 0);
             assert_eq!(json["payload"]["exitCode"], 0);
-            assert_eq!(json["stdout"], "1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1\n");
+            assert_eq!(
+                json["stdout"],
+                "1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1\n0\n1\n1\n1\n"
+            );
         } else {
             assert_eq!(json["payload"]["total"], 1);
             assert_eq!(json["payload"]["passed"], 1);
@@ -98,7 +109,7 @@ fn assert_browser_harness_number_predicates(
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1\n"),
+            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n1\n1\n1\n0\n1\n1\n1\n"),
             "stdout: {stdout}"
         );
         if command == "test" {
