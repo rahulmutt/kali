@@ -5851,6 +5851,14 @@ fn runtime_entrypoint_rejects_generator_class_expressions_in_js_input() {
 }
 
 #[test]
+fn runtime_entrypoint_rejects_generator_class_expressions_in_ts_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "ts",
+        "const Example = class NamedExample { *main() { yield 1; } };\nnew Example();\n",
+    );
+}
+
+#[test]
 fn runtime_entrypoint_rejects_generator_class_expressions_in_jsx_input() {
     assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "jsx",
