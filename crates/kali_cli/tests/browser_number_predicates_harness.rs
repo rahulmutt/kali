@@ -10,6 +10,7 @@ fn kali_bin() -> String {
 fn browser_number_predicates_run_source() -> &'static str {
     r#"const alias = 1;
 const finite = Number.isFinite;
+const safeInteger = Number.isSafeInteger;
 console.log(Number.isFinite(alias));
 console.log(Number.isInteger(alias));
 console.log(Number.isSafeInteger(alias));
@@ -31,6 +32,7 @@ console.log(Number["isInteger"](alias));
 console.log(Number["isSafeInteger"](alias));
 console.log(Number["isNaN"](1));
 console.log(finite(alias));
+console.log(safeInteger(alias));
 "#
 }
 
@@ -38,6 +40,7 @@ fn browser_number_predicates_test_source() -> &'static str {
     r#"Kali.test('number predicates', () => {
   const alias = 1;
   const finite = Number.isFinite;
+  const safeInteger = Number.isSafeInteger;
   console.log(Number.isFinite(alias));
   console.log(Number.isInteger(alias));
   console.log(Number.isSafeInteger(alias));
@@ -59,6 +62,7 @@ fn browser_number_predicates_test_source() -> &'static str {
   console.log(Number["isSafeInteger"](alias));
   console.log(Number["isNaN"](1));
   console.log(finite(alias));
+  console.log(safeInteger(alias));
 });
 "#
 }
@@ -107,7 +111,7 @@ fn assert_browser_harness_number_predicates(
             assert_eq!(json["payload"]["exitCode"], 0);
             assert_eq!(
                 json["stdout"],
-                "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n"
+                "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n"
             );
         } else {
             assert_eq!(json["payload"]["total"], 1);
@@ -117,13 +121,13 @@ fn assert_browser_harness_number_predicates(
             assert!(json["stdout"]
                 .as_str()
                 .expect("stdout string")
-                .contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n"));
+                .contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n"));
         }
         assert_eq!(json["stderr"], "");
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n"),
+            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n"),
             "stdout: {stdout}"
         );
         if command == "test" {

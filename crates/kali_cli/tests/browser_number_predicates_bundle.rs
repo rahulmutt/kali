@@ -12,6 +12,7 @@ fn browser_bundle_number_predicates_js_source() -> &'static str {
 function browserNumberPredicates() {
   const alias = 1;
   const finite = Number.isFinite;
+  const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
     Number.isInteger(alias) !== true ||
@@ -33,6 +34,7 @@ function browserNumberPredicates() {
     Number["isInteger"](alias) !== true ||
     Number["isSafeInteger"](alias) !== true ||
     Number["isNaN"](1) !== false ||
+    safeInteger(alias) !== true ||
     finite(alias) !== true
   ) {
     throw new Error('unexpected browser Number predicate result');
@@ -47,6 +49,7 @@ fn browser_bundle_number_predicates_ts_source() -> &'static str {
 function browserNumberPredicates() {
   const alias = 1 as const;
   const finite = Number.isFinite;
+  const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
     Number.isInteger(alias) !== true ||
@@ -68,6 +71,7 @@ function browserNumberPredicates() {
     Number["isInteger"](alias) !== true ||
     Number["isSafeInteger"](alias) !== true ||
     Number["isNaN"](1) !== false ||
+    safeInteger(alias) !== true ||
     finite(alias) !== true
   ) {
     throw new Error('unexpected browser Number predicate result');

@@ -2646,11 +2646,13 @@ fn test_resolution_supports_bracketed_object_is_and_number_predicate_alias_spell
 const objectAlias = object;
 const numeric = 1;
 const numericAlias = numeric;
+const safeInteger = Number.isSafeInteger;
 globalThis["Object"]["is"](objectAlias, object);
 globalThis.Object["is"](object, object);
 globalThis["Object"].is(objectAlias, object);
 Object["is"](objectAlias, object);
 globalThis.Number["isFinite"](numericAlias);
+safeInteger(numericAlias);
 globalThis["Number"].isInteger(numericAlias);
 globalThis["Number"].isSafeInteger(numericAlias);
 globalThis.Number["isSafeInteger"](numericAlias);
