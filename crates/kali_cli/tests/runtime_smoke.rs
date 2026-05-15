@@ -25742,6 +25742,52 @@ fn run_supports_bigint_multiplication_semantics_in_js_input() {
     assert_eq!(stdout.trim(), "2", "stdout: {stdout}");
 }
 
+fn assert_run_supports_bigint_binary_semantics(
+    extension: &str,
+    expression: &str,
+    expected_stdout: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, format!("console.log({expression});\n")).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), expected_stdout, "stdout: {stdout}");
+}
+
+#[test]
+fn run_supports_bigint_subtraction_semantics() {
+    assert_run_supports_bigint_binary_semantics("ts", "3n - 2n", "1");
+}
+
+#[test]
+fn run_supports_bigint_subtraction_semantics_in_js_input() {
+    assert_run_supports_bigint_binary_semantics("js", "3n - 2n", "1");
+}
+
+#[test]
+fn run_supports_bigint_division_semantics() {
+    assert_run_supports_bigint_binary_semantics("ts", "3n / 2n", "1");
+}
+
+#[test]
+fn run_supports_bigint_division_semantics_in_js_input() {
+    assert_run_supports_bigint_binary_semantics("js", "3n / 2n", "1");
+}
+
 #[test]
 fn run_supports_object_keys_semantics() {
     let dir = tempdir().expect("tempdir");
