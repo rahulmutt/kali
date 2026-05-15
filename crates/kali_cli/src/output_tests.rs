@@ -4,12 +4,12 @@ use serde_json::json;
 use std::path::Path;
 
 use crate::output::{
-    diagnostic_to_json, emit_envelope_value, validate_check_payload_value,
-    validate_doctor_payload_value, validate_effects_payload_value, validate_envelope_value,
-    validate_fmt_payload_value, validate_init_payload_value, validate_install_payload_value,
-    validate_lint_payload_value, validate_package_audit_payload_value,
-    validate_package_effects_payload_value, validate_run_payload_value,
-    validate_test_payload_value,
+    diagnostic_to_json, emit_envelope_value, merge_thread_topology_snapshot_values,
+    validate_check_payload_value, validate_doctor_payload_value, validate_effects_payload_value,
+    validate_envelope_value, validate_fmt_payload_value, validate_init_payload_value,
+    validate_install_payload_value, validate_lint_payload_value,
+    validate_package_audit_payload_value, validate_package_effects_payload_value,
+    validate_run_payload_value, validate_test_payload_value,
 };
 
 fn assert_payload_accepts_schema_permitted_extension_key(
@@ -1611,6 +1611,76 @@ fn validate_run_and_test_payload_value_rejects_incoherent_thread_topology_counts
             "{kind} error: {err}"
         );
     }
+}
+
+#[test]
+fn merge_thread_topology_snapshot_values_renumbers_and_orders_live_instances() {
+    let mut target = json!({
+        "totalInstances": 2,
+        "terminatedInstances": 1,
+        "liveInstances": [{
+            "instanceId": 0,
+            "scriptUrl": "https://e.co/worker-0.js",
+            "postedMessages": [],
+            "postedSharedBuffers": [],
+            "wasTerminated": false,
+        }],
+    });
+    let source = json!({
+        "totalInstances": 2,
+        "terminatedInstances": 0,
+        "liveInstances": [
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-1.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+            {
+                "instanceId": 1,
+                "scriptUrl": "https://e.co/worker-2.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+        ],
+    });
+
+    merge_thread_topology_snapshot_values(&mut target, &source);
+
+    assert_eq!(target["totalInstances"], json!(4));
+    assert_eq!(target["terminatedInstances"], json!(1));
+    assert_eq!(
+        target["liveInstances"]
+            .as_array()
+            .expect("live instances")
+            .len(),
+        3
+    );
+    assert_eq!(target["liveInstances"][0]["instanceId"], json!(0));
+    assert_eq!(target["liveInstances"][1]["instanceId"], json!(1));
+    assert_eq!(target["liveInstances"][2]["instanceId"], json!(2));
+
+    validate_test_payload_value(&json!({
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "threadTopology": target,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    }))
+    .expect("merged thread topology should validate");
 }
 
 #[test]

@@ -3453,24 +3453,10 @@ fn test_command(
                 captured_stderr.push_str(&outcome.stderr);
                 let outcome_thread_topology =
                     outcome.thread_topology.thread_topology_snapshot_value();
-                if let (Some(target), Some(source)) = (
-                    thread_topology.as_object_mut(),
-                    outcome_thread_topology.as_object(),
-                ) {
-                    target["totalInstances"] = json!(target["totalInstances"]
-                        .as_u64()
-                        .unwrap_or(0)
-                        .saturating_add(source["totalInstances"].as_u64().unwrap_or(0)));
-                    target["terminatedInstances"] = json!(target["terminatedInstances"]
-                        .as_u64()
-                        .unwrap_or(0)
-                        .saturating_add(source["terminatedInstances"].as_u64().unwrap_or(0)));
-                    if let Some(live_instances) = target["liveInstances"].as_array_mut() {
-                        if let Some(source_live_instances) = source["liveInstances"].as_array() {
-                            live_instances.extend(source_live_instances.iter().cloned());
-                        }
-                    }
-                }
+                output::merge_thread_topology_snapshot_values(
+                    &mut thread_topology,
+                    &outcome_thread_topology,
+                );
                 if coverage {
                     let covered = outcome.coverage_hits.len().min(coverage_total);
                     coverage_reports.push(json!({

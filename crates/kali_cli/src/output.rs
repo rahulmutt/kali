@@ -546,6 +546,56 @@ pub fn validate_test_payload_value(value: &Value) -> Result<(), String> {
     Ok(())
 }
 
+pub fn merge_thread_topology_snapshot_values(target: &mut Value, source: &Value) {
+    let Some(target_object) = target.as_object_mut() else {
+        return;
+    };
+    let Some(source_object) = source.as_object() else {
+        return;
+    };
+
+    for key in ["totalInstances", "terminatedInstances"] {
+        let merged_value = target_object
+            .get(key)
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            .saturating_add(source_object.get(key).and_then(Value::as_u64).unwrap_or(0));
+        target_object.insert(key.to_string(), json!(merged_value));
+    }
+
+    let Some(target_live_instances) = target_object
+        .get_mut("liveInstances")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    let Some(source_live_instances) = source_object.get("liveInstances").and_then(Value::as_array)
+    else {
+        return;
+    };
+
+    let mut next_instance_id = target_live_instances
+        .iter()
+        .filter_map(|item| item.get("instanceId").and_then(Value::as_u64))
+        .max()
+        .map_or(0, |max| max.saturating_add(1));
+
+    for item in source_live_instances {
+        let mut item = item.clone();
+        if let Some(object) = item.as_object_mut() {
+            object.insert("instanceId".to_string(), json!(next_instance_id));
+        }
+        next_instance_id = next_instance_id.saturating_add(1);
+        target_live_instances.push(item);
+    }
+
+    target_live_instances.sort_by_key(|item| {
+        item.get("instanceId")
+            .and_then(Value::as_u64)
+            .unwrap_or(u64::MAX)
+    });
+}
+
 fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> Result<(), String> {
     let Some(value) = value else {
         return Ok(());
