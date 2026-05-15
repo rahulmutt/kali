@@ -1376,6 +1376,67 @@ fn assert_build_source_file_supports_object_is_same_reference_alias_chain_in_inp
     assert!(!output.wasm_bytes.is_empty());
 }
 
+fn assert_check_source_file_supports_number_predicates_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"const alias = 1; if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) { throw new Error('expected positive integer predicates'); } if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) { throw new Error('expected negative primitive predicate cases'); } if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) { throw new Error('expected bracketed Number predicate aliases'); }"#,
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, api_surface, &[], false, false)
+        .expect("Number predicate sources should succeed");
+}
+
+fn assert_build_source_file_supports_number_predicates_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"const alias = 1; if (!Number.isFinite(alias) || !Number.isInteger(alias) || !Number.isSafeInteger(alias)) { throw new Error('expected positive integer predicates'); } if (Number.isInteger(1.5) || Number.isFinite('hello') || Number.isSafeInteger(1.5)) { throw new Error('expected negative primitive predicate cases'); } if (!globalThis["Number"]["isNaN"](NaN) || globalThis.Number.isNaN(1) || !globalThis["Number"]["isFinite"](alias) || !globalThis["Number"]["isInteger"](alias) || !globalThis["Number"]["isSafeInteger"](alias) || globalThis.Number["isNaN"](1) || !globalThis["Number"].isFinite(alias) || !globalThis.Number["isInteger"](alias) || !globalThis["Number"].isSafeInteger(alias)) { throw new Error('expected bracketed Number predicate aliases'); }"#,
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Number predicate build should succeed");
+
+    assert!(!output.wasm_bytes.is_empty());
+}
+
+#[test]
+fn check_source_file_supports_number_predicates_in_deno_and_browser_ts_js_jsx_and_tsx_input() {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
+            assert_check_source_file_supports_number_predicates_in_input(api_surface, extension);
+        }
+    }
+}
+
+#[test]
+fn build_source_file_supports_number_predicates_in_deno_and_browser_ts_js_jsx_and_tsx_input() {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
+            assert_build_source_file_supports_number_predicates_in_input(api_surface, extension);
+        }
+    }
+}
+
 #[test]
 fn build_source_file_supports_object_is_primitive_literals_in_deno_and_browser_ts_js_jsx_and_tsx_input(
 ) {
