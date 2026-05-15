@@ -1375,6 +1375,7 @@ impl TypeContext {
             Expression::Identifier(name) => match name.as_str() {
                 "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
                 "NaN" => Some(StaticObjectIdentityValue::Number(f64::NAN)),
+                "undefined" => Some(StaticObjectIdentityValue::Undefined),
                 _ => self
                     .resolve_static_object_identity_binding(name)
                     .or_else(|| {
@@ -1702,7 +1703,7 @@ impl TypeContext {
     }
 
     fn resolve_identifier(&mut self, name: &str) {
-        if name == "unknown" {
+        if matches!(name, "unknown" | "undefined") {
             return;
         }
 

@@ -1075,6 +1075,37 @@ fn test_resolution_allows_nullish_coalescing() {
 }
 
 #[test]
+fn test_resolution_allows_nullish_coalescing_with_void_and_undefined_fallbacks() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+                operator: "??".to_string(),
+                left: Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "void".to_string(),
+                    argument: Expression::Literal(LiteralValue::Number(0.0)),
+                })),
+                right: Expression::Literal(LiteralValue::Number(1.0)),
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+                operator: "??".to_string(),
+                left: Expression::Identifier("undefined".to_string()),
+                right: Expression::Literal(LiteralValue::Number(2.0)),
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_missing_imports() {
     let mut ctx = TypeContext::with_base_path(".");
     let statements = vec![Statement::ImportDeclaration(ImportDeclaration {

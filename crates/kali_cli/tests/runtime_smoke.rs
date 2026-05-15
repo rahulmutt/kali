@@ -40459,6 +40459,66 @@ console.log(value);
 }
 
 #[test]
+fn run_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const voidFallback = void 0 ?? 1;
+const undefinedFallback = undefined ?? 2;
+console.log(voidFallback);
+console.log(undefinedFallback);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const voidFallback = void 0 ?? 1;
+const undefinedFallback = undefined ?? 2;
+console.log(voidFallback);
+console.log(undefinedFallback);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["stdout"], "1\n2\n");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn test_supports_promise_all_settled_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.js");
@@ -44932,6 +44992,133 @@ fn json_test_supports_nullish_coalescing_in_browser_api_surface_with_harness_js_
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "test");
     assert_eq!(json["success"], true);
+}
+
+#[test]
+fn run_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const voidFallback = void 0 ?? 1;
+const undefinedFallback = undefined ?? 2;
+console.log(voidFallback);
+console.log(undefinedFallback);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2"), "stdout: {stdout}");
+}
+
+#[test]
+fn json_run_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const voidFallback = void 0 ?? 1;
+const undefinedFallback = undefined ?? 2;
+console.log(voidFallback);
+console.log(undefinedFallback);
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["stdout"], "1\n2\n");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn test_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"Kali.test('browser nullish fallbacks', () => { const voidFallback = void 0 ?? 1; const undefinedFallback = undefined ?? 2; return voidFallback + undefinedFallback; });
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn json_test_supports_nullish_coalescing_with_void_and_undefined_fallbacks_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(
+        &source_path,
+        r#"Kali.test('browser nullish fallbacks', () => { const voidFallback = void 0 ?? 1; const undefinedFallback = undefined ?? 2; return voidFallback + undefinedFallback; });
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
