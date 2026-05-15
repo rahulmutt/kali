@@ -46913,6 +46913,51 @@ fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_conf
     }
 }
 
+fn assert_runtime_entrypoint_rejection(
+    command: &str,
+    json_output: bool,
+    extension: &str,
+    source_contents: &str,
+    expected_message: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source_contents).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path());
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command).arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        let messages = errors
+            .iter()
+            .map(|error| error["message"].as_str().expect("message"))
+            .collect::<Vec<_>>();
+        assert!(
+            messages
+                .iter()
+                .any(|message| message.contains(expected_message)),
+            "messages: {messages:?}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(stderr.contains(expected_message), "stderr: {stderr}");
+    }
+}
+
 #[test]
 fn check_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
     for source in [
@@ -47139,6 +47184,57 @@ fn run_and_test_reject_class_generator_and_async_generator_method_lowering_when_
                     json_output,
                     "js",
                     source,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_async_class_expressions_in_jsx_and_tsx_input() {
+    for extension in ["jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    extension,
+                    "const Example = class NamedExample { async main() { return 1; } };\nnew Example().main();\n",
+                    "async class method lowering is unavailable in the direct runtime path",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_generator_class_expressions_in_js_jsx_and_tsx_input() {
+    for extension in ["js", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    extension,
+                    "const Example = class NamedExample { *main() { yield 1; } };\nnew Example();\n",
+                    "class generator method lowering is unavailable in the direct runtime path",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_async_generator_default_export_class_expressions_in_js_jsx_and_tsx_input() {
+    for extension in ["js", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    extension,
+                    "export default (class NamedExample { async *main() { yield 1; } });\n",
+                    "class generator method lowering is unavailable in the direct runtime path",
                 );
             }
         }
