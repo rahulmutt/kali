@@ -2693,6 +2693,50 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
 }
 
 #[test]
+fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Object".to_string(),
+                    })),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Boolean(true)),
+                    Expression::Literal(LiteralValue::Boolean(true)),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Object".to_string(),
+                    })),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::String("hello".to_string())),
+                    Expression::Literal(LiteralValue::String("hello".to_string())),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {

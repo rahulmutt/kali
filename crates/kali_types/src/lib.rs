@@ -1894,7 +1894,19 @@ impl TypeContext {
             return false;
         };
 
-        if !matches!(callee_name.as_str(), "Object.is" | "globalThis.Object.is") {
+        if !matches!(
+            callee_name.as_str(),
+            "Object.is"
+                | "globalThis.Object.is"
+                | r#"globalThis["Object"].is"#
+                | r#"globalThis["Object"]["is"]"#
+                | r#"globalThis['Object'].is"#
+                | r#"globalThis['Object']['is']"#
+                | r#"Object["is"]"#
+                | r#"Object['is']"#
+                | r#"globalThis.Object["is"]"#
+                | r#"globalThis.Object['is']"#
+        ) {
             return false;
         }
 
