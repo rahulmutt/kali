@@ -703,3 +703,58 @@ fn test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
         assert_object_keys_iteration("test", filename, object_string_enumeration_test_source());
     }
 }
+
+fn object_keys_break_continue_run_source() -> &'static str {
+    r#"const values = { "b": 1, "a": 2 };
+const alias = values;
+const keys = [];
+for (const key of Object.keys(alias)) {
+  if (key === 'b') {
+    continue;
+  }
+  keys.push(key);
+  break;
+}
+if (keys.length !== 1 || keys[0] !== 'a') {
+  throw new Error('unexpected Object.keys break/continue iteration semantics');
+}
+"#
+}
+
+fn object_keys_break_continue_test_source() -> &'static str {
+    r#"Kali.test('object keys break/continue iteration', () => {
+  const values = { "b": 1, "a": 2 };
+  const alias = values;
+  const keys = [];
+  for (const key of Object.keys(alias)) {
+    if (key === 'b') {
+      continue;
+    }
+    keys.push(key);
+    break;
+  }
+  if (keys.length !== 1 || keys[0] !== 'a') {
+    throw new Error('unexpected Object.keys break/continue iteration semantics');
+  }
+});
+"#
+}
+
+#[test]
+fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_object_keys_iteration("run", filename, object_keys_break_continue_run_source());
+    }
+}
+
+#[test]
+fn test_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_object_keys_iteration("test", filename, object_keys_break_continue_test_source());
+    }
+}
