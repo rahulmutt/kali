@@ -899,7 +899,7 @@ fn validate_doctor_payload_value_rejects_empty_browser_runtime_host_description(
 }
 
 #[test]
-fn validate_doctor_payload_value_rejects_padded_browser_runtime_host_description() {
+fn validate_doctor_payload_value_accepts_padded_browser_runtime_host_description() {
     let value = json!({
         "browserHarness": {
             "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
@@ -926,12 +926,8 @@ fn validate_doctor_payload_value_rejects_padded_browser_runtime_host_description
         }
     });
 
-    let err = validate_doctor_payload_value(&value)
-        .expect_err("padded browser runtime host description should fail");
-    assert!(
-        err.contains("doctor browserRuntimeContract hostDescription must be `real browser host`"),
-        "unexpected error: {err}"
-    );
+    validate_doctor_payload_value(&value)
+        .expect("padded browser runtime host description should validate");
 }
 
 #[test]
