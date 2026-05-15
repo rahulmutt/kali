@@ -7803,6 +7803,56 @@ fn test_resolution_supports_for_of_object_entries_iteration() {
     );
 }
 
+fn assert_resolution_rejects_unimplemented_iterator_protocol_edge(
+    source_filename: &str,
+    constructor_name: &str,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join(source_filename);
+    fs::write(
+        &source_path,
+        format!("for (const item of new {constructor_name}()) {{ console.log(item); }}"),
+    )
+    .unwrap();
+
+    let statements = vec![Statement::ForOfStatement(ForOfStatement {
+        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "item".to_string(),
+                init: None,
+            }],
+        }),
+        right: Expression::NewExpression(Box::new(kali_ast::NewExpression {
+            callee: Expression::Identifier(constructor_name.to_string()),
+            args: vec![],
+        })),
+        body: Box::new(Statement::BlockStatement(BlockStatement { body: vec![] })),
+        is_await: false,
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_for_of_set_iteration_in_js_input() {
+    assert_resolution_rejects_unimplemented_iterator_protocol_edge("main.js", "Set");
+}
+
+#[test]
+fn test_resolution_rejects_for_of_map_iteration_in_ts_input() {
+    assert_resolution_rejects_unimplemented_iterator_protocol_edge("main.ts", "Map");
+}
+
 #[test]
 fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
