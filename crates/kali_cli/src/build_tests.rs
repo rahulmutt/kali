@@ -5880,6 +5880,12 @@ fn assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
+    let expected_message = if source.contains("async *") {
+        "async-generator class method lowering is unavailable in the direct runtime path"
+    } else {
+        "generator class method lowering is unavailable in the direct runtime path"
+    };
+
     let error = reject_async_class_methods_in_runtime_entrypoint(&source_path)
         .expect_err("generator class method lowering should fail in the direct runtime path");
     assert!(
@@ -5888,9 +5894,9 @@ fn assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "expected an E5506 diagnostic: {error:?}"
     );
     assert!(
-        error.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("class generator method lowering is unavailable in the direct runtime path")),
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains(expected_message)),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -6169,14 +6175,20 @@ fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface
             let source_path = dir.path().join(format!("main.{extension}"));
             fs::write(&source_path, source).expect("write source");
 
+            let expected_message = if source.contains("async *") {
+                "async-generator class method lowering is unavailable"
+            } else {
+                "generator class method lowering is unavailable"
+            };
+
             let error = check_source_file(&source_path, api_surface, &[], false, false)
                 .expect_err("class generator method lowering should fail");
 
             assert!(error.iter().any(|diagnostic| diagnostic.code
                 == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-            assert!(error.iter().any(|diagnostic| diagnostic
-                .message
-                .contains("class generator method lowering is unavailable")));
+            assert!(error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected_message)));
         }
     }
 }
@@ -6451,6 +6463,12 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
             let source_path = dir.path().join(format!("main.{extension}"));
             fs::write(&source_path, source).expect("write source");
 
+            let expected_message = if source.contains("async *") {
+                "async-generator class method lowering is unavailable"
+            } else {
+                "generator class method lowering is unavailable"
+            };
+
             let error = build_source_file(
                 &source_path,
                 BuildMode::Fast,
@@ -6465,9 +6483,9 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
 
             assert!(error.iter().any(|diagnostic| diagnostic.code
                 == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
-            assert!(error.iter().any(|diagnostic| diagnostic
-                .message
-                .contains("class generator method lowering is unavailable")));
+            assert!(error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected_message)));
         }
     }
 }

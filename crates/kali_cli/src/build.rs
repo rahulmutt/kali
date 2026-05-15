@@ -2874,10 +2874,14 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
         ));
     }
 
-    fn push_generator_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>) {
+    fn push_generator_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>, is_async: bool) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "class generator method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path",
+            if is_async {
+                "async-generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+            } else {
+                "generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+            },
         ));
     }
 
@@ -2891,10 +2895,21 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
         body.methods.iter().any(|method| method.generator)
     }
 
+    fn class_body_has_async_generator_method(body: &kali_ast::ClassBody) -> bool {
+        body.methods
+            .iter()
+            .any(|method| method.is_async && method.generator)
+    }
+
     fn collect_expression(expression: &Expression, diagnostics: &mut Vec<Diagnostic>) {
         match expression {
+            Expression::ClassExpression(class)
+                if class_body_has_async_generator_method(&class.body) =>
+            {
+                push_generator_class_method_diagnostic(diagnostics, true);
+            }
             Expression::ClassExpression(class) if class_body_has_generator_method(&class.body) => {
-                push_generator_class_method_diagnostic(diagnostics);
+                push_generator_class_method_diagnostic(diagnostics, false);
             }
             Expression::ClassExpression(class) if class_body_has_async_method(&class.body) => {
                 push_async_class_method_diagnostic(diagnostics);
@@ -3106,16 +3121,26 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
 
     fn collect_statement(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
         match statement {
+            Statement::ClassDeclaration(class)
+                if class_body_has_async_generator_method(&class.body) =>
+            {
+                push_generator_class_method_diagnostic(diagnostics, true);
+            }
             Statement::ClassDeclaration(class) if class_body_has_generator_method(&class.body) => {
-                push_generator_class_method_diagnostic(diagnostics);
+                push_generator_class_method_diagnostic(diagnostics, false);
             }
             Statement::ClassDeclaration(class) if class_body_has_async_method(&class.body) => {
                 push_async_class_method_diagnostic(diagnostics);
             }
             Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
                 ClassDeclaration { body, .. },
+            )) if class_body_has_async_generator_method(body) => {
+                push_generator_class_method_diagnostic(diagnostics, true);
+            }
+            Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
+                ClassDeclaration { body, .. },
             )) if class_body_has_generator_method(body) => {
-                push_generator_class_method_diagnostic(diagnostics);
+                push_generator_class_method_diagnostic(diagnostics, false);
             }
             Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
                 ClassDeclaration { body, .. },

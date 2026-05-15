@@ -46795,6 +46795,12 @@ fn assert_class_generator_method_lowering_rejection(
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
+    let expected_message = if source_contents.contains("async *") {
+        "async-generator class method lowering is unavailable"
+    } else {
+        "generator class method lowering is unavailable"
+    };
+
     if json_output {
         let json = parse_json_stdout(&output);
         assert_eq!(json["command"], command);
@@ -46807,14 +46813,11 @@ fn assert_class_generator_method_lowering_rejection(
             .collect::<Vec<_>>();
         assert!(messages
             .iter()
-            .any(|message| { message.contains("class generator method lowering is unavailable") }));
+            .any(|message| { message.contains(expected_message) }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
-        assert!(
-            stderr.contains("class generator method lowering is unavailable"),
-            "stderr: {stderr}"
-        );
+        assert!(stderr.contains(expected_message), "stderr: {stderr}");
     }
 }
 
@@ -46843,6 +46846,12 @@ fn assert_class_generator_method_lowering_rejection_in_browser_context(
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
+    let expected_message = if source_contents.contains("async *") {
+        "async-generator class method lowering is unavailable"
+    } else {
+        "generator class method lowering is unavailable"
+    };
+
     if json_output {
         let json = parse_json_stdout(&output);
         assert_eq!(json["command"], command);
@@ -46855,14 +46864,11 @@ fn assert_class_generator_method_lowering_rejection_in_browser_context(
             .collect::<Vec<_>>();
         assert!(messages
             .iter()
-            .any(|message| { message.contains("class generator method lowering is unavailable") }));
+            .any(|message| { message.contains(expected_message) }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
-        assert!(
-            stderr.contains("class generator method lowering is unavailable"),
-            "stderr: {stderr}"
-        );
+        assert!(stderr.contains(expected_message), "stderr: {stderr}");
     }
 }
 
@@ -46890,6 +46896,12 @@ fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_conf
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
+    let expected_message = if source_contents.contains("async *") {
+        "async-generator class method lowering is unavailable"
+    } else {
+        "generator class method lowering is unavailable"
+    };
+
     if json_output {
         let json = parse_json_stdout(&output);
         assert_eq!(json["command"], command);
@@ -46902,14 +46914,11 @@ fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_conf
             .collect::<Vec<_>>();
         assert!(messages
             .iter()
-            .any(|message| { message.contains("class generator method lowering is unavailable") }));
+            .any(|message| { message.contains(expected_message) }));
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
-        assert!(
-            stderr.contains("class generator method lowering is unavailable"),
-            "stderr: {stderr}"
-        );
+        assert!(stderr.contains(expected_message), "stderr: {stderr}");
     }
 }
 
@@ -47217,7 +47226,7 @@ fn run_and_test_reject_generator_class_expressions_in_js_ts_jsx_and_tsx_input() 
                     json_output,
                     extension,
                     "const Example = class NamedExample { *main() { yield 1; } };\nnew Example();\n",
-                    "class generator method lowering is unavailable in the direct runtime path",
+                    "generator class method lowering is unavailable in the direct runtime path",
                 );
             }
         }
@@ -47250,7 +47259,7 @@ fn run_and_test_reject_async_generator_default_export_class_expressions_in_js_ts
                     json_output,
                     extension,
                     "export default (class NamedExample { async *main() { yield 1; } });\n",
-                    "class generator method lowering is unavailable in the direct runtime path",
+                    "async-generator class method lowering is unavailable in the direct runtime path",
                 );
             }
         }

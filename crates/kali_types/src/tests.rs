@@ -7652,7 +7652,46 @@ fn test_resolution_rejects_class_method_generator_lowering() {
     );
     assert!(result.diagnostics[0]
         .message
-        .contains("class generator method lowering is unavailable"));
+        .contains("generator class method lowering is unavailable"));
+}
+
+#[test]
+fn test_resolution_rejects_async_class_method_generator_lowering() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        name: "Example".to_string(),
+        body: Box::new(ClassBody {
+            methods: vec![MethodDefinition {
+                name: "main".to_string(),
+                params: vec![],
+                body: Some(Box::new(BlockStatement {
+                    body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
+                        argument: Some(Expression::Literal(LiteralValue::Number(1.0))),
+                    })],
+                })),
+                is_async: true,
+                generator: true,
+            }],
+        }),
+    })];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(result.diagnostics[0]
+        .message
+        .contains("async-generator class method lowering is unavailable"));
 }
 
 #[test]

@@ -146,6 +146,14 @@ fn generator_function_lowering_message(is_async: bool) -> &'static str {
     }
 }
 
+fn class_generator_method_lowering_message(is_async: bool) -> &'static str {
+    if is_async {
+        "async-generator class method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path"
+    } else {
+        "generator class method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path"
+    }
+}
+
 /// Type / name-resolution context.
 pub struct TypeContext {
     pub global_scope: Scope,
@@ -3523,7 +3531,7 @@ impl TypeContext {
             if method.generator {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "class generator method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path",
+                    class_generator_method_lowering_message(method.is_async),
                 ));
                 continue;
             }
