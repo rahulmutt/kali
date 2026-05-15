@@ -68,6 +68,18 @@ main();
 "#
 }
 
+fn set_constructor_call_expression_source() -> &'static str {
+    r#"function main() {
+  let values = [1, 2];
+  values = values;
+  for (const value of new Set(values.filter(Boolean))) {
+    console.log(value);
+  }
+}
+main();
+"#
+}
+
 fn assert_browser_iterator_source_rejects(
     source: &str,
     filename: &str,
@@ -580,6 +592,50 @@ fn build_rejects_non_literal_object_entries_iterator_source_under_inherited_brow
             );
         }
     }
+}
+
+#[test]
+fn build_rejects_set_constructor_iteration_from_call_expression_source_in_js_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.js",
+        false,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn json_build_rejects_set_constructor_iteration_from_call_expression_source_in_js_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.js",
+        true,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn check_rejects_set_constructor_iteration_from_call_expression_source_in_js_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.js",
+        false,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_js_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.js",
+        true,
+        "check",
+        false,
+    );
 }
 
 #[test]
