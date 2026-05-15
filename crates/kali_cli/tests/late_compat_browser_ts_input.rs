@@ -28,7 +28,7 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> &'static str {
-    "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; process.kill(0); process.kill(+0); process.kill((0)); globalThis.process.kill(0); globalThis[\"process\"].kill(0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); ((process.kill))(0); ((process[\"kill\"]))(0); ((globalThis.process.kill))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0);"
+    "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); process.kill(0); process.kill(+0); process.kill((0)); globalThis.process.kill(0); globalThis[\"process\"].kill(0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); ((process.kill))(0); ((process[\"kill\"]))(0); ((globalThis.process.kill))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0);"
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {
@@ -87,6 +87,9 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
 fn browser_late_process_control_source_includes_zero_probe_invocation_forms() {
     let source = late_process_control_source();
     for expected in [
+        r#"const zero = 0"#,
+        r#"const zeroAlias = zero"#,
+        r#"process.kill(zeroAlias)"#,
         "process.kill(0)",
         "process.kill(+0)",
         "process.kill((0))",
