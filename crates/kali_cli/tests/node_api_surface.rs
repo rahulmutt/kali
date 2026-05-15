@@ -3066,12 +3066,12 @@ fn node_api_surface_supports_process_kill_zero_probe_object_freeze_wrappers_in_j
             let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
                 &run_file,
-                "console.log(Object.freeze(process.kill)(0)); console.log(Object.freeze(globalThis.process.kill)(0)); console.log(Object.freeze(globalThis.process[\"kill\"])(0)); console.log(Object.freeze(globalThis[\"process\"][\"kill\"])(0));\n",
+                r#"console.log(Object.freeze(process.kill)(0)); console.log(Object.freeze(globalThis.process.kill)(0)); console.log(Object.freeze(globalThis.process["kill"])(0)); console.log(Object.freeze(globalThis["process"]["kill"])(0)); console.log(Object.freeze(globalThis.process["kill"])(0)); console.log(Object.freeze(globalThis["process"].kill)(0)); console.log(((globalThis["process"]["kill"]))(0)); console.log(((globalThis.process["kill"]))(0));"#,
             )
             .expect("write run file");
             fs::write(
                 &test_file,
-                "Kali.test('process kill freeze', () => { if (!Object.freeze(process.kill)(0) || !Object.freeze(globalThis.process.kill)(0) || !Object.freeze(globalThis.process[\"kill\"])(0) || !Object.freeze(globalThis[\"process\"][\"kill\"])(0)) { throw new Error('expected zero probe'); } });\n",
+                r#"Kali.test('process kill freeze', () => { if (!Object.freeze(process.kill)(0) || !Object.freeze(globalThis.process.kill)(0) || !Object.freeze(globalThis.process["kill"])(0) || !Object.freeze(globalThis["process"]["kill"])(0) || !Object.freeze(globalThis.process["kill"])(0) || !Object.freeze(globalThis["process"].kill)(0) || !((globalThis["process"]["kill"]))(0) || !((globalThis.process["kill"]))(0)) { throw new Error('expected zero probe'); } });"#,
             )
             .expect("write test file");
 

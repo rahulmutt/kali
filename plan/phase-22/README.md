@@ -39,6 +39,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Keep host visibility aligned with effective `apiSurface`, command family, runtime profile, and maturity gate.
 - Preserve explicit gates for unavailable host members and unsupported alias spellings.
 - Browser late-compat process-control coverage now also rejects the alias-target zero-probe spelling `globalThis["process"]["kill"](+0)` across JS, TS, JSX, and TSX input so the negative matrix stays aligned with the documented Node zero-probe aliases.
+- The Node API-surface positive regression now also covers the `Object.freeze(...)`-wrapped zero-probe aliases on the explicit and inherited Node surfaces.
 
 ### 22.4 Late object/runtime APIs
 
