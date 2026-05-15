@@ -16,9 +16,20 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   }
 
   const values = [[1, 2], [1, 3], [4, 5]];
+  const mapAlias = Map;
+  const wrappedMapAlias = (mapAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const entry of new Map(values)) {
     direct.push(JSON.stringify(entry));
+  }
+  const alias = [];
+  for (const entry of new mapAlias(aliasValues)) {
+    alias.push(JSON.stringify(entry));
+  }
+  const wrappedAlias = [];
+  for (const entry of new (wrappedMapAlias)(aliasValues)) {
+    wrappedAlias.push(JSON.stringify(entry));
   }
   const globalDirect = [];
   for (const entry of new globalThis.Map(values)) {
@@ -34,6 +45,8 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   }
 
   assertMapIteration(direct);
+  assertMapIteration(alias);
+  assertMapIteration(wrappedAlias);
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
@@ -53,9 +66,20 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   }
 
   const values = [[1, 2], [1, 3], [4, 5]];
+  const mapAlias = Map;
+  const wrappedMapAlias = (mapAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const entry of new Map(values)) {
     direct.push(JSON.stringify(entry));
+  }
+  const alias = [];
+  for (const entry of new mapAlias(aliasValues)) {
+    alias.push(JSON.stringify(entry));
+  }
+  const wrappedAlias = [];
+  for (const entry of new (wrappedMapAlias)(aliasValues)) {
+    wrappedAlias.push(JSON.stringify(entry));
   }
   const globalDirect = [];
   for (const entry of new globalThis.Map(values)) {
@@ -71,6 +95,8 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   }
 
   assertMapIteration(direct);
+  assertMapIteration(alias);
+  assertMapIteration(wrappedAlias);
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);

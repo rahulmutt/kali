@@ -176,6 +176,11 @@ impl TypeContext {
         let mut next_binding_id = 0u32;
         for builtin in builtin_globals() {
             bind_builtin(&mut global_scope, &mut next_binding_id, builtin);
+            if matches!(*builtin, "Set" | "Map") {
+                global_scope
+                    .static_reference_values
+                    .insert((*builtin).to_string(), (*builtin).to_string());
+            }
         }
 
         Self {
@@ -696,14 +701,14 @@ impl TypeContext {
 
     fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
-            Expression::CallExpression(call) => (&call.callee, &call.args),
+            Expression::CallExpression(call) if expression.args.is_empty() => {
+                (&call.callee, &call.args)
+            }
+            Expression::CallExpression(call) => (&call.callee, &expression.args),
             other => (other, &expression.args),
         };
 
-        let callee_name = match callee_expression {
-            Expression::Identifier(name) => Some(name.clone()),
-            other => self.resolve_static_callable_name(other),
-        };
+        let callee_name = self.resolve_static_callable_name(callee_expression);
         let Some(callee_name) = callee_name else {
             return false;
         };
@@ -717,18 +722,17 @@ impl TypeContext {
 
     fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
-            Expression::CallExpression(call) => (&call.callee, &call.args),
+            Expression::CallExpression(call) if expression.args.is_empty() => {
+                (&call.callee, &call.args)
+            }
+            Expression::CallExpression(call) => (&call.callee, &expression.args),
             other => (other, &expression.args),
         };
 
-        let callee_name = match callee_expression {
-            Expression::Identifier(name) => Some(name.clone()),
-            other => self.resolve_static_callable_name(other),
-        };
+        let callee_name = self.resolve_static_callable_name(callee_expression);
         let Some(callee_name) = callee_name else {
             return false;
         };
-
         matches!(
             callee_name.as_str(),
             "Map" | "globalThis.Map" | r#"globalThis["Map"]"# | r#"globalThis['Map']"#
@@ -1540,7 +1544,8 @@ impl TypeContext {
                 .or_else(|| {
                     self.resolve_static_array_binding_name(name)
                         .then(|| name.clone())
-                }),
+                })
+                .or_else(|| matches!(name.as_str(), "Set" | "Map").then(|| name.clone())),
             _ => None,
         }
     }

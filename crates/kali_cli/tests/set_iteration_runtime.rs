@@ -30,22 +30,32 @@ fn assert_set_iteration(command: &str, filename: &str, source: &str, expected: &
 }
 
 fn set_iteration_run_source() -> &'static str {
-    "const values = [1, 2, 1]; for (const value of new Set(values)) { console.log(value); } for await (const value of new Set(values)) { console.log(value); }\n"
+    "const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); }\n"
 }
 
 fn set_iteration_test_source() -> &'static str {
-    r#"Kali.test('set constructor iteration', () => { const values = [1, 2, 1]; for (const value of new Set(values)) { console.log(value); } for await (const value of new Set(values)) { console.log(value); } });
+    r#"Kali.test('set constructor iteration', () => { const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); } });
 "#
 }
 
 #[test]
 fn run_supports_set_constructor_iteration_in_js_input() {
-    assert_set_iteration("run", "main.js", set_iteration_run_source(), "1\n2\n1\n2\n");
+    assert_set_iteration(
+        "run",
+        "main.js",
+        set_iteration_run_source(),
+        "1\n2\n1\n2\n1\n2\n",
+    );
 }
 
 #[test]
 fn run_supports_set_constructor_iteration_in_ts_input() {
-    assert_set_iteration("run", "main.ts", set_iteration_run_source(), "1\n2\n1\n2\n");
+    assert_set_iteration(
+        "run",
+        "main.ts",
+        set_iteration_run_source(),
+        "1\n2\n1\n2\n1\n2\n",
+    );
 }
 
 #[test]
@@ -61,7 +71,12 @@ fn test_supports_set_constructor_iteration_in_ts_input() {
 #[test]
 fn run_supports_set_constructor_iteration_in_jsx_and_tsx_input() {
     for filename in ["main.jsx", "main.tsx"] {
-        assert_set_iteration("run", filename, set_iteration_run_source(), "1\n2\n1\n2\n");
+        assert_set_iteration(
+            "run",
+            filename,
+            set_iteration_run_source(),
+            "1\n2\n1\n2\n1\n2\n",
+        );
     }
 }
 

@@ -17,9 +17,20 @@ export async function browserSetIteration() {
   }
 
   const values = [1, 2, 1];
+  const setAlias = Set;
+  const wrappedSetAlias = (setAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const value of new Set(values)) {
     direct.push(value);
+  }
+  const alias = [];
+  for (const value of new setAlias(aliasValues)) {
+    alias.push(value);
+  }
+  const wrappedAlias = [];
+  for (const value of new (wrappedSetAlias)(aliasValues)) {
+    wrappedAlias.push(value);
   }
   const globalDirect = [];
   for (const value of new globalThis.Set(values)) {
@@ -35,6 +46,8 @@ export async function browserSetIteration() {
   }
 
   assertSetIteration(direct);
+  assertSetIteration(alias);
+  assertSetIteration(wrappedAlias);
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
@@ -53,9 +66,20 @@ export async function browserMapIteration() {
   }
 
   const values = [[1, 2], [1, 3], [4, 5]];
+  const mapAlias = Map;
+  const wrappedMapAlias = (mapAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const entry of new Map(values)) {
     direct.push(JSON.stringify(entry));
+  }
+  const alias = [];
+  for (const entry of new mapAlias(aliasValues)) {
+    alias.push(JSON.stringify(entry));
+  }
+  const wrappedAlias = [];
+  for (const entry of new (wrappedMapAlias)(aliasValues)) {
+    wrappedAlias.push(JSON.stringify(entry));
   }
   const globalDirect = [];
   for (const entry of new globalThis.Map(values)) {
@@ -71,6 +95,8 @@ export async function browserMapIteration() {
   }
 
   assertMapIteration(direct);
+  assertMapIteration(alias);
+  assertMapIteration(wrappedAlias);
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);

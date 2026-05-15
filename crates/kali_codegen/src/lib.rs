@@ -577,6 +577,13 @@ impl<'a> FunctionEmitter<'a> {
                                 shape: ValueShape::Boolean,
                             };
                         }
+                        "Set" | "Map" => {
+                            function.instruction(&Instruction::I64Const(0));
+                            return EmittedValue {
+                                produced: true,
+                                shape: ValueShape::Unknown,
+                            };
+                        }
                         _ => {}
                     }
 
@@ -5114,6 +5121,8 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return false;
         };
+        let callee = self.resolve_bound_node(callee);
+        let callee = self.unwrap_transparent_value_node(callee);
         matches!(
             self.node(callee).text.as_deref(),
             Some("Set")
@@ -5234,6 +5243,8 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return false;
         };
+        let callee = self.resolve_bound_node(callee);
+        let callee = self.unwrap_transparent_value_node(callee);
         matches!(
             self.node(callee).text.as_deref(),
             Some("Map")

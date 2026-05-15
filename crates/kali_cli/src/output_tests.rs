@@ -3577,10 +3577,7 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_label() {
 
         let err = validate_doctor_payload_value(&value)
             .expect_err("empty or whitespace hostLabel should fail");
-        assert!(
-            err.contains("hostLabel"),
-            "unexpected error: {err}"
-        );
+        assert!(err.contains("hostLabel"), "unexpected error: {err}");
     }
 }
 

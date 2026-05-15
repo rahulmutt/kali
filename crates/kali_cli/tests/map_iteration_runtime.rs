@@ -30,11 +30,11 @@ fn assert_map_iteration(command: &str, filename: &str, source: &str, expected: &
 }
 
 fn map_iteration_run_source() -> &'static str {
-    "const values = [[1, 2], [1, 3], [4, 5]]; for (const entry of new Map(values)) { console.log('map constructor iteration ok'); } for await (const entry of new Map(values)) { console.log('map constructor iteration ok'); }\n"
+    "const values = [[1, 2], [1, 3], [4, 5]]; const mapAlias = Map; const wrappedMapAlias = (mapAlias); for (const entry of new Map(values)) { console.log('map constructor iteration ok'); } for (const entry of new mapAlias(values)) { console.log('map constructor iteration ok'); } for await (const entry of new (wrappedMapAlias)(values)) { console.log('map constructor iteration ok'); }\n"
 }
 
 fn map_iteration_test_source() -> &'static str {
-    r#"Kali.test('map constructor iteration', () => { const values = [[1, 2], [1, 3], [4, 5]]; for (const entry of new Map(values)) { console.log('map constructor iteration ok'); } for await (const entry of new Map(values)) { console.log('map constructor iteration ok'); } });
+    r#"Kali.test('map constructor iteration', () => { const values = [[1, 2], [1, 3], [4, 5]]; const mapAlias = Map; const wrappedMapAlias = (mapAlias); for (const entry of new Map(values)) { console.log('map constructor iteration ok'); } for (const entry of new mapAlias(values)) { console.log('map constructor iteration ok'); } for await (const entry of new (wrappedMapAlias)(values)) { console.log('map constructor iteration ok'); } });
 "#
 }
 
@@ -44,7 +44,7 @@ fn run_supports_map_constructor_iteration_in_js_input() {
         "run",
         "main.js",
         map_iteration_run_source(),
-        "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
+        "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
     );
 }
 
@@ -54,7 +54,7 @@ fn run_supports_map_constructor_iteration_in_ts_input() {
         "run",
         "main.ts",
         map_iteration_run_source(),
-        "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
+        "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
     );
 }
 
@@ -75,7 +75,7 @@ fn run_supports_map_constructor_iteration_in_jsx_and_tsx_input() {
             "run",
             filename,
             map_iteration_run_source(),
-            "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
+            "map constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\nmap constructor iteration ok\n",
         );
     }
 }

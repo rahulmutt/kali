@@ -16,9 +16,20 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   }
 
   const values = [1, 2, 1];
+  const setAlias = Set;
+  const wrappedSetAlias = (setAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const value of new Set(values)) {
     direct.push(value);
+  }
+  const alias = [];
+  for (const value of new setAlias(aliasValues)) {
+    alias.push(value);
+  }
+  const wrappedAlias = [];
+  for (const value of new (wrappedSetAlias)(aliasValues)) {
+    wrappedAlias.push(value);
   }
   const globalDirect = [];
   for (const value of new globalThis.Set(values)) {
@@ -34,6 +45,8 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   }
 
   assertSetIteration(direct);
+  assertSetIteration(alias);
+  assertSetIteration(wrappedAlias);
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
@@ -53,9 +66,20 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   }
 
   const values = [1, 2, 1];
+  const setAlias = Set;
+  const wrappedSetAlias = (setAlias);
+  const aliasValues = (values);
   const direct = [];
   for (const value of new Set(values)) {
     direct.push(value);
+  }
+  const alias = [];
+  for (const value of new setAlias(aliasValues)) {
+    alias.push(value);
+  }
+  const wrappedAlias = [];
+  for (const value of new (wrappedSetAlias)(aliasValues)) {
+    wrappedAlias.push(value);
   }
   const globalDirect = [];
   for (const value of new globalThis.Set(values)) {
@@ -71,6 +95,8 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   }
 
   assertSetIteration(direct);
+  assertSetIteration(alias);
+  assertSetIteration(wrappedAlias);
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
