@@ -8083,6 +8083,27 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
 }
 
 #[test]
+fn test_resolution_supports_process_kill_zero_probe_object_freeze_wrappers_on_node_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let source = r#"Object.freeze(process.kill)(0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0);"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "node");
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");

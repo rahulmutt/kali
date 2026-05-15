@@ -4235,6 +4235,11 @@ impl<'a> FunctionEmitter<'a> {
         let node = self.node(bound);
         if node.text.is_some() && !node.children.is_empty() {
             Some(bound)
+        } else if self.is_object_freeze_call(node) {
+            node.children
+                .get(1)
+                .copied()
+                .and_then(|child| self.resolve_bound_member_callable_node(child))
         } else if node.kind == LirNodeKind::Value && node.children.len() == 1 {
             self.resolve_bound_member_callable_node(node.children[0])
         } else {

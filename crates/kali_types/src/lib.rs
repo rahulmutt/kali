@@ -1540,6 +1540,10 @@ impl TypeContext {
                 .last()
                 .and_then(|expression| self.resolve_static_reference_root(expression)),
             Expression::MemberExpression(member) => Self::member_access_name(member),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .and_then(|expression| self.resolve_static_reference_root(expression)),
             Expression::Identifier(name) => self
                 .resolve_static_reference_binding_name(name)
                 .or_else(|| {

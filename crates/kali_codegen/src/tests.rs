@@ -4126,7 +4126,13 @@ fn process_kill_zero_probe_lowers_to_boolean_true_without_process_exit_import() 
 
 #[test]
 fn process_kill_zero_probe_lowers_through_transparent_wrappers_without_process_exit_import() {
-    for source in ["process.kill((0));", "process.kill(+0);"] {
+    for source in [
+        "process.kill((0));",
+        "process.kill(+0);",
+        "Object.freeze(process.kill)(0);",
+        "Object.freeze(globalThis.process.kill)(0);",
+        "Object.freeze(globalThis[\"process\"][\"kill\"])(0);",
+    ] {
         let program = parse_and_lower_lir(source);
         let mut ctx = CodegenCtx::new(TargetConfig {
             max_specializations: 16,
