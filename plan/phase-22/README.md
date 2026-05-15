@@ -24,6 +24,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution.
 - `kali run` / `kali test` JSON payloads now surface the deterministic `threadTopology` snapshot alongside the existing provenance labels.
 - Browser-harness max-thread smoke now also asserts the empty `threadTopology` snapshot in JSON output so the browser-requested threaded path stays aligned with the standalone contract.
+- Browser-requested browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS, TS, JSX, and TSX input alongside positive `--max-threads` requests.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract
