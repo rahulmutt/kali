@@ -3038,6 +3038,107 @@ fn node_api_surface_supports_process_kill_zero_probe_satisfies_wrappers_in_ts_an
 }
 
 #[test]
+fn node_api_surface_supports_process_kill_zero_probe_type_assertion_wrappers_in_ts_and_tsx_input_on_check_build_run_and_test_commands(
+) {
+    for extension in ["ts", "tsx"] {
+        for inherited in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let run_file = dir.path().join(format!("main.{extension}"));
+            let test_file = dir.path().join(format!("main.test.{extension}"));
+            fs::write(
+                &run_file,
+                "console.log(process.kill((0 as number))); console.log(globalThis.process.kill((0 as number))); console.log(globalThis.process[\"kill\"]((0 as number))); console.log(globalThis[\"process\"][\"kill\"]((0 as number))); console.log(process[\"kill\"]((0 as number)));\n",
+            )
+            .expect("write run file");
+            fs::write(
+                &test_file,
+                "Kali.test('process kill type assertion', () => { if (!process.kill((0 as number)) || !globalThis.process.kill((0 as number)) || !globalThis.process[\"kill\"]((0 as number)) || !globalThis[\"process\"][\"kill\"]((0 as number)) || !process[\"kill\"]((0 as number))) { throw new Error('expected zero probe'); } });\n",
+            )
+            .expect("write test file");
+
+            if inherited {
+                fs::write(
+                    dir.path().join("kali.json"),
+                    r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+                )
+                .expect("write manifest");
+            }
+
+            for command in ["check", "build"] {
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(&run_file);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    text_output.status.success(),
+                    "{command} stderr for process.kill((0 as number)) (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+            }
+
+            for command in ["run", "test"] {
+                let input_path = if command == "run" {
+                    &run_file
+                } else {
+                    &test_file
+                };
+
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(input_path);
+
+                let text_output = text_command.output().expect("run kali");
+                assert_eq!(
+                    text_output.status.code(),
+                    Some(0),
+                    "{command} stderr for process.kill((0 as number)) (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_file
+                } else {
+                    &run_file
+                };
+
+                let mut json_command = Command::new(kali_bin());
+                json_command
+                    .current_dir(dir.path())
+                    .arg("--output")
+                    .arg("json")
+                    .arg(command);
+                if !inherited {
+                    json_command.arg("--api").arg("node");
+                }
+                json_command.arg(input_path);
+
+                let json_output = json_command.output().expect("run kali");
+                assert!(
+                    json_output.status.success(),
+                    "json {command} should be supported on the Node surface for process.kill((0 as number)) (extension={extension}, inherited={inherited})\nstdout: {}\nstderr: {}",
+                    String::from_utf8_lossy(&json_output.stdout),
+                    String::from_utf8_lossy(&json_output.stderr)
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn node_api_surface_rejects_late_object_model_members_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let cases = [
