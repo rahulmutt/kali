@@ -8256,6 +8256,33 @@ fn test_resolution_accepts_new_map_iteration_target_via_builtin_alias_in_js_inpu
 }
 
 #[test]
+fn test_resolution_accepts_global_this_set_and_map_iteration_targets_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"for (const value of new globalThis.Set([1, 2, 1])) {
+    console.log(value);
+}
+for await (const entry of new globalThis["Map"]([[1, 2], [1, 3], [4, 5]])) {
+    console.log(entry[0], entry[1]);
+}
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
