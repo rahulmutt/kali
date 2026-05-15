@@ -142,6 +142,18 @@ fn write_pi_coding_agent_style_package(root: &Path) {
     .expect("write package argv bin");
 }
 
+fn write_native_addon_package(root: &Path) {
+    fs::write(
+        root.join("package.json"),
+        r#"{
+  "name": "native-addon",
+  "main": "native.node"
+}"#,
+    )
+    .expect("write native addon package.json");
+    fs::write(root.join("native.node"), "placeholder").expect("write native addon entry");
+}
+
 fn write_web_baseline_interop_source(path: &Path, package: &str) {
     fs::write(
         path,
@@ -11657,6 +11669,69 @@ Kali.test('node-assuming corpus', () => {
     assert!(test_stderr.contains("E6005"), "stderr: {test_stderr}");
     assert!(
         test_stderr.contains("Node-only host API"),
+        "stderr: {test_stderr}"
+    );
+}
+
+#[test]
+fn native_addon_corpus_packages_are_rejected_on_the_default_standalone_surface() {
+    let dir = tempdir().expect("tempdir");
+    write_manifest(dir.path(), None);
+    let package_dir = dir.path().join("node_modules/native-addon");
+    fs::create_dir_all(&package_dir).expect("create native addon package dir");
+    write_native_addon_package(&package_dir);
+    write_types_stub_package(dir.path(), "native-addon");
+
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"import addon from 'native-addon';
+console.log(addon);
+"#,
+    )
+    .expect("write native addon package source");
+
+    for command in ["check", "build", "run"] {
+        let output = run_kali(dir.path(), [command, source_path.to_str().unwrap()]);
+        assert!(
+            !output.status.success(),
+            "native addon package should be rejected on the default standalone surface for {command}\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E6005"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("native addon entrypoint")
+                && stderr.contains("falls outside the pure JS/TS package contract"),
+            "stderr: {stderr}"
+        );
+    }
+
+    let test_source = dir.path().join("tests").join("native-addon.test.js");
+    fs::create_dir_all(test_source.parent().expect("test dir")).expect("create test dir");
+    fs::write(
+        &test_source,
+        r#"import addon from 'native-addon';
+Kali.test('native addon corpus', () => {
+  console.log(addon);
+});
+"#,
+    )
+    .expect("write native addon package test source");
+
+    let test = run_kali(dir.path(), ["test", test_source.to_str().unwrap()]);
+    assert!(
+        !test.status.success(),
+        "native addon package should be rejected on the default standalone surface for test\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stderr = String::from_utf8_lossy(&test.stderr);
+    assert!(test_stderr.contains("E6005"), "stderr: {test_stderr}");
+    assert!(
+        test_stderr.contains("native addon entrypoint")
+            && test_stderr.contains("falls outside the pure JS/TS package contract"),
         "stderr: {test_stderr}"
     );
 }
