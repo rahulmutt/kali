@@ -9008,6 +9008,38 @@ fn collect_library_exports_resolves_named_re_exports_across_source_graph() {
 }
 
 #[test]
+fn collect_library_exports_resolves_named_re_exports_across_multi_hop_source_graph() {
+    let dir = tempdir().expect("tempdir");
+    let helper_path = dir.path().join("helper.ts");
+    let bridge_path = dir.path().join("bridge.ts");
+    let entry_path = dir.path().join("entry.ts");
+
+    fs::write(
+        &helper_path,
+        "export function quadruple(value) { return 1; }\n",
+    )
+    .expect("write helper source");
+    fs::write(
+        &bridge_path,
+        "export { quadruple as bridged } from './helper.ts';\n",
+    )
+    .expect("write bridge source");
+    fs::write(
+        &entry_path,
+        "export { bridged as final } from './bridge.ts';\n",
+    )
+    .expect("write entry source");
+
+    let exports = collect_library_exports(&entry_path, ApiSurface::Deno, &[])
+        .expect("library exports should resolve through multi-hop re-exports");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "final" && export.signature == "(value) => number" }));
+}
+
+#[test]
 fn collect_library_exports_resolves_export_all_re_exports_across_source_graph() {
     let dir = tempdir().expect("tempdir");
     let helper_path = dir.path().join("helper.ts");
