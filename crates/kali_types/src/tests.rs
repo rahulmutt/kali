@@ -7959,7 +7959,7 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "process.kill((0 satisfies number)); globalThis.process.kill((0 satisfies number)); globalThis[\"process\"][\"kill\"]((0 satisfies number));",
+        "process.kill((0 satisfies number)); globalThis.process.kill((0 satisfies number)); globalThis[\"process\"][\"kill\"]((0 satisfies number)); globalThis[\"process\"].kill((0 satisfies number)); globalThis.process[\"kill\"]((0 satisfies number));",
     )
     .unwrap();
 
