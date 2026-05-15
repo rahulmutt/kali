@@ -27,7 +27,11 @@ fn assert_empty_thread_topology(value: &Value) {
     assert_eq!(value["liveInstances"], serde_json::json!([]));
 }
 
-fn assert_browser_wasm_threads_acceptance_for_command(command: &str, source_name: &str) {
+fn assert_browser_wasm_threads_acceptance_for_command(
+    command: &str,
+    source_name: &str,
+    max_threads: &str,
+) {
     for json_output in [false, true] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(source_name);
@@ -51,7 +55,7 @@ fn assert_browser_wasm_threads_acceptance_for_command(command: &str, source_name
         let output = cli
             .arg(command)
             .arg("--max-threads")
-            .arg("1")
+            .arg(max_threads)
             .arg("--max-spawned-processes")
             .arg("0")
             .arg(&source_path)
@@ -101,27 +105,37 @@ fn assert_browser_wasm_threads_acceptance_for_command(command: &str, source_name
 #[test]
 fn run_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured(
 ) {
-    assert_browser_wasm_threads_acceptance_for_command("run", "main.js");
+    assert_browser_wasm_threads_acceptance_for_command("run", "main.js", "1");
 }
 
 #[test]
 fn run_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured(
 ) {
     for source_name in ["main.ts", "main.jsx", "main.tsx"] {
-        assert_browser_wasm_threads_acceptance_for_command("run", source_name);
+        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "1");
     }
 }
 
 #[test]
 fn test_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured(
 ) {
-    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js");
+    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js", "1");
 }
 
 #[test]
 fn test_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured(
 ) {
     for source_name in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
-        assert_browser_wasm_threads_acceptance_for_command("test", source_name);
+        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "1");
     }
+}
+
+#[test]
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_wasm_threads_acceptance_for_command("run", "main.js", "0");
+}
+
+#[test]
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js", "0");
 }
