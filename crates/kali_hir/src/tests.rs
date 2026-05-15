@@ -349,6 +349,32 @@ fn test_numeric_object_property_names_lower_from_parsed_source_as_string_literal
 }
 
 #[test]
+fn test_numeric_object_property_names_lower_negative_zero_as_string_literal_zero() {
+    let statements = parse("const obj = { [-0]: value };\n");
+    let kali_ast::Statement::VariableDeclaration(vd) = &statements[0] else {
+        panic!("Expected VariableDeclaration, got {:?}", statements[0]);
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_expression(init);
+
+    let root = &lowerer.builder.nodes[result.0 as usize];
+    assert_eq!(root.kind, HirNodeKind::ObjectExpr);
+    assert_eq!(root.children.len(), 1);
+
+    let property = &lowerer.builder.nodes[root.children[0].0 as usize];
+    assert_eq!(property.kind, HirNodeKind::ObjectProperty);
+
+    let key = &lowerer.builder.nodes[property.children[0].0 as usize];
+    assert_eq!(key.kind, HirNodeKind::Literal);
+    assert_eq!(key.text.as_deref(), Some("\"0\""));
+
+    let value = &lowerer.builder.nodes[property.children[1].0 as usize];
+    assert_eq!(value.kind, HirNodeKind::Ident);
+    assert_eq!(value.text.as_deref(), Some("value"));
+}
+
+#[test]
 fn test_update_expression_lowers_prefix_and_postfix_forms() {
     let mut lowerer = HirLowerer::new();
 

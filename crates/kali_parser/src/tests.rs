@@ -664,6 +664,37 @@ fn test_parse_object_literal_expression_accepts_transparent_wrapper_computed_pro
 }
 
 #[test]
+fn test_parse_object_literal_expression_accepts_unary_numeric_computed_property_names() {
+    let tokens = lex("const obj = { [-1]: 1, [+2]: 2, [(-0)]: 3 };\n");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Some(Expression::ObjectExpression(obj)) = decl.declarations[0].init.as_ref() else {
+        panic!(
+            "Expected ObjectExpression, got {:?}",
+            decl.declarations[0].init
+        );
+    };
+    assert_eq!(obj.properties.len(), 3);
+    assert_eq!(obj.properties[0].key, PropertyName::Number(-1.0));
+    assert_eq!(obj.properties[1].key, PropertyName::Number(2.0));
+    assert_eq!(obj.properties[2].key, PropertyName::Number(-0.0));
+}
+
+#[test]
 fn test_parse_bracketed_member_expression_chain() {
     let tokens = lex(
         r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"]; globalThis["Deno"]["pid"]; globalThis["Deno"]["env"]["get"]("HOME"); globalThis["Deno"]["permissions"]["query"]("read"); globalThis["Intl"]["Locale"]; globalThis["WeakRef"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["PluralRules"]; globalThis["process"]["cwd"]; globalThis["process"]["exit"];"#,

@@ -1502,10 +1502,38 @@ impl Parser {
 
     fn expression_to_property_name(expr: &Expression) -> String {
         match expr {
+            Expression::ParenthesizedExpression(parenthesized) => {
+                Self::expression_to_property_name(&parenthesized.expression)
+            }
+            Expression::SequenceExpression(sequence) => sequence
+                .expressions
+                .last()
+                .map(Self::expression_to_property_name)
+                .unwrap_or_else(|| "index".to_string()),
+            Expression::UnaryExpression(unary)
+                if unary.operator == "+" || unary.operator == "-" =>
+            {
+                let inner = Self::expression_to_property_name(&unary.argument);
+                let Some(value) = inner.parse::<f64>().ok() else {
+                    return "index".to_string();
+                };
+                let value = if unary.operator == "+" { value } else { -value };
+                if value == 0.0 {
+                    "0".to_string()
+                } else if value.fract() == 0.0 {
+                    format!("{value:.0}")
+                } else {
+                    value.to_string()
+                }
+            }
             Expression::Identifier(s) => s.clone(),
             Expression::Literal(LiteralValue::String(s)) => Self::normalize_string_literal(s),
             Expression::Literal(LiteralValue::Number(n)) if n.fract() == 0.0 => {
-                format!("{n:.0}")
+                if *n == 0.0 {
+                    "0".to_string()
+                } else {
+                    format!("{n:.0}")
+                }
             }
             Expression::Literal(LiteralValue::Number(n)) => n.to_string(),
             _ => "index".to_string(),
@@ -1901,6 +1929,26 @@ impl Parser {
                 .last()
                 .cloned()
                 .and_then(|expression| self.computed_object_property_name(expression)),
+            Expression::UnaryExpression(unary)
+                if unary.operator == "+" || unary.operator == "-" =>
+            {
+                let value = self.computed_object_property_name(unary.argument.clone())?;
+                match (unary.operator.as_str(), value) {
+                    ("+", PropertyName::Number(number)) => Some(PropertyName::Number(number)),
+                    ("-", PropertyName::Number(number)) => {
+                        Some(PropertyName::Number(if number == 0.0 {
+                            if number.is_sign_negative() {
+                                0.0
+                            } else {
+                                -0.0
+                            }
+                        } else {
+                            -number
+                        }))
+                    }
+                    _ => None,
+                }
+            }
             Expression::Literal(LiteralValue::String(value)) => {
                 Some(PropertyName::String(unquote_string_literal(&value)))
             }

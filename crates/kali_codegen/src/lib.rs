@@ -813,10 +813,12 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
-            op if op.parse::<usize>().is_ok() => {
+            op if op.parse::<usize>().is_ok() || op.parse::<isize>().is_ok() => {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
-                    if self.is_array_literal(&aggregate) {
+                    if self.is_array_literal(&aggregate)
+                        && op.parse::<isize>().ok().is_some_and(|index| index >= 0)
+                    {
                         if let Ok(index) = op.parse::<usize>() {
                             if let Some(element) = aggregate.children.get(index).copied() {
                                 return self.emit_node(function, element, true);
@@ -824,7 +826,18 @@ impl<'a> FunctionEmitter<'a> {
                         }
                     }
 
-                    if let Some(field_value) = self.object_literal_field(&aggregate, op) {
+                    let field = op
+                        .parse::<isize>()
+                        .ok()
+                        .map(|value| {
+                            if value == 0 {
+                                "0".to_string()
+                            } else {
+                                value.to_string()
+                            }
+                        })
+                        .unwrap_or_else(|| op.to_string());
+                    if let Some(field_value) = self.object_literal_field(&aggregate, &field) {
                         return self.emit_node(function, field_value, true);
                     }
                 }
