@@ -11,6 +11,7 @@ fn browser_bundle_number_predicates_js_source() -> &'static str {
     r##"// kali-tree-shake: browserNumberPredicates
 function browserNumberPredicates() {
   const alias = 1;
+  const finite = Number.isFinite;
   if (
     Number.isFinite(alias) !== true ||
     Number.isInteger(alias) !== true ||
@@ -31,7 +32,8 @@ function browserNumberPredicates() {
     Number["isFinite"](alias) !== true ||
     Number["isInteger"](alias) !== true ||
     Number["isSafeInteger"](alias) !== true ||
-    Number["isNaN"](1) !== false
+    Number["isNaN"](1) !== false ||
+    finite(alias) !== true
   ) {
     throw new Error('unexpected browser Number predicate result');
   }
@@ -44,6 +46,7 @@ fn browser_bundle_number_predicates_ts_source() -> &'static str {
     r##"// kali-tree-shake: browserNumberPredicates
 function browserNumberPredicates() {
   const alias = 1 as const;
+  const finite = Number.isFinite;
   if (
     Number.isFinite(alias) !== true ||
     Number.isInteger(alias) !== true ||
@@ -64,7 +67,8 @@ function browserNumberPredicates() {
     Number["isFinite"](alias) !== true ||
     Number["isInteger"](alias) !== true ||
     Number["isSafeInteger"](alias) !== true ||
-    Number["isNaN"](1) !== false
+    Number["isNaN"](1) !== false ||
+    finite(alias) !== true
   ) {
     throw new Error('unexpected browser Number predicate result');
   }
