@@ -2946,12 +2946,12 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
             let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
                 &run_file,
-                "const zero = 0; const zeroAlias = zero; console.log(process.kill(zeroAlias)); console.log(globalThis.process.kill(+zero));\n",
+                "const zero = 0; const zeroAlias = zero; console.log(process.kill(zeroAlias)); console.log(globalThis.process.kill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero));\n",
             )
             .expect("write run file");
             fs::write(
                 &test_file,
-                "const zero = 0; const zeroAlias = zero; Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !globalThis.process.kill(+zero)) { throw new Error('expected zero probe'); } });\n",
+                "const zero = 0; const zeroAlias = zero; Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !globalThis.process.kill(+zero) || !globalThis[\"process\"][\"kill\"](zero)) { throw new Error('expected zero probe'); } });\n",
             )
             .expect("write test file");
 
