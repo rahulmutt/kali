@@ -7922,7 +7922,7 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
 fn test_resolution_supports_bracketed_process_kill_zero_probe_wrappers_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
-    let source = r#"process["kill"]((0)); globalThis["process"]["kill"](+0); ((process["kill"]))(0); ((globalThis["process"]["kill"]))(0); ((globalThis["process"].kill))(0); const killer = process.kill; const bracketedKiller = globalThis["process"]["kill"]; const sequenceKiller = (process.kill, process.kill); killer(0); bracketedKiller(+0); sequenceKiller(0);"#;
+    let source = r#"process["kill"]((0)); globalThis["process"]["kill"](+0); globalThis.process["kill"](0); globalThis["process"].kill(0); ((process["kill"]))(0); ((globalThis["process"]["kill"]))(0); ((globalThis.process["kill"]))(0); ((globalThis["process"].kill))(0); const killer = process.kill; const bracketedKiller = globalThis["process"]["kill"]; const sequenceKiller = (process.kill, process.kill); killer(0); bracketedKiller(+0); sequenceKiller(0);"#;
     fs::write(&source_path, source).unwrap();
 
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
