@@ -7,6 +7,12 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+fn assert_empty_thread_topology(value: &Value) {
+    assert_eq!(value["totalInstances"], 0);
+    assert_eq!(value["terminatedInstances"], 0);
+    assert_eq!(value["liveInstances"], serde_json::json!([]));
+}
+
 fn browser_harness_run_source() -> &'static str {
     "console.log('browser max threads ok');\n"
 }
@@ -57,6 +63,7 @@ fn assert_browser_harness_accepts_max_threads(command: &str, filename: &str, sou
             assert_eq!(json["success"], true);
             assert_eq!(json["payload"]["hostContract"], "browser-requested");
             assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+            assert_empty_thread_topology(&json["payload"]["threadTopology"]);
             if command == "run" {
                 assert_eq!(json["exitCode"], 0);
                 assert_eq!(json["payload"]["exitCode"], 0);
