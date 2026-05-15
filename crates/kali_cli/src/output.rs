@@ -2447,4 +2447,26 @@ mod tests {
         validate_browser_runtime_contract_value(Some(&contract))
             .expect("trimmed canonical labels should still validate");
     }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_canonical_labels() {
+        for (field, expected) in [
+            (
+                "hostLabel",
+                "doctor browserRuntimeContract hostLabel must be `browser-requested`",
+            ),
+            (
+                "hostDescriptionNote",
+                "doctor browserRuntimeContract hostDescriptionNote must be `browser runtime host description: real browser host`",
+            ),
+        ] {
+            let mut contract = browser_runtime_contract_fixture();
+            contract[field] = json!("   ");
+
+            let err = validate_browser_runtime_contract_value(Some(&contract))
+                .expect_err("whitespace-only canonical label should be rejected");
+
+            assert_eq!(err, expected);
+        }
+    }
 }
