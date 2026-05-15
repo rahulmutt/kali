@@ -1552,7 +1552,9 @@ impl TypeContext {
                             self.resolve_static_object_model_target(argument)
                         })
             }
-            Expression::Identifier(name) => self.resolve_static_object_binding_name(name),
+            Expression::Identifier(name) => {
+                name != "globalThis" && self.resolve_static_object_binding_name(name)
+            }
             _ => false,
         }
     }
@@ -1852,18 +1854,55 @@ impl TypeContext {
     }
 
     fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+        self.is_supported_static_callable_member_name(&dotted, &bracketed)
+    }
+
+    fn is_supported_static_callable_member_name(&self, dotted: &str, bracketed: &str) -> bool {
         matches!(
-            Self::member_access_name(expr).as_deref(),
-            Some("Object.is")
-                | Some("globalThis.Object.is")
-                | Some("Number.isFinite")
-                | Some("Number.isNaN")
-                | Some("Number.isInteger")
-                | Some("Number.isSafeInteger")
-                | Some("globalThis.Number.isFinite")
-                | Some("globalThis.Number.isNaN")
-                | Some("globalThis.Number.isInteger")
-                | Some("globalThis.Number.isSafeInteger")
+            dotted,
+            "Object.is"
+                | "globalThis.Object.is"
+                | "Object.hasOwn"
+                | "globalThis.Object.hasOwn"
+                | "Object.prototype.hasOwnProperty.call"
+                | "globalThis.Object.prototype.hasOwnProperty.call"
+                | "Number.isFinite"
+                | "Number.isNaN"
+                | "Number.isInteger"
+                | "Number.isSafeInteger"
+                | "globalThis.Number.isFinite"
+                | "globalThis.Number.isNaN"
+                | "globalThis.Number.isInteger"
+                | "globalThis.Number.isSafeInteger"
+        ) || matches!(
+            bracketed,
+            r#"globalThis["Object"].is"#
+                | r#"globalThis["Object"]["is"]"#
+                | r#"Object["is"]"#
+                | r#"globalThis.Object["is"]"#
+                | r#"globalThis["Object"]["hasOwn"]"#
+                | r#"globalThis.Object["hasOwn"]"#
+                | r#"Object["hasOwn"]"#
+                | r#"globalThis["Object"].hasOwn"#
+                | r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]"#
+                | r#"globalThis["Object"]["prototype"].hasOwnProperty["call"]"#
+                | r#"globalThis["Object"].prototype["hasOwnProperty"]["call"]"#
+                | r#"globalThis["Object"].prototype.hasOwnProperty.call"#
+                | r#"globalThis.Object["prototype"]["hasOwnProperty"]["call"]"#
+                | r#"globalThis.Object.prototype["hasOwnProperty"]["call"]"#
+                | r#"globalThis.Object.prototype.hasOwnProperty.call"#
+                | r#"globalThis.Object["hasOwnProperty"].call"#
+                | r#"Object.prototype.hasOwnProperty.call"#
+                | r#"globalThis["Number"].isFinite"#
+                | r#"globalThis["Number"].isNaN"#
+                | r#"globalThis["Number"].isInteger"#
+                | r#"globalThis["Number"].isSafeInteger"#
+                | r#"globalThis.Number["isFinite"]"#
+                | r#"globalThis.Number["isNaN"]"#
+                | r#"globalThis.Number["isInteger"]"#
+                | r#"globalThis.Number["isSafeInteger"]"#
         )
     }
 
@@ -1999,6 +2038,9 @@ impl TypeContext {
         };
 
         if !self.resolve_static_object_model_target(object_arg) {
+            return false;
+        }
+        if matches!(object_arg, Expression::Identifier(name) if name == "globalThis") {
             return false;
         }
         if self.resolve_static_string_expression(key_arg).is_none() {
@@ -3387,6 +3429,12 @@ impl TypeContext {
     fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
+        if self.api_surface != "node"
+            && self.is_supported_static_callable_member_name(&dotted, &bracketed)
+        {
+            return false;
+        }
 
         if matches!(
             dotted.as_str(),

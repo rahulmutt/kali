@@ -10,15 +10,19 @@ fn kali_bin() -> String {
 fn browser_harness_object_has_own_run_source() -> &'static str {
     r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
+const hasOwn = Object.hasOwn;
+const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
 const wrapped = (0, alias);
 if (
   !Object.hasOwn(wrapped, "a") ||
+  !hasOwn(wrapped, "a") ||
   !Object["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
   !globalThis["Object"]["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
   !globalThis["Object"].hasOwn(wrapped, "a") ||
   !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+  !hasOwnPropertyCall(wrapped, "a") ||
   !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
   !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
   !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -37,15 +41,19 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     r#"Kali.test('object hasOwn primitive literals', () => {
   const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
+  const hasOwn = Object.hasOwn;
+  const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
   const wrapped = (0, alias);
   if (
     !Object.hasOwn(wrapped, "a") ||
+    !hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+    !hasOwnPropertyCall(wrapped, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||

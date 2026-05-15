@@ -12,7 +12,9 @@ fn browser_bundle_object_has_own_js_source() -> &'static str {
 function browserObjectHasOwn() {
   const object = { a: 1, "b": 2 };
   const alias = object;
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
+  const hasOwn = Object.hasOwn;
+  const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
     throw new Error('unexpected browser Object.hasOwn result');
   }
   console.log('browser object hasOwn ok');
@@ -25,7 +27,9 @@ fn browser_bundle_object_has_own_ts_source() -> &'static str {
 function browserObjectHasOwn() {
   const object = ({ a: 1, "b": 2 } as const);
   const alias = object;
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
+  const hasOwn = Object.hasOwn;
+  const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
     throw new Error('unexpected browser Object.hasOwn result');
   }
   console.log('browser object hasOwn ok');
