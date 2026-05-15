@@ -5851,6 +5851,38 @@ fn runtime_entrypoint_rejects_async_default_export_class_expressions_in_ts_input
 }
 
 #[test]
+fn runtime_entrypoint_rejects_async_class_expressions_in_jsx_input() {
+    assert_runtime_entrypoint_rejects_async_class_expression_in_input(
+        "jsx",
+        "const Example = class NamedExample { async main() { return 1; } };\nnew Example().main();\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_class_expressions_in_tsx_input() {
+    assert_runtime_entrypoint_rejects_async_class_expression_in_input(
+        "tsx",
+        "const Example = class NamedExample { async main() { return 1; } };\nnew Example().main();\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_in_jsx_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "jsx",
+        "export default (class NamedExample { async *main() { yield 1; } });\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_in_tsx_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "tsx",
+        "export default (class NamedExample { async *main() { yield 1; } });\n",
+    );
+}
+
+#[test]
 fn runtime_entrypoint_rejects_generator_class_expressions_in_js_input() {
     assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "js",
