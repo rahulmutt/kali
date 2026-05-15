@@ -1884,6 +1884,23 @@ impl Parser {
             Expression::ParenthesizedExpression(parenthesized) => {
                 self.computed_object_property_name(*parenthesized.expression)
             }
+            Expression::TypeAssertion(assertion) => {
+                self.computed_object_property_name(*assertion.expression)
+            }
+            Expression::SatisfiesExpression(satisfies) => {
+                self.computed_object_property_name(*satisfies.expression)
+            }
+            Expression::DecoratedExpression(decorated) => {
+                self.computed_object_property_name(*decorated.expression)
+            }
+            Expression::ChainExpression(chain) => {
+                self.computed_object_property_name(*chain.expression)
+            }
+            Expression::SequenceExpression(sequence) => sequence
+                .expressions
+                .last()
+                .cloned()
+                .and_then(|expression| self.computed_object_property_name(expression)),
             Expression::Literal(LiteralValue::String(value)) => {
                 Some(PropertyName::String(unquote_string_literal(&value)))
             }

@@ -628,18 +628,38 @@ fn test_parse_object_literal_expression_with_direct_numeric_property_names() {
 }
 
 #[test]
-fn test_parse_object_literal_expression_rejects_dynamic_computed_property_names() {
-    let tokens = lex("const obj = { [value]: 1 };\n");
+fn test_parse_object_literal_expression_accepts_transparent_wrapper_computed_property_names() {
+    let tokens = lex("const obj = { [(0, \"answer\")]: 1, [(\"value\" as Foo)]: 2 };\n");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diag| diag.message.contains("computed object property names")),
-        "expected computed object property names to be gated: {:?}",
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Some(Expression::ObjectExpression(obj)) = decl.declarations[0].init.as_ref() else {
+        panic!(
+            "Expected ObjectExpression, got {:?}",
+            decl.declarations[0].init
+        );
+    };
+    assert_eq!(obj.properties.len(), 2);
+    assert_eq!(
+        obj.properties[0].key,
+        PropertyName::String("answer".to_string())
+    );
+    assert_eq!(
+        obj.properties[1].key,
+        PropertyName::String("value".to_string())
     );
 }
 

@@ -51,7 +51,7 @@ struct Token {
 ### Requirements
 - Full grammar coverage for the latest published ECMA-262 edition, including:
   - All statement and expression types
-  - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties and literal computed keys that canonicalize to static property names
+  - Object literal expressions with identifier, string, and numeric property names, plus shorthand identifier properties and literal computed keys that canonicalize through transparent wrappers (for example parentheses, `as`, `satisfies`, and sequence wrappers) to static property names
   - Destructuring (nested, with defaults)
   - Generators and async generators, including class-expression and class-method forms whose async/generator metadata is preserved in the AST while later phases still gate lowering
   - Arrow function expressions, including async arrow forms and optional return type annotations
