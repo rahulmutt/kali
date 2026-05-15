@@ -1181,6 +1181,10 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
     Ok(())
 }
 
+fn trimmed_string_matches(value: Option<&Value>, expected: &str) -> bool {
+    matches!(value, Some(Value::String(value)) if value.trim() == expected)
+}
+
 fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), String> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err("doctor browserRuntimeContract must be a JSON object".to_string());
@@ -1215,19 +1219,10 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
 
     const BROWSER_RUNTIME_HOST_LABEL: &str = "browser-requested";
 
-    match object.get("hostLabel") {
-        Some(Value::String(value)) if value.trim() == BROWSER_RUNTIME_HOST_LABEL => {}
-        Some(Value::String(_)) => {
-            return Err(format!(
-                "doctor browserRuntimeContract hostLabel must be `{BROWSER_RUNTIME_HOST_LABEL}`"
-            ))
-        }
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract hostLabel must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
+    if !trimmed_string_matches(object.get("hostLabel"), BROWSER_RUNTIME_HOST_LABEL) {
+        return Err(format!(
+            "doctor browserRuntimeContract hostLabel must be `{BROWSER_RUNTIME_HOST_LABEL}`"
+        ));
     }
 
     validate_non_empty_string_value(
@@ -1254,19 +1249,13 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
     const BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE: &str =
         "browser runtime host description: real browser host";
 
-    match object.get("hostDescriptionNote") {
-        Some(Value::String(value)) if value.trim() == BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE => {}
-        Some(Value::String(_)) => {
-            return Err(format!(
-                "doctor browserRuntimeContract hostDescriptionNote must be `{BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE}`"
-            ))
-        }
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract hostDescriptionNote must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
+    if !trimmed_string_matches(
+        object.get("hostDescriptionNote"),
+        BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE,
+    ) {
+        return Err(format!(
+            "doctor browserRuntimeContract hostDescriptionNote must be `{BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE}`"
+        ));
     }
 
     validate_unique_string_array_value(
