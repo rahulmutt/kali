@@ -294,6 +294,8 @@ pub struct RuntimeOutcome {
     pub host_contract: RuntimeHostContract,
     /// Canonical runtime backend selected for the execution.
     pub runtime_backend: RuntimeBackend,
+    /// Deterministic worker/thread shutdown snapshot captured for the execution.
+    pub thread_topology: ThreadRuntimeShutdownReport,
 }
 
 impl Default for RuntimeCtx {
@@ -663,6 +665,7 @@ impl RuntimeCtx {
                     runtime_profiles: normalized_runtime_profiles.clone(),
                     host_contract: self.host_contract(),
                     runtime_backend: self.runtime_backend(),
+                    thread_topology: state.thread_topology_snapshot(),
                 });
             }
             if let Some(diagnostic) = store.data_mut().pending_diagnostic.take() {
@@ -687,6 +690,7 @@ impl RuntimeCtx {
                     runtime_profiles: normalized_runtime_profiles.clone(),
                     host_contract: self.host_contract(),
                     runtime_backend: self.runtime_backend(),
+                    thread_topology: state.thread_topology_snapshot(),
                 });
             }
             return Err(vec![diagnostic]);
@@ -704,6 +708,7 @@ impl RuntimeCtx {
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
                 runtime_backend: self.runtime_backend(),
+                thread_topology: state.thread_topology_snapshot(),
             });
         }
 
@@ -724,6 +729,7 @@ impl RuntimeCtx {
                 runtime_profiles: normalized_runtime_profiles.clone(),
                 host_contract: self.host_contract(),
                 runtime_backend: self.runtime_backend(),
+                thread_topology: state.thread_topology_snapshot(),
             });
         }
 
@@ -746,6 +752,7 @@ impl RuntimeCtx {
                             runtime_profiles: normalized_runtime_profiles.clone(),
                             host_contract: self.host_contract(),
                             runtime_backend: self.runtime_backend(),
+                            thread_topology: state.thread_topology_snapshot(),
                         });
                     }
                     let rendered = diagnostic.to_string();
@@ -768,6 +775,7 @@ impl RuntimeCtx {
                         runtime_profiles: normalized_runtime_profiles.clone(),
                         host_contract: self.host_contract(),
                         runtime_backend: self.runtime_backend(),
+                        thread_topology: state.thread_topology_snapshot(),
                     });
                 }
                 return Err(vec![diagnostic]);
@@ -785,6 +793,7 @@ impl RuntimeCtx {
             runtime_profiles: normalized_runtime_profiles,
             host_contract: self.host_contract(),
             runtime_backend: self.runtime_backend(),
+            thread_topology: state.thread_topology_snapshot(),
         })
     }
 }
@@ -830,6 +839,7 @@ fn execute_browser_runtime(
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
         runtime_backend: outcome.runtime_backend,
+        thread_topology: ThreadRuntimeShutdownReport::default(),
     })
 }
 
