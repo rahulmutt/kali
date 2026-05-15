@@ -13,6 +13,7 @@ function bracketedGlobalThisMathAtan2ZeroSlice() {
   const zero = 0;
   const one = 1;
   console.log(globalThis["Math"].atan2(zero, one));
+  console.log(globalThis['Math']['atan2'](zero, one));
   return globalThis["Math"].atan2(zero, one);
 }
 "##
@@ -152,49 +153,49 @@ fn run_and_test_supports_bracketed_global_this_math_atan2_zero_slice_when_browse
         (
             "run",
             "main.js",
-            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));\n",
             "0",
         ),
         (
             "test",
             "smoke.test.js",
-            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });\n",
             "0\nok 1",
         ),
         (
             "run",
             "main.ts",
-            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));\n",
             "0",
         ),
         (
             "test",
             "smoke.test.ts",
-            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });\n",
             "0\nok 1",
         ),
         (
             "run",
             "main.jsx",
-            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));\n",
             "0",
         ),
         (
             "test",
             "smoke.test.jsx",
-            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });\n",
             "0\nok 1",
         ),
         (
             "run",
             "main.tsx",
-            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one));\n",
             "0",
         ),
         (
             "test",
             "smoke.test.tsx",
-            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); });\n",
+            "Kali.test('bracketed atan2 zero slice', () => { const zero = 0; const one = 1; console.log(globalThis[\"Math\"].atan2(zero, one)); console.log(globalThis['Math']['atan2'](zero, one)); });\n",
             "0\nok 1",
         ),
     ] {
