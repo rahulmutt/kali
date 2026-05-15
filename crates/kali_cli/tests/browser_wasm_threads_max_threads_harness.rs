@@ -24,7 +24,12 @@ fn browser_harness_test_source() -> &'static str {
 "#
 }
 
-fn assert_browser_harness_accepts_max_threads(command: &str, filename: &str, source: &str) {
+fn assert_browser_harness_accepts_thread_budget(
+    command: &str,
+    filename: &str,
+    source: &str,
+    max_threads: &str,
+) {
     for json_output in [false, true] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(filename);
@@ -42,7 +47,7 @@ fn assert_browser_harness_accepts_max_threads(command: &str, filename: &str, sou
             .arg("browser")
             .arg("--wasm-threads")
             .arg("--max-threads")
-            .arg("1")
+            .arg(max_threads)
             .arg("--max-spawned-processes")
             .arg("0")
             .arg(&source_path)
@@ -96,56 +101,160 @@ fn assert_browser_harness_accepts_max_threads(command: &str, filename: &str, sou
 
 #[test]
 fn run_supports_positive_max_threads_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_accepts_max_threads("run", "main.js", browser_harness_run_source());
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.js",
+        browser_harness_run_source(),
+        "1",
+    );
 }
 
 #[test]
 fn run_supports_positive_max_threads_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_accepts_max_threads("run", "main.ts", browser_harness_run_source());
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.ts",
+        browser_harness_run_source(),
+        "1",
+    );
 }
 
 #[test]
 fn run_supports_positive_max_threads_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_accepts_max_threads("run", "main.jsx", browser_harness_run_source());
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.jsx",
+        browser_harness_run_source(),
+        "1",
+    );
 }
 
 #[test]
 fn run_supports_positive_max_threads_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_accepts_max_threads("run", "main.tsx", browser_harness_run_source());
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.tsx",
+        browser_harness_run_source(),
+        "1",
+    );
 }
 
 #[test]
 fn test_supports_positive_max_threads_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_accepts_max_threads(
+    assert_browser_harness_accepts_thread_budget(
         "test",
         "smoke.test.js",
         browser_harness_test_source(),
+        "1",
     );
 }
 
 #[test]
 fn test_supports_positive_max_threads_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_accepts_max_threads(
+    assert_browser_harness_accepts_thread_budget(
         "test",
         "smoke.test.ts",
         browser_harness_test_source(),
+        "1",
     );
 }
 
 #[test]
 fn test_supports_positive_max_threads_when_browser_harness_is_configured_in_jsx_input() {
-    assert_browser_harness_accepts_max_threads(
+    assert_browser_harness_accepts_thread_budget(
         "test",
         "smoke.test.jsx",
         browser_harness_test_source(),
+        "1",
     );
 }
 
 #[test]
 fn test_supports_positive_max_threads_when_browser_harness_is_configured_in_tsx_input() {
-    assert_browser_harness_accepts_max_threads(
+    assert_browser_harness_accepts_thread_budget(
         "test",
         "smoke.test.tsx",
         browser_harness_test_source(),
+        "1",
+    );
+}
+
+#[test]
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.js",
+        browser_harness_run_source(),
+        "0",
+    );
+}
+
+#[test]
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.ts",
+        browser_harness_run_source(),
+        "0",
+    );
+}
+
+#[test]
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.jsx",
+        browser_harness_run_source(),
+        "0",
+    );
+}
+
+#[test]
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "run",
+        "main.tsx",
+        browser_harness_run_source(),
+        "0",
+    );
+}
+
+#[test]
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "test",
+        "smoke.test.js",
+        browser_harness_test_source(),
+        "0",
+    );
+}
+
+#[test]
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "test",
+        "smoke.test.ts",
+        browser_harness_test_source(),
+        "0",
+    );
+}
+
+#[test]
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "test",
+        "smoke.test.jsx",
+        browser_harness_test_source(),
+        "0",
+    );
+}
+
+#[test]
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_accepts_thread_budget(
+        "test",
+        "smoke.test.tsx",
+        browser_harness_test_source(),
+        "0",
     );
 }
