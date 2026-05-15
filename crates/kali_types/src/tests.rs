@@ -2461,6 +2461,10 @@ fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_an
         r#"const object = { a: 1, "b": 2 };
 const alias = object;
 Object.hasOwn(alias, "a");
+globalThis.Object.hasOwnProperty.call(alias, "a");
+globalThis["Object"]["hasOwnProperty"].call(alias, "a");
+globalThis["Object"].hasOwnProperty.call(alias, "a");
+Object["hasOwnProperty"].call(alias, "a");
 Object.prototype.hasOwnProperty.call(alias, "a");
 "#,
     )

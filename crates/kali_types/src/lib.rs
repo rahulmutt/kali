@@ -1945,6 +1945,10 @@ impl TypeContext {
                 | r#"globalThis.Object.prototype["hasOwnProperty"]["call"]"#
                 | r#"globalThis.Object.prototype.hasOwnProperty.call"#
                 | r#"globalThis.Object["hasOwnProperty"].call"#
+                | r#"globalThis["Object"]["hasOwnProperty"].call"#
+                | r#"globalThis["Object"].hasOwnProperty.call"#
+                | r#"globalThis.Object.hasOwnProperty.call"#
+                | r#"Object["hasOwnProperty"].call"#
                 | r#"Object.prototype.hasOwnProperty.call"#
                 | r#"globalThis["Number"].isFinite"#
                 | r#"globalThis["Number"].isNaN"#
