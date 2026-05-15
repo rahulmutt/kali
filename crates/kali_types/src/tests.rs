@@ -7789,7 +7789,7 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "process.kill((0)); globalThis.process.kill(+0); process[\"kill\"]((0)); globalThis.process[\"kill\"](+0);",
+        "process.kill((0)); globalThis.process.kill(+0); globalThis.process[\"kill\"](0); process[\"kill\"]((0)); globalThis.process[\"kill\"](+0);",
     )
     .unwrap();
 
@@ -7848,6 +7848,18 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
                     operator: "+".to_string(),
                     argument: Expression::Literal(LiteralValue::Number(0.0)),
                 }))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(0.0))],
             }))),
         }),
     ];
