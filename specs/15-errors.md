@@ -356,6 +356,8 @@ Examples:
 - `kali package-audit --api browser lodash` *(representative of any package-analysis-specific `--api` / `--compat` / `--wasm-threads` flag or `--sandbox` on `package-audit` in schema v1)*
 - `kali package-audit` with no package argument
 - `kali package-audit "   "`
+- `kali package-effects jsr:`
+- `kali package-audit jsr: foo`
 - `kali check --fix`
 - `kali check --pretty` without `--output json`
 - `kali package-audit --pretty lodash` without `--output json`

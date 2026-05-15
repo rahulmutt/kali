@@ -630,7 +630,7 @@ Package-effects rule:
 Package-audit rule:
 - keep `kali package-audit` **single-package** so it does not overlap with a future whole-project dependency-health workflow
 - following the shared **workflow-owner split** and the context-free half of the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), it is a registry-analysis/security-audit workflow rather than a second host-context-sensitive execution, effect-reporting, or policy-validation command
-- the single explicit package argument must be a non-empty registry identifier; whitespace-only strings and whitespace-padded identifiers are invalid usage and are rejected before registry lookup
+- the single explicit package argument must be a non-empty registry identifier; identifiers containing whitespace, malformed `jsr:` selectors without a package name, and other non-canonical spellings are invalid usage and are rejected before registry lookup
 - `package-audit` therefore does **not** take package-analysis-specific `--api`, runtime-profile, `--compat`, or `--sandbox` flags
 - `package-audit` follows **context-free registry analysis (schema v1)** from [SPEC.md](../SPEC.md): whether the command runs under discovered config or in configless project mode, inherited host-analysis/runtime config does not gate or rewrite its semantics, and browser-oriented package-resolution context from source-graph commands does not participate here either
 - if the command is unavailable in earlier phases, Kali should say so explicitly instead of implying a partial audit guarantee

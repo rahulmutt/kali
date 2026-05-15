@@ -62679,6 +62679,64 @@ fn package_registry_commands_reject_explicit_package_versions() {
 }
 
 #[test]
+fn package_registry_commands_reject_malformed_jsr_targets() {
+    for (target, expected_message) in [
+        ("jsr:", "requires a package name after `jsr:`"),
+        ("jsr: foo", "without whitespace"),
+    ] {
+        for command in ["package-effects", "package-audit"] {
+            let output = Command::new(kali_bin())
+                .arg(command)
+                .arg(target)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(5));
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("E5508"), "stderr: {stderr}");
+            assert!(stderr.contains(expected_message), "stderr: {stderr}");
+        }
+    }
+}
+
+#[test]
+fn json_package_registry_commands_reject_malformed_jsr_targets() {
+    for (target, expected_message) in [
+        ("jsr:", "requires a package name after `jsr:`"),
+        ("jsr: foo", "without whitespace"),
+    ] {
+        for command in ["package-effects", "package-audit"] {
+            let output = Command::new(kali_bin())
+                .arg("--output")
+                .arg("json")
+                .arg(command)
+                .arg(target)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(5));
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            assert_eq!(json["exitCode"], 5);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert!(!errors.is_empty(), "errors: {errors:?}");
+            assert_eq!(errors[0]["code"], "E5508");
+            assert!(
+                errors[0]["message"]
+                    .as_str()
+                    .expect("message string")
+                    .contains(expected_message),
+                "json: {json}"
+            );
+        }
+    }
+}
+
+#[test]
 fn package_registry_commands_reject_non_registry_targets() {
     let cases = [
         "https://example.com/pkg.tgz",

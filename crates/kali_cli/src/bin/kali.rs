@@ -4697,8 +4697,24 @@ fn parse_registry_package_target(
         ));
     }
 
+    if target.chars().any(|ch| ch.is_whitespace()) {
+        return Err(Diagnostic::error(
+            e5::INVALID_CLI_USAGE as u32,
+            format!(
+                "`kali {command}` accepts only registry package identifiers without whitespace, not '{}'",
+                target
+            ),
+        ));
+    }
+
     let (registry, package_name, install_name, report_label) =
         if let Some(spec) = target.strip_prefix("jsr:") {
+            if spec.is_empty() {
+                return Err(Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    format!("`kali {command}` requires a package name after `jsr:`"),
+                ));
+            }
             if is_version_suffixed_package_spec(spec) {
                 return Err(Diagnostic::error(
                     e5::INVALID_CLI_USAGE as u32,
