@@ -8168,54 +8168,39 @@ fn test_resolution_supports_for_of_object_entries_iteration() {
     );
 }
 
-fn assert_resolution_rejects_unimplemented_iterator_protocol_edge(
-    source_filename: &str,
-    constructor_name: &str,
-) {
+fn assert_resolution_accepts_frozen_iterator_protocol_edge(source_filename: &str, source: &str) {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join(source_filename);
-    fs::write(
-        &source_path,
-        format!("for (const item of new {constructor_name}()) {{ console.log(item); }}"),
-    )
-    .unwrap();
+    fs::write(&source_path, source).unwrap();
 
-    let statements = vec![Statement::ForOfStatement(ForOfStatement {
-        left: ForOfLefthand::VariableDeclaration(kali_ast::VariableDeclaration {
-            kind: "const".to_string(),
-            declarations: vec![VariableDeclarator {
-                id: "item".to_string(),
-                init: None,
-            }],
-        }),
-        right: Expression::NewExpression(Box::new(kali_ast::NewExpression {
-            callee: Expression::Identifier(constructor_name.to_string()),
-            args: vec![],
-        })),
-        body: Box::new(Statement::BlockStatement(BlockStatement { body: vec![] })),
-        is_await: false,
-    })];
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
 
     let mut ctx = TypeContext::with_base_path(&source_path);
     let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
     assert!(
-        result
-            .diagnostics
-            .iter()
-            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
+        result.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
 }
 
 #[test]
-fn test_resolution_rejects_for_of_set_iteration_in_js_input() {
-    assert_resolution_rejects_unimplemented_iterator_protocol_edge("main.js", "Set");
+fn test_resolution_accepts_frozen_set_iteration_in_js_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.js",
+        "for (const item of new Set(Object.freeze([1, 2, 1]))) { console.log(item); }",
+    );
 }
 
 #[test]
-fn test_resolution_rejects_for_of_map_iteration_in_ts_input() {
-    assert_resolution_rejects_unimplemented_iterator_protocol_edge("main.ts", "Map");
+fn test_resolution_accepts_frozen_map_iteration_in_ts_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.ts",
+        "for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }",
+    );
 }
 
 #[test]

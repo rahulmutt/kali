@@ -44,6 +44,11 @@ export async function browserSetIteration() {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const frozenValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const value of new Set(frozenValues)) {
+    frozenDirect.push(value);
+  }
 
   assertSetIteration(direct);
   assertSetIteration(alias);
@@ -51,6 +56,7 @@ export async function browserSetIteration() {
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
+  assertSetIteration(frozenDirect);
   console.log('browser set constructor iteration ok');
 }
 "##
@@ -93,6 +99,11 @@ export async function browserMapIteration() {
   for (const entry of new globalThis['Map'](values)) {
     singleBracketed.push(JSON.stringify(entry));
   }
+  const frozenMapValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const entry of new Map(frozenMapValues)) {
+    frozenDirect.push(JSON.stringify(entry));
+  }
 
   assertMapIteration(direct);
   assertMapIteration(alias);
@@ -100,6 +111,7 @@ export async function browserMapIteration() {
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
+  assertMapIteration(frozenDirect);
   console.log('browser map constructor iteration ok');
 }
 "##

@@ -688,6 +688,11 @@ impl TypeContext {
             }
             Expression::CallExpression(call) => {
                 self.is_static_object_enumeration_iteration_target(call)
+                    || Self::is_object_freeze_call(call)
+                        && call
+                            .args
+                            .first()
+                            .is_some_and(|arg| self.is_static_array_iteration_target(arg))
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)

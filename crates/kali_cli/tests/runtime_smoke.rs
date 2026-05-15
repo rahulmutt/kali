@@ -46380,6 +46380,11 @@ function setAndMapIteration() {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const frozenValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const value of new Set(frozenValues)) {
+    frozenDirect.push(value);
+  }
 
   assertSetIteration(direct);
   assertSetIteration(alias);
@@ -46387,6 +46392,7 @@ function setAndMapIteration() {
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
+  assertSetIteration(frozenDirect);
 
   const mapValues = [[1, 2], [1, 3], [4, 5]];
   const mapAlias = Map;
@@ -46416,12 +46422,19 @@ function setAndMapIteration() {
     singleBracketedMap.push(entry);
   }
 
+  const frozenMapValues = Object.freeze(mapValues);
+  const frozenMapDirect = [];
+  for (const entry of new Map(frozenMapValues)) {
+    frozenMapDirect.push(entry);
+  }
+
   assertMapIteration(mapDirect);
   assertMapIteration(mapAliasValues);
   assertMapIteration(wrappedMapAliasValues);
   assertMapIteration(globalMapDirect);
   assertMapIteration(bracketedMap);
   assertMapIteration(singleBracketedMap);
+  assertMapIteration(frozenMapDirect);
 
   console.log('set and map constructor iteration ok');
 }
@@ -46479,6 +46492,11 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const value of new globalThis['Set'](values)) {
       singleBracketed.push(value);
     }
+    const frozenValues = Object.freeze(aliasValues);
+    const frozenDirect = [];
+    for (const value of new Set(frozenValues)) {
+      frozenDirect.push(value);
+    }
 
     assertSetIteration(direct);
     assertSetIteration(alias);
@@ -46486,6 +46504,7 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertSetIteration(globalDirect);
     assertSetIteration(bracketed);
     assertSetIteration(singleBracketed);
+    assertSetIteration(frozenDirect);
 
     const mapValues = [[1, 2], [1, 3], [4, 5]];
     const mapAlias = Map;
@@ -46514,6 +46533,11 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const entry of new globalThis['Map'](mapValues)) {
       singleBracketedMap.push(entry);
     }
+    const frozenMapValues = Object.freeze(mapValues);
+    const frozenMapDirect = [];
+    for (const entry of new Map(frozenMapValues)) {
+      frozenMapDirect.push(entry);
+    }
 
     assertMapIteration(mapDirect);
     assertMapIteration(mapAliasValues);
@@ -46521,6 +46545,7 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertMapIteration(globalMapDirect);
     assertMapIteration(bracketedMap);
     assertMapIteration(singleBracketedMap);
+    assertMapIteration(frozenMapDirect);
 
     console.log('set and map constructor iteration ok');
   }

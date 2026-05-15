@@ -43,6 +43,11 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const frozenValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const value of new Set(frozenValues)) {
+    frozenDirect.push(value);
+  }
 
   assertSetIteration(direct);
   assertSetIteration(alias);
@@ -50,6 +55,7 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
+  assertSetIteration(frozenDirect);
   console.log('browser set constructor iteration ok');
 }
 
@@ -93,6 +99,11 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const frozenValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const value of new Set(frozenValues)) {
+    frozenDirect.push(value);
+  }
 
   assertSetIteration(direct);
   assertSetIteration(alias);
@@ -100,6 +111,7 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
+  assertSetIteration(frozenDirect);
   console.log('browser set constructor iteration ok');
 });
 "##
