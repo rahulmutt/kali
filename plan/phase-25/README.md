@@ -37,7 +37,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
-- Browser runtime contract validation now trims surrounding whitespace around the canonical host-label fields before comparison, keeping the generated `doctor` payload robust against incidental padding; the public `doctor` payload regression now covers both the trimmed-label path and the whitespace-only rejection path. Thread-topology snapshots are now also validated for ascending, duplicate-free `liveInstances` ordering so the JSON observability payload stays deterministic.
+- Browser runtime contract validation now trims surrounding whitespace around the canonical host-label fields before comparison, keeping the generated `doctor` payload robust against incidental padding; the public `doctor` payload regression now covers both the trimmed-label path and the whitespace-only rejection path, including explicit `hostLabel` coverage. Thread-topology snapshots are now also validated for ascending, duplicate-free `liveInstances` ordering so the JSON observability payload stays deterministic.
 
 ## Exit gate
 
