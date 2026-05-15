@@ -4428,6 +4428,74 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(map_call) = self.resolve_map_constructor_call(&array) {
+            let Some(source_arg) = map_call.children.get(1).copied() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array of supported Map entry tuples; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(source_id) = self.resolve_literal_aggregate(source_arg) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array of supported Map entry tuples; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let source = self.node(source_id).clone();
+            let mut items = Vec::new();
+            if !self.collect_map_constructor_iteration_items(&source, &mut items) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array of supported Map entry tuples; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
+            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+            function.instruction(&Instruction::Block(BlockType::Empty));
+            for child in items {
+                let previous_binding = self.bindings.insert(loop_name.clone(), child);
+                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.push(LoopFrame {
+                    break_index,
+                    continue_index,
+                });
+                function.instruction(&Instruction::Block(BlockType::Empty));
+                if let Some(body) = body {
+                    let _ = self.emit_node(function, body, false);
+                }
+                if let Some(previous_binding) = previous_binding {
+                    self.bindings.insert(loop_name.clone(), previous_binding);
+                } else {
+                    self.bindings.remove(&loop_name);
+                }
+                function.instruction(&Instruction::End);
+                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.pop();
+            }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
@@ -5134,6 +5202,103 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         false
+    }
+
+    fn is_map_constructor_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(callee).text.as_deref(),
+            Some("Map")
+                | Some("globalThis.Map")
+                | Some(r#"globalThis["Map"]"#)
+                | Some(r#"globalThis['Map']"#)
+        )
+    }
+
+    fn resolve_map_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+        if self.is_map_constructor_call(node) {
+            return Some(node);
+        }
+
+        if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
+            let child = self.node(node.children[0]);
+            if self.is_map_constructor_call(child) {
+                return Some(child);
+            }
+        }
+
+        None
+    }
+
+    fn collect_map_constructor_iteration_items(
+        &mut self,
+        node: &LirNode,
+        items: &mut Vec<LirNodeId>,
+    ) -> bool {
+        if let Some(map_call) = self.resolve_map_constructor_call(node) {
+            let Some(source_arg) = map_call.children.get(1).copied() else {
+                return false;
+            };
+            let Some(source_id) = self.resolve_literal_aggregate(source_arg) else {
+                return false;
+            };
+            let source = self.node(source_id).clone();
+            return self.collect_map_constructor_iteration_items(&source, items);
+        }
+
+        let mut collected = Vec::<(String, LirNodeId)>::new();
+        if self.is_array_literal(node) {
+            for child in &node.children {
+                let Some(resolved_child) = self.resolve_literal_aggregate(*child) else {
+                    return false;
+                };
+                let entry = self.node(resolved_child).clone();
+                if !self.is_array_literal(&entry) || entry.children.len() < 2 {
+                    return false;
+                }
+                if !entry
+                    .children
+                    .iter()
+                    .take(2)
+                    .all(|child| self.is_supported_for_of_array_iteration_item(*child))
+                {
+                    return false;
+                }
+                let Some(key) = self.static_map_entry_key(resolved_child) else {
+                    return false;
+                };
+                if let Some((_, existing_entry)) = collected
+                    .iter_mut()
+                    .find(|(existing_key, _)| existing_key == &key)
+                {
+                    *existing_entry = resolved_child;
+                } else {
+                    collected.push((key, resolved_child));
+                }
+            }
+
+            items.extend(collected.into_iter().map(|(_, id)| id));
+            return true;
+        }
+
+        false
+    }
+
+    fn static_map_entry_key(&self, id: LirNodeId) -> Option<String> {
+        let resolved_id = self.resolve_literal_aggregate(id)?;
+        let node = self.node(resolved_id);
+        if !self.is_array_literal(node) {
+            return None;
+        }
+        let key = node.children.first().copied()?;
+        let resolved_key = self.resolve_literal_aggregate(key)?;
+        self.render_static_value(resolved_key)
     }
 
     fn static_set_item_key(&self, id: LirNodeId) -> Option<String> {

@@ -8142,6 +8142,36 @@ fn test_resolution_rejects_for_of_map_iteration_in_ts_input() {
 }
 
 #[test]
+fn test_resolution_accepts_new_map_iteration_target_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+    console.log(entry[0], entry[1]);
+}
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::ForOfStatement(ForOfStatement { right, .. }) = &statements[0] else {
+        panic!("expected for-of statement");
+    };
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    assert!(ctx.is_static_array_iteration_target(right));
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");

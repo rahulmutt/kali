@@ -686,6 +686,7 @@ impl TypeContext {
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)
+                    || self.is_static_map_constructor_iteration_target(expr)
             }
             other => self
                 .resolve_static_string_iterable_expression(other)
@@ -710,6 +711,27 @@ impl TypeContext {
         matches!(
             callee_name.as_str(),
             "Set" | "globalThis.Set" | r#"globalThis["Set"]"# | r#"globalThis['Set']"#
+        ) && args.len() == 1
+            && self.is_static_array_iteration_target(&args[0])
+    }
+
+    fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+        let (callee_expression, args) = match &expression.callee {
+            Expression::CallExpression(call) => (&call.callee, &call.args),
+            other => (other, &expression.args),
+        };
+
+        let callee_name = match callee_expression {
+            Expression::Identifier(name) => Some(name.clone()),
+            other => self.resolve_static_callable_name(other),
+        };
+        let Some(callee_name) = callee_name else {
+            return false;
+        };
+
+        matches!(
+            callee_name.as_str(),
+            "Map" | "globalThis.Map" | r#"globalThis["Map"]"# | r#"globalThis['Map']"#
         ) && args.len() == 1
             && self.is_static_array_iteration_target(&args[0])
     }
