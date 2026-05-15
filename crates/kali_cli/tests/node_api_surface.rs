@@ -2946,12 +2946,12 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
             let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
                 &run_file,
-                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const sequenceKill = (process.kill, process.kill); console.log(process.kill(zeroAlias)); console.log(globalThis.process.kill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(kill(0)); console.log(bracketedKill(+0)); console.log(sequenceKill(0));\n",
+                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const sequenceKill = (process.kill, process.kill); const bracketedSequenceKill = (globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"]); console.log(process.kill(zeroAlias)); console.log(globalThis.process.kill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(kill(0)); console.log(bracketedKill(+0)); console.log(sequenceKill(0)); console.log(bracketedSequenceKill(0));\n",
             )
             .expect("write run file");
             fs::write(
                 &test_file,
-                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const sequenceKill = (process.kill, process.kill); Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !globalThis.process.kill(+zero) || !globalThis[\"process\"][\"kill\"](zero) || !process[\"kill\"](zero) || !kill(0) || !bracketedKill(+0) || !sequenceKill(0)) { throw new Error('expected zero probe'); } });\n",
+                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const sequenceKill = (process.kill, process.kill); const bracketedSequenceKill = (globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"]); Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !globalThis.process.kill(+zero) || !globalThis[\"process\"][\"kill\"](zero) || !process[\"kill\"](zero) || !kill(0) || !bracketedKill(+0) || !sequenceKill(0) || !bracketedSequenceKill(0)) { throw new Error('expected zero probe'); } });\n",
             )
             .expect("write test file");
 
