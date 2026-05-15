@@ -808,6 +808,10 @@ fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
     assert_eq!(report.total_instances, 2);
     assert_eq!(report.terminated_instances, 1);
     assert_eq!(report.live_instances.len(), 1);
+    assert_eq!(
+        report.total_instances,
+        report.terminated_instances + report.live_instances.len()
+    );
 
     let snapshot = &report.live_instances[0];
     assert_eq!(snapshot.instance_id, live);

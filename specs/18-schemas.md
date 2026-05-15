@@ -959,7 +959,7 @@ Interpretation rule:
 Interpretation rule:
 - when present, those provenance labels are non-empty, non-whitespace strings and describe the execution contract that produced the result, not a separate public capability model
 - when present, `threadTopology` is the JSON-ready shutdown/leak snapshot from the runtime's deterministic worker/thread model; it is observability metadata, not a separate support claim
-- when present, `threadTopology.liveInstances` is emitted in ascending `instanceId` order and stays duplicate-free so the snapshot remains stable across repeated serializations
+- when present, `threadTopology.liveInstances` is emitted in ascending `instanceId` order and stays duplicate-free so the snapshot remains stable across repeated serializations; the count fields stay coherent as `totalInstances = terminatedInstances + liveInstances.length`
 
 ## Artifact Schema
 

@@ -565,17 +565,20 @@ fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> Result<(), 
         "threadTopology",
     )?;
 
-    for key in ["totalInstances", "terminatedInstances"] {
-        match object.get(key) {
-            Some(value) if positive_integer_value(value).is_some() => {}
-            Some(other) => {
-                return Err(format!(
-                    "threadTopology {key} must be a non-negative integer, got {other}"
-                ))
-            }
-            None => unreachable!("validated above"),
-        }
-    }
+    let total_instances = match object.get("totalInstances") {
+        Some(value) => positive_integer_value(value).ok_or_else(|| {
+            format!("threadTopology totalInstances must be a non-negative integer, got {value}")
+        })?,
+        None => unreachable!("validated above"),
+    };
+    let terminated_instances = match object.get("terminatedInstances") {
+        Some(value) => positive_integer_value(value).ok_or_else(|| {
+            format!(
+                "threadTopology terminatedInstances must be a non-negative integer, got {value}"
+            )
+        })?,
+        None => unreachable!("validated above"),
+    };
 
     let Some(Value::Array(items)) = object.get("liveInstances") else {
         return Err(format!(
@@ -600,6 +603,13 @@ fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> Result<(), 
             ));
         }
         previous_instance_id = Some(instance_id);
+    }
+
+    let live_instances = items.len() as u64;
+    if total_instances != terminated_instances + live_instances {
+        return Err(format!(
+            "threadTopology totalInstances must equal terminatedInstances + liveInstances.len(), got totalInstances={total_instances}, terminatedInstances={terminated_instances}, liveInstances={live_instances}"
+        ));
     }
 
     Ok(())

@@ -1563,6 +1563,61 @@ fn validate_run_and_test_payload_value_rejects_unsorted_thread_topology_instance
 }
 
 #[test]
+fn validate_run_and_test_payload_value_rejects_incoherent_thread_topology_counts() {
+    let incoherent_thread_topology = json!({
+        "totalInstances": 3,
+        "terminatedInstances": 1,
+        "liveInstances": [{
+            "instanceId": 0,
+            "scriptUrl": "https://e.co/worker-0.js",
+            "postedMessages": [],
+            "postedSharedBuffers": [],
+            "wasTerminated": false,
+        }],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": incoherent_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": incoherent_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err = validator(&payload).expect_err("incoherent thread topology counts should fail");
+        assert!(
+            err.contains("totalInstances must equal terminatedInstances + liveInstances.len()"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_test_payload_value_rejects_malformed_coverage() {
     let value = json!({
         "total": 4,
