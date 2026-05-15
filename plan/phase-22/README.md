@@ -22,6 +22,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
 - Runtime smoke now also covers deterministic thread-topology snapshots for spawned workers, including empty posted-message and shared-buffer sets.
 - Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution.
+- `kali run` / `kali test` JSON payloads now surface the deterministic `threadTopology` snapshot alongside the existing provenance labels.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract

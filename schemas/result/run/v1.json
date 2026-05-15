@@ -23,6 +23,56 @@
     "runtimeBackend": {
       "type": "string",
       "minLength": 1
+    },
+    "threadTopology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalInstances", "terminatedInstances", "liveInstances"],
+      "properties": {
+        "totalInstances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "terminatedInstances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "liveInstances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["instanceId", "scriptUrl", "postedMessages", "postedSharedBuffers", "wasTerminated"],
+            "properties": {
+              "instanceId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "scriptUrl": {
+                "type": "string",
+                "minLength": 1
+              },
+              "postedMessages": {
+                "type": "array"
+              },
+              "postedSharedBuffers": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 255
+                  }
+                }
+              },
+              "wasTerminated": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

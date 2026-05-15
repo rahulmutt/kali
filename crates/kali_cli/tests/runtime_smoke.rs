@@ -8412,6 +8412,11 @@ fn json_test_merges_missing_tests_failed_from_browser_summary_stdout_when_browse
             "runtimeMs": json["payload"]["runtimeMs"],
             "hostContract": "browser-requested",
             "runtimeBackend": "browser-harness",
+            "threadTopology": {
+                "totalInstances": 0,
+                "terminatedInstances": 0,
+                "liveInstances": [],
+            },
         })
     );
     assert!(

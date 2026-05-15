@@ -954,10 +954,11 @@ Interpretation rule:
 
 ## Run/Test Result Provenance
 
-`kali run` and `kali test` result payloads may carry optional `hostContract` and `runtimeBackend` provenance labels.
+`kali run` and `kali test` result payloads may carry optional `hostContract` and `runtimeBackend` provenance labels, plus an optional deterministic `threadTopology` snapshot of worker/thread shutdown accounting when the runtime recorded that data.
 
 Interpretation rule:
 - when present, those provenance labels are non-empty, non-whitespace strings and describe the execution contract that produced the result, not a separate public capability model
+- when present, `threadTopology` is the JSON-ready shutdown/leak snapshot from the runtime's deterministic worker/thread model; it is observability metadata, not a separate support claim
 
 ## Artifact Schema
 

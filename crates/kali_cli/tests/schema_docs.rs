@@ -513,6 +513,30 @@ fn core_schema_documents_match_current_cli_contracts() {
             "coveragePercent"
         ]
     );
+    assert_eq!(
+        test_result["properties"]["threadTopology"]["type"],
+        "object"
+    );
+    assert_eq!(
+        test_result["properties"]["threadTopology"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        test_result["properties"]["threadTopology"]["required"]
+            .as_array()
+            .expect("test thread topology required array")
+            .iter()
+            .map(|value| value
+                .as_str()
+                .expect("test thread topology required string"))
+            .collect::<Vec<_>>(),
+        vec!["totalInstances", "terminatedInstances", "liveInstances"]
+    );
+    assert_eq!(
+        test_result["properties"]["threadTopology"]["properties"]["liveInstances"]["items"]
+            ["properties"]["postedSharedBuffers"]["items"]["items"]["maximum"],
+        255
+    );
 
     let artifact_meta: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/artifact-meta/v1.json"))
@@ -1210,6 +1234,29 @@ fn core_schema_documents_match_current_cli_contracts() {
     assert_eq!(run["properties"]["exitCode"]["type"], "integer");
     assert_eq!(run["properties"]["runtimeMs"]["type"], "integer");
     assert_eq!(run["properties"]["runtimeMs"]["minimum"], 0);
+    assert_eq!(run["properties"]["threadTopology"]["type"], "object");
+    assert_eq!(
+        run["properties"]["threadTopology"]["additionalProperties"],
+        false
+    );
+    assert_eq!(
+        run["properties"]["threadTopology"]["required"]
+            .as_array()
+            .expect("run thread topology required array")
+            .iter()
+            .map(|value| value.as_str().expect("run thread topology required string"))
+            .collect::<Vec<_>>(),
+        vec!["totalInstances", "terminatedInstances", "liveInstances"]
+    );
+    assert_eq!(
+        run["properties"]["threadTopology"]["properties"]["totalInstances"]["minimum"],
+        0
+    );
+    assert_eq!(
+        run["properties"]["threadTopology"]["properties"]["liveInstances"]["items"]["properties"]
+            ["postedSharedBuffers"]["items"]["items"]["maximum"],
+        255
+    );
 
     let install: serde_json::Value = serde_json::from_str(
         &fs::read_to_string(root.join("schemas/result/install/v1.json"))

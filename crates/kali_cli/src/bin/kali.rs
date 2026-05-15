@@ -3150,6 +3150,7 @@ fn run_command(
                     "runtimeMs": start.elapsed().as_millis(),
                     "hostContract": runtime.host_contract().canonical_label(),
                     "runtimeBackend": runtime.runtime_backend().canonical_label(),
+                    "threadTopology": outcome.thread_topology.thread_topology_snapshot_value(),
                 });
                 validate_run_payload_value(&payload)
                     .expect("constructed run payload must satisfy schema-v1 shape");
@@ -3399,6 +3400,11 @@ fn test_command(
     let mut failed = 0usize;
     let mut captured_stdout = String::new();
     let mut captured_stderr = String::new();
+    let mut thread_topology = json!({
+        "totalInstances": 0,
+        "terminatedInstances": 0,
+        "liveInstances": [],
+    });
     let mut diagnostics = Vec::new();
     let mut coverage_reports = Vec::new();
     let project_root =
@@ -3445,6 +3451,26 @@ fn test_command(
                 failed += outcome.tests_failed;
                 captured_stdout.push_str(&outcome.stdout);
                 captured_stderr.push_str(&outcome.stderr);
+                let outcome_thread_topology =
+                    outcome.thread_topology.thread_topology_snapshot_value();
+                if let (Some(target), Some(source)) = (
+                    thread_topology.as_object_mut(),
+                    outcome_thread_topology.as_object(),
+                ) {
+                    target["totalInstances"] = json!(target["totalInstances"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .saturating_add(source["totalInstances"].as_u64().unwrap_or(0)));
+                    target["terminatedInstances"] = json!(target["terminatedInstances"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .saturating_add(source["terminatedInstances"].as_u64().unwrap_or(0)));
+                    if let Some(live_instances) = target["liveInstances"].as_array_mut() {
+                        if let Some(source_live_instances) = source["liveInstances"].as_array() {
+                            live_instances.extend(source_live_instances.iter().cloned());
+                        }
+                    }
+                }
                 if coverage {
                     let covered = outcome.coverage_hits.len().min(coverage_total);
                     coverage_reports.push(json!({
@@ -3490,6 +3516,7 @@ fn test_command(
                 "runtimeMs": start.elapsed().as_millis(),
                 "hostContract": runtime.host_contract().canonical_label(),
                 "runtimeBackend": runtime.runtime_backend().canonical_label(),
+                "threadTopology": thread_topology,
                 "coverage": {
                     "mode": "function",
                     "files": coverage_reports,
@@ -3510,6 +3537,7 @@ fn test_command(
                 "runtimeMs": start.elapsed().as_millis(),
                 "hostContract": runtime.host_contract().canonical_label(),
                 "runtimeBackend": runtime.runtime_backend().canonical_label(),
+                "threadTopology": thread_topology,
             })
         };
         let success = diagnostics.is_empty();

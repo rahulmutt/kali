@@ -1158,6 +1158,11 @@ fn validate_run_payload_value_accepts_the_current_contract_shape() {
         "runtimeMs": 12,
         "hostContract": "kali-hosted",
         "runtimeBackend": "wasmtime",
+        "threadTopology": {
+            "totalInstances": 0,
+            "terminatedInstances": 0,
+            "liveInstances": [],
+        },
     });
 
     validate_run_payload_value(&value).expect("run payload should validate");
@@ -1207,6 +1212,11 @@ fn validate_test_payload_value_accepts_the_current_contract_shape() {
         "runtimeMs": 27,
         "hostContract": "kali-hosted",
         "runtimeBackend": "wasmtime",
+        "threadTopology": {
+            "totalInstances": 0,
+            "terminatedInstances": 0,
+            "liveInstances": [],
+        },
         "coverage": {
             "mode": "function",
             "files": [
@@ -1245,6 +1255,11 @@ fn ordinary_cli_result_payloads_accept_schema_permitted_extension_keys() {
             "runtimeMs": 12,
             "hostContract": "kali-hosted",
             "runtimeBackend": "wasmtime",
+            "threadTopology": {
+                "totalInstances": 0,
+                "terminatedInstances": 0,
+                "liveInstances": [],
+            },
         }),
         validate_run_payload_value,
     );
@@ -1257,6 +1272,11 @@ fn ordinary_cli_result_payloads_accept_schema_permitted_extension_keys() {
             "runtimeMs": 27,
             "hostContract": "kali-hosted",
             "runtimeBackend": "wasmtime",
+            "threadTopology": {
+                "totalInstances": 0,
+                "terminatedInstances": 0,
+                "liveInstances": [],
+            },
             "coverage": {
                 "mode": "function",
                 "files": [
@@ -1355,6 +1375,61 @@ fn validate_test_payload_value_rejects_fractional_runtime_ms() {
     let err = validate_test_payload_value(&value)
         .expect_err("fractional test runtimeMs should fail validation");
     assert!(err.contains("runtimeMs"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_run_and_test_payload_value_rejects_malformed_thread_topology() {
+    let malformed_thread_topology = json!({
+        "totalInstances": 1,
+        "terminatedInstances": 0,
+        "liveInstances": [{
+            "instanceId": 0,
+            "scriptUrl": "https://e.co/worker.js",
+            "postedMessages": [],
+            "postedSharedBuffers": [[[999]]],
+            "wasTerminated": false,
+        }],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": malformed_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": malformed_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err = validator(&payload).expect_err("malformed thread topology should fail");
+        assert!(
+            err.contains("threadTopology") || err.contains("postedSharedBuffers"),
+            "{kind} error: {err}"
+        );
+    }
 }
 
 #[test]

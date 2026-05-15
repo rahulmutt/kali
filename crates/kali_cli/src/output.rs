@@ -508,6 +508,7 @@ pub fn validate_run_payload_value(value: &Value) -> Result<(), String> {
         validate_optional_non_empty_string_value(object.get(key), &format!("run payload {key}"))?;
     }
 
+    validate_thread_topology_snapshot_value(object.get("threadTopology"))?;
     Ok(())
 }
 
@@ -540,7 +541,132 @@ pub fn validate_test_payload_value(value: &Value) -> Result<(), String> {
         validate_optional_non_empty_string_value(object.get(key), &format!("test payload {key}"))?;
     }
 
+    validate_thread_topology_snapshot_value(object.get("threadTopology"))?;
     validate_test_payload_coverage_value(object.get("coverage"))?;
+    Ok(())
+}
+
+fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let Some(object) = value.as_object() else {
+        return Err(format!("threadTopology must be a JSON object, got {value}"));
+    };
+
+    for key in ["totalInstances", "terminatedInstances", "liveInstances"] {
+        if !object.contains_key(key) {
+            return Err(format!("threadTopology is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &["totalInstances", "terminatedInstances", "liveInstances"],
+        "threadTopology",
+    )?;
+
+    for key in ["totalInstances", "terminatedInstances"] {
+        match object.get(key) {
+            Some(value) if positive_integer_value(value).is_some() => {}
+            Some(other) => {
+                return Err(format!(
+                    "threadTopology {key} must be a non-negative integer, got {other}"
+                ))
+            }
+            None => unreachable!("validated above"),
+        }
+    }
+
+    let Some(Value::Array(items)) = object.get("liveInstances") else {
+        return Err(format!(
+            "threadTopology liveInstances must be an array, got {}",
+            object.get("liveInstances").unwrap()
+        ));
+    };
+    for (index, item) in items.iter().enumerate() {
+        validate_thread_topology_instance_snapshot_value(item)
+            .map_err(|error| format!("threadTopology liveInstances[{index}] {error}"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<(), String> {
+    let Some(object) = value.as_object() else {
+        return Err(format!("must be a JSON object, got {value}"));
+    };
+
+    for key in [
+        "instanceId",
+        "scriptUrl",
+        "postedMessages",
+        "postedSharedBuffers",
+        "wasTerminated",
+    ] {
+        if !object.contains_key(key) {
+            return Err(format!("is missing required key `{key}`"));
+        }
+    }
+    reject_unexpected_keys(
+        object,
+        &[
+            "instanceId",
+            "scriptUrl",
+            "postedMessages",
+            "postedSharedBuffers",
+            "wasTerminated",
+        ],
+        "threadTopology liveInstances item",
+    )?;
+
+    match object.get("instanceId") {
+        Some(value) if positive_integer_value(value).is_some() => {}
+        Some(other) => {
+            return Err(format!(
+                "instanceId must be a non-negative integer, got {other}"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
+    validate_non_empty_string_value(object.get("scriptUrl"), "scriptUrl")?;
+
+    match object.get("postedMessages") {
+        Some(Value::Array(_)) => {}
+        Some(other) => return Err(format!("postedMessages must be an array, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
+    let Some(Value::Array(shared_buffers)) = object.get("postedSharedBuffers") else {
+        return Err(format!(
+            "postedSharedBuffers must be an array, got {}",
+            object.get("postedSharedBuffers").unwrap()
+        ));
+    };
+    for (buffer_index, buffer) in shared_buffers.iter().enumerate() {
+        let Some(Value::Array(bytes)) = Some(buffer) else {
+            return Err(format!(
+                "postedSharedBuffers[{buffer_index}] must be an array, got {buffer}"
+            ));
+        };
+        for (byte_index, byte) in bytes.iter().enumerate() {
+            match positive_integer_value(byte) {
+                Some(value) if value <= 255 => {}
+                Some(_) | None => {
+                    return Err(format!(
+                        "postedSharedBuffers[{buffer_index}][{byte_index}] must be a byte value, got {byte}"
+                    ))
+                }
+            }
+        }
+    }
+
+    match object.get("wasTerminated") {
+        Some(Value::Bool(_)) => {}
+        Some(other) => return Err(format!("wasTerminated must be a boolean, got {other}")),
+        None => unreachable!("validated above"),
+    }
+
     Ok(())
 }
 
