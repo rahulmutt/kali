@@ -7750,6 +7750,119 @@ fn test_resolution_supports_async_class_method_lowering() {
 }
 
 #[test]
+fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "process.kill((0)); globalThis.process.kill(+0); process[\"kill\"]((0)); globalThis.process[\"kill\"](+0);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("process".to_string()),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::ParenthesizedExpression(Box::new(
+                    ParenthesizedExpression {
+                        expression: Box::new(Expression::Literal(LiteralValue::Number(0.0))),
+                    },
+                ))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "+".to_string(),
+                    argument: Expression::Literal(LiteralValue::Number(0.0)),
+                }))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("process".to_string()),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::ParenthesizedExpression(Box::new(
+                    ParenthesizedExpression {
+                        expression: Box::new(Expression::Literal(LiteralValue::Number(0.0))),
+                    },
+                ))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "+".to_string(),
+                    argument: Expression::Literal(LiteralValue::Number(0.0)),
+                }))],
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "node");
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "process.kill(1);").unwrap();
+
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("process".to_string()),
+                property: "kill".to_string(),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+        }))),
+    })];
+
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "node");
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0].message.contains("process.kill(0)"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_of_object_entries_iteration() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
