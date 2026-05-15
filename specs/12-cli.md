@@ -636,7 +636,7 @@ Determinism rules:
 These commands follow the shared **registry-analysis command split** from [SPEC.md](../SPEC.md), and both use the shared **registry-analysis target contract (schema v1)** from [SPEC.md](../SPEC.md): one explicit canonical registry package identifier, stable-release selection for versionless CLI targets, and project-independent analysis that does not mutate project-managed dependency state.
 
 Practical consequences:
-- malformed target forms (missing package, multiple packages, raw URL, or local path) fail with `E5508`
+- malformed target forms (missing package, whitespace-padded package identifiers, multiple packages, raw URL, or local path) fail with `E5508`
 - if the package identity exists but no acceptable non-yanked stable release exists for that identity-only workflow, the command fails with `E6001`
 - current-project `kali.json`, `kali.lock`, `node_modules/`, and `.kali/cache/urls/` do not select a different analyzed version
 - `package-effects` may still inherit semantic analysis context from discovered config/defaults once that command exists, but that inherited context changes analysis semantics only; it does not rewrite package identity/version selection
