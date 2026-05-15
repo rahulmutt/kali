@@ -7625,6 +7625,67 @@ fn build_source_file_rejects_bracketed_process_control_in_browser_api_surface_in
     assert_build_source_file_rejects_bracketed_process_control_in_input(ApiSurface::Browser, "tsx");
 }
 
+fn assert_build_source_file_rejects_process_kill_zero_probe_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        r#"process.kill(0); process.kill(+0); process["kill"](0); globalThis.process.kill(0); globalThis.process["kill"](0); globalThis["process"]["kill"](0); ((process.kill))(0); ((globalThis.process.kill))(0); ((globalThis["process"]["kill"]))(0);"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("process kill zero probe should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "process.kill",
+        "globalThis.process.kill",
+        r#"globalThis["process"]["kill"]"#,
+        r#"process["kill"]"#,
+    ] {
+        assert!(
+            error
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing {expected} in {error:?}"
+        );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_process_kill_zero_probe_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_process_kill_zero_probe_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_process_kill_zero_probe_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_process_kill_zero_probe_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_process_kill_zero_probe_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_process_kill_zero_probe_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_process_kill_zero_probe_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_process_kill_zero_probe_in_input(ApiSurface::Browser, "tsx");
+}
+
 fn assert_build_source_file_rejects_bracketed_deno_network_in_input(
     api_surface: ApiSurface,
     extension: &str,
