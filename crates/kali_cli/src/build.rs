@@ -4047,8 +4047,9 @@ fn collect_declared_function_binding_signatures(
     diagnostics: &mut Vec<Diagnostic>,
     declared_function_signatures: &mut BTreeMap<String, String>,
 ) {
+    let mut known_signatures = declared_function_signatures.clone();
+
     for declarator in &declaration.declarations {
-        let known_signatures = declared_function_signatures.clone();
         let Some(signature) = infer_function_binding_signature(
             declarator.init.as_ref(),
             source_path,
@@ -4058,8 +4059,8 @@ fn collect_declared_function_binding_signatures(
             continue;
         };
 
-        if declared_function_signatures
-            .insert(declarator.id.clone(), signature)
+        if known_signatures
+            .insert(declarator.id.clone(), signature.clone())
             .is_some()
         {
             diagnostics.push(invalid_export_surface(
@@ -4067,6 +4068,8 @@ fn collect_declared_function_binding_signatures(
                 &format!("duplicate export name `{}`", declarator.id),
             ));
         }
+
+        declared_function_signatures.insert(declarator.id.clone(), signature);
     }
 }
 

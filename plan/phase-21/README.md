@@ -24,6 +24,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Async class methods now ride the shared async-function lowering path; generator class methods remain gated, and the direct runtime-entrypoint gate now also covers async class expressions in JSX/TSX input, generator class expressions in JS/TS/JSX/TSX input, plus async-generator default-export class expressions in JS/TS/JSX/TSX input. Generator codegen plus the type-resolution and CLI build-preflight gates now emit distinct generator vs async-generator wording while preserving the same canonical E5506 path for function declarations and expressions, and runtime smoke now also covers those same class-expression gates for direct `run` / `test` JSON and text output, including the TS async default-export class-expression slice.
 - Current coverage also exercises async class methods through build smoke in TS, JS, JSX, and TSX input on both the Deno and browser artifact paths.
 - The parser now accepts class-expression forms with preserved async/generator metadata, and direct `run` / `test` entrypoints now gate those async class expressions too; generator class expressions now also hit the direct runtime E5506 gate before lowering, including the direct runtime JS/TS coverage path.
+- The Node `process.kill(0)` liveness-probe slice now also keeps transparent parenthesized and unary-plus wrapper forms covered alongside the bracketed Node aliases in the current smoke set.
 - HIR, MIR, LIR, and function-plan tests now also preserve class-expression generator metadata alongside the existing class-method coverage.
 - Direct `run` / `test` execution for async class methods now has an explicit E5506 gate; keep generator-class lowering gated until the dedicated packet lands.
 - Keep all unsupported forms behind canonical `E5506` gates until the full runtime path exists.
@@ -46,6 +47,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Grow inference inside deterministic budgets only.
 - Preserve annotation-required boundaries for exported/public and cross-module surfaces when inference would exceed the bounded contract.
 - Add positive and negative checker baselines for TS and first-class JS input.
+- Library-export signature collection now also resolves function-binding alias chains within the bounded slice, including same-statement `const` aliases when the target signature is already known.
 - Default-export aliases now resolve through the same bounded function-binding map used for local export aliases.
 
 ### 21.5 Conformance hygiene
