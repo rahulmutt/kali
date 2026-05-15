@@ -4159,6 +4159,65 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
 }
 
 #[test]
+fn runtime_reports_thread_topology_snapshot_for_spawned_threads() {
+    let runtime = RuntimeCtx::with_api_surface(None, "deno")
+        .with_runtime_profiles(vec!["wasm-threads".to_string()])
+        .with_max_threads(Some(2));
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://e.co/alpha.js")
+                (data (i32.const 32) "https://e.co/beta.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 21
+                    call $thread_spawn
+                    drop
+                    i32.const 32
+                    i32.const 20
+                    call $thread_spawn
+                    drop))
+            "#,
+    );
+
+    let outcome = runtime.execute(&wasm).expect("execute wasm");
+    assert_eq!(outcome.exit_code, 0);
+    assert_eq!(outcome.thread_topology.total_instances, 2);
+    assert_eq!(outcome.thread_topology.terminated_instances, 0);
+    assert_eq!(outcome.thread_topology.live_instances.len(), 2);
+    assert_eq!(outcome.thread_topology.live_instances[0].instance_id, 0);
+    assert_eq!(
+        outcome.thread_topology.live_instances[0].script_url,
+        "https://e.co/alpha.js"
+    );
+    assert_eq!(
+        outcome.thread_topology.live_instances[0].posted_messages,
+        Vec::<serde_json::Value>::new()
+    );
+    assert_eq!(
+        outcome.thread_topology.live_instances[0].posted_shared_buffers,
+        Vec::<Vec<u8>>::new()
+    );
+    assert!(!outcome.thread_topology.live_instances[0].was_terminated);
+    assert_eq!(outcome.thread_topology.live_instances[1].instance_id, 1);
+    assert_eq!(
+        outcome.thread_topology.live_instances[1].script_url,
+        "https://e.co/beta.js"
+    );
+    assert_eq!(
+        outcome.thread_topology.live_instances[1].posted_messages,
+        Vec::<serde_json::Value>::new()
+    );
+    assert_eq!(
+        outcome.thread_topology.live_instances[1].posted_shared_buffers,
+        Vec::<Vec<u8>>::new()
+    );
+    assert!(!outcome.thread_topology.live_instances[1].was_terminated);
+}
+
+#[test]
 fn runtime_host_state_rolls_back_failed_thread_spawns() {
     let mut state = KaliHostState {
         runtime_profiles: vec!["wasm-threads".to_string()],

@@ -839,7 +839,11 @@ fn execute_browser_runtime(
         runtime_profiles: normalized_runtime_profiles,
         host_contract: outcome.host_contract,
         runtime_backend: outcome.runtime_backend,
-        thread_topology: ThreadRuntimeShutdownReport::default(),
+        thread_topology: ThreadRuntimeShutdownReport {
+            total_instances: 0,
+            terminated_instances: 0,
+            live_instances: Vec::new(),
+        },
     })
 }
 

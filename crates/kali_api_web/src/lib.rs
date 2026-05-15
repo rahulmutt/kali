@@ -2250,7 +2250,7 @@ impl ThreadRuntimeInstanceSnapshot {
 }
 
 /// Deterministic shutdown/leak accounting for the runtime-topology model.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ThreadRuntimeShutdownReport {
     /// Number of runtime instances created by the topology.
     pub total_instances: usize,
