@@ -5730,10 +5730,10 @@ fn assert_build_source_file_rejects_async_generator_lowering_in_input(extension:
     assert!(error.iter().any(|diagnostic| diagnostic.code
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
     assert!(
-        error.iter().any(
-            |diagnostic| diagnostic.message.contains("generator function lowering")
-                || diagnostic.message.contains("yield expressions")
-        ),
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("async-generator function lowering")
+            || diagnostic.message.contains("yield expressions")),
         "unexpected diagnostics: {error:?}"
     );
 }

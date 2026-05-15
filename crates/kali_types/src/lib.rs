@@ -138,6 +138,14 @@ impl StaticObjectIdentityValue {
     }
 }
 
+fn generator_function_lowering_message(is_async: bool) -> &'static str {
+    if is_async {
+        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    } else {
+        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    }
+}
+
 /// Type / name-resolution context.
 pub struct TypeContext {
     pub global_scope: Scope,
@@ -556,7 +564,7 @@ impl TypeContext {
                 if *generator {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                        generator_function_lowering_message(*generator),
                     ));
                 }
                 self.bind_name_list(params);
@@ -3414,7 +3422,7 @@ impl TypeContext {
         if expr.generator {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                generator_function_lowering_message(expr.is_async),
             ));
         }
         if let Some(name) = &expr.id {

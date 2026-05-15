@@ -7394,7 +7394,7 @@ fn test_resolution_rejects_async_generator_function_lowering_in_js_input() {
     );
     assert!(result.diagnostics[0]
         .message
-        .contains("generator function lowering is unavailable"));
+        .contains("async-generator function lowering is unavailable"));
 }
 
 #[test]

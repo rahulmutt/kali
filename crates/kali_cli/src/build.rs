@@ -2637,7 +2637,7 @@ fn collect_library_exports_from_statements_with_context(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                            generator_function_lowering_message(func.is_async),
                         ));
                     } else {
                         let export_name = if func.name.is_empty() {
@@ -3425,7 +3425,7 @@ fn collect_library_exports_from_statements(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                            generator_function_lowering_message(func.is_async),
                         ));
                     } else {
                         let export_name = if func.name.is_empty() {
@@ -3988,6 +3988,14 @@ fn collect_direct_bundle_calls_from_expression(
     }
 }
 
+fn generator_function_lowering_message(is_async: bool) -> &'static str {
+    if is_async {
+        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    } else {
+        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    }
+}
+
 fn collect_declared_function_signatures(
     statements: &[Statement],
     source_path: &Path,
@@ -4000,7 +4008,7 @@ fn collect_declared_function_signatures(
                 if func.generator {
                     diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                        generator_function_lowering_message(func.is_async),
                     ));
                     continue;
                 }
@@ -4072,7 +4080,7 @@ fn infer_function_binding_signature(
             if func.generator {
                 diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                    generator_function_lowering_message(func.is_async),
                 ));
                 return None;
             }
