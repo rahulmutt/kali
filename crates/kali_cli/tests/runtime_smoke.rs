@@ -46534,6 +46534,27 @@ fn assert_for_of_template_literal_iteration(stdout: &str) {
     assert_eq!(lines, ["h", "e", "l", "l", "o"], "stdout: {stdout}");
 }
 
+fn assert_for_await_object_enumeration(stdout: &str) {
+    let lines: Vec<&str> = stdout.lines().filter(|line| !line.is_empty()).collect();
+    assert_eq!(
+        lines,
+        ["3", "2", "zed", "alpha", "zed", "3", "alpha", "2"],
+        "stdout: {stdout}"
+    );
+}
+
+fn assert_test_for_await_object_enumeration(stdout: &str) {
+    let mut lines: Vec<&str> = stdout.lines().filter(|line| !line.is_empty()).collect();
+    if lines.last() == Some(&"ok 1") {
+        lines.pop();
+    }
+    assert_eq!(
+        lines,
+        ["3", "2", "zed", "alpha", "zed", "3", "alpha", "2"],
+        "stdout: {stdout}"
+    );
+}
+
 fn assert_browser_for_await_object_enumeration(stdout: &str) {
     let mut lines: Vec<&str> = stdout.lines().filter(|line| !line.is_empty()).collect();
     if lines.last() == Some(&"ok 1") {
@@ -46603,6 +46624,106 @@ fn run_supports_for_of_template_literal_string_iteration_in_js_input_with_json_o
     assert_eq!(json["schemaVersion"], 1);
     assert_eq!(json["command"], "run");
     assert_eq!(json["success"], true);
+}
+
+#[test]
+fn run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for await (const value of [...Object.values(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(value); } for await (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    assert_for_await_object_enumeration(&String::from_utf8_lossy(&output.stdout));
+}
+
+#[test]
+fn json_run_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for await (const value of [...Object.values(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(value); } for await (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
+fn test_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "for await (const value of [...Object.values(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(value); } for await (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    assert_test_for_await_object_enumeration(&String::from_utf8_lossy(&output.stdout));
+}
+
+#[test]
+fn json_test_supports_spread_of_object_enumeration_in_for_await_array_iteration_in_ts_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        "for await (const value of [...Object.values(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(value); } for await (const key of [...Object.keys(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(key); } for await (const entry of [...Object.entries(Object.fromEntries([[\"zed\", 1], [\"alpha\", 2], [\"zed\", 3]]))]) { console.log(entry[0]); console.log(entry[1]); }\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
