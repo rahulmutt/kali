@@ -861,6 +861,16 @@ fn build_emits_single_quoted_global_this_math_atan2_zero_slice_in_ts_input() {
 }
 
 #[test]
+fn build_emits_single_quoted_global_this_math_atan2_zero_slice_in_jsx_input() {
+    assert_browser_bundle_single_quoted_global_this_math_atan2("app.jsx", false);
+}
+
+#[test]
+fn build_emits_single_quoted_global_this_math_atan2_zero_slice_in_tsx_input() {
+    assert_browser_bundle_single_quoted_global_this_math_atan2("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_js_input() {
     assert_browser_bundle_single_quoted_global_this_math_atan2("app.js", true);
 }
@@ -868,6 +878,16 @@ fn json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_js_input(
 #[test]
 fn json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_ts_input() {
     assert_browser_bundle_single_quoted_global_this_math_atan2("app.ts", true);
+}
+
+#[test]
+fn json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_jsx_input() {
+    assert_browser_bundle_single_quoted_global_this_math_atan2("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_single_quoted_global_this_math_atan2_zero_slice_in_tsx_input() {
+    assert_browser_bundle_single_quoted_global_this_math_atan2("app.tsx", true);
 }
 
 #[test]
