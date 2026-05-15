@@ -1779,6 +1779,8 @@ impl Optimizer {
                 | "globalThis.Object.hasOwn"
                 | "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
+                | "Object.hasOwnProperty.call"
+                | "globalThis.Object.hasOwnProperty.call"
         ) {
             return None;
         }

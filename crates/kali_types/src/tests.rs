@@ -2464,7 +2464,9 @@ Object.hasOwn(alias, "a");
 globalThis.Object.hasOwnProperty.call(alias, "a");
 globalThis["Object"]["hasOwnProperty"].call(alias, "a");
 globalThis["Object"].hasOwnProperty.call(alias, "a");
+globalThis["Object"]["hasOwnProperty"]["call"](alias, "a");
 Object["hasOwnProperty"].call(alias, "a");
+Object["hasOwnProperty"]["call"](alias, "a");
 Object.prototype.hasOwnProperty.call(alias, "a");
 "#,
     )
@@ -2645,6 +2647,7 @@ fn test_resolution_supports_object_has_own_on_object_from_entries_results_in_js_
     let source = r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
 Object.hasOwn(fromEntries, "a");
 Object.prototype.hasOwnProperty.call(fromEntries, "b");
+Object["hasOwnProperty"]["call"](fromEntries, "b");
 Object.hasOwn(Object.fromEntries([["c", 3], ["d", 4]]), "c");
 Object.prototype.hasOwnProperty.call(Object.fromEntries([["e", 5], ["f", 6]]), "e");
 "#;

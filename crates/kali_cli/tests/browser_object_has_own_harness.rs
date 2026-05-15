@@ -23,9 +23,10 @@ if (
   !globalThis["Object"].hasOwn(wrapped, "a") ||
   !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
   !Object["hasOwnProperty"].call(wrapped, "a") ||
+  !Object["hasOwnProperty"]["call"](wrapped, "a") ||
   !globalThis.Object.hasOwnProperty.call(wrapped, "a") ||
   !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") ||
-  !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") ||
+  !globalThis["Object"]["hasOwnProperty"]["call"](wrapped, "a") ||
   !globalThis["Object"].hasOwnProperty.call(wrapped, "a") ||
   !hasOwnPropertyCall(wrapped, "a") ||
   !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -59,9 +60,10 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     !globalThis["Object"].hasOwn(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object["hasOwnProperty"].call(wrapped, "a") ||
+    !Object["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object.hasOwnProperty.call(wrapped, "a") ||
     !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") ||
-    !globalThis["Object"]["hasOwnProperty"].call(wrapped, "a") ||
+    !globalThis["Object"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].hasOwnProperty.call(wrapped, "a") ||
     !hasOwnPropertyCall(wrapped, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||

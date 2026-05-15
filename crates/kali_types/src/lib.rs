@@ -1924,6 +1924,8 @@ impl TypeContext {
                 | "globalThis.Object.hasOwn"
                 | "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
+                | "Object.hasOwnProperty.call"
+                | "globalThis.Object.hasOwnProperty.call"
                 | "Number.isFinite"
                 | "Number.isNaN"
                 | "Number.isInteger"
@@ -1950,10 +1952,14 @@ impl TypeContext {
                 | r#"globalThis.Object.prototype["hasOwnProperty"]["call"]"#
                 | r#"globalThis.Object.prototype.hasOwnProperty.call"#
                 | r#"globalThis.Object["hasOwnProperty"].call"#
+                | r#"globalThis.Object["hasOwnProperty"]["call"]"#
                 | r#"globalThis["Object"]["hasOwnProperty"].call"#
+                | r#"globalThis["Object"]["hasOwnProperty"]["call"]"#
                 | r#"globalThis["Object"].hasOwnProperty.call"#
                 | r#"globalThis.Object.hasOwnProperty.call"#
+                | r#"globalThis.Object["hasOwnProperty"]["call"]"#
                 | r#"Object["hasOwnProperty"].call"#
+                | r#"Object["hasOwnProperty"]["call"]"#
                 | r#"Object.prototype.hasOwnProperty.call"#
                 | r#"globalThis["Number"].isFinite"#
                 | r#"globalThis["Number"].isNaN"#
@@ -2085,6 +2091,8 @@ impl TypeContext {
             callee_name.as_str(),
             "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
+                | "Object.hasOwnProperty.call"
+                | "globalThis.Object.hasOwnProperty.call"
         );
         if !is_object_has_own && !is_has_own_property_call {
             return false;
@@ -3516,6 +3524,8 @@ impl TypeContext {
                 | "globalThis.Object.hasOwn"
                 | "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
+                | "Object.hasOwnProperty.call"
+                | "globalThis.Object.hasOwnProperty.call"
         ) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
