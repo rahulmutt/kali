@@ -47959,6 +47959,11 @@ fn run_rejects_generator_function_lowering_in_jsx_input() {
 }
 
 #[test]
+fn run_rejects_generator_function_lowering_in_ts_input() {
+    assert_generator_function_lowering_rejection("run", "ts");
+}
+
+#[test]
 fn run_rejects_generator_function_lowering_in_tsx_input() {
     assert_generator_function_lowering_rejection("run", "tsx");
 }
@@ -48082,6 +48087,11 @@ fn test_rejects_generator_function_lowering_in_js_input() {
 #[test]
 fn test_rejects_generator_function_lowering_in_jsx_input() {
     assert_generator_function_lowering_rejection("test", "jsx");
+}
+
+#[test]
+fn test_rejects_generator_function_lowering_in_ts_input() {
+    assert_generator_function_lowering_rejection("test", "ts");
 }
 
 #[test]
