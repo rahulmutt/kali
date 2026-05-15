@@ -1755,6 +1755,14 @@ impl TypeContext {
     }
 
     fn resolve_call_expression(&mut self, expr: &CallExpression) {
+        if Self::contains_type_wrapped_call_target(&expr.callee) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "wrapped call targets using type assertions or satisfies expressions are unavailable in the current phase; use a direct callable reference or the later compatibility path",
+            ));
+            return;
+        }
+
         if let Expression::SequenceExpression(sequence) = &expr.callee {
             if sequence.expressions.len() > 1 {
                 for callee_expression in sequence
@@ -1785,6 +1793,31 @@ impl TypeContext {
         self.resolve_permission_query_call(expr);
         self.resolve_math_member_call(expr);
         self.resolve_promise_member_call(expr);
+    }
+
+    fn contains_type_wrapped_call_target(expression: &Expression) -> bool {
+        match expression {
+            Expression::TypeAssertion(_) | Expression::SatisfiesExpression(_) => true,
+            Expression::ParenthesizedExpression(expr) => {
+                Self::contains_type_wrapped_call_target(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::contains_type_wrapped_call_target(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                Self::contains_type_wrapped_call_target(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(Self::contains_type_wrapped_call_target),
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    Self::contains_type_wrapped_call_target(object)
+                }
+            },
+            _ => false,
+        }
     }
 
     fn call_member_access_name(expression: &Expression) -> Option<String> {

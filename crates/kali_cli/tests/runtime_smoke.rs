@@ -40220,9 +40220,9 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
         _ => format!("main.{extension}"),
     });
     let source = match command {
-        "test" => r#"Kali.test('browser object.is references', () => { const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object)); });
+        "test" => r#"Kali.test('browser object.is references', () => { const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); const array = [1, 2]; const arrayAlias = array; const frozenArray = Object.freeze(array); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object)); console.log(Object.is(arrayAlias, array)); console.log(Object.is(frozenArray, array)); });
 "#.to_string(),
-        _ => r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object));
+        _ => r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); const array = [1, 2]; const arrayAlias = array; const frozenArray = Object.freeze(array); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object)); console.log(Object.is(arrayAlias, array)); console.log(Object.is(frozenArray, array));
 "#.to_string(),
     };
     fs::write(&source_path, source).expect("write source");
@@ -40247,11 +40247,11 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n");
+        assert_eq!(json["stdout"], "1\n1\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n1"), "stdout: {stdout}");
+        assert!(stdout.contains("1\n1\n1\n1"), "stdout: {stdout}");
     }
 }
 
@@ -40259,6 +40259,42 @@ fn assert_object_is_same_reference_alias_chain_in_browser_harness(
 fn json_run_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_js_input(
 ) {
     assert_object_is_same_reference_alias_chain_in_browser_harness("run", "js", true);
+}
+
+#[test]
+fn json_run_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("run", "ts", true);
+}
+
+#[test]
+fn json_run_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("run", "jsx", true);
+}
+
+#[test]
+fn json_run_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("run", "tsx", true);
+}
+
+#[test]
+fn json_test_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("test", "js", true);
+}
+
+#[test]
+fn json_test_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("test", "ts", true);
+}
+
+#[test]
+fn json_test_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("test", "jsx", true);
 }
 
 #[test]

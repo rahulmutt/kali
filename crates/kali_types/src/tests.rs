@@ -2562,11 +2562,6 @@ Number["isFinite"](numericAlias);
 fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpers() {
     let mut ctx = TypeContext::new();
     let statements = vec![
-        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
-            name: "Fn".to_string(),
-            type_params: vec![],
-            type_annotation: "unknown".to_string(),
-        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::DecoratedExpression(DecoratedExpression {
@@ -2610,48 +2605,77 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                 args: vec![Expression::Literal(LiteralValue::Number(1.6))],
             }))),
         }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_wrapped_local_function_call_targets() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "add".to_string(),
+                init: Some(Expression::ArrowFunctionExpression(Box::new(
+                    ArrowFunctionExpression {
+                        params: vec![
+                            FunctionParam {
+                                name: "left".to_string(),
+                            },
+                            FunctionParam {
+                                name: "right".to_string(),
+                            },
+                        ],
+                        body: Expression::BinaryExpression(Box::new(BinaryExpression {
+                            left: Expression::Identifier("left".to_string()),
+                            operator: "+".to_string(),
+                            right: Expression::Identifier("right".to_string()),
+                        })),
+                        is_async: false,
+                        returnType: None,
+                    },
+                ))),
+            }],
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::TypeAssertion(Box::new(TypeAssertion {
-                    type_name: "Fn".to_string(),
-                    expression: Box::new(Expression::MemberExpression(Box::new(
-                        MemberExpression {
-                            object: Expression::Identifier("Object".to_string()),
-                            property: "hasOwn".to_string(),
-                        },
-                    ))),
+                    type_name: "unknown".to_string(),
+                    expression: Box::new(Expression::Identifier("add".to_string())),
                 })),
                 args: vec![
-                    Expression::ObjectExpression(ObjectExpression {
-                        properties: vec![ObjectProperty {
-                            key: PropertyName::Identifier("b".to_string()),
-                            value: Expression::Literal(LiteralValue::Number(2.0)),
-                            kind: ObjectPropertyKind::Init,
-                        }],
-                    }),
-                    Expression::Literal(LiteralValue::String("b".to_string())),
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                    Expression::Literal(LiteralValue::Number(2.0)),
                 ],
             }))),
         }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::SatisfiesExpression(Box::new(SatisfiesExpression {
-                    type_name: "Fn".to_string(),
-                    expression: Box::new(Expression::MemberExpression(Box::new(
-                        MemberExpression {
-                            object: Expression::Identifier("Math".to_string()),
-                            property: "floor".to_string(),
-                        },
-                    ))),
+                    type_name: "unknown".to_string(),
+                    expression: Box::new(Expression::Identifier("add".to_string())),
                 })),
-                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                    Expression::Literal(LiteralValue::Number(4.0)),
+                ],
             }))),
         }),
     ];
 
     let result = ctx.resolve_statements(&statements);
     assert!(
-        result.diagnostics.is_empty(),
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
