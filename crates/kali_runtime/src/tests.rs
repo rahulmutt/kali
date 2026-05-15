@@ -4159,6 +4159,57 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
 }
 
 #[test]
+fn runtime_host_state_trims_surrounding_whitespace_from_thread_script_urls() {
+    let mut state = KaliHostState {
+        runtime_profiles: vec!["wasm-threads".to_string()],
+        max_threads: Some(1),
+        ..Default::default()
+    };
+
+    let instance_id = state
+        .spawn_thread_instance("  https://e.co/padded.js \n")
+        .expect("thread instance with trimmed script URL");
+    assert_eq!(instance_id, 0);
+    assert_eq!(state.active_threads, 1);
+    assert_eq!(state.thread_topology.total_instances(), 1);
+
+    let snapshot = state.thread_topology_snapshot();
+    assert_eq!(snapshot.total_instances, 1);
+    assert_eq!(snapshot.terminated_instances, 0);
+    assert_eq!(snapshot.live_instances.len(), 1);
+    assert_eq!(snapshot.live_instances[0].instance_id, instance_id);
+    assert_eq!(
+        snapshot.live_instances[0].script_url,
+        "https://e.co/padded.js"
+    );
+    assert_eq!(
+        snapshot.live_instances[0].posted_messages,
+        Vec::<serde_json::Value>::new()
+    );
+    assert_eq!(
+        snapshot.live_instances[0].posted_shared_buffers,
+        Vec::<Vec<u8>>::new()
+    );
+    assert!(!snapshot.live_instances[0].was_terminated);
+    assert_eq!(
+        state.thread_topology_snapshot_value(),
+        serde_json::json!({
+            "totalInstances": 1,
+            "terminatedInstances": 0,
+            "liveInstances": [
+                {
+                    "instanceId": instance_id,
+                    "scriptUrl": "https://e.co/padded.js",
+                    "postedMessages": [],
+                    "postedSharedBuffers": [],
+                    "wasTerminated": false
+                }
+            ]
+        })
+    );
+}
+
+#[test]
 fn runtime_reports_thread_topology_snapshot_for_spawned_threads() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
         .with_runtime_profiles(vec!["wasm-threads".to_string()])
