@@ -49,6 +49,27 @@ Kali.test('template literal dynamic import', () => {{}});
     )
 }
 
+fn template_literal_dynamic_import_sequence_test_source(chunk_filename: &str) -> String {
+    format!(
+        r#"async function main() {{
+  const name = "{chunk_filename}";
+  const chunk = await import((0, `./${{name}}`));
+  if (typeof chunk.lazyValue !== 'function') {{
+    throw new Error('missing lazyValue export');
+  }}
+  const value = await chunk.lazyValue();
+  if (value !== 0n) {{
+    throw new Error(`unexpected chunk result ${{value}}`);
+  }}
+  console.log(String(value));
+  console.log('main loaded');
+}}
+main();
+Kali.test('template literal dynamic import sequence', () => {{}});
+"#,
+    )
+}
+
 fn template_literal_dynamic_import_sequence_run_source(chunk_filename: &str) -> String {
     format!(
         r#"async function main() {{
@@ -371,8 +392,54 @@ fn test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_bro
         "test",
         "smoke.test.js",
         "lazy.js",
-        &template_literal_dynamic_import_sequence_run_source("lazy.js"),
+        &template_literal_dynamic_import_sequence_test_source("lazy.js"),
         false,
         true,
     );
+}
+
+#[test]
+fn run_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_jsx_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_browser_requested_template_literal_dynamic_import(
+            "run",
+            &format!("main.{extension}"),
+            &format!("lazy.{extension}"),
+            &template_literal_dynamic_import_sequence_run_source(&format!("lazy.{extension}")),
+            false,
+            false,
+        );
+        assert_browser_requested_template_literal_dynamic_import(
+            "run",
+            &format!("main.{extension}"),
+            &format!("lazy.{extension}"),
+            &template_literal_dynamic_import_sequence_run_source(&format!("lazy.{extension}")),
+            true,
+            false,
+        );
+    }
+}
+
+#[test]
+fn test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_browser_api_surface_with_harness_ts_jsx_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_browser_requested_template_literal_dynamic_import(
+            "test",
+            &format!("smoke.test.{extension}"),
+            &format!("lazy.{extension}"),
+            &template_literal_dynamic_import_sequence_test_source(&format!("lazy.{extension}")),
+            false,
+            true,
+        );
+        assert_browser_requested_template_literal_dynamic_import(
+            "test",
+            &format!("smoke.test.{extension}"),
+            &format!("lazy.{extension}"),
+            &template_literal_dynamic_import_sequence_test_source(&format!("lazy.{extension}")),
+            true,
+            true,
+        );
+    }
 }
