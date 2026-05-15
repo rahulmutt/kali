@@ -2056,8 +2056,7 @@ fn unsupported_generator_function_lowering_reports_feature_unavailable() {
         result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && (diagnostic.message.contains("generator function lowering")
-                    || diagnostic.message.contains("yield expressions"))
+                && diagnostic.message.contains("generator function lowering")
         }),
         "expected an unavailable generator diagnostic: {:?}",
         result.diagnostics
@@ -2078,10 +2077,36 @@ fn unsupported_async_generator_function_lowering_reports_feature_unavailable() {
         result.diagnostics.iter().any(|diagnostic| {
             diagnostic.is_error()
                 && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && (diagnostic.message.contains("generator function lowering")
-                    || diagnostic.message.contains("yield expressions"))
+                && diagnostic
+                    .message
+                    .contains("async-generator function lowering")
         }),
         "expected an unavailable async-generator diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn mixed_generator_and_async_generator_lowering_reports_feature_unavailable() {
+    let program = parse_and_lower_lir(
+        "function* main() { yield 1; }\nasync function* nested() { yield 2; }\nmain();\nnested();",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("generator and async-generator function lowering")
+        }),
+        "expected a combined generator diagnostic: {:?}",
         result.diagnostics
     );
 }

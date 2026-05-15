@@ -4959,6 +4959,22 @@ impl<'a> FunctionEmitter<'a> {
     }
 }
 
+fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> String {
+    let has_generator = function_plans
+        .iter()
+        .any(|plan| matches!(plan.flavor, Some(FunctionFlavor::Generator)));
+    let has_async_generator = function_plans
+        .iter()
+        .any(|plan| matches!(plan.flavor, Some(FunctionFlavor::AsyncGenerator)));
+
+    match (has_generator, has_async_generator) {
+        (true, true) => "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        (true, false) => "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        (false, true) => "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        (false, false) => "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+    }
+}
+
 /// Generate WASM from LIR.
 pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResult {
     let mut diagnostics = Vec::new();
@@ -4971,7 +4987,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     }) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+            generator_lowering_unavailable_message(&function_plans),
         ));
         return CodegenResult {
             wasm_bytes: Vec::new(),
