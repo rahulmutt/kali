@@ -531,6 +531,14 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_aggregate_literal(function, node, want_value);
         }
 
+        if self.is_supported_callable_reference(node) {
+            function.instruction(&Instruction::I64Const(0));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         match node.children.len() {
             0 => {
                 if let Some(text) = node.text.as_deref() {
@@ -1384,7 +1392,10 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
-        let callee_node = self.node(callee).clone();
+        let callee_node = self
+            .resolve_bound_member_callable_node(callee)
+            .map(|bound| self.node(bound).clone())
+            .unwrap_or_else(|| self.node(callee).clone());
         if self.is_kali_test_call(&callee_node) {
             if let Some(callback_index) = self.kali_test_callback_index(node) {
                 function.instruction(&Instruction::I32Const(callback_index as i32));
@@ -4156,6 +4167,20 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
+    fn is_supported_callable_reference(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Value || node.children.len() != 1 {
+            return false;
+        }
+
+        match node.text.as_deref() {
+            Some("is") => self.is_object_identity_object(node),
+            Some("isFinite") | Some("isNaN") | Some("isInteger") | Some("isSafeInteger") => {
+                self.is_number_object(node)
+            }
+            _ => false,
+        }
+    }
+
     fn resolve_bound_node(&self, mut id: LirNodeId) -> LirNodeId {
         let mut seen = HashSet::new();
 
@@ -4175,6 +4200,16 @@ impl<'a> FunctionEmitter<'a> {
             }
 
             return id;
+        }
+    }
+
+    fn resolve_bound_member_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let bound = self.resolve_bound_node(id);
+        let node = self.node(bound);
+        if node.text.is_some() && !node.children.is_empty() {
+            Some(bound)
+        } else {
+            None
         }
     }
 

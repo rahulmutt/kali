@@ -217,9 +217,31 @@ fn object_is_lowers_for_same_static_reference() {
 }
 
 #[test]
+fn object_is_lowers_for_static_member_callable_alias() {
+    let program = parse_and_lower_lir(
+        "const same = Object.is; const object = { a: 1 }; console.log(same(object, object));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn number_is_finite_is_integer_and_is_nan_lowers_for_static_primitive_values() {
     let program = parse_and_lower_lir(
-        "const alias = 1; console.log(Number.isFinite(alias)); console.log(Number.isInteger(alias)); console.log(Number.isSafeInteger(alias)); console.log(Number.isInteger(1.5)); console.log(Number.isFinite(\"hello\")); console.log(Number.isSafeInteger(1.5)); console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); console.log(globalThis.Number.isNaN(1)); console.log(globalThis[\"Number\"][\"isFinite\"](alias)); console.log(globalThis[\"Number\"][\"isInteger\"](alias)); console.log(globalThis[\"Number\"][\"isSafeInteger\"](alias)); console.log(globalThis.Number[\"isNaN\"](1)); console.log(globalThis[\"Number\"].isFinite(alias)); console.log(globalThis.Number[\"isInteger\"](alias)); console.log(globalThis[\"Number\"].isSafeInteger(alias));",
+        "const alias = 1; const finite = Number.isFinite; console.log(Number.isFinite(alias)); console.log(Number.isInteger(alias)); console.log(Number.isSafeInteger(alias)); console.log(Number.isInteger(1.5)); console.log(Number.isFinite(\"hello\")); console.log(Number.isSafeInteger(1.5)); console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); console.log(globalThis.Number.isNaN(1)); console.log(globalThis[\"Number\"].isNaN(1)); console.log(globalThis[\"Number\"][\"isFinite\"](alias)); console.log(globalThis[\"Number\"][\"isInteger\"](alias)); console.log(globalThis[\"Number\"][\"isSafeInteger\"](alias)); console.log(globalThis.Number[\"isNaN\"](1)); console.log(globalThis[\"Number\"].isFinite(alias)); console.log(globalThis.Number[\"isInteger\"](alias)); console.log(globalThis[\"Number\"].isSafeInteger(alias)); console.log(Number[\"isFinite\"](alias)); console.log(Number[\"isInteger\"](alias)); console.log(Number[\"isSafeInteger\"](alias)); console.log(Number[\"isNaN\"](1)); console.log(finite(alias));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,

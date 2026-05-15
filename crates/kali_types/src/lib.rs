@@ -904,6 +904,13 @@ impl TypeContext {
                                 .insert(declarator.id.clone(), root);
                         }
                     }
+                    if let Some(root) = self.resolve_static_reference_root(init) {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .static_reference_values
+                                .insert(declarator.id.clone(), root);
+                        }
+                    }
                     if self.resolve_static_object_keys_target(init) {
                         if let Some(scope) = self.scopes.get_mut(&target_scope) {
                             scope.static_object_keys.insert(declarator.id.clone(), true);
@@ -1477,6 +1484,7 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_reference_root(expression)),
+            Expression::MemberExpression(member) => Self::member_access_name(member),
             Expression::Identifier(name) => self
                 .resolve_static_reference_binding_name(name)
                 .or_else(|| {
@@ -1838,6 +1846,27 @@ impl TypeContext {
         }
     }
 
+    fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
+        Self::call_member_access_name(expression)
+            .or_else(|| self.resolve_static_reference_root(expression))
+    }
+
+    fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
+        matches!(
+            Self::member_access_name(expr).as_deref(),
+            Some("Object.is")
+                | Some("globalThis.Object.is")
+                | Some("Number.isFinite")
+                | Some("Number.isNaN")
+                | Some("Number.isInteger")
+                | Some("Number.isSafeInteger")
+                | Some("globalThis.Number.isFinite")
+                | Some("globalThis.Number.isNaN")
+                | Some("globalThis.Number.isInteger")
+                | Some("globalThis.Number.isSafeInteger")
+        )
+    }
+
     fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         if self.resolve_late_intl_member(expr) {
             return;
@@ -1855,6 +1884,10 @@ impl TypeContext {
             return;
         }
 
+        if self.is_supported_static_callable_member_expression(expr) {
+            return;
+        }
+
         self.resolve_expression(&expr.object);
         self.resolve_threaded_runtime_member(expr);
         self.resolve_late_host_control_member(expr);
@@ -1868,7 +1901,7 @@ impl TypeContext {
     }
 
     fn resolve_permission_query_call(&mut self, expr: &CallExpression) {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
 
@@ -1901,7 +1934,7 @@ impl TypeContext {
     }
 
     fn resolve_process_kill_call(&mut self, expr: &CallExpression) {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
 
@@ -1941,7 +1974,7 @@ impl TypeContext {
     }
 
     fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
 
@@ -1981,7 +2014,7 @@ impl TypeContext {
     }
 
     fn resolve_static_object_identity_call(&mut self, expr: &CallExpression) -> bool {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
 
@@ -2060,7 +2093,7 @@ impl TypeContext {
     }
 
     fn resolve_number_identity_call(&mut self, expr: &CallExpression) -> bool {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return false;
         };
 
@@ -2121,7 +2154,7 @@ impl TypeContext {
     }
 
     fn resolve_math_member_call(&mut self, expr: &CallExpression) {
-        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&expr.callee) else {
             return;
         };
 

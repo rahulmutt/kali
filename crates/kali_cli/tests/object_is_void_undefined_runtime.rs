@@ -9,24 +9,28 @@ fn kali_bin() -> String {
 
 fn object_is_void_undefined_source() -> &'static str {
     r#"const alias = void 0;
+const same = Object.is;
 console.log(Object.is(alias, void 0));
 console.log(Object.is(void 0, void 0));
 console.log(globalThis["Object"]["is"](alias, void 0));
 console.log(globalThis.Object["is"](alias, void 0));
 console.log(globalThis["Object"].is(alias, void 0));
 console.log(globalThis.Object.is(alias, void 0));
+console.log(same(alias, void 0));
 "#
 }
 
 fn object_is_void_undefined_test_source() -> &'static str {
     r#"Kali.test('object is void undefined', () => {
   const alias = void 0;
+  const same = Object.is;
   console.log(Object.is(alias, void 0));
   console.log(Object.is(void 0, void 0));
   console.log(globalThis["Object"]["is"](alias, void 0));
   console.log(globalThis.Object["is"](alias, void 0));
   console.log(globalThis["Object"].is(alias, void 0));
   console.log(globalThis.Object.is(alias, void 0));
+  console.log(same(alias, void 0));
 });
 "#
 }
@@ -59,11 +63,11 @@ fn assert_run_supports_object_is_void_undefined_in_js_input(json_output: bool) {
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n1\n1\n1\n1\n");
+        assert_eq!(json["stdout"], "1\n1\n1\n1\n1\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout.trim(), "1\n1\n1\n1\n1\n1", "stdout: {stdout}");
+        assert_eq!(stdout.trim(), "1\n1\n1\n1\n1\n1\n1", "stdout: {stdout}");
     }
 }
 
@@ -100,7 +104,7 @@ fn assert_test_supports_object_is_void_undefined_in_js_input(json_output: bool) 
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
+        assert!(stdout.contains("1\n1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
 }
