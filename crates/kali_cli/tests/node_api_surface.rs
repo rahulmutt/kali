@@ -2817,7 +2817,7 @@ fn node_api_surface_supports_bracketed_process_control_in_js_jsx_and_tsx_input_o
 }
 
 #[test]
-fn node_api_surface_rejects_process_kill_in_js_jsx_and_tsx_input_on_check_build_run_and_test_commands(
+fn node_api_surface_supports_process_kill_zero_probe_in_js_jsx_and_tsx_input_on_check_build_run_and_test_commands(
 ) {
     for extension in ["js", "jsx", "tsx"] {
         for inherited in [false, true] {
@@ -2826,12 +2826,12 @@ fn node_api_surface_rejects_process_kill_in_js_jsx_and_tsx_input_on_check_build_
             let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
                 &run_file,
-                "process.kill(0); globalThis.process.kill(0); globalThis[\"process\"][\"kill\"](0); process[\"kill\"](0);\n",
+                "console.log(process.kill(0)); globalThis.process.kill(0); globalThis[\"process\"][\"kill\"](0); process[\"kill\"](0);\n",
             )
             .expect("write run file");
             fs::write(
                 &test_file,
-                "Kali.test('process kill', () => { process.kill(0); globalThis.process.kill(0); });\n",
+                "Kali.test('process kill', () => { if (!process.kill(0) || !globalThis.process.kill(0)) { throw new Error('expected zero probe'); } });\n",
             )
             .expect("write test file");
 
@@ -2848,11 +2848,36 @@ fn node_api_surface_rejects_process_kill_in_js_jsx_and_tsx_input_on_check_build_
                 .expect("write manifest");
             }
 
-            for command in ["check", "build", "run", "test"] {
-                let input_path = if command == "test" {
-                    &test_file
-                } else {
+            for command in ["check", "build"] {
+                let mut text_command = Command::new(kali_bin());
+                text_command.current_dir(dir.path()).arg(command);
+                if !inherited {
+                    text_command.arg("--api").arg("node");
+                }
+                text_command.arg(&run_file);
+
+                let text_output = text_command.output().expect("run kali");
+                assert!(
+                    text_output.status.success(),
+                    "{command} stderr for process.kill(0) (extension={extension}, inherited={inherited}): {}",
+                    String::from_utf8_lossy(&text_output.stderr)
+                );
+                let text_stdout = String::from_utf8_lossy(&text_output.stdout);
+                assert!(
+                    text_stdout.contains(if command == "check" {
+                        "Checked 1 file(s)"
+                    } else {
+                        "Built executable artifact at"
+                    }),
+                    "{command} stdout for process.kill(0) (extension={extension}, inherited={inherited}): {text_stdout}"
+                );
+            }
+
+            for command in ["run", "test"] {
+                let input_path = if command == "run" {
                     &run_file
+                } else {
+                    &test_file
                 };
 
                 let mut text_command = Command::new(kali_bin());
@@ -2863,18 +2888,24 @@ fn node_api_surface_rejects_process_kill_in_js_jsx_and_tsx_input_on_check_build_
                 text_command.arg(input_path);
 
                 let text_output = text_command.output().expect("run kali");
-                assert!(
-                    !text_output.status.success(),
-                    "{command} should be rejected on the Node surface for process.kill (extension={extension}, inherited={inherited})\nstdout: {}\nstderr: {}",
-                    String::from_utf8_lossy(&text_output.stdout),
+                assert_eq!(
+                    text_output.status.code(),
+                    Some(0),
+                    "{command} stderr for process.kill(0) (extension={extension}, inherited={inherited}): {}",
                     String::from_utf8_lossy(&text_output.stderr)
                 );
-                let text_stderr = String::from_utf8_lossy(&text_output.stderr);
-                assert!(text_stderr.contains("E5506"), "stderr: {text_stderr}");
-                assert!(
-                    text_stderr.contains("process.kill"),
-                    "{command} stderr missing process.kill gate for extension={extension}, inherited={inherited}: {text_stderr}"
-                );
+                if command == "run" {
+                    let stdout = String::from_utf8_lossy(&text_output.stdout);
+                    assert!(stdout.contains("1"), "{command} stdout: {stdout}");
+                }
+            }
+
+            for command in ["check", "build", "run", "test"] {
+                let input_path = if command == "test" {
+                    &test_file
+                } else {
+                    &run_file
+                };
 
                 let mut json_command = Command::new(kali_bin());
                 json_command
@@ -2889,23 +2920,17 @@ fn node_api_surface_rejects_process_kill_in_js_jsx_and_tsx_input_on_check_build_
 
                 let json_output = json_command.output().expect("run kali");
                 assert!(
-                    !json_output.status.success(),
-                    "json {command} should surface the Node rejection as machine-readable output for process.kill (extension={extension}, inherited={inherited})\nstdout: {}\nstderr: {}",
+                    json_output.status.success(),
+                    "json {command} should be supported on the Node surface for process.kill(0) (extension={extension}, inherited={inherited})\nstdout: {}\nstderr: {}",
                     String::from_utf8_lossy(&json_output.stdout),
                     String::from_utf8_lossy(&json_output.stderr)
                 );
                 let json = parse_json_stdout(&json_output);
                 assert_eq!(json["command"], command);
-                assert_eq!(json["success"], false);
-                assert_eq!(json["exitCode"], 1);
-                assert_eq!(json["errors"][0]["code"], "E5506");
-                let message = json["errors"][0]["message"]
-                    .as_str()
-                    .expect("json error message string");
-                assert!(
-                    message.contains("process.kill"),
-                    "json {command} message missing process.kill gate for extension={extension}, inherited={inherited}: {message}"
-                );
+                assert_eq!(json["success"], true);
+                assert_eq!(json["exitCode"], 0);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert!(errors.is_empty(), "unexpected errors: {errors:?}");
             }
         }
     }

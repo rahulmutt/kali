@@ -1783,6 +1783,7 @@ impl TypeContext {
             self.resolve_expression(arg);
         }
         self.resolve_permission_query_call(expr);
+        self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
@@ -1872,6 +1873,46 @@ impl TypeContext {
                 descriptor_name
             ),
         ));
+    }
+
+    fn resolve_process_kill_call(&mut self, expr: &CallExpression) {
+        let Some(callee_name) = Self::call_member_access_name(&expr.callee) else {
+            return;
+        };
+
+        if !matches!(
+            callee_name.as_str(),
+            "process.kill" | "globalThis.process.kill"
+        ) {
+            return;
+        }
+
+        if self.api_surface != "node" {
+            return;
+        }
+
+        let Some(first_arg) = expr.args.first() else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "process.kill is unavailable unless it is invoked as process.kill(0) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+            ));
+            return;
+        };
+
+        let Some(first_value) = self.resolve_static_numeric_literal_value(first_arg) else {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "process.kill is unavailable unless its first argument is a statically-known zero numeric literal in the current phase; use process.kill(0) or the later compatibility path".to_string(),
+            ));
+            return;
+        };
+
+        if first_value != 0.0 || expr.args.len() != 1 {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "process.kill is unavailable unless it is invoked as process.kill(0) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+            ));
+        }
     }
 
     fn resolve_static_object_model_call(&mut self, expr: &CallExpression) -> bool {
@@ -2958,6 +2999,10 @@ impl TypeContext {
         }
 
         if expr.property == "exit" && object_name == "process" && self.api_surface == "node" {
+            return;
+        }
+
+        if expr.property == "kill" && object_name == "process" && self.api_surface == "node" {
             return;
         }
 

@@ -4083,6 +4083,50 @@ fn process_exit_member_calls_lower_to_runtime_process_exit_import() {
 }
 
 #[test]
+fn process_kill_zero_probe_lowers_to_boolean_true_without_process_exit_import() {
+    let program = parse_and_lower_lir("process.kill(0);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    assert!(printed.contains("i64.const 1"), "printed wasm: {printed}");
+    assert!(!printed.contains("process_exit"), "printed wasm: {printed}");
+}
+
+#[test]
+fn process_kill_non_zero_probe_is_rejected_by_codegen() {
+    let program = parse_and_lower_lir("process.kill(1);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        !result.diagnostics.is_empty(),
+        "expected process.kill(1) to be rejected"
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diag| diag.message.contains("process.kill")),
+        "{:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn deno_env_get_member_calls_lower_to_runtime_env_get_import() {
     let program = parse_and_lower_lir("console.log(Deno.env.get(\"HOME\"));");
     let mut ctx = CodegenCtx::new(TargetConfig {

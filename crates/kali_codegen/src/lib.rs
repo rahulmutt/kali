@@ -2850,6 +2850,48 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if self.is_process_kill(&callee_node) {
+            let mut args = node.children.iter().skip(1);
+            let Some(pid_expr) = args.next() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "process.kill is unavailable unless it is invoked as process.kill(0) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(pid_text) = self.render_static_value(*pid_expr) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "process.kill is unavailable unless its first argument is a statically-known zero numeric literal in the current phase; use process.kill(0) or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            if parse_number_literal(&pid_text) != Some(0) || args.next().is_some() {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "process.kill is unavailable unless it is invoked as process.kill(0) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::I64Const(0));
+                return EmittedValue {
+                    produced: true,
+                    shape: ValueShape::Unknown,
+                };
+            }
+            function.instruction(&Instruction::I64Const(1));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         for arg in node.children.iter().skip(1) {
             let _ = self.emit_node(function, *arg, true);
         }
@@ -4076,6 +4118,24 @@ impl<'a> FunctionEmitter<'a> {
                 .children
                 .first()
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
+    }
+
+    fn is_process_kill(&self, callee_node: &LirNode) -> bool {
+        let Some(method) = callee_node.text.as_deref() else {
+            return false;
+        };
+        if method != "kill" {
+            return false;
+        }
+
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        if !self.is_process_exit(object) {
+            return false;
+        }
+
+        true
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {
