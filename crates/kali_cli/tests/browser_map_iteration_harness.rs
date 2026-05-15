@@ -10,7 +10,13 @@ fn kali_bin() -> String {
 fn browser_harness_map_iteration_run_source() -> &'static str {
     r##"function browserMapIteration() {
   function assertMapIteration(values) {
-    if (values.length !== 2 || values[0] !== '[1,3]' || values[1] !== '[4,5]') {
+    if (
+      values.length !== 2 ||
+      values[0][0] !== 1 ||
+      values[0][1] !== 3 ||
+      values[1][0] !== 4 ||
+      values[1][1] !== 5
+    ) {
       throw new Error('unexpected Map constructor iteration semantics');
     }
   }
@@ -21,27 +27,32 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   const aliasValues = (values);
   const direct = [];
   for (const entry of new Map(values)) {
-    direct.push(JSON.stringify(entry));
+    direct.push(entry);
   }
   const alias = [];
   for (const entry of new mapAlias(aliasValues)) {
-    alias.push(JSON.stringify(entry));
+    alias.push(entry);
   }
   const wrappedAlias = [];
   for (const entry of new (wrappedMapAlias)(aliasValues)) {
-    wrappedAlias.push(JSON.stringify(entry));
+    wrappedAlias.push(entry);
   }
   const globalDirect = [];
   for (const entry of new globalThis.Map(values)) {
-    globalDirect.push(JSON.stringify(entry));
+    globalDirect.push(entry);
   }
   const bracketed = [];
   for (const entry of new globalThis["Map"](values)) {
-    bracketed.push(JSON.stringify(entry));
+    bracketed.push(entry);
   }
   const singleBracketed = [];
   for (const entry of new globalThis['Map'](values)) {
-    singleBracketed.push(JSON.stringify(entry));
+    singleBracketed.push(entry);
+  }
+  const frozenMapValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const entry of new Map(frozenMapValues)) {
+    frozenDirect.push(entry);
   }
 
   assertMapIteration(direct);
@@ -50,6 +61,7 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
+  assertMapIteration(frozenDirect);
   console.log('browser map constructor iteration ok');
 }
 
@@ -60,7 +72,13 @@ browserMapIteration();
 fn browser_harness_map_iteration_test_source() -> &'static str {
     r##"Kali.test('map constructor iteration', () => {
   function assertMapIteration(values) {
-    if (values.length !== 2 || values[0] !== '[1,3]' || values[1] !== '[4,5]') {
+    if (
+      values.length !== 2 ||
+      values[0][0] !== 1 ||
+      values[0][1] !== 3 ||
+      values[1][0] !== 4 ||
+      values[1][1] !== 5
+    ) {
       throw new Error('unexpected Map constructor iteration semantics');
     }
   }
@@ -71,27 +89,32 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   const aliasValues = (values);
   const direct = [];
   for (const entry of new Map(values)) {
-    direct.push(JSON.stringify(entry));
+    direct.push(entry);
   }
   const alias = [];
   for (const entry of new mapAlias(aliasValues)) {
-    alias.push(JSON.stringify(entry));
+    alias.push(entry);
   }
   const wrappedAlias = [];
   for (const entry of new (wrappedMapAlias)(aliasValues)) {
-    wrappedAlias.push(JSON.stringify(entry));
+    wrappedAlias.push(entry);
   }
   const globalDirect = [];
   for (const entry of new globalThis.Map(values)) {
-    globalDirect.push(JSON.stringify(entry));
+    globalDirect.push(entry);
   }
   const bracketed = [];
   for (const entry of new globalThis["Map"](values)) {
-    bracketed.push(JSON.stringify(entry));
+    bracketed.push(entry);
   }
   const singleBracketed = [];
   for (const entry of new globalThis['Map'](values)) {
-    singleBracketed.push(JSON.stringify(entry));
+    singleBracketed.push(entry);
+  }
+  const frozenMapValues = Object.freeze(aliasValues);
+  const frozenDirect = [];
+  for (const entry of new Map(frozenMapValues)) {
+    frozenDirect.push(entry);
   }
 
   assertMapIteration(direct);
@@ -100,6 +123,7 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   assertMapIteration(globalDirect);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
+  assertMapIteration(frozenDirect);
   console.log('browser map constructor iteration ok');
 });
 "##
