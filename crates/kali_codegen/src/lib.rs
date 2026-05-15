@@ -4144,6 +4144,14 @@ impl<'a> FunctionEmitter<'a> {
     fn is_process_exit(&self, id: LirNodeId) -> bool {
         let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
+        if self.is_object_freeze_call(node) {
+            return node
+                .children
+                .get(1)
+                .copied()
+                .is_some_and(|child| self.is_process_exit(child));
+        }
+
         if node.text.as_deref() == Some("process") {
             return true;
         }

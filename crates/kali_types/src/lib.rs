@@ -3605,6 +3605,10 @@ impl TypeContext {
             Expression::ChainExpression(expr) => {
                 Self::member_access_bracketed_root_name(&expr.expression)
             }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .and_then(Self::member_access_bracketed_root_name),
             _ => None,
         }
     }
@@ -3631,6 +3635,9 @@ impl TypeContext {
                 OptionalChainInner::NonNull { object, .. } => Self::member_access_root_name(object),
             },
             Expression::ChainExpression(expr) => Self::member_access_root_name(&expr.expression),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().and_then(Self::member_access_root_name)
+            }
             _ => None,
         }
     }
@@ -3652,6 +3659,9 @@ impl TypeContext {
                 OptionalChainInner::NonNull { object, .. } => Self::member_object_name(object),
             },
             Expression::ChainExpression(expr) => Self::member_object_name(&expr.expression),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().and_then(Self::member_object_name)
+            }
             _ => None,
         }
     }
