@@ -1755,6 +1755,18 @@ impl TypeContext {
     }
 
     fn resolve_call_expression(&mut self, expr: &CallExpression) {
+        if let Expression::SequenceExpression(sequence) = &expr.callee {
+            if sequence.expressions.len() > 1 {
+                for callee_expression in sequence
+                    .expressions
+                    .iter()
+                    .take(sequence.expressions.len() - 1)
+                {
+                    self.resolve_expression(callee_expression);
+                }
+            }
+        }
+
         if self.resolve_static_object_model_call(expr) {
             return;
         }
@@ -1789,6 +1801,10 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 Self::call_member_access_name(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(Self::call_member_access_name),
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => Self::call_member_access_name(object),
             },

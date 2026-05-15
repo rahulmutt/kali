@@ -2562,6 +2562,11 @@ Number["isFinite"](numericAlias);
 fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpers() {
     let mut ctx = TypeContext::new();
     let statements = vec![
+        Statement::TypeAliasDeclaration(TypeAliasDeclaration {
+            name: "Fn".to_string(),
+            type_params: vec![],
+            type_annotation: "unknown".to_string(),
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::DecoratedExpression(DecoratedExpression {
@@ -2602,6 +2607,43 @@ fn test_resolution_supports_wrapped_call_targets_for_object_model_and_math_helpe
                         },
                     ))),
                 }),
+                args: vec![Expression::Literal(LiteralValue::Number(1.6))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::TypeAssertion(Box::new(TypeAssertion {
+                    type_name: "Fn".to_string(),
+                    expression: Box::new(Expression::MemberExpression(Box::new(
+                        MemberExpression {
+                            object: Expression::Identifier("Object".to_string()),
+                            property: "hasOwn".to_string(),
+                        },
+                    ))),
+                })),
+                args: vec![
+                    Expression::ObjectExpression(ObjectExpression {
+                        properties: vec![ObjectProperty {
+                            key: PropertyName::Identifier("b".to_string()),
+                            value: Expression::Literal(LiteralValue::Number(2.0)),
+                            kind: ObjectPropertyKind::Init,
+                        }],
+                    }),
+                    Expression::Literal(LiteralValue::String("b".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::SatisfiesExpression(Box::new(SatisfiesExpression {
+                    type_name: "Fn".to_string(),
+                    expression: Box::new(Expression::MemberExpression(Box::new(
+                        MemberExpression {
+                            object: Expression::Identifier("Math".to_string()),
+                            property: "floor".to_string(),
+                        },
+                    ))),
+                })),
                 args: vec![Expression::Literal(LiteralValue::Number(1.6))],
             }))),
         }),
