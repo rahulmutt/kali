@@ -583,15 +583,29 @@ fn validate_thread_topology_snapshot_value(value: Option<&Value>) -> Result<(), 
             object.get("liveInstances").unwrap()
         ));
     };
+
+    let mut previous_instance_id = None;
+    let mut seen_instance_ids = BTreeSet::new();
     for (index, item) in items.iter().enumerate() {
-        validate_thread_topology_instance_snapshot_value(item)
+        let instance_id = validate_thread_topology_instance_snapshot_value(item)
             .map_err(|error| format!("threadTopology liveInstances[{index}] {error}"))?;
+        if !seen_instance_ids.insert(instance_id) {
+            return Err(format!(
+                "threadTopology liveInstances[{index}] instanceId must be unique, got {instance_id}"
+            ));
+        }
+        if previous_instance_id.is_some_and(|previous| instance_id < previous) {
+            return Err(format!(
+                "threadTopology liveInstances[{index}] instanceId must be ordered by ascending instanceId"
+            ));
+        }
+        previous_instance_id = Some(instance_id);
     }
 
     Ok(())
 }
 
-fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<(), String> {
+fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<u64, String> {
     let Some(object) = value.as_object() else {
         return Err(format!("must be a JSON object, got {value}"));
     };
@@ -619,15 +633,11 @@ fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<(),
         "threadTopology liveInstances item",
     )?;
 
-    match object.get("instanceId") {
-        Some(value) if positive_integer_value(value).is_some() => {}
-        Some(other) => {
-            return Err(format!(
-                "instanceId must be a non-negative integer, got {other}"
-            ))
-        }
+    let instance_id = match object.get("instanceId") {
+        Some(value) => positive_integer_value(value)
+            .ok_or_else(|| format!("instanceId must be a non-negative integer, got {value}"))?,
         None => unreachable!("validated above"),
-    }
+    };
 
     validate_non_empty_string_value(object.get("scriptUrl"), "scriptUrl")?;
 
@@ -667,7 +677,7 @@ fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<(),
         None => unreachable!("validated above"),
     }
 
-    Ok(())
+    Ok(instance_id)
 }
 
 fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), String> {

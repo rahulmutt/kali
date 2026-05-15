@@ -1433,6 +1433,136 @@ fn validate_run_and_test_payload_value_rejects_malformed_thread_topology() {
 }
 
 #[test]
+fn validate_run_and_test_payload_value_rejects_duplicate_thread_topology_instance_ids() {
+    let duplicated_thread_topology = json!({
+        "totalInstances": 2,
+        "terminatedInstances": 0,
+        "liveInstances": [
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-0.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-1.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+        ],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": duplicated_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": duplicated_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err =
+            validator(&payload).expect_err("duplicate thread topology instance ids should fail");
+        assert!(
+            err.contains("instanceId must be unique"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
+fn validate_run_and_test_payload_value_rejects_unsorted_thread_topology_instance_ids() {
+    let unsorted_thread_topology = json!({
+        "totalInstances": 2,
+        "terminatedInstances": 0,
+        "liveInstances": [
+            {
+                "instanceId": 1,
+                "scriptUrl": "https://e.co/worker-1.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-0.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+        ],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": unsorted_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": unsorted_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err =
+            validator(&payload).expect_err("unsorted thread topology instance ids should fail");
+        assert!(
+            err.contains("ordered by ascending instanceId"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_test_payload_value_rejects_malformed_coverage() {
     let value = json!({
         "total": 4,
