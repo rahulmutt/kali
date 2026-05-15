@@ -30353,6 +30353,104 @@ fn run_supports_for_await_array_iteration_semantics_with_const_alias_in_js_input
 }
 
 #[test]
+fn run_supports_set_and_map_constructor_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, set_and_map_iteration_run_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_set_and_map_iteration(&stdout);
+}
+
+#[test]
+fn json_run_supports_set_and_map_constructor_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, set_and_map_iteration_run_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("set and map constructor iteration ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_set_and_map_constructor_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_set_and_map_iteration(&stdout);
+}
+
+#[test]
+fn json_test_supports_set_and_map_constructor_iteration_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("set and map constructor iteration ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_math_max_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
@@ -45797,6 +45895,118 @@ fn test_supports_for_of_array_iteration_in_browser_api_surface_with_harness_js_i
 }
 
 #[test]
+fn run_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_harness_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, set_and_map_iteration_run_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_set_and_map_iteration(&stdout);
+}
+
+#[test]
+fn json_run_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, set_and_map_iteration_run_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("set and map constructor iteration ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
+fn test_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_harness_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_set_and_map_iteration(&stdout);
+}
+
+#[test]
+fn json_test_supports_set_and_map_constructor_iteration_in_browser_api_surface_with_harness_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, set_and_map_iteration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("set and map constructor iteration ok"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn run_supports_for_await_array_iteration_with_const_alias_in_browser_api_surface_with_harness_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -46091,6 +46301,211 @@ fn assert_browser_for_await_array_iteration(output: &str) {
 
 fn assert_browser_for_await_array_iteration_json(success: bool) {
     assert!(success);
+}
+
+fn assert_set_and_map_iteration(stdout: &str) {
+    assert!(
+        stdout.contains("set and map constructor iteration ok"),
+        "stdout: {stdout}"
+    );
+}
+
+fn set_and_map_iteration_run_source() -> &'static str {
+    r##"function assertSetIteration(values) {
+  if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+    throw new Error('unexpected Set constructor iteration semantics');
+  }
+}
+
+function assertMapIteration(values) {
+  if (
+    values.length !== 2 ||
+    values[0][0] !== 1 ||
+    values[0][1] !== 3 ||
+    values[1][0] !== 4 ||
+    values[1][1] !== 5
+  ) {
+    throw new Error('unexpected Map constructor iteration semantics');
+  }
+}
+
+function setAndMapIteration() {
+  const values = [1, 2, 1];
+  const setAlias = Set;
+  const wrappedSetAlias = (setAlias);
+  const aliasValues = (values);
+  const direct = [];
+  for (const value of new Set(values)) {
+    direct.push(value);
+  }
+  const alias = [];
+  for (const value of new setAlias(aliasValues)) {
+    alias.push(value);
+  }
+  const wrappedAlias = [];
+  for (const value of new (wrappedSetAlias)(aliasValues)) {
+    wrappedAlias.push(value);
+  }
+  const globalDirect = [];
+  for (const value of new globalThis.Set(values)) {
+    globalDirect.push(value);
+  }
+  const bracketed = [];
+  for (const value of new globalThis["Set"](values)) {
+    bracketed.push(value);
+  }
+  const singleBracketed = [];
+  for (const value of new globalThis['Set'](values)) {
+    singleBracketed.push(value);
+  }
+
+  assertSetIteration(direct);
+  assertSetIteration(alias);
+  assertSetIteration(wrappedAlias);
+  assertSetIteration(globalDirect);
+  assertSetIteration(bracketed);
+  assertSetIteration(singleBracketed);
+
+  const mapValues = [[1, 2], [1, 3], [4, 5]];
+  const mapAlias = Map;
+  const wrappedMapAlias = (mapAlias);
+  const mapDirect = [];
+  for (const entry of new Map(mapValues)) {
+    mapDirect.push(entry);
+  }
+  const mapAliasValues = [];
+  for (const entry of new mapAlias(mapValues)) {
+    mapAliasValues.push(entry);
+  }
+  const wrappedMapAliasValues = [];
+  for (const entry of new (wrappedMapAlias)(mapValues)) {
+    wrappedMapAliasValues.push(entry);
+  }
+  const globalMapDirect = [];
+  for (const entry of new globalThis.Map(mapValues)) {
+    globalMapDirect.push(entry);
+  }
+  const bracketedMap = [];
+  for (const entry of new globalThis["Map"](mapValues)) {
+    bracketedMap.push(entry);
+  }
+  const singleBracketedMap = [];
+  for (const entry of new globalThis['Map'](mapValues)) {
+    singleBracketedMap.push(entry);
+  }
+
+  assertMapIteration(mapDirect);
+  assertMapIteration(mapAliasValues);
+  assertMapIteration(wrappedMapAliasValues);
+  assertMapIteration(globalMapDirect);
+  assertMapIteration(bracketedMap);
+  assertMapIteration(singleBracketedMap);
+
+  console.log('set and map constructor iteration ok');
+}
+
+setAndMapIteration();
+"##
+}
+
+fn set_and_map_iteration_test_source() -> &'static str {
+    r##"Kali.test('set and map iteration', () => {
+  function assertSetIteration(values) {
+    if (values.length !== 2 || values[0] !== 1 || values[1] !== 2) {
+      throw new Error('unexpected Set constructor iteration semantics');
+    }
+  }
+
+  function assertMapIteration(values) {
+    if (
+      values.length !== 2 ||
+      values[0][0] !== 1 ||
+      values[0][1] !== 3 ||
+      values[1][0] !== 4 ||
+      values[1][1] !== 5
+    ) {
+      throw new Error('unexpected Map constructor iteration semantics');
+    }
+  }
+
+  function setAndMapIteration() {
+    const values = [1, 2, 1];
+    const setAlias = Set;
+    const wrappedSetAlias = (setAlias);
+    const aliasValues = (values);
+    const direct = [];
+    for (const value of new Set(values)) {
+      direct.push(value);
+    }
+    const alias = [];
+    for (const value of new setAlias(aliasValues)) {
+      alias.push(value);
+    }
+    const wrappedAlias = [];
+    for (const value of new (wrappedSetAlias)(aliasValues)) {
+      wrappedAlias.push(value);
+    }
+    const globalDirect = [];
+    for (const value of new globalThis.Set(values)) {
+      globalDirect.push(value);
+    }
+    const bracketed = [];
+    for (const value of new globalThis["Set"](values)) {
+      bracketed.push(value);
+    }
+    const singleBracketed = [];
+    for (const value of new globalThis['Set'](values)) {
+      singleBracketed.push(value);
+    }
+
+    assertSetIteration(direct);
+    assertSetIteration(alias);
+    assertSetIteration(wrappedAlias);
+    assertSetIteration(globalDirect);
+    assertSetIteration(bracketed);
+    assertSetIteration(singleBracketed);
+
+    const mapValues = [[1, 2], [1, 3], [4, 5]];
+    const mapAlias = Map;
+    const wrappedMapAlias = (mapAlias);
+    const mapDirect = [];
+    for (const entry of new Map(mapValues)) {
+      mapDirect.push(entry);
+    }
+    const mapAliasValues = [];
+    for (const entry of new mapAlias(mapValues)) {
+      mapAliasValues.push(entry);
+    }
+    const wrappedMapAliasValues = [];
+    for (const entry of new (wrappedMapAlias)(mapValues)) {
+      wrappedMapAliasValues.push(entry);
+    }
+    const globalMapDirect = [];
+    for (const entry of new globalThis.Map(mapValues)) {
+      globalMapDirect.push(entry);
+    }
+    const bracketedMap = [];
+    for (const entry of new globalThis["Map"](mapValues)) {
+      bracketedMap.push(entry);
+    }
+    const singleBracketedMap = [];
+    for (const entry of new globalThis['Map'](mapValues)) {
+      singleBracketedMap.push(entry);
+    }
+
+    assertMapIteration(mapDirect);
+    assertMapIteration(mapAliasValues);
+    assertMapIteration(wrappedMapAliasValues);
+    assertMapIteration(globalMapDirect);
+    assertMapIteration(bracketedMap);
+    assertMapIteration(singleBracketedMap);
+
+    console.log('set and map constructor iteration ok');
+  }
+
+  setAndMapIteration();
+});
+"##
 }
 
 fn assert_for_of_template_literal_iteration(stdout: &str) {
