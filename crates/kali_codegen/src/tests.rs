@@ -4297,6 +4297,14 @@ fn process_kill_non_zero_probe_is_rejected_by_codegen() {
         result
             .diagnostics
             .iter()
+            .any(|diag| diag.message.contains(r#"process["kill"](0)"#)),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(
+        result
+            .diagnostics
+            .iter()
             .any(|diag| diag.message.contains(r#"globalThis["process"]["kill"](0)"#)),
         "{:?}",
         result.diagnostics

@@ -57,6 +57,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
+- `process.kill` zero-probe diagnostics now enumerate the bracketed `process["kill"](0)` form alongside the existing Node alias matrix so canonical failure wording stays aligned with the supported slice.
 - Browser bundle/harness coverage now also includes the fully bracketed `globalThis.Object.prototype.hasOwnProperty["call"]` spelling on the supported `Object.hasOwn` slice.
 
 ## Exit gate
