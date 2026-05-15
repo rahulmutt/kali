@@ -63,6 +63,7 @@ Canonical install-target and package-argument arity rule:
 - passing more than the allowed number of explicit install targets/package arguments is `E5508` rather than permission to invent an undocumented batch mode
 - omitting the required explicit registry-package argument for a registry-analysis command is also `E5508`
 - the single explicit package argument must be a non-empty registry identifier; whitespace-only strings are invalid usage and are rejected before registry lookup
+- canonical registry-analysis targets are bare npm package names or `jsr:` package identifiers; scheme-prefixed selectors such as `npm:lodash` are invalid usage and are rejected before registry lookup
 - flags that conceptually modify an explicit registry-package target (for example `kali install --dev`) require that registry target in early phases; using them without one is also `E5508`
 
 Canonical input-kind rule:

@@ -37,7 +37,7 @@ Remaining goals:
 - Grow Node package support only where required Node built-ins and process APIs are explicitly supported or deliberately gated.
 - Grow browser deployability and browser-harness package evidence while keeping standalone browser runtime claims separate.
 - Keep native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint packages rejected by default unless specs introduce a mediated path.
-- Keep registry-analysis commands (`package-effects`, `package-audit`) single-package and registry-identifier based unless a future spec/schema revision defines batch/local/raw-URL behavior.
+- Keep registry-analysis commands (`package-effects`, `package-audit`) single-package and registry-identifier based unless a future spec/schema revision defines batch/local/raw-URL behavior; scheme-prefixed selectors such as `npm:lodash` stay rejected before lookup.
 
 ## Optimization, PGO, and performance
 

@@ -62795,15 +62795,22 @@ fn json_package_registry_commands_reject_malformed_jsr_targets() {
 #[test]
 fn package_registry_commands_reject_non_registry_targets() {
     let cases = [
-        "https://example.com/pkg.tgz",
-        "http://example.com/pkg.tgz",
-        "./local/pkg",
-        "../local/pkg",
-        "/absolute/pkg",
+        (
+            "https://example.com/pkg.tgz",
+            "accepts only registry package identifiers",
+        ),
+        (
+            "http://example.com/pkg.tgz",
+            "accepts only registry package identifiers",
+        ),
+        ("./local/pkg", "accepts only registry package identifiers"),
+        ("../local/pkg", "accepts only registry package identifiers"),
+        ("/absolute/pkg", "accepts only registry package identifiers"),
+        ("npm:lodash", "bare npm package names or `jsr:` identifiers"),
     ];
 
     for command in ["package-effects", "package-audit"] {
-        for target in cases {
+        for (target, expected_message) in cases {
             let output = Command::new(kali_bin())
                 .arg(command)
                 .arg(target)
@@ -62814,10 +62821,7 @@ fn package_registry_commands_reject_non_registry_targets() {
             assert_eq!(output.status.code(), Some(5));
             let stderr = String::from_utf8_lossy(&output.stderr);
             assert!(stderr.contains("E5508"), "stderr: {stderr}");
-            assert!(
-                stderr.contains("accepts only registry package identifiers"),
-                "stderr: {stderr}"
-            );
+            assert!(stderr.contains(expected_message), "stderr: {stderr}");
             assert!(stderr.contains(target), "stderr: {stderr}");
         }
     }
@@ -62857,15 +62861,22 @@ fn package_registry_commands_reject_explicit_package_versions_in_json_output() {
 #[test]
 fn package_registry_commands_reject_non_registry_targets_in_json_output() {
     let cases = [
-        "https://example.com/pkg.tgz",
-        "http://example.com/pkg.tgz",
-        "./local/pkg",
-        "../local/pkg",
-        "/absolute/pkg",
+        (
+            "https://example.com/pkg.tgz",
+            "accepts only registry package identifiers",
+        ),
+        (
+            "http://example.com/pkg.tgz",
+            "accepts only registry package identifiers",
+        ),
+        ("./local/pkg", "accepts only registry package identifiers"),
+        ("../local/pkg", "accepts only registry package identifiers"),
+        ("/absolute/pkg", "accepts only registry package identifiers"),
+        ("npm:lodash", "bare npm package names or `jsr:` identifiers"),
     ];
 
     for command in ["package-effects", "package-audit"] {
-        for target in cases {
+        for (target, expected_message) in cases {
             let output = Command::new(kali_bin())
                 .arg("--output")
                 .arg("json")
@@ -62888,7 +62899,7 @@ fn package_registry_commands_reject_non_registry_targets_in_json_output() {
                 errors[0]["message"]
                     .as_str()
                     .expect("message string")
-                    .contains("registry package identifiers"),
+                    .contains(expected_message),
                 "json: {json}"
             );
             assert!(

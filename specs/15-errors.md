@@ -357,7 +357,9 @@ Examples:
 - `kali package-audit` with no package argument
 - `kali package-audit "   "`
 - `kali package-effects jsr:`
+- `kali package-effects npm:lodash`
 - `kali package-audit jsr: foo`
+- `kali package-audit npm:lodash`
 - `kali check --fix`
 - `kali check --pretty` without `--output json`
 - `kali package-audit --pretty lodash` without `--output json`

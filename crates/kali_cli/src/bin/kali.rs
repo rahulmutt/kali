@@ -4707,6 +4707,18 @@ fn parse_registry_package_target(
         ));
     }
 
+    if let Some((scheme, _)) = target.split_once(':') {
+        if scheme != "jsr" {
+            return Err(Diagnostic::error(
+                e5::INVALID_CLI_USAGE as u32,
+                format!(
+                    "`kali {command}` accepts only bare npm package names or `jsr:` identifiers, not '{}'",
+                    target
+                ),
+            ));
+        }
+    }
+
     let (registry, package_name, install_name, report_label) =
         if let Some(spec) = target.strip_prefix("jsr:") {
             if spec.is_empty() {

@@ -177,6 +177,7 @@ Interpretation rules:
 - follow the shared **registry package identifier vs package coordinate** split from [SPEC.md](../SPEC.md): CLI/manifests/diagnostics use the registry package identifier spelling (`lodash`, `jsr:@std/path`), while structured JSON package metadata may decompose the same package into `{ registry, name, version }`
 - bare package names default to the npm registry in CLI/package-manifest contexts
 - the `jsr:` prefix is required for JSR so package identity stays unambiguous in `kali.json`, lockfiles, diagnostics, and install commands
+- registry-analysis commands accept only those canonical spellings; scheme-prefixed selectors such as `npm:lodash` are invalid usage
 - this prefix is a **registry identity marker**, not a request to invent a second installation layout; both npm and JSR registry packages still materialize into `node_modules/` in early phases
 - the canonical on-disk materialization path is `node_modules/<package-name>` using the registry-native package name without the `jsr:` identity marker; for example npm `lodash` materializes at `node_modules/lodash`, and `jsr:@std/path` materializes at `node_modules/@std/path`
 - because early phases use one shared `node_modules/` tree, Kali must reject a project that would require two distinct registry identities to occupy the same on-disk package path (for example npm `@scope/name` and `jsr:@scope/name`) rather than inventing shadow package trees or ambiguous resolution precedence
