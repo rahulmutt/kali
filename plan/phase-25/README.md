@@ -37,6 +37,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
+- Browser runtime contract validation now trims surrounding whitespace around the canonical host-label fields before comparison, keeping the generated `doctor` payload robust against incidental padding.
 
 ## Exit gate
 

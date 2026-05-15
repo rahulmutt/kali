@@ -1216,7 +1216,7 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
     const BROWSER_RUNTIME_HOST_LABEL: &str = "browser-requested";
 
     match object.get("hostLabel") {
-        Some(Value::String(value)) if value == BROWSER_RUNTIME_HOST_LABEL => {}
+        Some(Value::String(value)) if value.trim() == BROWSER_RUNTIME_HOST_LABEL => {}
         Some(Value::String(_)) => {
             return Err(format!(
                 "doctor browserRuntimeContract hostLabel must be `{BROWSER_RUNTIME_HOST_LABEL}`"
@@ -1255,7 +1255,7 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "browser runtime host description: real browser host";
 
     match object.get("hostDescriptionNote") {
-        Some(Value::String(value)) if value == BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE => {}
+        Some(Value::String(value)) if value.trim() == BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE => {}
         Some(Value::String(_)) => {
             return Err(format!(
                 "doctor browserRuntimeContract hostDescriptionNote must be `{BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE}`"
@@ -2446,5 +2446,16 @@ mod tests {
             err,
             "doctor browserRuntimeContract diagnosticNotes[1] must be a non-empty, non-whitespace string"
         );
+    }
+
+    #[test]
+    fn browser_runtime_contract_accepts_trimmed_canonical_labels() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["hostLabel"] = json!(" browser-requested ");
+        contract["hostDescriptionNote"] =
+            json!(" browser runtime host description: real browser host ");
+
+        validate_browser_runtime_contract_value(Some(&contract))
+            .expect("trimmed canonical labels should still validate");
     }
 }
