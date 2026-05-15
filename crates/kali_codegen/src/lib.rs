@@ -4360,6 +4360,74 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(set_call) = self.resolve_set_constructor_call(&array) {
+            let Some(source_arg) = set_call.children.get(1).copied() else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let Some(source_id) = self.resolve_literal_aggregate(source_arg) else {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            };
+            let source = self.node(source_id).clone();
+            let mut items = Vec::new();
+            if !self.collect_set_constructor_iteration_items(&source, &mut items) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements; use a supported loop form or the later compatibility path",
+                ));
+                function.instruction(&Instruction::Unreachable);
+                return EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+            }
+
+            let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
+            function.instruction(&Instruction::Block(BlockType::Empty));
+            for child in items {
+                let previous_binding = self.bindings.insert(loop_name.clone(), child);
+                let continue_index = self.push_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.push(LoopFrame {
+                    break_index,
+                    continue_index,
+                });
+                function.instruction(&Instruction::Block(BlockType::Empty));
+                if let Some(body) = body {
+                    let _ = self.emit_node(function, body, false);
+                }
+                if let Some(previous_binding) = previous_binding {
+                    self.bindings.insert(loop_name.clone(), previous_binding);
+                } else {
+                    self.bindings.remove(&loop_name);
+                }
+                function.instruction(&Instruction::End);
+                self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
+                self.loop_frames.pop();
+            }
+            function.instruction(&Instruction::End);
+            self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(object_enumeration_mode) = self.is_object_enumeration_call(&array) {
             let Some(object_arg) = array.children.get(1).copied() else {
                 self.diagnostics.push(Diagnostic::error(
@@ -4946,6 +5014,138 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         false
+    }
+
+    fn is_set_constructor_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        matches!(
+            self.node(callee).text.as_deref(),
+            Some("Set")
+                | Some("globalThis.Set")
+                | Some(r#"globalThis["Set"]"#)
+                | Some(r#"globalThis['Set']"#)
+        )
+    }
+
+    fn resolve_set_constructor_call<'b>(&'b self, node: &'b LirNode) -> Option<&'b LirNode> {
+        if self.is_set_constructor_call(node) {
+            return Some(node);
+        }
+
+        if node.kind == LirNodeKind::Value
+            && node.text.is_none()
+            && node.children.len() == 1
+        {
+            let child = self.node(node.children[0]);
+            if self.is_set_constructor_call(child) {
+                return Some(child);
+            }
+        }
+
+        None
+    }
+
+    fn collect_set_constructor_iteration_items(
+        &mut self,
+        node: &LirNode,
+        items: &mut Vec<LirNodeId>,
+    ) -> bool {
+        let mut seen = HashSet::new();
+        if let Some(set_call) = self.resolve_set_constructor_call(node) {
+            let Some(source_arg) = set_call.children.get(1).copied() else {
+                return false;
+            };
+            let Some(source_id) = self.resolve_literal_aggregate(source_arg) else {
+                return false;
+            };
+            let source = self.node(source_id).clone();
+            return self.collect_set_constructor_iteration_items(&source, items);
+        }
+
+        if let Some(string_text) = self.render_static_string_value(node) {
+            for value in string_text.chars() {
+                let item = self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some(format!("{value:?}")),
+                    vec![],
+                );
+                let Some(key) = self.static_set_item_key(item) else {
+                    return false;
+                };
+                if seen.insert(key) {
+                    items.push(item);
+                }
+            }
+            return true;
+        }
+
+        if self.is_array_literal(node) {
+            let mut collected = Vec::new();
+            for child in &node.children {
+                if !self.collect_for_of_array_iteration_items(*child, &mut collected) {
+                    return false;
+                }
+            }
+
+            for item in collected {
+                let Some(key) = self.static_set_item_key(item) else {
+                    return false;
+                };
+                if seen.insert(key) {
+                    items.push(item);
+                }
+            }
+            return true;
+        }
+
+        if let Some(object_enumeration_mode) = self.is_object_enumeration_call(node) {
+            if matches!(object_enumeration_mode, ObjectEnumerationMode::Entries) {
+                return false;
+            }
+
+            let Some(object_arg) = node.children.get(1).copied() else {
+                return false;
+            };
+            let Some(object_id) = self.resolve_literal_aggregate(object_arg) else {
+                return false;
+            };
+            let object = self.node(object_id).clone();
+            let mut collected = Vec::new();
+            if !self.collect_object_enumeration_iteration_items(
+                &object,
+                object_enumeration_mode,
+                &mut collected,
+            ) {
+                return false;
+            }
+
+            for item in collected {
+                let Some(key) = self.static_set_item_key(item) else {
+                    return false;
+                };
+                if seen.insert(key) {
+                    items.push(item);
+                }
+            }
+            return true;
+        }
+
+        false
+    }
+
+    fn static_set_item_key(&self, id: LirNodeId) -> Option<String> {
+        let resolved_id = self.resolve_literal_aggregate(id)?;
+        let node = self.node(resolved_id);
+        if node.kind == LirNodeKind::Value && !node.children.is_empty() {
+            return None;
+        }
+        self.render_static_value(resolved_id)
     }
 
     fn is_supported_for_of_array_iteration_item(&mut self, id: LirNodeId) -> bool {

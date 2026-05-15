@@ -13,11 +13,11 @@ use kali_ast::{
     ForInLefthand, ForInStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
     ImportExpression, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement, JsxFragment,
-    LabeledStatement, LiteralValue, MemberExpression, NodeId, ObjectExpression, ObjectProperty,
-    ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName, ReturnStatement,
-    Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement, TryStatement,
-    TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration, WhileStatement,
-    WithStatement,
+    LabeledStatement, LiteralValue, MemberExpression, NewExpression, NodeId, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName,
+    ReturnStatement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement,
+    TryStatement, TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration,
+    WhileStatement, WithStatement,
 };
 use kali_common::template::resolve_interpolated_template_literal;
 use kali_error::{
@@ -684,10 +684,34 @@ impl TypeContext {
             Expression::CallExpression(call) => {
                 self.is_static_object_enumeration_iteration_target(call)
             }
+            Expression::NewExpression(expr) => {
+                self.is_static_set_constructor_iteration_target(expr)
+            }
             other => self
                 .resolve_static_string_iterable_expression(other)
                 .is_some(),
         }
+    }
+
+    fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
+        let (callee_expression, args) = match &expression.callee {
+            Expression::CallExpression(call) => (&call.callee, &call.args),
+            other => (other, &expression.args),
+        };
+
+        let callee_name = match callee_expression {
+            Expression::Identifier(name) => Some(name.clone()),
+            other => self.resolve_static_callable_name(other),
+        };
+        let Some(callee_name) = callee_name else {
+            return false;
+        };
+
+        matches!(
+            callee_name.as_str(),
+            "Set" | "globalThis.Set" | r#"globalThis["Set"]"# | r#"globalThis['Set']"#
+        ) && args.len() == 1
+            && self.is_static_array_iteration_target(&args[0])
     }
 
     fn resolve_static_string_iterable_expression(&self, expression: &Expression) -> Option<String> {

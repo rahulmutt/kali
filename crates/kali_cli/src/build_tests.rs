@@ -3837,6 +3837,77 @@ fn build_source_file_supports_for_of_array_iteration_with_sequence_wrappers_in_b
     );
 }
 
+fn assert_check_source_file_supports_set_constructor_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "for (const value of new Set([1, 2, 1])) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, api_surface, &[], false, false)
+        .expect("set constructor iteration should type-check");
+}
+
+fn assert_build_source_file_supports_set_constructor_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "for (const value of new Set([1, 2, 1])) { console.log(value); }\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("set constructor iteration should build");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn check_source_file_supports_set_constructor_iteration_in_deno_and_browser_js_ts_jsx_and_tsx_input(
+) {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["js", "ts", "jsx", "tsx"] {
+            assert_check_source_file_supports_set_constructor_iteration_in_input(
+                api_surface,
+                extension,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_source_file_supports_set_constructor_iteration_in_deno_and_browser_js_ts_jsx_and_tsx_input(
+) {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["js", "ts", "jsx", "tsx"] {
+            assert_build_source_file_supports_set_constructor_iteration_in_input(
+                api_surface,
+                extension,
+            );
+        }
+    }
+}
+
 #[test]
 fn build_source_file_supports_spread_of_object_values_iterator_slices_in_browser_api_surface_in_js_input(
 ) {

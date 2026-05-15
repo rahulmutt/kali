@@ -172,6 +172,36 @@ fn test_resolution_supports_bracketed_reflect_own_keys_iteration_target_in_js_in
 }
 
 #[test]
+fn test_resolution_accepts_new_set_iteration_target_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"for (const value of new Set([1, 2, 1])) {
+    console.log(value);
+}
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::ForOfStatement(ForOfStatement { right, .. }) = &statements[0] else {
+        panic!("expected for-of statement");
+    };
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    assert!(ctx.is_static_array_iteration_target(right));
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_type_assertion_and_satisfies_with_known_type_names() {
     let mut ctx = TypeContext::new();
     let statements = vec![
