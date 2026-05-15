@@ -28,7 +28,7 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> &'static str {
-    "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); process.kill(0); process.kill(+0); process.kill((0)); ((process)).kill(0); ((globalThis.process)).kill(0); globalThis.process.kill(0); globalThis[\"process\"][\"kill\"](+0); globalThis[\"process\"][\"kill\"]((0)); globalThis[\"process\"].kill(0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); Object.freeze(globalThis.process[\"kill\"])(0); ((process.kill))(0); ((process[\"kill\"]))(0); ((globalThis.process.kill))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0);"
+    "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); process.kill(0); process.kill(+0); process.kill((0)); ((process)).kill(0); ((globalThis.process)).kill(0); globalThis.process.kill(0); globalThis[\"process\"][\"kill\"](+0); globalThis[\"process\"][\"kill\"]((0)); globalThis[\"process\"].kill(0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); Object.freeze(globalThis.process[\"kill\"])(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); ((process.kill))(0); ((process[\"kill\"]))(0); ((globalThis.process.kill))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0);"
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {
@@ -100,6 +100,7 @@ fn browser_late_process_control_source_includes_zero_probe_invocation_forms() {
         r#"globalThis["process"]["kill"](0)"#,
         r#"globalThis.process["kill"](0)"#,
         r#"Object.freeze(globalThis.process["kill"])(0)"#,
+        r#"Object.freeze(globalThis["process"]["kill"])(0)"#,
         r#"globalThis["process"]["kill"](+0)"#,
         r#"globalThis["process"]["kill"]((0))"#,
         "((process.kill))(0)",
