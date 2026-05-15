@@ -13,13 +13,14 @@ function globalThisMathRoundIdentity() {
   const value = 1.6;
   console.log(globalThis.Math.round(value));
   console.log(globalThis.Math["round"](value));
-  return [globalThis.Math.round(value), globalThis.Math["round"](value)];
+  console.log(globalThis["Math"]["round"](value));
+  return [globalThis.Math.round(value), globalThis.Math["round"](value), globalThis["Math"]["round"](value)];
 }
 "##
 }
 
 fn browser_harness_global_this_math_round_run_source() -> &'static str {
-    "const value = 1.6; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value));\n"
+    "const value = 1.6; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value));\n"
 }
 
 fn browser_harness_global_this_math_round_test_source() -> &'static str {
@@ -27,6 +28,7 @@ fn browser_harness_global_this_math_round_test_source() -> &'static str {
   const value = 1.6;
   console.log(globalThis.Math.round(value));
   console.log(globalThis.Math["round"](value));
+  console.log(globalThis["Math"]["round"](value));
 });
 "#
 }
