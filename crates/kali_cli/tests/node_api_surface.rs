@@ -2817,9 +2817,9 @@ fn node_api_surface_supports_bracketed_process_control_in_js_jsx_and_tsx_input_o
 }
 
 #[test]
-fn node_api_surface_supports_process_kill_zero_probe_in_js_jsx_and_tsx_input_on_check_build_run_and_test_commands(
+fn node_api_surface_supports_process_kill_zero_probe_in_js_ts_jsx_and_tsx_input_on_check_build_run_and_test_commands(
 ) {
-    for extension in ["js", "jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         for inherited in [false, true] {
             let dir = tempdir().expect("tempdir");
             let run_file = dir.path().join(format!("main.{extension}"));
