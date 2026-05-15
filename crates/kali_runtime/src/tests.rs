@@ -624,6 +624,14 @@ fn browser_harness_command_parts_checked_reports_malformed_overrides() {
 }
 
 #[test]
+fn browser_harness_command_parts_checked_trims_surrounding_whitespace() {
+    let parts = browser_harness_command_parts_checked(Some("\n  node --test --reporter tap  \t"))
+        .expect("trimmed browser harness command should parse");
+
+    assert_eq!(parts, vec!["node", "--test", "--reporter", "tap"]);
+}
+
+#[test]
 fn browser_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
     let page = browser_runtime_harness_page(
         &[0x00, 0x61, 0x73, 0x6d],
