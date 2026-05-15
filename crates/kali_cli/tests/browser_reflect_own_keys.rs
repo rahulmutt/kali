@@ -9,7 +9,9 @@ fn kali_bin() -> String {
 
 fn reflect_own_keys_source() -> &'static str {
     r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+const frozenObj = Object.freeze(obj);
 const keys = globalThis.Reflect.ownKeys(obj);
+const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -17,17 +19,33 @@ let syncCount = 0;
 for (const key of globalThis.Reflect.ownKeys(obj)) {
   syncCount += 1;
 }
+let frozenSyncCount = 0;
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenSyncCount += 1;
+}
 let sequenceCount = 0;
 for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
   sequenceCount += 1;
+}
+let frozenSequenceCount = 0;
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenSequenceCount += 1;
 }
 let asyncCount = 0;
 for await (const key of globalThis.Reflect.ownKeys(obj)) {
   asyncCount += 1;
 }
+let frozenAsyncCount = 0;
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+  frozenAsyncCount += 1;
+}
 let asyncSequenceCount = 0;
 for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
   asyncSequenceCount += 1;
+}
+let frozenAsyncSequenceCount = 0;
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+  frozenAsyncSequenceCount += 1;
 }
 if (
   keys.length !== 4 ||
@@ -35,6 +53,11 @@ if (
   keys[1] !== '2' ||
   keys[2] !== 'b' ||
   keys[3] !== 'a' ||
+  frozenKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
   mixedRootKeys.length !== 4 ||
   mixedRootKeys[0] !== '1' ||
   mixedRootKeys[1] !== '2' ||
@@ -51,9 +74,13 @@ if (
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
   syncCount !== 4 ||
+  frozenSyncCount !== 4 ||
   sequenceCount !== 4 ||
+  frozenSequenceCount !== 4 ||
   asyncCount !== 4 ||
-  asyncSequenceCount !== 4
+  frozenAsyncCount !== 4 ||
+  asyncSequenceCount !== 4 ||
+  frozenAsyncSequenceCount !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -64,7 +91,9 @@ console.log('reflect ownKeys ok');
 fn reflect_own_keys_test_source() -> &'static str {
     r#"Kali.test('reflect ownKeys', () => {
   const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
   const keys = globalThis.Reflect.ownKeys(obj);
+  const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -72,17 +101,33 @@ fn reflect_own_keys_test_source() -> &'static str {
   for (const key of globalThis.Reflect.ownKeys(obj)) {
     syncCount += 1;
   }
+  let frozenSyncCount = 0;
+  for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
   let sequenceCount = 0;
   for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
     sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
   }
   let asyncCount = 0;
   for await (const key of globalThis.Reflect.ownKeys(obj)) {
     asyncCount += 1;
   }
+  let frozenAsyncCount = 0;
+  for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
   let asyncSequenceCount = 0;
   for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
     asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
   }
   if (
     keys.length !== 4 ||
@@ -90,6 +135,11 @@ fn reflect_own_keys_test_source() -> &'static str {
     keys[1] !== '2' ||
     keys[2] !== 'b' ||
     keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
     mixedRootKeys.length !== 4 ||
     mixedRootKeys[0] !== '1' ||
     mixedRootKeys[1] !== '2' ||
@@ -106,9 +156,13 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
     syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
     sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
     asyncCount !== 4 ||
-    asyncSequenceCount !== 4
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
@@ -120,7 +174,9 @@ fn browser_bundle_reflect_own_keys_source() -> &'static str {
     r##"// kali-tree-shake: reflectOwnKeysSmoke
 async function reflectOwnKeysSmoke(left, right) {
   const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+  const frozenObj = Object.freeze(obj);
   const keys = Reflect.ownKeys(obj);
+  const frozenKeys = Reflect.ownKeys(frozenObj);
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -128,17 +184,33 @@ async function reflectOwnKeysSmoke(left, right) {
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
   }
+  let frozenSyncCount = 0;
+  for (const key of Reflect.ownKeys(frozenObj)) {
+    frozenSyncCount += 1;
+  }
   let sequenceCount = 0;
   for (const key of (0, Reflect.ownKeys(obj))) {
     sequenceCount += 1;
+  }
+  let frozenSequenceCount = 0;
+  for (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenSequenceCount += 1;
   }
   let asyncCount = 0;
   for await (const key of Reflect.ownKeys(obj)) {
     asyncCount += 1;
   }
+  let frozenAsyncCount = 0;
+  for await (const key of Reflect.ownKeys(frozenObj)) {
+    frozenAsyncCount += 1;
+  }
   let asyncSequenceCount = 0;
   for await (const key of (0, Reflect.ownKeys(obj))) {
     asyncSequenceCount += 1;
+  }
+  let frozenAsyncSequenceCount = 0;
+  for await (const key of (0, Reflect.ownKeys(frozenObj))) {
+    frozenAsyncSequenceCount += 1;
   }
   if (
     keys.length !== 4 ||
@@ -146,6 +218,11 @@ async function reflectOwnKeysSmoke(left, right) {
     keys[1] !== '2' ||
     keys[2] !== 'b' ||
     keys[3] !== 'a' ||
+    frozenKeys.length !== 4 ||
+    frozenKeys[0] !== '1' ||
+    frozenKeys[1] !== '2' ||
+    frozenKeys[2] !== 'b' ||
+    frozenKeys[3] !== 'a' ||
     mixedRootKeys.length !== 4 ||
     mixedRootKeys[0] !== '1' ||
     mixedRootKeys[1] !== '2' ||
@@ -162,9 +239,13 @@ async function reflectOwnKeysSmoke(left, right) {
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
     syncCount !== 4 ||
+    frozenSyncCount !== 4 ||
     sequenceCount !== 4 ||
+    frozenSequenceCount !== 4 ||
     asyncCount !== 4 ||
-    asyncSequenceCount !== 4
+    frozenAsyncCount !== 4 ||
+    asyncSequenceCount !== 4 ||
+    frozenAsyncSequenceCount !== 4
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
