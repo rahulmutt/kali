@@ -748,7 +748,15 @@ impl TypeContext {
                 | r#"globalThis['Object'].entries"#
                 | r#"globalThis['Object']['entries']"#
                 | "Reflect.ownKeys"
+                | "Reflect[\"ownKeys\"]"
+                | "Reflect['ownKeys']"
                 | "globalThis.Reflect.ownKeys"
+                | "globalThis.Reflect[\"ownKeys\"]"
+                | "globalThis.Reflect['ownKeys']"
+                | r#"globalThis["Reflect"].ownKeys"#
+                | r#"globalThis["Reflect"]["ownKeys"]"#
+                | r#"globalThis['Reflect'].ownKeys"#
+                | r#"globalThis['Reflect']['ownKeys']"#
         ) {
             return false;
         }
@@ -1610,7 +1618,16 @@ impl TypeContext {
     fn is_reflect_own_keys_call(call: &CallExpression) -> bool {
         matches!(
             Self::call_member_access_name(&call.callee).as_deref(),
-            Some("Reflect.ownKeys") | Some("globalThis.Reflect.ownKeys")
+            Some("Reflect.ownKeys")
+                | Some("Reflect[\"ownKeys\"]")
+                | Some("Reflect['ownKeys']")
+                | Some("globalThis.Reflect.ownKeys")
+                | Some("globalThis.Reflect[\"ownKeys\"]")
+                | Some("globalThis.Reflect['ownKeys']")
+                | Some(r#"globalThis["Reflect"].ownKeys"#)
+                | Some(r#"globalThis["Reflect"]["ownKeys"]"#)
+                | Some(r#"globalThis['Reflect'].ownKeys"#)
+                | Some(r#"globalThis['Reflect']['ownKeys']"#)
         ) && call.args.len() == 1
     }
 

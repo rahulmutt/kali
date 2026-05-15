@@ -148,6 +148,30 @@ fn test_static_object_enumeration_iteration_target_accepts_object_entries() {
 }
 
 #[test]
+fn test_resolution_supports_bracketed_reflect_own_keys_iteration_target_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"for (const key of globalThis["Reflect"]["ownKeys"]({ a: 1 })) {
+    console.log(key);
+}
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_type_assertion_and_satisfies_with_known_type_names() {
     let mut ctx = TypeContext::new();
     let statements = vec![
