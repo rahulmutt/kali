@@ -8,22 +8,22 @@ fn kali_bin() -> String {
 }
 
 fn run_source() -> &'static str {
-    r#"const add = (left, right) => left + right;
-console.log((add as unknown)(1, 2));
-console.log((add satisfies unknown)(3, 4));
+    r#"function constant() { console.log(7); }
+(constant as unknown)();
+(constant satisfies unknown)();
 "#
 }
 
 fn test_source() -> &'static str {
     r#"Kali.test('wrapped call targets', () => {
-  const add = (left, right) => left + right;
-  console.log((add as unknown)(1, 2));
-  console.log((add satisfies unknown)(3, 4));
+  function constant() { console.log(7); }
+  (constant as unknown)();
+  (constant satisfies unknown)();
 });
 "#
 }
 
-fn assert_wrapped_call_targets_rejected(
+fn assert_wrapped_call_targets_supported(
     command: &str,
     filename: &str,
     source: &str,
@@ -46,48 +46,60 @@ fn assert_wrapped_call_targets_rejected(
 
     let output = output.arg(&source_path).output().expect("run kali");
 
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     if json_output {
         let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], command);
-        assert_eq!(json["success"], false);
-        assert!(json["errors"].as_array().expect("errors array").iter().any(|error| {
-            error["code"] == "E5506"
-                && error["message"]
-                    .as_str()
-                    .is_some_and(|message| message.contains("wrapped call targets using type assertions or satisfies expressions are unavailable"))
-        }));
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        if command == "run" {
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            assert_eq!(json["payload"]["total"], 1);
+            assert_eq!(json["payload"]["passed"], 1);
+            assert_eq!(json["payload"]["failed"], 0);
+            assert_eq!(json["payload"]["skipped"], 0);
+        }
+        let stdout = json["stdout"].as_str().expect("stdout string");
+        assert!(stdout.contains("7\n7\n"), "json: {json}");
+        assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("E5506"), "stderr: {stderr}");
-        assert!(
-            stderr.contains("wrapped call targets using type assertions or satisfies expressions are unavailable"),
-            "stderr: {stderr}"
-        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("7\n7\n"), "stdout: {stdout}");
+        if command == "test" {
+            assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        }
     }
 }
 
 #[test]
-fn run_rejects_satisfies_wrapped_call_targets_in_ts_input() {
-    assert_wrapped_call_targets_rejected("run", "main.ts", run_source(), false, false);
+fn run_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input() {
+    assert_wrapped_call_targets_supported("run", "main.ts", run_source(), false, false);
 }
 
 #[test]
-fn test_rejects_satisfies_wrapped_call_targets_in_ts_input() {
-    assert_wrapped_call_targets_rejected("test", "smoke.test.ts", test_source(), false, false);
+fn test_supports_type_assertion_and_satisfies_wrapped_call_targets_in_ts_input() {
+    assert_wrapped_call_targets_supported("test", "smoke.test.ts", test_source(), false, false);
 }
 
 #[test]
-fn json_run_rejects_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input()
-{
-    assert_wrapped_call_targets_rejected("run", "main.tsx", run_source(), true, true);
-}
-
-#[test]
-fn json_test_rejects_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input(
+fn json_run_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input(
 ) {
-    assert_wrapped_call_targets_rejected("test", "smoke.test.tsx", test_source(), true, true);
+    assert_wrapped_call_targets_supported("run", "main.tsx", run_source(), true, true);
+}
+
+#[test]
+fn json_test_supports_type_assertion_and_satisfies_wrapped_call_targets_when_browser_harness_is_configured_in_tsx_input(
+) {
+    assert_wrapped_call_targets_supported("test", "smoke.test.tsx", test_source(), true, true);
 }
