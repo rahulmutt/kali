@@ -137,3 +137,23 @@ fn json_build_emits_browser_template_literal_string_iteration_in_js_input() {
 fn json_build_emits_browser_template_literal_string_iteration_in_ts_input() {
     assert_browser_bundle_template_literal_string_iteration("app.ts", true);
 }
+
+#[test]
+fn build_emits_browser_template_literal_string_iteration_in_jsx_input() {
+    assert_browser_bundle_template_literal_string_iteration("app.jsx", false);
+}
+
+#[test]
+fn build_emits_browser_template_literal_string_iteration_in_tsx_input() {
+    assert_browser_bundle_template_literal_string_iteration("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_browser_template_literal_string_iteration_in_jsx_input() {
+    assert_browser_bundle_template_literal_string_iteration("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_browser_template_literal_string_iteration_in_tsx_input() {
+    assert_browser_bundle_template_literal_string_iteration("app.tsx", true);
+}
