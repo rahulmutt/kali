@@ -13,6 +13,7 @@ const keys = globalThis.Reflect.ownKeys(obj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 let syncCount = 0;
 for (const key of Reflect.ownKeys(obj)) {
   syncCount += 1;
@@ -46,6 +47,11 @@ if (
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
+  singleQuotedKeys.length !== 4 ||
+  singleQuotedKeys[0] !== '1' ||
+  singleQuotedKeys[1] !== '2' ||
+  singleQuotedKeys[2] !== 'b' ||
+  singleQuotedKeys[3] !== 'a' ||
   syncCount !== 4 ||
   sequenceCount !== 4 ||
   mixedSequenceCount !== 4
@@ -63,6 +69,7 @@ fn reflect_own_keys_test_source() -> &'static str {
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
   let syncCount = 0;
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
@@ -96,6 +103,11 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[1] !== '2' ||
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
+    singleQuotedKeys.length !== 4 ||
+    singleQuotedKeys[0] !== '1' ||
+    singleQuotedKeys[1] !== '2' ||
+    singleQuotedKeys[2] !== 'b' ||
+    singleQuotedKeys[3] !== 'a' ||
     syncCount !== 4 ||
     sequenceCount !== 4 ||
     mixedSequenceCount !== 4
