@@ -7860,6 +7860,27 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
 }
 
 #[test]
+fn test_resolution_supports_bracketed_process_kill_zero_probe_wrappers_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"process["kill"]((0)); globalThis["process"]["kill"](+0); ((process["kill"]))(0); ((globalThis["process"]["kill"]))(0);"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let result = TypeContext::with_base_path_and_api_surface(&source_path, "node")
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_on_node_surface() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
