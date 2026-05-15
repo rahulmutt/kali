@@ -87,16 +87,16 @@ fn assert_browser_wasm_threads_rejection_for_command(
 }
 
 #[test]
-fn check_rejects_browser_api_surface_with_wasm_threads_in_jsx_and_tsx_inputs() {
-    for source_name in ["app.jsx", "app.tsx"] {
+fn check_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
         assert_browser_wasm_threads_rejection_for_command("check", &[], source_name, false, true);
         assert_browser_wasm_threads_rejection_for_command("check", &[], source_name, true, false);
     }
 }
 
 #[test]
-fn build_rejects_browser_api_surface_with_wasm_threads_in_jsx_and_tsx_inputs() {
-    for source_name in ["app.jsx", "app.tsx"] {
+fn build_rejects_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
         assert_browser_wasm_threads_rejection_for_command(
             "build",
             &["--bundle"],
