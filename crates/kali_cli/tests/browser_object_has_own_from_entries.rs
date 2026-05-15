@@ -15,6 +15,7 @@ function browserObjectHasOwnFromEntries() {
   const wrapped = (0, alias);
   if (
     !Object.hasOwn(wrapped, "a") ||
+    !Object["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
@@ -198,6 +199,7 @@ const alias = object;
 const wrapped = (0, alias);
 if (
   !Object.hasOwn(wrapped, "a") ||
+  !Object["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
   !globalThis["Object"]["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
@@ -224,6 +226,7 @@ fn browser_harness_object_has_own_from_entries_test_source() -> &'static str {
   const wrapped = (0, alias);
   if (
     !Object.hasOwn(wrapped, "a") ||
+    !Object["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
