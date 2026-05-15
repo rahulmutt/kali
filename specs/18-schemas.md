@@ -138,9 +138,9 @@ Required fields:
 - `hostLabel: const` `"browser-requested"` — canonical label for the browser-requested host contract used in diagnostics; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
 - `hostDescription: non-empty, non-whitespace string` — short human-readable description of the intended browser host
 - `hostDescriptionNote: const` `"browser runtime host description: real browser host"` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
-- `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, the current contract serializes it as `[`run`, `test`]`, and the published schema encodes that fixed tuple shape with ordered prefix items
+- `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, the current contract serializes it as `[`run`, `test`]`, and the published schema encodes that fixed tuple shape with ordered prefix items; validators compare each emitted item after trimming surrounding whitespace, but whitespace-only items still fail
 - `diagnosticHint: non-empty, non-whitespace string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane
-- `diagnosticNotes: string[]` — non-empty, duplicate-free stable ordered notes that summarize the browser runtime contract; each note is a non-empty, non-whitespace string; diagnostic metadata only and not a browser-runtime support claim
+- `diagnosticNotes: string[]` — non-empty, duplicate-free stable ordered notes that summarize the browser runtime contract; each note is a non-empty, non-whitespace string; validators compare each emitted note after trimming surrounding whitespace, but whitespace-only notes still fail; diagnostic metadata only and not a browser-runtime support claim
 
 Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.
 

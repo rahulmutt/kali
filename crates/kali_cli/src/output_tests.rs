@@ -3668,6 +3668,38 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_labels
 }
 
 #[test]
+fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_array_items() {
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "env",
+            "override": "node --test",
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": [" run ", " test "],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                " supported browser runtime commands: run, test ",
+                " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
+                " browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ",
+                " browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid ",
+                " browser runtime host description: real browser host "
+            ]
+        }
+    });
+
+    validate_doctor_payload_value(&value)
+        .expect("trimmed browser runtime contract array items should validate");
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_label() {
     for host_label in ["", " \n\t "] {
         let value = json!({

@@ -1381,6 +1381,110 @@ fn trimmed_string_matches(value: Option<&Value>, expected: &str) -> bool {
     matches!(value, Some(Value::String(value)) if value.trim() == expected)
 }
 
+fn validate_browser_runtime_supported_commands_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    if items.is_empty() {
+        return Err(format!("{context} must contain at least one item"));
+    }
+    if items.len() != 2 {
+        return Err(format!(
+            "{context} must be exactly [`run`, `test`] in that order"
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    for (index, item) in items.iter().enumerate() {
+        let Some(item) = item.as_str() else {
+            return Err(format!("{context}[{index}] must be a string, got {item}"));
+        };
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            return Err(format!(
+                "{context}[{index}] must be a non-empty, non-whitespace string"
+            ));
+        }
+        if !seen.insert(trimmed) {
+            return Err(format!(
+                "{context} must not contain duplicate item `{trimmed}`"
+            ));
+        }
+        match trimmed {
+            "run" if index == 0 => {}
+            "test" if index == 1 => {}
+            "run" | "test" => {
+                return Err(format!(
+                    "{context} must be exactly [`run`, `test`] in that order"
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "{context}[{index}] must be `run` or `test`, got {other}"
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_browser_runtime_diagnostic_notes_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::Array(items)) = value else {
+        return Err(format!("{context} must be an array"));
+    };
+
+    if items.is_empty() {
+        return Err(format!("{context} must contain at least one item"));
+    }
+
+    let mut seen = HashSet::new();
+    let expected_notes = [
+        "supported browser runtime commands: run, test",
+        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+        "browser runtime host description: real browser host",
+    ];
+
+    for (index, (item, expected_item)) in items.iter().zip(expected_notes.iter()).enumerate() {
+        let Some(item) = item.as_str() else {
+            return Err(format!("{context}[{index}] must be a string, got {item}"));
+        };
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            return Err(format!(
+                "{context}[{index}] must be a non-empty, non-whitespace string"
+            ));
+        }
+        if !seen.insert(trimmed) {
+            return Err(format!(
+                "{context} must not contain duplicate item `{trimmed}`"
+            ));
+        }
+        if trimmed != *expected_item {
+            return Err(format!(
+                "{context} must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
+            ));
+        }
+    }
+
+    if items.len() != expected_notes.len() {
+        return Err(format!(
+            "{context} must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), String> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err("doctor browserRuntimeContract must be a JSON object".to_string());
@@ -1460,96 +1564,15 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         ));
     }
 
-    validate_unique_string_array_value(
+    validate_browser_runtime_supported_commands_value(
         object.get("supportedCommands"),
         "doctor browserRuntimeContract supportedCommands",
-        false,
     )?;
 
-    match object.get("supportedCommands") {
-        Some(Value::Array(items)) => {
-            for (index, item) in items.iter().enumerate() {
-                match item.as_str() {
-                    Some(value) if !value.trim().is_empty() => match value {
-                        "run" | "test" => {}
-                        _ => {
-                            return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be `run` or `test`, got {item}"));
-                        }
-                    },
-                    Some(_) => {
-                        return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be a non-empty, non-whitespace string"));
-                    }
-                    None => {
-                        return Err(format!("doctor browserRuntimeContract supportedCommands[{index}] must be a string, got {item}"));
-                    }
-                }
-            }
-            if items.as_slice()
-                != [
-                    Value::String("run".to_string()),
-                    Value::String("test".to_string()),
-                ]
-            {
-                return Err(
-                    "doctor browserRuntimeContract supportedCommands must be exactly [`run`, `test`] in that order".to_string(),
-                );
-            }
-        }
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract supportedCommands must be an array, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
-
-    validate_unique_string_array_value(
+    validate_browser_runtime_diagnostic_notes_value(
         object.get("diagnosticNotes"),
         "doctor browserRuntimeContract diagnosticNotes",
-        false,
     )?;
-
-    match object.get("diagnosticNotes") {
-        Some(Value::Array(items)) => {
-            for (index, item) in items.iter().enumerate() {
-                let Some(value) = item.as_str() else {
-                    return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a string, got {item}"));
-                };
-                if value.trim().is_empty() {
-                    return Err(format!("doctor browserRuntimeContract diagnosticNotes[{index}] must be a non-empty, non-whitespace string"));
-                }
-            }
-            let expected_diagnostic_notes = [
-                Value::String(
-                    "supported browser runtime commands: run, test".to_string(),
-                ),
-                Value::String(
-                    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work".to_string(),
-                ),
-                Value::String(
-                    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness".to_string(),
-                ),
-                Value::String(
-                    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid".to_string(),
-                ),
-                Value::String(
-                    "browser runtime host description: real browser host".to_string(),
-                ),
-            ];
-            if items.as_slice() != expected_diagnostic_notes {
-                return Err(
-                    "doctor browserRuntimeContract diagnosticNotes must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
-                        .to_string(),
-                );
-            }
-        }
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract diagnosticNotes must be an array, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
 
     Ok(())
 }
