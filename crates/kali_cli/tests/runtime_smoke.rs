@@ -40055,6 +40055,64 @@ fn test_supports_object_is_numeric_literals_in_browser_api_surface_with_harness_
     assert!(stdout.contains("0\n1\n1\n1\n1\n1\n1"), "stdout: {stdout}");
 }
 
+fn assert_object_is_same_reference_alias_chain_in_browser_harness(
+    command: &str,
+    extension: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(match command {
+        "test" => format!("smoke.test.{extension}"),
+        _ => format!("main.{extension}"),
+    });
+    let source = match command {
+        "test" => r#"Kali.test('browser object.is references', () => { const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object)); });
+"#.to_string(),
+        _ => r#"const object = { a: 1 }; const alias = object; const frozen = Object.freeze(object); console.log(Object.is(alias, object)); console.log(Object.is(frozen, object));
+"#.to_string(),
+    };
+    fs::write(&source_path, source).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg(command)
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(&source_path);
+
+    let output = cli.output().expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["stdout"], "1\n1\n");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1\n1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn json_run_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("run", "js", true);
+}
+
+#[test]
+fn json_test_supports_object_is_same_reference_alias_chain_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_object_is_same_reference_alias_chain_in_browser_harness("test", "tsx", true);
+}
+
 #[test]
 fn check_supports_promise_all_settled_in_ts_input() {
     let dir = tempdir().expect("tempdir");
