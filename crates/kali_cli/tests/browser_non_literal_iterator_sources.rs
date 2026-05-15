@@ -617,6 +617,72 @@ fn json_build_rejects_set_constructor_iteration_from_call_expression_source_in_j
 }
 
 #[test]
+fn build_rejects_set_constructor_iteration_from_call_expression_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.ts",
+        false,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn json_build_rejects_set_constructor_iteration_from_call_expression_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.ts",
+        true,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn build_rejects_set_constructor_iteration_from_call_expression_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.jsx",
+        false,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn json_build_rejects_set_constructor_iteration_from_call_expression_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.jsx",
+        true,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn build_rejects_set_constructor_iteration_from_call_expression_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.tsx",
+        false,
+        "build",
+        true,
+    );
+}
+
+#[test]
+fn json_build_rejects_set_constructor_iteration_from_call_expression_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.tsx",
+        true,
+        "build",
+        true,
+    );
+}
+
+#[test]
 fn check_rejects_set_constructor_iteration_from_call_expression_source_in_js_input() {
     assert_browser_iterator_source_rejects(
         set_constructor_call_expression_source(),
@@ -632,6 +698,72 @@ fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_j
     assert_browser_iterator_source_rejects(
         set_constructor_call_expression_source(),
         "main.js",
+        true,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn check_rejects_set_constructor_iteration_from_call_expression_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.ts",
+        false,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_ts_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.ts",
+        true,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn check_rejects_set_constructor_iteration_from_call_expression_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.jsx",
+        false,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_jsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.jsx",
+        true,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn check_rejects_set_constructor_iteration_from_call_expression_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.tsx",
+        false,
+        "check",
+        false,
+    );
+}
+
+#[test]
+fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_tsx_input() {
+    assert_browser_iterator_source_rejects(
+        set_constructor_call_expression_source(),
+        "main.tsx",
         true,
         "check",
         false,
@@ -674,6 +806,38 @@ fn check_rejects_non_literal_object_entries_iterator_source_under_inherited_brow
         for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
             assert_inherited_browser_iterator_source_rejects(
                 object_entries_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_rejects_set_constructor_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                set_constructor_call_expression_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_set_constructor_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                set_constructor_call_expression_source(),
                 filename,
                 json_output,
                 "check",
