@@ -10,7 +10,7 @@ Remaining goals:
 
 - Promote parser-accepted but unavailable semantics only when checker, lowering, runtime, and conformance evidence exist.
 - Implement full generator and async-generator semantics, including resumable state machines, `yield` / `yield*`, async interaction, error propagation, and finalization; until then keep unsupported forms behind canonical `E5506` gates.
-- Expand `for...of` / `for await...of` from bounded static slices toward full iterator and async-iterator protocol behavior, including close/finalization/error semantics.
+- Expand `for...of` / `for await...of` from bounded static slices toward full iterator and async-iterator protocol behavior, including close/finalization/error semantics; current smoke now also includes the standalone TS `for await...of` string-concatenation slice in addition to the existing JS/browser-harness coverage.
 - Continue widening expression/operator, object-model, BigInt, Math, and dynamic-loading semantics where translation-safe; keep unsupported dynamic language forms explicitly gated. Recent work widened the static `Number.isInteger` / `Number.isSafeInteger` predicate slice alongside the existing `Number.isFinite` / `Number.isNaN` slice and now also keeps the mixed-bracket `globalThis.Number[...]` spellings covered in the smoke corpus.
 - Grow bounded TypeScript/JavaScript inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
 - Keep conformance dashboards concise: snapshots of supported/gated behavior, not implementation journals.
