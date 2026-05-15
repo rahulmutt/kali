@@ -25,6 +25,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Current coverage also exercises async class methods through build smoke in TS, JS, JSX, and TSX input on both the Deno and browser artifact paths.
 - The parser now accepts class-expression forms with preserved async/generator metadata, and direct `run` / `test` entrypoints now gate those async class expressions too; generator class expressions now also hit the direct runtime E5506 gate before lowering, including the direct runtime JS/TS coverage path.
 - The Node `process.kill(0)` liveness-probe slice now also keeps transparent parenthesized and unary-plus wrapper forms covered alongside the bracketed Node aliases in the current smoke set.
+- The codegen regression set keeps a single transparent-wrapper `process.kill(0)` test so the packet stays buildable while preserving the same zero-probe coverage.
 - HIR, MIR, LIR, and function-plan tests now also preserve class-expression generator metadata alongside the existing class-method coverage.
 - Direct `run` / `test` execution for async class methods now has an explicit E5506 gate; keep generator-class lowering gated until the dedicated packet lands.
 - Keep all unsupported forms behind canonical `E5506` gates until the full runtime path exists.
