@@ -1957,7 +1957,6 @@ impl TypeContext {
                 | r#"globalThis["Object"]["hasOwnProperty"]["call"]"#
                 | r#"globalThis["Object"].hasOwnProperty.call"#
                 | r#"globalThis.Object.hasOwnProperty.call"#
-                | r#"globalThis.Object["hasOwnProperty"]["call"]"#
                 | r#"Object["hasOwnProperty"].call"#
                 | r#"Object["hasOwnProperty"]["call"]"#
                 | r#"Object.prototype.hasOwnProperty.call"#
