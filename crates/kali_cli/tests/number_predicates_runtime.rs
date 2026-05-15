@@ -25,6 +25,10 @@ console.log(globalThis.Number["isNaN"](1));
 console.log(globalThis["Number"].isFinite(alias));
 console.log(globalThis.Number["isInteger"](alias));
 console.log(globalThis["Number"].isSafeInteger(alias));
+console.log(Number["isFinite"](alias));
+console.log(Number["isInteger"](alias));
+console.log(Number["isSafeInteger"](alias));
+console.log(Number["isNaN"](1));
 "#
 }
 
@@ -47,6 +51,10 @@ fn number_predicates_test_source() -> &'static str {
   console.log(globalThis["Number"].isFinite(alias));
   console.log(globalThis.Number["isInteger"](alias));
   console.log(globalThis["Number"].isSafeInteger(alias));
+  console.log(Number["isFinite"](alias));
+  console.log(Number["isInteger"](alias));
+  console.log(Number["isSafeInteger"](alias));
+  console.log(Number["isNaN"](1));
 });
 "#
 }
@@ -81,14 +89,14 @@ fn assert_run_supports_number_predicates_in_js_input(json_output: bool) {
         assert_eq!(json["success"], true);
         assert_eq!(
             json["stdout"],
-            "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n"
+            "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n"
         );
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
             stdout.trim(),
-            "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1",
+            "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0",
             "stdout: {stdout}"
         );
     }
@@ -128,7 +136,7 @@ fn assert_test_supports_number_predicates_in_js_input(json_output: bool) {
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1"),
+            stdout.contains("1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0"),
             "stdout: {stdout}"
         );
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");

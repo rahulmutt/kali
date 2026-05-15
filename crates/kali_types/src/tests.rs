@@ -2501,10 +2501,12 @@ const numericAlias = numeric;
 globalThis["Object"]["is"](objectAlias, object);
 globalThis.Object["is"](object, object);
 globalThis["Object"].is(objectAlias, object);
+Object["is"](objectAlias, object);
 globalThis.Number["isFinite"](numericAlias);
 globalThis["Number"].isInteger(numericAlias);
 globalThis["Number"]["isSafeInteger"](numericAlias);
 globalThis["Number"]["isNaN"](NaN);
+Number["isFinite"](numericAlias);
 "#;
     fs::write(&source_path, source).unwrap();
 

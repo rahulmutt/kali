@@ -7,11 +7,11 @@ fn kali_bin() -> String {
 }
 
 fn object_is_freeze_same_reference_source() -> &'static str {
-    "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object));\n"
+    "const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); console.log(Object[\"is\"](frozen, object));\n"
 }
 
 fn object_is_freeze_same_reference_test_source() -> &'static str {
-    "Kali.test('object is freeze same reference', () => { const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); });\n"
+    "Kali.test('object is freeze same reference', () => { const object = { a: 1 }; const frozen = Object.freeze(object); console.log(Object.is(frozen, object)); console.log(Object.is(Object.freeze(object), object)); console.log(globalThis.Object.is(frozen, object)); console.log(Object[\"is\"](frozen, object)); });\n"
 }
 
 fn assert_run_supports_object_is_through_object_freeze_same_reference_in_input(
@@ -45,11 +45,11 @@ fn assert_run_supports_object_is_through_object_freeze_same_reference_in_input(
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n1\n");
+        assert_eq!(json["stdout"], "1\n1\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "1\n1\n1\n", "stdout: {stdout}");
+        assert_eq!(stdout, "1\n1\n1\n1\n", "stdout: {stdout}");
     }
 }
 

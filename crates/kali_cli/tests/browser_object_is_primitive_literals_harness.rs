@@ -24,6 +24,7 @@ console.log(globalThis["Object"]["is"](+1, 1));
 console.log(globalThis.Object["is"](+1, 1));
 console.log(globalThis["Object"].is(+1, 1));
 console.log(globalThis.Object.is(+1, 1));
+console.log(Object["is"](+1, 1));
 console.log('browser object is primitive literals ok');
 "#
 }
@@ -47,6 +48,7 @@ fn object_is_browser_harness_test_source() -> &'static str {
   console.log(globalThis.Object["is"](+1, 1));
   console.log(globalThis["Object"].is(+1, 1));
   console.log(globalThis.Object.is(+1, 1));
+  console.log(Object["is"](+1, 1));
   console.log('browser object is primitive literals ok');
 });
 "#

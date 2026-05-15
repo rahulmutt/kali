@@ -27,7 +27,11 @@ function browserNumberPredicates() {
     globalThis.Number["isNaN"](1) !== false ||
     globalThis["Number"].isFinite(alias) !== true ||
     globalThis.Number["isInteger"](alias) !== true ||
-    globalThis["Number"].isSafeInteger(alias) !== true
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false
   ) {
     throw new Error('unexpected browser Number predicate result');
   }
@@ -56,7 +60,11 @@ function browserNumberPredicates() {
     globalThis.Number["isNaN"](1) !== false ||
     globalThis["Number"].isFinite(alias) !== true ||
     globalThis.Number["isInteger"](alias) !== true ||
-    globalThis["Number"].isSafeInteger(alias) !== true
+    globalThis["Number"].isSafeInteger(alias) !== true ||
+    Number["isFinite"](alias) !== true ||
+    Number["isInteger"](alias) !== true ||
+    Number["isSafeInteger"](alias) !== true ||
+    Number["isNaN"](1) !== false
   ) {
     throw new Error('unexpected browser Number predicate result');
   }

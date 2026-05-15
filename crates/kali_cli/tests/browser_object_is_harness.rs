@@ -42,6 +42,7 @@ fn browser_harness_object_is_test_source() -> &'static str {
   console.log(globalThis.Object["is"](+1, 1));
   console.log(globalThis["Object"].is(+1, 1));
   console.log(globalThis.Object.is(+1, 1));
+  console.log(Object["is"](+1, 1));
 });
 "#
 }

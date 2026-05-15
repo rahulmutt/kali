@@ -20,11 +20,13 @@ if (
   globalThis.Object["is"](objectAlias, object) !== true ||
   globalThis["Object"].is(objectAlias, object) !== true ||
   globalThis.Object.is(objectAlias, object) !== true ||
+  Object["is"](objectAlias, object) !== true ||
   Object.is(frozenObject, object) !== true ||
   globalThis["Object"]["is"](frozenObject, object) !== true ||
   globalThis.Object["is"](frozenObject, object) !== true ||
   globalThis["Object"].is(frozenObject, object) !== true ||
   globalThis.Object.is(frozenObject, object) !== true ||
+  Object["is"](frozenObject, object) !== true ||
   Object.is(arrayAlias, array) !== true ||
   Object.is(frozenArray, array) !== true ||
   Object.is({}, {}) !== false ||

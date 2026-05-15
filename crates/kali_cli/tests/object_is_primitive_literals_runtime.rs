@@ -24,6 +24,7 @@ console.log(globalThis["Object"]["is"](+1, 1));
 console.log(globalThis.Object["is"](+1, 1));
 console.log(globalThis["Object"].is(+1, 1));
 console.log(globalThis.Object.is(+1, 1));
+console.log(Object["is"](+1, 1));
 "#
 }
 
@@ -46,6 +47,7 @@ fn object_is_primitive_literals_test_source() -> &'static str {
   console.log(globalThis.Object["is"](+1, 1));
   console.log(globalThis["Object"].is(+1, 1));
   console.log(globalThis.Object.is(+1, 1));
+  console.log(Object["is"](+1, 1));
 });
 "#
 }
@@ -80,14 +82,14 @@ fn assert_run_supports_object_is_primitive_literals_in_js_input(json_output: boo
         assert_eq!(json["success"], true);
         assert_eq!(
             json["stdout"],
-            "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
+            "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
         );
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
             stdout.trim(),
-            "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1",
+            "0\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1",
             "stdout: {stdout}"
         );
     }
