@@ -47127,7 +47127,8 @@ fn run_rejects_async_generator_lowering_in_js_input() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        stderr.contains("async-generator function lowering")
+            || stderr.contains("yield expressions"),
         "stderr: {stderr}"
     );
 }
@@ -47160,10 +47161,10 @@ fn json_run_rejects_async_generator_lowering_in_js_input() {
         .map(|error| error["message"].as_str().expect("message"))
         .collect::<Vec<_>>();
     assert!(
-        messages
-            .iter()
-            .any(|message| message.contains("generator function lowering")
-                || message.contains("yield expressions")),
+        messages.iter().any(
+            |message| message.contains("async-generator function lowering")
+                || message.contains("yield expressions")
+        ),
         "messages: {messages:?}"
     );
 }
@@ -47242,7 +47243,8 @@ fn test_rejects_async_generator_lowering() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
-        stderr.contains("generator function lowering") || stderr.contains("yield expressions"),
+        stderr.contains("async-generator function lowering")
+            || stderr.contains("yield expressions"),
         "stderr: {stderr}"
     );
 }
@@ -47377,10 +47379,10 @@ fn json_test_rejects_async_generator_lowering_in_js_input() {
         .map(|error| error["message"].as_str().expect("message"))
         .collect::<Vec<_>>();
     assert!(
-        messages
-            .iter()
-            .any(|message| message.contains("generator function lowering")
-                || message.contains("yield expressions")),
+        messages.iter().any(
+            |message| message.contains("async-generator function lowering")
+                || message.contains("yield expressions")
+        ),
         "messages: {messages:?}"
     );
 }
