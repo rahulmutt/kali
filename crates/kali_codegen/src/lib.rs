@@ -4105,7 +4105,23 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
+    fn unwrap_transparent_value_node(&self, mut id: LirNodeId) -> LirNodeId {
+        loop {
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+            {
+                id = node.children[0];
+                continue;
+            }
+
+            return id;
+        }
+    }
+
     fn is_process_cwd(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() == Some("process") {
             return true;
@@ -4119,6 +4135,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_process_exit(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() == Some("process") {
             return true;
@@ -4150,12 +4167,14 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_process_argv(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent_value_node(id);
         let node = self.node(id);
         if node.text.as_deref() != Some("argv") || node.children.len() != 1 {
             return false;
         }
 
-        let object = self.node(node.children[0]);
+        let object = self.unwrap_transparent_value_node(node.children[0]);
+        let object = self.node(object);
         if object.text.as_deref() == Some("process") {
             return true;
         }
@@ -4205,9 +4224,12 @@ impl<'a> FunctionEmitter<'a> {
 
     fn resolve_bound_member_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
         let bound = self.resolve_bound_node(id);
+        let bound = self.unwrap_transparent_value_node(bound);
         let node = self.node(bound);
         if node.text.is_some() && !node.children.is_empty() {
             Some(bound)
+        } else if node.kind == LirNodeKind::Value && node.children.len() == 1 {
+            self.resolve_bound_member_callable_node(node.children[0])
         } else {
             None
         }
