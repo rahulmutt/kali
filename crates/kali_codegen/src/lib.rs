@@ -5038,10 +5038,7 @@ impl<'a> FunctionEmitter<'a> {
             return Some(node);
         }
 
-        if node.kind == LirNodeKind::Value
-            && node.text.is_none()
-            && node.children.len() == 1
-        {
+        if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
             let child = self.node(node.children[0]);
             if self.is_set_constructor_call(child) {
                 return Some(child);
