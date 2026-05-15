@@ -21,6 +21,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Define valid positive thread budgets by command, API surface, target, and runtime profile.
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
 - Runtime smoke now also covers deterministic thread-topology snapshots for spawned workers, including empty posted-message and shared-buffer sets.
+- Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract
