@@ -689,7 +689,7 @@ fn websocket_stub_clones_binary_payloads_deterministically() {
 
 #[test]
 fn worker_stub_records_posted_messages() {
-    let worker = Worker::new("https://example.com/worker.js").expect("worker url");
+    let worker = Worker::new(" https://example.com/worker.js \n").expect("worker url");
     assert_eq!(
         worker.script_url().as_str(),
         "https://example.com/worker.js"
@@ -723,6 +723,16 @@ fn worker_stub_records_shared_buffers_with_shared_backing() {
 
     buffer.store(1, 9);
     assert_eq!(worker.posted_shared_buffers()[0].snapshot(), vec![1, 9, 3]);
+}
+
+#[test]
+fn worker_stub_trims_surrounding_whitespace_from_script_urls() {
+    let worker = Worker::new(" \thttps://example.com/worker.js \n").expect("worker url");
+
+    assert_eq!(
+        worker.script_url().as_str(),
+        "https://example.com/worker.js"
+    );
 }
 
 #[test]

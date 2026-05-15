@@ -1855,7 +1855,7 @@ impl Worker {
     /// Create a new worker stub from a parsed script URL.
     pub fn new(url: impl AsRef<str>) -> Result<Self, url::ParseError> {
         Ok(Self {
-            script_url: Url::parse(url.as_ref())?,
+            script_url: Url::parse(url.as_ref().trim())?,
             posted_items: DeterministicPostQueue::default(),
             terminated: Arc::new(AtomicBool::new(false)),
         })
