@@ -1913,7 +1913,7 @@ impl TypeContext {
         let Some(left) = expr.args.first() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "Object.is requires at least two statically-known primitive literal arguments in the current phase; use explicit constants or the later compatibility path",
+                "Object.is requires at least two statically-known primitive literal arguments or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
             ));
             return true;
         };
@@ -1963,7 +1963,7 @@ impl TypeContext {
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "Object.is is unavailable unless both arguments are statically-known primitive literals in the current phase; use explicit constants or the later compatibility path",
+            "Object.is is unavailable unless both arguments are statically-known primitive literals or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
         ));
         true
     }

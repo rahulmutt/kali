@@ -2791,7 +2791,7 @@ fn test_resolution_rejects_object_is_with_non_primitive_literals_as_unavailable(
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(result.diagnostics[0].message.contains(
-        "Object.is is unavailable unless both arguments are statically-known primitive literals"
+        "Object.is is unavailable unless both arguments are statically-known primitive literals or the same statically-known reference"
     ));
 }
 

@@ -1548,7 +1548,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(left) = args.next() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is requires at least two statically-known primitive literal arguments or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
@@ -1559,7 +1559,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(right) = args.next() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "Object.is requires at least two statically-known numeric literal arguments in the current phase; use explicit constants or the later compatibility path",
+                    "Object.is requires at least two statically-known primitive literal arguments or the same statically-known reference in the current phase; use explicit constants or the later compatibility path",
                 ));
                 function.instruction(&Instruction::Unreachable);
                 return EmittedValue {
