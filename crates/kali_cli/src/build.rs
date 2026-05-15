@@ -2663,6 +2663,7 @@ fn collect_library_exports_from_statements_with_context(
                     if let Some(signature) = infer_function_binding_signature(
                         Some(expression),
                         source_path,
+                        &declared_function_signatures,
                         &mut diagnostics,
                     ) {
                         if exports.insert("default".to_string(), signature).is_some() {
@@ -3451,6 +3452,7 @@ fn collect_library_exports_from_statements(
                     if let Some(signature) = infer_function_binding_signature(
                         Some(expression),
                         source_path,
+                        &declared_function_signatures,
                         &mut diagnostics,
                     ) {
                         if exports.insert("default".to_string(), signature).is_some() {
@@ -4046,9 +4048,13 @@ fn collect_declared_function_binding_signatures(
     declared_function_signatures: &mut BTreeMap<String, String>,
 ) {
     for declarator in &declaration.declarations {
-        let Some(signature) =
-            infer_function_binding_signature(declarator.init.as_ref(), source_path, diagnostics)
-        else {
+        let known_signatures = declared_function_signatures.clone();
+        let Some(signature) = infer_function_binding_signature(
+            declarator.init.as_ref(),
+            source_path,
+            &known_signatures,
+            diagnostics,
+        ) else {
             continue;
         };
 
@@ -4072,6 +4078,7 @@ fn infer_function_signature(params: &[String], body: &BlockStatement, is_async: 
 fn infer_function_binding_signature(
     expression: Option<&Expression>,
     source_path: &Path,
+    declared_function_signatures: &BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<String> {
     let expression = expression?;
@@ -4109,59 +4116,83 @@ fn infer_function_binding_signature(
                 func.is_async,
             ))
         }
+        Expression::Identifier(name) => declared_function_signatures.get(name).cloned(),
         Expression::ParenthesizedExpression(parenthesized) => infer_function_binding_signature(
             Some(&parenthesized.expression),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::TypeAssertion(type_assertion) => infer_function_binding_signature(
             Some(&type_assertion.expression),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::SatisfiesExpression(satisfies_expression) => infer_function_binding_signature(
             Some(&satisfies_expression.expression),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::OptionalChainExpression(optional_chain) => {
             match optional_chain.inner.as_ref() {
-                OptionalChainInner::NonNull { object, .. } => {
-                    infer_function_binding_signature(Some(object), source_path, diagnostics)
-                }
+                OptionalChainInner::NonNull { object, .. } => infer_function_binding_signature(
+                    Some(object),
+                    source_path,
+                    declared_function_signatures,
+                    diagnostics,
+                ),
             }
         }
         Expression::ChainExpression(chain_expression) => infer_function_binding_signature(
             Some(&chain_expression.expression),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::AwaitExpression(await_expression) => infer_function_binding_signature(
             Some(&await_expression.argument),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::SequenceExpression(sequence_expression) => sequence_expression
             .expressions
             .last()
             .and_then(|expression| {
-                infer_function_binding_signature(Some(expression), source_path, diagnostics)
+                infer_function_binding_signature(
+                    Some(expression),
+                    source_path,
+                    declared_function_signatures,
+                    diagnostics,
+                )
             }),
         Expression::DecoratedExpression(decorated_expression) => infer_function_binding_signature(
             Some(&decorated_expression.expression),
             source_path,
+            declared_function_signatures,
             diagnostics,
         ),
         Expression::BinaryExpression(binary) if binary.operator == "??" => {
-            let left =
-                infer_function_binding_signature(Some(&binary.left), source_path, diagnostics);
+            let left = infer_function_binding_signature(
+                Some(&binary.left),
+                source_path,
+                declared_function_signatures,
+                diagnostics,
+            );
             if left.is_some() {
                 left
             } else if matches!(
                 infer_expression_type(&binary.left),
                 Some("null" | "undefined" | "void")
             ) {
-                infer_function_binding_signature(Some(&binary.right), source_path, diagnostics)
+                infer_function_binding_signature(
+                    Some(&binary.right),
+                    source_path,
+                    declared_function_signatures,
+                    diagnostics,
+                )
             } else {
                 None
             }
@@ -4170,11 +4201,13 @@ fn infer_function_binding_signature(
             let consequent = infer_function_binding_signature(
                 Some(conditional_expression.consequent.as_ref()),
                 source_path,
+                declared_function_signatures,
                 diagnostics,
             );
             let alternate = infer_function_binding_signature(
                 Some(conditional_expression.alternate.as_ref()),
                 source_path,
+                declared_function_signatures,
                 diagnostics,
             );
             if consequent.is_some() && consequent == alternate {

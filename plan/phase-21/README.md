@@ -46,6 +46,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Grow inference inside deterministic budgets only.
 - Preserve annotation-required boundaries for exported/public and cross-module surfaces when inference would exceed the bounded contract.
 - Add positive and negative checker baselines for TS and first-class JS input.
+- Default-export aliases now resolve through the same bounded function-binding map used for local export aliases.
 
 ### 21.5 Conformance hygiene
 
