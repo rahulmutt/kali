@@ -7828,6 +7828,65 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
 }
 
 #[test]
+fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_on_node_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); globalThis.process.kill(+zero);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![
+                VariableDeclarator {
+                    id: "zero".to_string(),
+                    init: Some(Expression::Literal(LiteralValue::Number(0.0))),
+                },
+                VariableDeclarator {
+                    id: "zeroAlias".to_string(),
+                    init: Some(Expression::Identifier("zero".to_string())),
+                },
+            ],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("process".to_string()),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::Identifier("zeroAlias".to_string())],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                    property: "kill".to_string(),
+                })),
+                args: vec![Expression::UnaryExpression(Box::new(UnaryExpression {
+                    operator: "+".to_string(),
+                    argument: Expression::Identifier("zero".to_string()),
+                }))],
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "node");
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_surface() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
