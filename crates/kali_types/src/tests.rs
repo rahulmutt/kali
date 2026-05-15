@@ -8262,8 +8262,14 @@ fn test_resolution_accepts_new_map_iteration_target_via_builtin_alias_in_js_inpu
 fn test_resolution_accepts_global_this_set_and_map_iteration_targets_in_js_input() {
     let dir = tempdir().unwrap();
     let source_path = dir.path().join("main.js");
-    let source = r#"for (const value of new globalThis["Set"]([1, 2, 1])) {
+    let source = r#"for (const value of new globalThis.Set([1, 2, 1])) {
     console.log(value);
+}
+for (const value of new globalThis["Set"]([1, 2, 1])) {
+    console.log(value);
+}
+for await (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) {
+    console.log(entry[0], entry[1]);
 }
 for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
     console.log(entry[0], entry[1]);
