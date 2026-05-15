@@ -4755,6 +4755,20 @@ fn parse_registry_package_target(
                     format!("`kali {command}` requires a package name after `jsr:`"),
                 ));
             }
+            if spec.starts_with("http://")
+                || spec.starts_with("https://")
+                || spec.starts_with("./")
+                || spec.starts_with("../")
+                || spec.starts_with('/')
+            {
+                return Err(Diagnostic::error(
+                    e5::INVALID_CLI_USAGE as u32,
+                    format!(
+                        "`kali {command}` accepts only registry package identifiers, not '{}'",
+                        target
+                    ),
+                ));
+            }
             if is_version_suffixed_package_spec(spec) {
                 return Err(Diagnostic::error(
                     e5::INVALID_CLI_USAGE as u32,

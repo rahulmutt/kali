@@ -39,7 +39,7 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
 - Do not add batch, raw-URL, local-path, project-discovery, or package-set behavior without spec/schema revisions.
 - Preserve deterministic version selection and schema-v1 JSON payload validation.
-- Current progress: padded package identifiers, malformed `jsr:` selectors, and scheme-prefixed selectors such as `npm:lodash` now fail the command-shape gate before any registry lookup, keeping the single-identifier contract exact.
+- Current progress: padded package identifiers, malformed `jsr:` selectors, nested raw-URL/local-path `jsr:` targets, and scheme-prefixed selectors such as `npm:lodash` now fail the command-shape gate before any registry lookup, keeping the single-identifier contract exact.
 
 ## Exit gate
 
