@@ -1061,7 +1061,7 @@ impl Parser {
                     let _ = self.stream.advance();
                     break;
                 }
-                Some(TokenType::Identifier) => {
+                Some(TokenType::Identifier) | Some(TokenType::Default) => {
                     let local = self
                         .stream
                         .advance()
@@ -1071,7 +1071,10 @@ impl Parser {
 
                     if self.stream.current_kind() == Some(&TokenType::As) {
                         let _ = self.stream.advance();
-                        if self.stream.current_kind() == Some(&TokenType::Identifier) {
+                        if matches!(
+                            self.stream.current_kind(),
+                            Some(TokenType::Identifier) | Some(TokenType::Default)
+                        ) {
                             exported = self
                                 .stream
                                 .advance()

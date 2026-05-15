@@ -212,6 +212,28 @@ fn test_parse_named_export_declaration() {
 }
 
 #[test]
+fn test_parse_named_export_declaration_allows_default_aliases() {
+    let tokens = lex("export { default as bridged } from \"./helper.ts\";");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportNamed(decl) => {
+            assert_eq!(decl.source.as_deref(), Some("./helper.ts"));
+            assert_eq!(
+                decl.specifiers,
+                vec![kali_ast::ExportSpecifier {
+                    local: "default".to_string(),
+                    exported: "bridged".to_string(),
+                }]
+            );
+        }
+        other => panic!("Expected ExportNamedDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_export_all_declaration() {
     let tokens = lex("export * from \"./helper.ts\";");
     let mut parser = Parser::new(FileId::new(0), tokens);

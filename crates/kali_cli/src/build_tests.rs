@@ -9008,6 +9008,49 @@ fn collect_library_exports_resolves_named_re_exports_across_source_graph() {
 }
 
 #[test]
+fn collect_library_exports_resolves_default_export_aliases_across_source_graph() {
+    let dir = tempdir().expect("tempdir");
+    let helper_path = dir.path().join("helper.ts");
+    let bridge_path = dir.path().join("bridge.ts");
+    let entry_path = dir.path().join("entry.ts");
+
+    fs::write(
+        &helper_path,
+        "const main = (input) => 1; export default main;\n",
+    )
+    .expect("write helper source");
+    fs::write(
+        &bridge_path,
+        "export { default as bridged } from './helper.ts';\n",
+    )
+    .expect("write bridge source");
+    fs::write(
+        &entry_path,
+        "export { bridged as final } from './bridge.ts';\n",
+    )
+    .expect("write entry source");
+
+    let helper_exports = collect_library_exports(&helper_path, ApiSurface::Deno, &[])
+        .expect("helper library exports should resolve");
+    assert_eq!(
+        helper_exports.len(),
+        1,
+        "helper exports: {helper_exports:?}"
+    );
+    assert!(helper_exports
+        .iter()
+        .any(|export| { export.name == "default" && export.signature == "(input) => number" }));
+
+    let exports = collect_library_exports(&entry_path, ApiSurface::Deno, &[])
+        .expect("library exports should resolve through default export aliases");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "final" && export.signature == "(input) => number" }));
+}
+
+#[test]
 fn collect_library_exports_resolves_named_re_exports_across_multi_hop_source_graph() {
     let dir = tempdir().expect("tempdir");
     let helper_path = dir.path().join("helper.ts");
