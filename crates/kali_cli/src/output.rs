@@ -1185,6 +1185,10 @@ fn trimmed_string_matches(value: Option<&Value>, expected: &str) -> bool {
     matches!(value, Some(Value::String(value)) if value.trim() == expected)
 }
 
+fn exact_string_matches(value: Option<&Value>, expected: &str) -> bool {
+    matches!(value, Some(Value::String(value)) if value == expected)
+}
+
 fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), String> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err("doctor browserRuntimeContract must be a JSON object".to_string());
@@ -1225,10 +1229,16 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         ));
     }
 
-    validate_non_empty_string_value(
+    const BROWSER_RUNTIME_HOST_DESCRIPTION: &str = "real browser host";
+
+    if !exact_string_matches(
         object.get("hostDescription"),
-        "doctor browserRuntimeContract hostDescription",
-    )?;
+        BROWSER_RUNTIME_HOST_DESCRIPTION,
+    ) {
+        return Err(format!(
+            "doctor browserRuntimeContract hostDescription must be `{BROWSER_RUNTIME_HOST_DESCRIPTION}`"
+        ));
+    }
 
     match object.get("diagnosticHint") {
         Some(Value::String(value)) if !value.trim().is_empty() => {}

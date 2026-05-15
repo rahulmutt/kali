@@ -31,7 +31,7 @@ The Node package-corpus evidence now also exercises the `process.kill(0)` livene
 - Package evidence: registry/raw-URL/install flows, package-corpus probes by context/rung, registry-analysis commands, and negative evidence for unsupported native/binary/bootstrap-heavy or published-bin-entrypoint cases. The corpus now also rejects native-addon entrypoints on the default standalone source-graph commands in JS input, keeping the excluded package contract explicit.
 - Filesystem host APIs: `Deno.open` / `create` / `mkdir` / `remove` / `rename` / `lstat` now also have standalone `check` / `build` / `run` / `test` smoke coverage in JS, TS, JSX, and TSX input with JSON-output coverage on the executable lanes.
 - Embedding/evidence surfaces: public embedding artifacts and bindings metadata, including const-alias-aware function-export signature collection for same-statement and cross-statement function binding chains, default-export alias-chain coverage, optimization modes, deterministic PGO profile validation, benchmark fixtures, and Lean proof infrastructure for the published boundary.
-- CLI/config diagnostics: malformed `compat.features` and `compilerOptions.runtimeProfiles` manifest entries now carry structured config-context metadata in JSON diagnostics, and the browser runtime contract payload continues to tolerate trimmed canonical labels while rejecting whitespace-only ones.
+- CLI/config diagnostics: malformed `compat.features` and `compilerOptions.runtimeProfiles` manifest entries now carry structured config-context metadata in JSON diagnostics, and the browser runtime contract payload now keeps its canonical host fields exact while rejecting whitespace-padded or whitespace-only variants.
 
 ## Planning consequence
 
