@@ -614,7 +614,7 @@ fn for_of_object_enumeration_lowers_for_bracketed_global_this_object_from_entrie
 #[test]
 fn for_of_reflect_own_keys_lowers_for_frozen_static_object_literals() {
     let program = parse_and_lower_lir(
-        "const object = Object.freeze({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 }); for (const key of Reflect.ownKeys(object)) { console.log(key); } for await (const key of globalThis[\"Reflect\"][\"ownKeys\"](object)) { console.log(key); }",
+        "const object = Object.freeze({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 }); for (const key of Reflect.ownKeys(object)) { console.log(key); } for await (const key of globalThis[\"Reflect\"][\"ownKeys\"](object)) { console.log(key); } for await (const key of globalThis[\"Reflect\"].ownKeys(object)) { console.log(key); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -639,7 +639,7 @@ fn for_of_reflect_own_keys_lowers_for_frozen_static_object_literals() {
 #[test]
 fn for_of_reflect_own_keys_lowers_for_frozen_static_object_literal_aliases() {
     let program = parse_and_lower_lir(
-        "const frozen = Object.freeze({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 }); for (const key of Reflect.ownKeys(frozen)) { console.log(key); } for await (const key of globalThis['Reflect']['ownKeys'](frozen)) { console.log(key); }",
+        "const frozen = Object.freeze({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 }); for (const key of Reflect.ownKeys(frozen)) { console.log(key); } for await (const key of globalThis['Reflect']['ownKeys'](frozen)) { console.log(key); } for await (const key of globalThis['Reflect'].ownKeys(frozen)) { console.log(key); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
