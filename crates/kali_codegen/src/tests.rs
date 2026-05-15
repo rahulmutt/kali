@@ -4192,6 +4192,42 @@ fn process_kill_zero_probe_through_static_zero_aliases_lowers_without_process_ex
 }
 
 #[test]
+fn process_kill_zero_probe_through_transparent_type_wrappers_lowers_without_process_exit_import() {
+    for source in [
+        "process.kill((0 satisfies number));",
+        "process.kill((0 as number));",
+        "process.kill((0));",
+    ] {
+        let program = parse_and_lower_lir(source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+
+        assert!(
+            result.diagnostics.is_empty(),
+            "{source:?}: {:?}",
+            result.diagnostics
+        );
+        let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+        Validator::new()
+            .validate_all(&result.wasm_bytes)
+            .expect("generated wasm should validate");
+
+        assert!(
+            printed.contains("i64.const 1"),
+            "{source:?} printed wasm: {printed}"
+        );
+        assert!(
+            !printed.contains("process_exit"),
+            "{source:?} printed wasm: {printed}"
+        );
+    }
+}
+
+#[test]
 fn process_kill_non_zero_probe_is_rejected_by_codegen() {
     let program = parse_and_lower_lir("process.kill(1);");
     let mut ctx = CodegenCtx::new(TargetConfig {
