@@ -131,11 +131,15 @@ fn test_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_t
 }
 
 #[test]
-fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_wasm_threads_acceptance_for_command("run", "main.js", "0");
+fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "0");
+    }
 }
 
 #[test]
-fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js", "0");
+fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["smoke.test.js", "smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "0");
+    }
 }
