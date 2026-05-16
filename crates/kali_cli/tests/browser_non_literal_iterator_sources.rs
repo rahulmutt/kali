@@ -80,6 +80,19 @@ main();
 "#
 }
 
+fn map_constructor_call_expression_source() -> &'static str {
+    r#"function main() {
+  let values = [[1, 2], [3, 4]];
+  values = values;
+  for (const entry of new Map(values.filter(Boolean))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+}
+main();
+"#
+}
+
 fn assert_browser_iterator_source_rejects(
     source: &str,
     filename: &str,
@@ -768,6 +781,65 @@ fn json_check_rejects_set_constructor_iteration_from_call_expression_source_in_t
         "check",
         false,
     );
+}
+
+fn assert_map_constructor_iteration_from_call_expression_source_rejects(
+    command: &str,
+    bundle: bool,
+) {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_browser_iterator_source_rejects(
+                map_constructor_call_expression_source(),
+                filename,
+                json_output,
+                command,
+                bundle,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_rejects_map_constructor_iteration_from_call_expression_source_in_browser_input() {
+    assert_map_constructor_iteration_from_call_expression_source_rejects("build", true);
+}
+
+#[test]
+fn check_rejects_map_constructor_iteration_from_call_expression_source_in_browser_input() {
+    assert_map_constructor_iteration_from_call_expression_source_rejects("check", false);
+}
+
+#[test]
+fn build_rejects_map_constructor_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                map_constructor_call_expression_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_map_constructor_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for json_output in [false, true] {
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_inherited_browser_iterator_source_rejects(
+                map_constructor_call_expression_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
 }
 
 #[test]
