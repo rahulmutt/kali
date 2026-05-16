@@ -14035,7 +14035,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && Object.freeze(globalThis.process[\"kill\"])(0) && Object.freeze(globalThis[\"process\"][\"kill\"])(0) && Object.freeze(process)[\"kill\"](0) && Object.freeze(globalThis.process)[\"kill\"](0) && Object.freeze(globalThis[\"process\"])[\"kill\"](0) && ((globalThis[\"process\"][\"kill\"]))(0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
             "0",
         ),
         (
@@ -14211,7 +14211,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
+            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && Object.freeze(globalThis.process[\"kill\"])(0) && Object.freeze(globalThis[\"process\"][\"kill\"])(0) && Object.freeze(process)[\"kill\"](0) && Object.freeze(globalThis.process)[\"kill\"](0) && Object.freeze(globalThis[\"process\"])[\"kill\"](0) && ((globalThis[\"process\"][\"kill\"]))(0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
             "0",
         ),
         (
