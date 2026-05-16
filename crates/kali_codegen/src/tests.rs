@@ -4132,6 +4132,7 @@ fn process_kill_zero_probe_lowers_through_transparent_wrappers_without_process_e
         "Object.freeze(process.kill)(0);",
         "Object.freeze(globalThis.process.kill)(0);",
         "Object.freeze(globalThis.process[\"kill\"])(0);",
+        "Object.freeze(globalThis[\"process\"].kill)(0);",
         "Object.freeze(globalThis[\"process\"][\"kill\"])(0);",
         "Object.freeze(process)[\"kill\"](0);",
         "Object.freeze(globalThis.process)[\"kill\"](0);",
