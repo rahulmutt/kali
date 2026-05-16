@@ -2060,7 +2060,7 @@ impl TypeContext {
         let Some(first_arg) = expr.args.first() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases (process[\"kill\"](0), globalThis.process.kill(0), globalThis.process[\"kill\"](0), globalThis[\"process\"].kill(0), globalThis[\"process\"][\"kill\"](0), and transparent wrapper forms) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+                "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases (process[\"kill\"](0), globalThis.process.kill(0), globalThis.process[\"kill\"](0), globalThis[\"process\"].kill(0), globalThis[\"process\"][\"kill\"](0), Object.freeze(process.kill)(0), Object.freeze(globalThis.process.kill)(0), Object.freeze(process)[\"kill\"](0), Object.freeze(globalThis.process)[\"kill\"](0), Object.freeze(globalThis[\"process\"])[\"kill\"](0), Object.freeze(globalThis[\"process\"][\"kill\"])(0), and transparent wrapper forms) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
             ));
             return;
         };
@@ -2076,7 +2076,7 @@ impl TypeContext {
         if first_value != 0.0 || expr.args.len() != 1 {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases (process[\"kill\"](0), globalThis.process.kill(0), globalThis.process[\"kill\"](0), globalThis[\"process\"].kill(0), globalThis[\"process\"][\"kill\"](0), and transparent wrapper forms) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
+                "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases (process[\"kill\"](0), globalThis.process.kill(0), globalThis.process[\"kill\"](0), globalThis[\"process\"].kill(0), globalThis[\"process\"][\"kill\"](0), Object.freeze(process.kill)(0), Object.freeze(globalThis.process.kill)(0), Object.freeze(process)[\"kill\"](0), Object.freeze(globalThis.process)[\"kill\"](0), Object.freeze(globalThis[\"process\"])[\"kill\"](0), Object.freeze(globalThis[\"process\"][\"kill\"])(0), and transparent wrapper forms) in the current phase; use the zero liveness-probe subset or the later compatibility path".to_string(),
             ));
         }
     }
