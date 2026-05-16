@@ -6,8 +6,8 @@ use kali_api_node::{
     NodeUtil,
 };
 use kali_api_web::{
-    fill_random_values, performance_now, random_uuid, ThreadRuntimeShutdownReport,
-    ThreadRuntimeTopology,
+    fill_random_values, performance_now, random_uuid, ThreadRuntimeInstanceSnapshot,
+    ThreadRuntimeShutdownReport, ThreadRuntimeTopology,
 };
 use kali_error::{
     _error_codes::{e4, e5},
@@ -3296,6 +3296,7 @@ pub fn browser_bundle_runtime_execute_checked(
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed.unwrap_or(0),
+        thread_topology: summary.thread_topology.unwrap_or_default(),
     })
 }
 
@@ -3317,6 +3318,36 @@ const runtimeWasm = decodeBase64("{wasm_base64}");
 let wasmMemory = null;
 const collectedTests = [];
 let registeredTestFailures = 0;
+let threadTopology = {{
+  totalInstances: 0,
+  terminatedInstances: 0,
+  liveInstances: [],
+}};
+let nextThreadInstanceId = 0;
+
+function readGuestString(ptr, len) {{
+  if (wasmMemory === null) {{
+    throw new Error('guest memory is unavailable before thread spawn handling');
+  }}
+  const bytes = new Uint8Array(wasmMemory.buffer, ptr, len);
+  return new TextDecoder().decode(bytes);
+}}
+
+function recordThreadInstance(scriptUrlValue) {{
+  const trimmedScriptUrl = scriptUrlValue.trim();
+  const parsedScriptUrl = new URL(trimmedScriptUrl);
+  const instanceId = nextThreadInstanceId++;
+  threadTopology.liveInstances.push({{
+    instanceId,
+    scriptUrl: parsedScriptUrl.href,
+    postedMessages: [],
+    postedSharedBuffers: [],
+    wasTerminated: false,
+  }});
+  threadTopology.totalInstances =
+    threadTopology.terminatedInstances + threadTopology.liveInstances.length;
+  return instanceId;
+}}
 
 function decodeBase64(base64) {{
   const binary = typeof atob === 'function'
@@ -3378,6 +3409,10 @@ const importObject = {{
   "kali:rt": {{
     test_register(val) {{
       collectedTests.push(formatConsoleValue(val));
+    }},
+    thread_spawn(scriptUrlPtr, scriptUrlLen) {{
+      const scriptUrl = readGuestString(scriptUrlPtr, scriptUrlLen);
+      return recordThreadInstance(scriptUrl);
     }},
     args_len() {{
       return runtimeArgs.length;
@@ -3472,7 +3507,7 @@ if (runRegisteredTests) {{
 }}
 let summaryEmissionError = null;
 try {{
-  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures }});
+  await emitBrowserRuntimeSummary({{ args: runtimeArgs, hostContract: "browser-requested", runtimeBackend: "browser-harness", tests: collectedTests, testsFailed: registeredTestFailures, threadTopology }});
 }} catch (error) {{
   summaryEmissionError = error;
 }}
@@ -3547,6 +3582,8 @@ pub struct BrowserRuntimeExecutionOutcome {
     pub registered_tests: Vec<String>,
     /// Test callbacks that failed inside the browser harness summary.
     pub tests_failed: usize,
+    /// Deterministic worker/thread shutdown snapshot reported by the harness summary.
+    pub thread_topology: ThreadRuntimeShutdownReport,
 }
 
 impl BrowserRuntimeExecutionOutcome {
@@ -3563,6 +3600,7 @@ struct BrowserRuntimeSummary {
     tests_failed: Option<usize>,
     host_contract: Option<RuntimeHostContract>,
     runtime_backend: Option<RuntimeBackend>,
+    thread_topology: Option<ThreadRuntimeShutdownReport>,
 }
 
 fn parse_runtime_host_contract_label(label: &str) -> Option<RuntimeHostContract> {
@@ -3598,12 +3636,106 @@ fn parse_browser_runtime_summary(stdout: &str) -> BrowserRuntimeSummary {
     parse_browser_runtime_summary_opt(stdout).unwrap_or_default()
 }
 
+fn parse_thread_runtime_instance_snapshot_value(
+    value: &serde_json::Value,
+) -> Option<ThreadRuntimeInstanceSnapshot> {
+    let object = value.as_object()?;
+    if object.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "instanceId" | "scriptUrl" | "postedMessages" | "postedSharedBuffers" | "wasTerminated"
+        )
+    }) {
+        return None;
+    }
+
+    let instance_id = object.get("instanceId")?.as_u64()? as usize;
+    let script_url = object.get("scriptUrl")?.as_str()?.trim();
+    if script_url.is_empty() {
+        return None;
+    }
+
+    let posted_messages = object.get("postedMessages")?.as_array()?.clone();
+    let posted_shared_buffers = object
+        .get("postedSharedBuffers")?
+        .as_array()?
+        .iter()
+        .map(|buffer| {
+            let bytes = buffer.as_array()?;
+            let mut output = Vec::with_capacity(bytes.len());
+            for byte in bytes {
+                let byte = byte.as_u64()?;
+                if byte > u8::MAX as u64 {
+                    return None;
+                }
+                output.push(byte as u8);
+            }
+            Some(output)
+        })
+        .collect::<Option<Vec<Vec<u8>>>>()?;
+    let was_terminated = object.get("wasTerminated")?.as_bool()?;
+
+    Some(ThreadRuntimeInstanceSnapshot {
+        instance_id,
+        script_url: script_url.to_owned(),
+        posted_messages,
+        posted_shared_buffers,
+        was_terminated,
+    })
+}
+
+fn parse_thread_runtime_shutdown_report_value(
+    value: Option<&serde_json::Value>,
+) -> Option<ThreadRuntimeShutdownReport> {
+    let value = value?;
+    let object = value.as_object()?;
+    if object.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "totalInstances" | "terminatedInstances" | "liveInstances"
+        )
+    }) {
+        return None;
+    }
+
+    let total_instances = object.get("totalInstances")?.as_u64()? as usize;
+    let terminated_instances = object.get("terminatedInstances")?.as_u64()? as usize;
+    let live_instances = object
+        .get("liveInstances")?
+        .as_array()?
+        .iter()
+        .map(parse_thread_runtime_instance_snapshot_value)
+        .collect::<Option<Vec<_>>>()?;
+
+    let mut previous_instance_id = None;
+    let mut seen_instance_ids = BTreeSet::new();
+    for instance in &live_instances {
+        if !seen_instance_ids.insert(instance.instance_id) {
+            return None;
+        }
+        if previous_instance_id.is_some_and(|previous| instance.instance_id < previous) {
+            return None;
+        }
+        previous_instance_id = Some(instance.instance_id);
+    }
+
+    if total_instances != terminated_instances + live_instances.len() {
+        return None;
+    }
+
+    Some(ThreadRuntimeShutdownReport {
+        total_instances,
+        terminated_instances,
+        live_instances,
+    })
+}
+
 fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<BrowserRuntimeSummary> {
     let object = value.as_object()?;
     if object.keys().any(|key| {
         !matches!(
             key.as_str(),
-            "args" | "tests" | "testsFailed" | "hostContract" | "runtimeBackend"
+            "args" | "tests" | "testsFailed" | "hostContract" | "runtimeBackend" | "threadTopology"
         )
     }) {
         return None;
@@ -3622,6 +3754,7 @@ fn parse_browser_runtime_summary_value(value: &serde_json::Value) -> Option<Brow
         tests_failed,
         host_contract: parse_optional_runtime_host_contract_label(object.get("hostContract")),
         runtime_backend: parse_optional_runtime_backend_label(object.get("runtimeBackend")),
+        thread_topology: parse_thread_runtime_shutdown_report_value(object.get("threadTopology")),
     })
 }
 
@@ -3680,6 +3813,9 @@ fn browser_runtime_summary_for_outcome(
                     }
                     if summary.runtime_backend.is_none() {
                         summary.runtime_backend = stdout_summary.runtime_backend;
+                    }
+                    if summary.thread_topology.is_none() {
+                        summary.thread_topology = stdout_summary.thread_topology;
                     }
                     summary
                 }
@@ -3747,6 +3883,7 @@ pub fn browser_runtime_execute_checked(
         reported_args: summary.args,
         registered_tests: summary.tests,
         tests_failed: summary.tests_failed.unwrap_or(0),
+        thread_topology: summary.thread_topology.unwrap_or_default(),
     })
 }
 

@@ -21,7 +21,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Define valid positive thread budgets by command, API surface, target, and runtime profile.
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
 - Runtime smoke now also covers deterministic thread-topology snapshots for spawned workers, including empty posted-message and shared-buffer sets.
-- Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution.
+- Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution, and the browser-requested run/test harness path now also preserves those snapshots when guest code uses the threaded host import.
 - `kali run` / `kali test` JSON payloads now surface the deterministic `threadTopology` snapshot alongside the existing provenance labels.
 - Browser-harness max-thread smoke now also asserts the empty `threadTopology` snapshot in JSON output so the browser-requested threaded path stays aligned with the standalone contract.
 - Browser-harness max-thread smoke now also accepts the zero-capable `--max-threads 0` budget with the same empty `threadTopology` snapshot, keeping the browser-threaded budget path aligned with the standalone zero-deny contract.

@@ -2273,6 +2273,39 @@ fn browser_requested_runtime_summary_merges_missing_tests_failed_from_stdout() {
 }
 
 #[test]
+fn browser_requested_runtime_reports_thread_topology_from_thread_spawn() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) "https://example.com/thread.js")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 29
+                    call $thread_spawn
+                    drop))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(Some("node"), &wasm, &[], tempdir.path(), false)
+        .expect("execute browser requested runtime harness with thread spawn");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.thread_topology.total_instances, 1);
+    assert_eq!(outcome.thread_topology.terminated_instances, 0);
+    assert_eq!(outcome.thread_topology.live_instances.len(), 1);
+    let instance = &outcome.thread_topology.live_instances[0];
+    assert_eq!(instance.instance_id, 0);
+    assert_eq!(instance.script_url, "https://example.com/thread.js");
+    assert!(instance.posted_messages.is_empty());
+    assert!(instance.posted_shared_buffers.is_empty());
+    assert!(!instance.was_terminated);
+}
+
+#[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_invalid_type()
 {
     let tempdir = tempfile::tempdir().expect("tempdir");
