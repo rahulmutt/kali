@@ -30,11 +30,11 @@ fn assert_set_iteration(command: &str, filename: &str, source: &str, expected: &
 }
 
 fn set_iteration_run_source() -> &'static str {
-    "const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); } const frozenValues = Object.freeze(values); for (const value of new Set(frozenValues)) { console.log(value); }\n"
+    "const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); const frozenSet = Object.freeze(Set); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); } const frozenValues = Object.freeze(values); for (const value of new Set(frozenValues)) { console.log(value); } for (const value of new (frozenSet)(values)) { console.log('frozen set constructor iteration ok'); }\n"
 }
 
 fn set_iteration_test_source() -> &'static str {
-    r#"Kali.test('set constructor iteration', () => { const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); } const frozenValues = Object.freeze(values); for (const value of new Set(frozenValues)) { console.log(value); } });
+    r#"Kali.test('set constructor iteration', () => { const values = [1, 2, 1]; const setAlias = Set; const wrappedSetAlias = (setAlias); const frozenSet = Object.freeze(Set); for (const value of new Set(values)) { console.log(value); } for (const value of new setAlias(values)) { console.log(value); } for await (const value of new (wrappedSetAlias)(values)) { console.log(value); } const frozenValues = Object.freeze(values); for (const value of new Set(frozenValues)) { console.log(value); } for (const value of new (frozenSet)(values)) { console.log('frozen set constructor iteration ok'); } });
 "#
 }
 

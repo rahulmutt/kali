@@ -4255,6 +4255,37 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn resolve_transparent_callable_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let mut id = self.resolve_bound_node(id);
+        let mut seen = HashSet::new();
+
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+            {
+                id = node.children[0];
+                continue;
+            }
+
+            if self.is_object_freeze_call(node) {
+                id = node.children.get(1).copied()?;
+                continue;
+            }
+
+            if node.text.is_some() {
+                return Some(id);
+            }
+
+            return None;
+        }
+    }
+
     fn process_argv_slice_start(&self, id: LirNodeId) -> Option<i64> {
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
@@ -5134,8 +5165,9 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return false;
         };
-        let callee = self.resolve_bound_node(callee);
-        let callee = self.unwrap_transparent_value_node(callee);
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
         matches!(
             self.node(callee).text.as_deref(),
             Some("Set")
@@ -5256,8 +5288,9 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return false;
         };
-        let callee = self.resolve_bound_node(callee);
-        let callee = self.unwrap_transparent_value_node(callee);
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
         matches!(
             self.node(callee).text.as_deref(),
             Some("Map")
