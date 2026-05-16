@@ -2884,7 +2884,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(pid_text) = self.render_static_value(*pid_expr) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "process.kill is unavailable unless its first argument is a statically-known zero numeric literal in the current phase; use process.kill(0) or the later compatibility path".to_string(),
+                    kali_common::process_kill_zero_probe_unavailable_message().to_string(),
                 ));
                 function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {

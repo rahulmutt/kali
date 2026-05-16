@@ -2068,7 +2068,7 @@ impl TypeContext {
         let Some(first_value) = self.resolve_static_numeric_literal_value(first_arg) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "process.kill is unavailable unless its first argument is a statically-known zero numeric literal in the current phase; use process.kill(0) or the later compatibility path".to_string(),
+                kali_common::process_kill_zero_probe_unavailable_message().to_string(),
             ));
             return;
         };
