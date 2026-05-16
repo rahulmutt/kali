@@ -7945,7 +7945,7 @@ fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); globalThis.process.kill(+zero);",
+        "const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); globalThis.process.kill(+zero); globalThis.process[\"kill\"](+0); globalThis[\"process\"][\"kill\"](+0);",
     )
     .unwrap();
 
