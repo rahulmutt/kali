@@ -139,7 +139,12 @@ fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx
 
 #[test]
 fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs() {
-    for source_name in ["smoke.test.js", "smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
+    for source_name in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
         assert_browser_wasm_threads_acceptance_for_command("test", source_name, "0");
     }
 }
