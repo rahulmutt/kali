@@ -63475,6 +63475,25 @@ fn package_registry_commands_reject_explicit_package_versions_in_json_output() {
 }
 
 #[test]
+fn package_audit_rejects_pretty_without_output_json() {
+    let output = Command::new(kali_bin())
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("--pretty") && stderr.contains("JSON output is active"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn package_registry_commands_reject_non_registry_targets_in_json_output() {
     let cases = [
         (
