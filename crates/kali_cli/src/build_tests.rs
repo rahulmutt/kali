@@ -7698,7 +7698,7 @@ fn assert_build_source_file_rejects_process_kill_zero_probe_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"process.kill(0); process.kill(+0); process["kill"](0); globalThis.process.kill(0); globalThis.process["kill"](0); globalThis["process"]["kill"](0); ((process)).kill(0); ((globalThis.process)).kill(0); ((process.kill))(0); ((globalThis.process.kill))(0); ((globalThis["process"]["kill"]))(0); Object.freeze(globalThis.process)["kill"](0); Object.freeze(globalThis["process"])["kill"](0); Object.freeze(globalThis["process"]["kill"])(0); Object.freeze(globalThis.process["kill"])(0); Object.freeze(globalThis["process"].kill)(0);"#,
+        r#"process.kill(0); process.kill(+0); process["kill"](0); globalThis.process.kill(0); globalThis.process["kill"](0); globalThis["process"]["kill"](0); ((process)).kill(0); ((globalThis.process)).kill(0); ((process.kill))(0); ((globalThis.process.kill))(0); ((globalThis["process"]["kill"]))(0); Object.freeze(globalThis.process)["kill"](0); Object.freeze(globalThis["process"])["kill"](0); Object.freeze(globalThis["process"]["kill"])(0); Object.freeze(globalThis.process["kill"])(0); Object.freeze(globalThis["process"].kill)(0); Object.freeze(globalThis["process"].kill)(+0);"#,
     )
     .expect("write source");
 
