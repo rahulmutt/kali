@@ -1536,20 +1536,16 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         ));
     }
 
-    match object.get("diagnosticHint") {
-        Some(Value::String(value)) if !value.trim().is_empty() => {}
-        Some(Value::String(_)) => {
-            return Err(
-                "doctor browserRuntimeContract diagnosticHint must be a non-empty, non-whitespace string"
-                    .to_string(),
-            )
-        }
-        Some(other) => {
-            return Err(format!(
-                "doctor browserRuntimeContract diagnosticHint must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
+    const BROWSER_RUNTIME_DIAGNOSTIC_HINT: &str =
+        "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.";
+
+    if !trimmed_string_matches(
+        object.get("diagnosticHint"),
+        BROWSER_RUNTIME_DIAGNOSTIC_HINT,
+    ) {
+        return Err(format!(
+            "doctor browserRuntimeContract diagnosticHint must be `{BROWSER_RUNTIME_DIAGNOSTIC_HINT}`"
+        ));
     }
 
     const BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE: &str =
@@ -2617,7 +2613,7 @@ mod tests {
             "hostDescription": "real browser host",
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
-            "diagnosticHint": "use kali check --api browser for browser-facing analysis",
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
