@@ -91,6 +91,30 @@ fn doctor_reports_whitespace_padded_browser_harness_override_in_json() {
 }
 
 #[test]
+fn doctor_reports_whitespace_padded_browser_harness_override_in_human_output() {
+    let output = Command::new(kali_bin())
+        .arg("doctor")
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "  node --test  ")
+        .output()
+        .expect("run kali doctor");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}, stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Browser harness:"), "stdout: {stdout}");
+    assert!(stdout.contains("  source: env"));
+    assert!(stdout.contains("  override:   node --test  "));
+    assert!(stdout.contains("  command: node --test"));
+    assert!(stdout.contains("Browser runtime contract:"));
+    assert!(stdout.contains("  host label: browser-requested"));
+}
+
+#[test]
 fn doctor_reports_env_selected_browser_harness_in_human_output() {
     let output = Command::new(kali_bin())
         .arg("doctor")
