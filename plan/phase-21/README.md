@@ -57,7 +57,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
-- `process.kill` zero-probe diagnostics now enumerate the bracketed `process["kill"](0)` form, the frozen `Object.freeze(globalThis["process"]["kill"])(0)` alias, and the dotted frozen `Object.freeze(globalThis["process"].kill)(0)` alias alongside the existing Node alias matrix so canonical failure wording stays aligned with the supported slice.
+- `process.kill` zero-probe diagnostics now enumerate the bracketed `process["kill"](0)` form, the frozen `Object.freeze(globalThis.process["kill"])(0)` / `Object.freeze(globalThis["process"].kill)(0)` aliases, the frozen `Object.freeze(globalThis["process"]["kill"])(0)` alias, and the dotted frozen `Object.freeze(globalThis.process)["kill"](0)` alias alongside the existing Node alias matrix so canonical failure wording stays aligned with the supported slice.
 - Browser bundle/harness coverage now also includes the fully bracketed `globalThis.Object.prototype.hasOwnProperty["call"]` spelling on the supported `Object.hasOwn` slice.
 - Browser-requested `run` / `test` browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS input alongside positive `--max-threads` requests, keeping the browser/runtime threading evidence explicit.
 

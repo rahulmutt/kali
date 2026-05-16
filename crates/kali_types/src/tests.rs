@@ -8146,6 +8146,20 @@ fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
     assert!(
         result.diagnostics[0]
             .message
+            .contains(r#"globalThis.process["kill"](0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"globalThis["process"].kill(0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
             .contains(r#"globalThis["process"]["kill"](0)"#),
         "unexpected diagnostics: {:?}",
         result.diagnostics
