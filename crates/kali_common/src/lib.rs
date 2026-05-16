@@ -212,6 +212,29 @@ pub fn format_file_ref(source_map: &SourceMap, file_id: FileId) -> String {
     source_map.format_file_ref(file_id)
 }
 
+/// Canonical feature-unavailable wording for the supported async class-method lowering slice.
+pub const fn async_class_method_lowering_unavailable_message() -> &'static str {
+    "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path"
+}
+
+/// Canonical feature-unavailable wording for the supported generator class-method lowering slice.
+pub const fn generator_class_method_lowering_unavailable_message(is_async: bool) -> &'static str {
+    if is_async {
+        "async-generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+    } else {
+        "generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+    }
+}
+
+/// Canonical feature-unavailable wording for the supported generator-function lowering slice.
+pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> &'static str {
+    if is_async {
+        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    } else {
+        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    }
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub const fn process_kill_zero_probe_unavailable_message() -> &'static str {
     "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases (process[\"kill\"](0), process[\"kill\"](+0), globalThis.process.kill(0), globalThis.process[\"kill\"](0), globalThis.process[\"kill\"](+0), globalThis[\"process\"].kill(0), globalThis[\"process\"][\"kill\"](0), globalThis[\"process\"][\"kill\"](+0), Object.freeze(process.kill)(0), Object.freeze(process.kill)(+0), Object.freeze(globalThis.process.kill)(0), Object.freeze(globalThis.process[\"kill\"])(0), Object.freeze(globalThis.process[\"kill\"])(+0), Object.freeze(globalThis[\"process\"].kill)(0), Object.freeze(globalThis[\"process\"].kill)(+0), Object.freeze(globalThis[\"process\"][\"kill\"])(0), Object.freeze(globalThis[\"process\"][\"kill\"])(+0), Object.freeze(process)[\"kill\"](0), Object.freeze(process)[\"kill\"](+0), Object.freeze(globalThis.process)[\"kill\"](0), Object.freeze(globalThis.process)[\"kill\"](+0), Object.freeze(globalThis[\"process\"])[\"kill\"](0), Object.freeze(globalThis[\"process\"])[\"kill\"](+0), Object.freeze(globalThis.process[\"kill\"])(0), Object.freeze(globalThis.process[\"kill\"])(+0), ((globalThis[\"process\"][\"kill\"]))(0), ((globalThis[\"process\"][\"kill\"]))(+0), and transparent wrapper forms) in the current phase; use the zero liveness-probe subset or the later compatibility path"

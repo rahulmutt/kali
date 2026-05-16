@@ -2870,18 +2870,14 @@ pub fn reject_async_class_methods_in_runtime_entrypoint(
     fn push_async_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path",
+            kali_common::async_class_method_lowering_unavailable_message(),
         ));
     }
 
     fn push_generator_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>, is_async: bool) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            if is_async {
-                "async-generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
-            } else {
-                "generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
-            },
+            kali_common::generator_class_method_lowering_unavailable_message(is_async),
         ));
     }
 
@@ -4016,11 +4012,7 @@ fn collect_direct_bundle_calls_from_expression(
 }
 
 fn generator_function_lowering_message(is_async: bool) -> &'static str {
-    if is_async {
-        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
-    } else {
-        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
-    }
+    kali_common::generator_function_lowering_unavailable_message(is_async)
 }
 
 fn collect_declared_function_signatures(

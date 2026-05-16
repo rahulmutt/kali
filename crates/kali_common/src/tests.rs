@@ -40,6 +40,38 @@ fn test_bytewise_shared_memory_lock_free_probe_matches_target_atomic_support() {
 }
 
 #[test]
+fn test_async_class_method_lowering_unavailable_message_is_stable() {
+    assert_eq!(
+        async_class_method_lowering_unavailable_message(),
+        "async class method lowering is unavailable in the direct runtime path; use a plain method or the later compatibility path"
+    );
+}
+
+#[test]
+fn test_generator_class_method_lowering_unavailable_message_lists_async_and_sync_variants() {
+    assert_eq!(
+        generator_class_method_lowering_unavailable_message(false),
+        "generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+    );
+    assert_eq!(
+        generator_class_method_lowering_unavailable_message(true),
+        "async-generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path"
+    );
+}
+
+#[test]
+fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_variants() {
+    assert_eq!(
+        generator_function_lowering_unavailable_message(false),
+        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    );
+    assert_eq!(
+        generator_function_lowering_unavailable_message(true),
+        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
     let message = process_kill_zero_probe_unavailable_message();
     assert!(message.contains(r#"process["kill"](+0)"#));

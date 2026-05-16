@@ -5485,9 +5485,9 @@ fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> St
 
     match (has_generator, has_async_generator) {
         (true, true) => "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
-        (true, false) => "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
-        (false, true) => "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
-        (false, false) => "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        (true, false) => kali_common::generator_function_lowering_unavailable_message(false).to_string(),
+        (false, true) => kali_common::generator_function_lowering_unavailable_message(true).to_string(),
+        (false, false) => kali_common::generator_function_lowering_unavailable_message(false).to_string(),
     }
 }
 
