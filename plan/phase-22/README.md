@@ -40,7 +40,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Add subprocess, socket/listener, worker/thread, env materialization, env mutation, cwd/process-control, and late Node/Deno module support only with policy/effect/resource contracts.
 - Keep host visibility aligned with effective `apiSurface`, command family, runtime profile, and maturity gate.
 - Preserve explicit gates for unavailable host members and unsupported alias spellings.
-- Browser late-compat process-control coverage now also rejects the alias-target zero-probe spelling `globalThis["process"]["kill"](+0)` across JS, TS, JSX, and TSX input, plus the receiver-freeze aliases `Object.freeze(process)["kill"](0)` / `Object.freeze(globalThis.process)["kill"](0)` / `Object.freeze(globalThis["process"])["kill"](0)`, so the negative matrix stays aligned with the documented Node zero-probe aliases.
+- Browser late-compat process-control coverage now also rejects the alias-target zero-probe spelling `globalThis["process"]["kill"](+0)` across JS, TS, JSX, and TSX input, plus the receiver-freeze aliases `Object.freeze(process)["kill"](0)` / `Object.freeze(globalThis.process)["kill"](0)` / `Object.freeze(globalThis["process"])["kill"](0)`, so the negative matrix stays aligned with the documented Node zero-probe aliases. Browser-targeted build smoke now also carries the bracketed `Object.freeze(globalThis["process"]["kill"])(+0)` alias on that same slice.
 - The Node API-surface positive regression now also covers the `Object.freeze(...)`-wrapped zero-probe aliases on the explicit and inherited Node surfaces.
 
 ### 22.4 Late object/runtime APIs
