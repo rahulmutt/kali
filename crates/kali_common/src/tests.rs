@@ -48,4 +48,5 @@ fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
     assert!(message.contains(r#"Object.freeze(globalThis.process["kill"])(+0)"#));
     assert!(message.contains(r#"Object.freeze(globalThis["process"]["kill"])(0)"#));
     assert!(message.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#));
+    assert!(message.contains(r#"((globalThis["process"]["kill"]))(+0)"#));
 }
