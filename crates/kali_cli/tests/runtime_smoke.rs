@@ -63703,6 +63703,71 @@ fn package_effects_emits_pretty_json_envelope_under_browser_resolution() {
 }
 
 #[test]
+fn package_effects_emits_pretty_json_payload_without_output_json_under_browser_resolution() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browserpkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browserpkg",
+  "version": "1.0.0",
+  "main": "main.js",
+  "browser": "browser.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("main.js"), "console.log('main entry');\n")
+        .expect("write main entry");
+    fs::write(
+        package_dir.join("browser.js"),
+        "fetch('https://example.com/data');\n",
+    )
+    .expect("write browser entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--pretty")
+        .arg("browserpkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("\n  \"schemaVersion\""), "stdout: {stdout}");
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "browserpkg");
+    assert_eq!(json["report"]["analysisContext"]["apiSurface"], "browser");
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Network.Fetch"), "effects: {kinds:?}");
+    assert!(
+        !kinds.contains(&"Console.Write"),
+        "browser resolution should analyze the browser entrypoint, not the main entrypoint"
+    );
+}
+
+#[test]
 fn package_effects_command_is_deterministic_across_repeated_invocations() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/evalpkg");
