@@ -2899,24 +2899,25 @@ fn browser_harness_default_command_parts() -> Vec<String> {
 /// supplied.
 pub fn browser_harness_command_parts_checked(command: Option<&str>) -> Result<Vec<String>, String> {
     if let Some(command) = command {
+        let raw_command = command;
         let command = command.trim();
         if command.is_empty() {
             return Err(format!(
-                "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {raw_command:?}"
             ));
         }
         match split_command_spec(command) {
             Some(parts) if !parts.is_empty() => {
                 if parts.first().is_some_and(|part| part.starts_with('-')) {
                     return Err(format!(
-                        "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                        "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {raw_command:?}"
                     ));
                 }
                 return Ok(parts);
             }
             _ => {
                 return Err(format!(
-                    "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {command:?}"
+                    "malformed {BROWSER_HARNESS_COMMAND_ENV} override: {raw_command:?}"
                 ));
             }
         }
