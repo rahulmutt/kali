@@ -4330,6 +4330,13 @@ fn process_kill_non_zero_probe_is_rejected_by_codegen() {
     assert!(
         result.diagnostics.iter().any(|diag| diag
             .message
+            .contains(r#"Object.freeze(globalThis.process["kill"])(+0)"#)),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics.iter().any(|diag| diag
+            .message
             .contains(r#"Object.freeze(process)["kill"](+0)"#)),
         "{:?}",
         result.diagnostics
