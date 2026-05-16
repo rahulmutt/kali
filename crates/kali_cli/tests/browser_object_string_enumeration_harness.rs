@@ -41,6 +41,10 @@ function browserObjectStringEnumeration() {
   for (const key of globalThis.Object.keys('ab')) {
     globalKeys.push(key);
   }
+  const bracketedRootKeys = [];
+  for (const key of Object["keys"]('ab')) {
+    bracketedRootKeys.push(key);
+  }
   const mixedKeys = [];
   for (const key of globalThis.Object["keys"]('ab')) {
     mixedKeys.push(key);
@@ -65,6 +69,10 @@ function browserObjectStringEnumeration() {
   const globalValues = [];
   for (const value of globalThis.Object.values('ab')) {
     globalValues.push(value);
+  }
+  const bracketedRootValues = [];
+  for (const value of Object["values"]('ab')) {
+    bracketedRootValues.push(value);
   }
   const mixedValues = [];
   for (const value of globalThis.Object["values"]('ab')) {
@@ -91,6 +99,10 @@ function browserObjectStringEnumeration() {
   for (const entry of globalThis.Object.entries('ab')) {
     globalEntries.push(entry);
   }
+  const bracketedRootEntries = [];
+  for (const entry of Object["entries"]('ab')) {
+    bracketedRootEntries.push(entry);
+  }
   const mixedEntries = [];
   for (const entry of globalThis.Object["entries"]('ab')) {
     mixedEntries.push(entry);
@@ -110,18 +122,21 @@ function browserObjectStringEnumeration() {
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(bracketedRootKeys);
   assertObjectKeysIteration(mixedKeys);
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectValuesIteration(values);
   assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(bracketedRootValues);
   assertObjectValuesIteration(mixedValues);
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
@@ -167,6 +182,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for (const key of globalThis.Object.keys('ab')) {
     globalKeys.push(key);
   }
+  const bracketedRootKeys = [];
+  for (const key of Object["keys"]('ab')) {
+    bracketedRootKeys.push(key);
+  }
   const mixedKeys = [];
   for (const key of globalThis.Object["keys"]('ab')) {
     mixedKeys.push(key);
@@ -191,6 +210,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   const globalValues = [];
   for (const value of globalThis.Object.values('ab')) {
     globalValues.push(value);
+  }
+  const bracketedRootValues = [];
+  for (const value of Object["values"]('ab')) {
+    bracketedRootValues.push(value);
   }
   const mixedValues = [];
   for (const value of globalThis.Object["values"]('ab')) {
@@ -217,6 +240,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for (const entry of globalThis.Object.entries('ab')) {
     globalEntries.push(entry);
   }
+  const bracketedRootEntries = [];
+  for (const entry of Object["entries"]('ab')) {
+    bracketedRootEntries.push(entry);
+  }
   const mixedEntries = [];
   for (const entry of globalThis.Object["entries"]('ab')) {
     mixedEntries.push(entry);
@@ -236,18 +263,21 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(bracketedRootKeys);
   assertObjectKeysIteration(mixedKeys);
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectValuesIteration(values);
   assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(bracketedRootValues);
   assertObjectValuesIteration(mixedValues);
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(bracketedRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
