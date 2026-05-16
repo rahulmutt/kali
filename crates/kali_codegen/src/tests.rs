@@ -4181,6 +4181,7 @@ fn process_kill_zero_probe_through_wrapped_process_objects_lowers_without_proces
         "globalThis.process[\"kill\"](0);",
         "globalThis[\"process\"][\"kill\"](0);",
         "globalThis[\"process\"].kill(0);",
+        "globalThis[\"process\"][\"kill\"](+0);",
     ] {
         let program = parse_and_lower_lir(source);
         let mut ctx = CodegenCtx::new(TargetConfig {
