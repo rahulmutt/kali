@@ -2966,7 +2966,7 @@ fn validate_doctor_payload_value_rejects_duplicate_supported_commands() {
             "hostLabel": "browser-requested",
             "hostDescription": "real browser host",
             "hostDescriptionNote": "browser runtime host description: real browser host",
-            "supportedCommands": ["run", "run"],
+            "supportedCommands": [" run ", "run"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
@@ -3041,8 +3041,8 @@ fn validate_doctor_payload_value_rejects_duplicate_diagnostic_notes() {
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
             "diagnosticNotes": [
+                " supported browser runtime commands: run, test ",
                 "supported browser runtime commands: run, test",
-                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "browser runtime host description: real browser host"
             ]
