@@ -61320,6 +61320,79 @@ fn package_effects_command_emits_native_json_payload() {
 }
 
 #[test]
+fn package_effects_command_reports_inherited_browser_and_threaded_context_in_json_payload() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browser-threaded-purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browser-threaded-purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "console.log('browser threaded package');",
+    )
+    .expect("write package entry");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("browser-threaded-purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "browser-threaded-purepkg");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["package"]["registry"], "npm");
+    assert_eq!(json["report"]["analysisContext"]["apiSurface"], "browser");
+    assert_eq!(
+        json["report"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(
+        json["report"]["analysisContext"]["compatFeatures"],
+        json!([])
+    );
+    assert_eq!(
+        json["report"]["entryPoints"],
+        json!(["browser-threaded-purepkg"])
+    );
+    assert!(!json["report"]["dynamicEffects"]
+        .as_bool()
+        .expect("dynamicEffects boolean"));
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_reports_computed_deno_host_access() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
