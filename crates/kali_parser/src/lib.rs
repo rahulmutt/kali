@@ -1927,6 +1927,9 @@ impl Parser {
             Expression::ChainExpression(chain) => {
                 self.computed_object_property_name(*chain.expression)
             }
+            Expression::AwaitExpression(await_expr) => {
+                self.computed_object_property_name(await_expr.argument.clone())
+            }
             Expression::SequenceExpression(sequence) => sequence
                 .expressions
                 .last()

@@ -717,6 +717,47 @@ fn test_parse_object_literal_expression_accepts_unary_numeric_computed_property_
 }
 
 #[test]
+fn test_parse_object_literal_expression_accepts_await_wrapped_computed_property_names() {
+    let tokens =
+        lex("async function main() { const obj = { [await \"answer\"]: 1, [await (+2)]: 2 }; }\n");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::FunctionDeclaration(function) = &output.statements[0] else {
+        panic!(
+            "Expected FunctionDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    assert!(function.is_async, "expected async function context");
+    let Some(Statement::VariableDeclaration(decl)) = function.body.body.first() else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            function.body.body.first()
+        );
+    };
+    let Some(Expression::ObjectExpression(obj)) = decl.declarations[0].init.as_ref() else {
+        panic!(
+            "Expected ObjectExpression, got {:?}",
+            decl.declarations[0].init
+        );
+    };
+    assert_eq!(obj.properties.len(), 2);
+    assert_eq!(
+        obj.properties[0].key,
+        PropertyName::String("answer".to_string())
+    );
+    assert_eq!(obj.properties[1].key, PropertyName::Number(2.0));
+}
+
+#[test]
 fn test_parse_bracketed_member_expression_chain() {
     let tokens = lex(
         r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Proxy"]["revocable"]({}, {}); globalThis["Object"]["hasOwn"]({}, "a"); globalThis["Deno"]["exit"]; globalThis["Deno"]["pid"]; globalThis["Deno"]["env"]["get"]("HOME"); globalThis["Deno"]["permissions"]["query"]("read"); globalThis["Intl"]["Locale"]; globalThis["WeakRef"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["PluralRules"]; globalThis["process"]["cwd"]; globalThis["process"]["exit"];"#,
