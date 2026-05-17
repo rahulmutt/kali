@@ -74,18 +74,27 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 #[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
     let message = process_kill_zero_probe_unavailable_message();
-    assert!(message.contains(r#"process["kill"](+0)"#));
-    assert!(message.contains(r#"Object.freeze(process.kill)(+0)"#));
-    assert!(message.contains(r#"Object.freeze((process.kill))(0)"#));
-    assert!(message.contains(r#"Object.freeze((process.kill))(+0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis["process"].kill)(0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis["process"].kill)(+0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis.process["kill"])(0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis.process["kill"])(+0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis["process"]["kill"])(0)"#));
-    assert!(message.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#));
-    assert!(message.contains(r#"((globalThis.process["kill"]))(0)"#));
-    assert!(message.contains(r#"((globalThis.process["kill"]))(+0)"#));
-    assert!(message.contains(r#"((globalThis["process"]["kill"]))(0)"#));
-    assert!(message.contains(r#"((globalThis["process"]["kill"]))(+0)"#));
+    for alias in [
+        r#"process["kill"](+0)"#,
+        r#"Object.freeze(process.kill)(+0)"#,
+        r#"Object.freeze((process.kill))(0)"#,
+        r#"Object.freeze((process.kill))(+0)"#,
+        r#"Object.freeze(globalThis["process"].kill)(0)"#,
+        r#"Object.freeze(globalThis["process"].kill)(+0)"#,
+        r#"Object.freeze(globalThis.process["kill"])(0)"#,
+        r#"Object.freeze(globalThis.process["kill"])(+0)"#,
+        r#"Object.freeze(globalThis["process"]["kill"])(0)"#,
+        r#"Object.freeze(globalThis["process"]["kill"])(+0)"#,
+        r#"Object.freeze(globalThis.process.kill)(+0)"#,
+        r#"Object.freeze(globalThis["process"].kill)(+0)"#,
+        r#"Object.freeze(globalThis.process)["kill"](+0)"#,
+        r#"Object.freeze(globalThis["process"])["kill"](+0)"#,
+        r#"((globalThis.process["kill"]))(+0)"#,
+        r#"((globalThis["process"]["kill"]))(+0)"#,
+    ] {
+        assert!(
+            message.contains(alias),
+            "missing alias from zero-probe message: {alias}"
+        );
+    }
 }
