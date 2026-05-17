@@ -14,7 +14,9 @@ function mathPowAliasChain() {
   const alias = exponent;
   console.log(Math.pow(2, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
   return Math.pow(2, alias);
 }
 "##
@@ -27,7 +29,9 @@ function globalThisMathPowAliasChain() {
   const alias = exponent;
   console.log(globalThis.Math.pow(2, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
   return globalThis.Math.pow(2, alias);
 }
 "##

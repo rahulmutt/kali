@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_pow_run_source() -> &'static str {
-    "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\nconsole.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias));\nconsole.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias));\n"
+    "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\nconsole.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias));\nconsole.log(Object.freeze((globalThis.Math[\"pow\"]))(2, alias));\nconsole.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias));\nconsole.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(2, alias));\n"
 }
 
 fn browser_harness_math_pow_test_source() -> &'static str {
@@ -20,7 +20,9 @@ fn browser_harness_math_pow_test_source() -> &'static str {
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
 });
 "#
 }

@@ -17,18 +17,26 @@ function mathPowExponentOneIdentity() {
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
   console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
   console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
   return [
     Math.pow(2, alias),
     globalThis.Math.pow(2, alias),
     globalThis["Math"]["pow"](2, alias),
     globalThis.Math["pow"](2, alias),
     Object.freeze(globalThis.Math["pow"])(2, alias),
+    Object.freeze((globalThis.Math["pow"]))(2, alias),
     Object.freeze(globalThis["Math"]["pow"])(2, alias),
+    Object.freeze((globalThis["Math"]["pow"]))(2, alias),
     Object.freeze(globalThis.Math.pow)(2, alias),
+    Object.freeze((globalThis.Math.pow))(2, alias),
     Object.freeze(globalThis["Math"].pow)(2, alias),
+    Object.freeze((globalThis["Math"].pow))(2, alias),
   ];
 }
 "##
@@ -111,13 +119,13 @@ await mod.mathPowExponentOneIdentity();
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("2\n2\n2\n2\n2\n2\n2\n2\n"),
+        stdout.contains("2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n"),
         "stdout: {stdout}"
     );
 }
 
 fn browser_harness_math_pow_exponent_one_identity_run_source() -> &'static str {
-    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias)); console.log(globalThis.Math[\"pow\"](2, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias)); console.log(Object.freeze(globalThis.Math.pow)(2, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(2, alias));\n"
+    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias)); console.log(globalThis.Math[\"pow\"](2, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias)); console.log(Object.freeze((globalThis.Math[\"pow\"]))(2, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias)); console.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(2, alias)); console.log(Object.freeze(globalThis.Math.pow)(2, alias)); console.log(Object.freeze((globalThis.Math.pow))(2, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(2, alias)); console.log(Object.freeze((globalThis[\"Math\"].pow))(2, alias));\n"
 }
 
 fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str {
@@ -129,9 +137,13 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str 
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
   console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
   console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
 });
 "#
 }
@@ -146,18 +158,26 @@ function mathPowBaseOneIdentity() {
   console.log(globalThis["Math"]["pow"](1, alias));
   console.log(globalThis.Math["pow"](1, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
   console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
   console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
   return [
     Math.pow(1, alias),
     globalThis.Math.pow(1, alias),
     globalThis["Math"]["pow"](1, alias),
     globalThis.Math["pow"](1, alias),
     Object.freeze(globalThis.Math["pow"])(1, alias),
+    Object.freeze((globalThis.Math["pow"]))(1, alias),
     Object.freeze(globalThis["Math"]["pow"])(1, alias),
+    Object.freeze((globalThis["Math"]["pow"]))(1, alias),
     Object.freeze(globalThis.Math.pow)(1, alias),
+    Object.freeze((globalThis.Math.pow))(1, alias),
     Object.freeze(globalThis["Math"].pow)(1, alias),
+    Object.freeze((globalThis["Math"].pow))(1, alias),
   ];
 }
 "##
@@ -244,13 +264,13 @@ await mod.mathPowBaseOneIdentity();
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n1\n1\n1\n1\n1\n1\n1\n"),
+        stdout.contains("1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"),
         "stdout: {stdout}"
     );
 }
 
 fn browser_harness_math_pow_base_one_identity_run_source() -> &'static str {
-    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias)); console.log(globalThis.Math[\"pow\"](1, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(1, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(1, alias)); console.log(Object.freeze(globalThis.Math.pow)(1, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(1, alias));\n"
+    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias)); console.log(globalThis.Math[\"pow\"](1, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(1, alias)); console.log(Object.freeze((globalThis.Math[\"pow\"]))(1, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(1, alias)); console.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(1, alias)); console.log(Object.freeze(globalThis.Math.pow)(1, alias)); console.log(Object.freeze((globalThis.Math.pow))(1, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(1, alias)); console.log(Object.freeze((globalThis[\"Math\"].pow))(1, alias));\n"
 }
 
 fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
@@ -262,9 +282,13 @@ fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
   console.log(globalThis["Math"]["pow"](1, alias));
   console.log(globalThis.Math["pow"](1, alias));
   console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
   console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
   console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
   console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
 });
 "#
 }
