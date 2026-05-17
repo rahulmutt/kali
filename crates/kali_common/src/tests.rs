@@ -179,8 +179,10 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 #[test]
 fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once() {
     let source = late_process_control_source();
+    let prefix = late_process_control_prefix_source();
     let zero_probe_source = process_kill_zero_probe_source();
 
+    assert!(source.starts_with(prefix), "source: {source}");
     assert!(source.contains(&zero_probe_source), "source: {source}");
     assert_eq!(
         source.matches(&zero_probe_source).count(),
@@ -194,5 +196,9 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
     assert!(
         source.contains(r#"((process)).kill(0)"#),
         "source: {source}"
+    );
+    assert!(
+        prefix.ends_with("globalThis.process[\"exit\"];"),
+        "prefix should preserve the process-control preamble: {prefix}"
     );
 }
