@@ -14148,20 +14148,40 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
                 r#"node process corpus should confirm globalThis.process["kill"](0)"#
             );
             assert!(
+                body.contains(r#"Object.freeze(process.kill)(0)"#),
+                "node process corpus should confirm Object.freeze(process.kill)(0)"
+            );
+            assert!(
                 body.contains(r#"Object.freeze(process.kill)(+0)"#),
                 "node process corpus should confirm Object.freeze(process.kill)(+0)"
+            );
+            assert!(
+                body.contains(r#"Object.freeze(process)["kill"](0)"#),
+                "node process corpus should confirm Object.freeze(process)[\"kill\"](0)"
             );
             assert!(
                 body.contains(r#"Object.freeze(process)["kill"](+0)"#),
                 "node process corpus should confirm Object.freeze(process)[\"kill\"](+0)"
             );
             assert!(
+                body.contains(r#"Object.freeze(globalThis.process.kill)(0)"#),
+                "node process corpus should confirm Object.freeze(globalThis.process.kill)(0)"
+            );
+            assert!(
                 body.contains(r#"Object.freeze(globalThis.process.kill)(+0)"#),
                 "node process corpus should confirm Object.freeze(globalThis.process.kill)(+0)"
             );
             assert!(
+                body.contains(r#"Object.freeze(globalThis.process)["kill"](0)"#),
+                "node process corpus should confirm Object.freeze(globalThis.process)[\"kill\"](0)"
+            );
+            assert!(
                 body.contains(r#"Object.freeze(globalThis.process)["kill"](+0)"#),
                 "node process corpus should confirm Object.freeze(globalThis.process)[\"kill\"](+0)"
+            );
+            assert!(
+                body.contains(r#"Object.freeze(globalThis["process"]["kill"])(0)"#),
+                r#"node process corpus should confirm Object.freeze(globalThis["process"]["kill"])(0)"#
             );
             assert!(
                 body.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#),
