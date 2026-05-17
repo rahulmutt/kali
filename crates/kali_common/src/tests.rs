@@ -73,6 +73,8 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 
 #[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
+    let direct = process_kill_zero_probe_direct_zero_aliases();
+    let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let aliases = process_kill_zero_probe_aliases();
     let source = process_kill_zero_probe_source();
     let expected = format!("{};", aliases.join("; "));
@@ -89,6 +91,15 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         );
     }
 
+    let expected_aliases = direct
+        .iter()
+        .chain(wrapped.iter())
+        .copied()
+        .collect::<Vec<_>>();
+
+    assert_eq!(aliases.len(), direct.len() + wrapped.len());
+    assert_eq!(aliases, expected_aliases);
+    assert!(direct.iter().all(|alias| !wrapped.contains(alias)));
     assert_eq!(source, expected);
 }
 

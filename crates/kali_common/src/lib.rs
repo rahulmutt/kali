@@ -309,12 +309,16 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
 
 /// Canonical full alias inventory for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
-    let mut aliases = Vec::with_capacity(
-        process_kill_zero_probe_direct_zero_aliases().len()
-            + process_kill_zero_probe_wrapped_zero_aliases().len(),
-    );
-    aliases.extend_from_slice(process_kill_zero_probe_direct_zero_aliases());
-    aliases.extend_from_slice(process_kill_zero_probe_wrapped_zero_aliases());
+    let direct = process_kill_zero_probe_direct_zero_aliases();
+    let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
+    let mut aliases = Vec::with_capacity(direct.len() + wrapped.len());
+
+    for alias in direct.iter().chain(wrapped.iter()) {
+        if !aliases.contains(alias) {
+            aliases.push(alias);
+        }
+    }
+
     aliases
 }
 
