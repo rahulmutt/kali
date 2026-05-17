@@ -14035,7 +14035,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && Object.freeze(globalThis.process[\"kill\"])(0) && Object.freeze(globalThis[\"process\"][\"kill\"])(0) && Object.freeze(process)[\"kill\"](0) && Object.freeze(globalThis.process)[\"kill\"](0) && Object.freeze(globalThis[\"process\"])[\"kill\"](0) && ((globalThis[\"process\"][\"kill\"]))(0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
+            r#"export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.chdir === "function" && typeof process.exit === "function" ? 0 : 1; }\n"#,
             "0",
         ),
         (
@@ -14083,20 +14083,44 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
                 "node process corpus should confirm globalThis.process.kill(0)"
             );
             assert!(
-                body.contains(r#"globalThis["process"].kill(0)"#),
-                "node process corpus should confirm globalThis[\"process\"].kill(0)"
+                body.contains(r#"globalThis.process.kill(+0)"#),
+                "node process corpus should confirm globalThis.process.kill(+0)"
+            );
+            assert!(
+                body.contains(r#"process["kill"]((0))"#),
+                r#"node process corpus should confirm process["kill"]((0))"#
+            );
+            assert!(
+                body.contains(r#"globalThis["process"].kill((0))"#),
+                r#"node process corpus should confirm globalThis["process"].kill((0))"#
+            );
+            assert!(
+                body.contains(r#"globalThis["process"]["kill"]((0))"#),
+                r#"node process corpus should confirm globalThis["process"]["kill"]((0))"#
             );
             assert!(
                 body.contains(r#"globalThis["process"]["kill"](0)"#),
-                "node process corpus should confirm globalThis[\"process\"][\"kill\"](0)"
+                r#"node process corpus should confirm globalThis["process"]["kill"](0)"#
             );
             assert!(
                 body.contains(r#"process["kill"](0)"#),
-                "node process corpus should confirm process[\"kill\"](0)"
+                r#"node process corpus should confirm process["kill"](0)"#
             );
             assert!(
                 body.contains(r#"globalThis.process["kill"](0)"#),
-                "node process corpus should confirm globalThis.process[\"kill\"](0)"
+                r#"node process corpus should confirm globalThis.process["kill"](0)"#
+            );
+            assert!(
+                body.contains(r#"Object.freeze(process.kill)(+0)"#),
+                "node process corpus should confirm Object.freeze(process.kill)(+0)"
+            );
+            assert!(
+                body.contains(r#"Object.freeze(globalThis.process.kill)(+0)"#),
+                "node process corpus should confirm Object.freeze(globalThis.process.kill)(+0)"
+            );
+            assert!(
+                body.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#),
+                r#"node process corpus should confirm Object.freeze(globalThis["process"]["kill"])(+0)"#
             );
         }
         if package == "node-timers-corpus" {

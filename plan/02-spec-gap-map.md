@@ -34,7 +34,7 @@ Owners: `specs/11-standard-apis.md`, `specs/14-packages.md`, `specs/16-testing.m
 
 Remaining goals:
 
-- Expand package-corpus coverage by package shape, host/API context, source class, command, and support rung without turning individual successes into blanket npm claims. The context-free `package-audit` lane and the `package-effects` lane now also have JSON-output coverage for inherited browser+threaded config combinations, so remaining work stays on the supported shape/evidence boundary rather than the registry-analysis inheritance split.
+- Expand package-corpus coverage by package shape, host/API context, source class, command, and support rung without turning individual successes into blanket npm claims. The context-free `package-audit` lane and the `package-effects` lane now also have JSON-output coverage for inherited browser+threaded config combinations, and the node process package corpus now also mirrors wrapped zero-probe aliases such as `process["kill"]((0))`, `globalThis.process.kill(+0)`, and `Object.freeze(process.kill)(+0)` to stay aligned with the shared Node smoke matrix, so remaining work stays on the supported shape/evidence boundary rather than the registry-analysis inheritance split.
 - Grow Node package support only where required Node built-ins and process APIs are explicitly supported or deliberately gated.
 - Grow browser deployability and browser-harness package evidence while keeping standalone browser runtime claims separate.
 - Keep native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint packages rejected by default unless specs introduce a mediated path.
