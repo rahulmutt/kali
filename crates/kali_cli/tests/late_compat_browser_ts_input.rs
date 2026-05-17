@@ -122,6 +122,7 @@ fn browser_late_process_control_source_includes_zero_probe_invocation_forms() {
         r#"((globalThis.process.kill))(0)"#,
         r#"((globalThis["process"].kill))(0)"#,
         r#"((globalThis["process"]["kill"]))(0)"#,
+        r#"((globalThis["process"]["kill"]))(+0)"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
