@@ -130,6 +130,348 @@ fn browser_for_await_object_string_enumeration_source() -> &'static str {
 "##
 }
 
+fn browser_for_await_object_string_enumeration_sequence_wrappers_source() -> &'static str {
+    r##"// kali-tree-shake: browserObjectStringEnumerationAwaitSequenceWrappers
+async function browserObjectStringEnumerationAwaitSequenceWrappers() {
+  function assertObjectKeysIteration(keys) {
+    if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== '1') {
+      throw new Error('unexpected Object.keys string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectValuesIteration(values) {
+    if (values.length !== 2 || values[0] !== 'a' || values[1] !== 'b') {
+      throw new Error('unexpected Object.values string-primitive iteration semantics');
+    }
+  }
+
+  function assertObjectEntriesIteration(entries) {
+    if (
+      entries.length !== 2 ||
+      entries[0][0] !== '0' ||
+      entries[0][1] !== 'a' ||
+      entries[1][0] !== '1' ||
+      entries[1][1] !== 'b'
+    ) {
+      throw new Error('unexpected Object.entries string-primitive iteration semantics');
+    }
+  }
+
+  const keys = [];
+  for await (const key of (0, Object.keys('ab'))) {
+    keys.push(key);
+  }
+  const globalKeys = [];
+  for await (const key of (0, globalThis.Object.keys('ab'))) {
+    globalKeys.push(key);
+  }
+  const mixedKeys = [];
+  for await (const key of (0, globalThis.Object["keys"]('ab'))) {
+    mixedKeys.push(key);
+  }
+  const bracketedKeys = [];
+  for await (const key of (0, globalThis["Object"].keys('ab'))) {
+    bracketedKeys.push(key);
+  }
+  const fullyBracketedKeys = [];
+  for await (const key of (0, globalThis["Object"]["keys"]('ab'))) {
+    fullyBracketedKeys.push(key);
+  }
+  const singleBracketedKeys = [];
+  for await (const key of (0, globalThis['Object']['keys']('ab'))) {
+    singleBracketedKeys.push(key);
+  }
+
+  const values = [];
+  for await (const value of (0, Object.values('ab'))) {
+    values.push(value);
+  }
+  const globalValues = [];
+  for await (const value of (0, globalThis.Object.values('ab'))) {
+    globalValues.push(value);
+  }
+  const mixedValues = [];
+  for await (const value of (0, globalThis.Object["values"]('ab'))) {
+    mixedValues.push(value);
+  }
+  const bracketedValues = [];
+  for await (const value of (0, globalThis["Object"].values('ab'))) {
+    bracketedValues.push(value);
+  }
+  const fullyBracketedValues = [];
+  for await (const value of (0, globalThis["Object"]["values"]('ab'))) {
+    fullyBracketedValues.push(value);
+  }
+  const singleBracketedValues = [];
+  for await (const value of (0, globalThis['Object']['values']('ab'))) {
+    singleBracketedValues.push(value);
+  }
+
+  const entries = [];
+  for await (const entry of (0, Object.entries('ab'))) {
+    entries.push(entry);
+  }
+  const globalEntries = [];
+  for await (const entry of (0, globalThis.Object.entries('ab'))) {
+    globalEntries.push(entry);
+  }
+  const mixedEntries = [];
+  for await (const entry of (0, globalThis.Object["entries"]('ab'))) {
+    mixedEntries.push(entry);
+  }
+  const bracketedEntries = [];
+  for await (const entry of (0, globalThis["Object"].entries('ab'))) {
+    bracketedEntries.push(entry);
+  }
+  const fullyBracketedEntries = [];
+  for await (const entry of (0, globalThis["Object"]["entries"]('ab'))) {
+    fullyBracketedEntries.push(entry);
+  }
+  const singleBracketedEntries = [];
+  for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
+    singleBracketedEntries.push(entry);
+  }
+
+  assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(globalKeys);
+  assertObjectKeysIteration(mixedKeys);
+  assertObjectKeysIteration(bracketedKeys);
+  assertObjectKeysIteration(fullyBracketedKeys);
+  assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectValuesIteration(values);
+  assertObjectValuesIteration(globalValues);
+  assertObjectValuesIteration(mixedValues);
+  assertObjectValuesIteration(bracketedValues);
+  assertObjectValuesIteration(fullyBracketedValues);
+  assertObjectValuesIteration(singleBracketedValues);
+  assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(globalEntries);
+  assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(fullyBracketedEntries);
+  assertObjectEntriesIteration(singleBracketedEntries);
+  console.log('1');
+  console.log('2');
+}
+"##
+}
+
+fn assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+    _command: &str,
+    filename: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_for_await_object_string_enumeration_sequence_wrappers_source(),
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["success"], true);
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
+    }
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_eq!(metadata["artifactKind"], "bundle");
+
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+await mod.browserObjectStringEnumerationAwaitSequenceWrappers();
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+            .ok()
+            .as_deref(),
+    );
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("2\n"), "stdout: {stdout}");
+}
+
+#[test]
+fn check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_js_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.js", false,
+    );
+}
+
+#[test]
+fn json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_js_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.js", true,
+    );
+}
+
+#[test]
+fn check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_ts_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.ts", false,
+    );
+}
+
+#[test]
+fn json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_ts_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.ts", true,
+    );
+}
+
+#[test]
+fn check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_jsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.jsx", false,
+    );
+}
+
+#[test]
+fn json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_jsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.jsx", true,
+    );
+}
+
+#[test]
+fn check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_tsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.tsx", false,
+    );
+}
+
+#[test]
+fn json_check_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_analysis_context_in_tsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "check", "app.tsx", true,
+    );
+}
+
+#[test]
+fn build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_js_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.js", false,
+    );
+}
+
+#[test]
+fn json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_js_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.js", true,
+    );
+}
+
+#[test]
+fn build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_ts_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.ts", false,
+    );
+}
+
+#[test]
+fn json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_ts_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.ts", true,
+    );
+}
+
+#[test]
+fn build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_jsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.jsx", false,
+    );
+}
+
+#[test]
+fn json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_jsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.jsx", true,
+    );
+}
+
+#[test]
+fn build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_tsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.tsx", false,
+    );
+}
+
+#[test]
+fn json_build_supports_for_await_object_string_enumeration_sequence_wrappers_in_browser_bundle_context_in_tsx_input(
+) {
+    assert_browser_for_await_object_string_enumeration_sequence_wrappers_support(
+        "build", "app.tsx", true,
+    );
+}
+
 fn assert_browser_for_await_object_string_enumeration_support(
     command: &str,
     filename: &str,
@@ -192,86 +534,86 @@ fn assert_browser_for_await_object_string_enumeration_support(
 
 #[test]
 fn check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_js_input() {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.js", false);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.js", false);
 }
 
 #[test]
 fn json_check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_js_input()
 {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.js", true);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.js", true);
 }
 
 #[test]
 fn check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_ts_input() {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.ts", false);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.ts", false);
 }
 
 #[test]
 fn json_check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_ts_input()
 {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.ts", true);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.ts", true);
 }
 
 #[test]
 fn check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_jsx_input() {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.jsx", false);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.jsx", false);
 }
 
 #[test]
 fn json_check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_jsx_input(
 ) {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.jsx", true);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.jsx", true);
 }
 
 #[test]
 fn check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_tsx_input() {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.tsx", false);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.tsx", false);
 }
 
 #[test]
 fn json_check_supports_for_await_object_string_enumeration_in_browser_analysis_context_in_tsx_input(
 ) {
-    assert_browser_for_await_object_string_enumeration_support("check", "main.tsx", true);
+    assert_browser_for_await_object_string_enumeration_support("check", "app.tsx", true);
 }
 
 #[test]
 fn build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_js_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.js", false);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.js", false);
 }
 
 #[test]
 fn json_build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_js_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.js", true);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.js", true);
 }
 
 #[test]
 fn build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_ts_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.ts", false);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.ts", false);
 }
 
 #[test]
 fn json_build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_ts_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.ts", true);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.ts", true);
 }
 
 #[test]
 fn build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_jsx_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.jsx", false);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.jsx", false);
 }
 
 #[test]
 fn json_build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_jsx_input()
 {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.jsx", true);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.jsx", true);
 }
 
 #[test]
 fn build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_tsx_input() {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.tsx", false);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.tsx", false);
 }
 
 #[test]
 fn json_build_supports_for_await_object_string_enumeration_in_browser_bundle_context_in_tsx_input()
 {
-    assert_browser_for_await_object_string_enumeration_support("build", "main.tsx", true);
+    assert_browser_for_await_object_string_enumeration_support("build", "app.tsx", true);
 }
