@@ -9,6 +9,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 - For-await array iteration now also accepts a transparent `await` wrapper over a literal array on the parser, checker, codegen, and runtime smoke path.
 - The spec-owned availability and current-state nuance remain in [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - The proof-backed boundary remains owned by [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
+- The shared `process.kill(0)` zero-probe helper inventory now also tracks the direct `Object.freeze(process.kill)` / `Object.freeze(globalThis.process.kill)` aliases and the receiver-freeze sibling spellings so diagnostics stay aligned with the current corpus.
 
 ## Live surface at a glance
 
