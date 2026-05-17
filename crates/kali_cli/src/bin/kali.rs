@@ -66,10 +66,7 @@ fn main() {
     };
     set_verbose_diagnostics(output.verbose);
 
-    let pretty_allowed_without_json = matches!(
-        args.command,
-        Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
-    );
+    let pretty_allowed_without_json = command_allows_pretty_without_json(args.command.as_ref());
     if output.pretty && !output.is_json() && !pretty_allowed_without_json {
         let diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
@@ -4241,6 +4238,26 @@ fn diagnostic_span_sort_key(diagnostic: &Diagnostic) -> (u32, u32, u32, bool) {
     (span.file_id.as_u32(), span.start, span.end, false)
 }
 
+fn command_allows_pretty_without_json(command: Option<&Commands>) -> bool {
+    matches!(
+        command,
+        Some(Commands::Effects { .. }) | Some(Commands::PackageEffects { .. })
+    )
+}
+
+fn package_audit_preview_diagnostic() -> Diagnostic {
+    Diagnostic::error(
+        e5::INVALID_CLI_USAGE as u32,
+        "`--preview` is no longer accepted for package-audit",
+    )
+    .with_context(
+        DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+            .with_flag("--preview")
+            .with_requested_value("true")
+            .with_effective_value("true"),
+    )
+}
+
 fn package_audit_command(
     target: Vec<String>,
     preview: bool,
@@ -4251,16 +4268,7 @@ fn package_audit_command(
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     if preview {
-        let diagnostic = Diagnostic::error(
-            e5::INVALID_CLI_USAGE as u32,
-            "`--preview` is no longer accepted for package-audit",
-        )
-        .with_context(
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
-                .with_flag("--preview")
-                .with_requested_value("true")
-                .with_effective_value("true"),
-        );
+        let diagnostic = package_audit_preview_diagnostic();
         return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
     }
 
@@ -5030,7 +5038,8 @@ fn single_diagnostic_to_values(
 #[cfg(test)]
 mod tests {
     use super::{
-        emit_native_json_payload, manifest_compat_features, manifest_runtime_profiles,
+        command_allows_pretty_without_json, emit_native_json_payload, manifest_compat_features,
+        manifest_runtime_profiles, package_audit_command, package_audit_preview_diagnostic,
         sort_package_audit_findings, CliOutputOptions,
     };
     use kali_cli::{ColorChoice, OutputFormat};
@@ -5079,6 +5088,62 @@ mod tests {
         let diagnostic = Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, "feature unavailable");
 
         assert_eq!(super::diagnostics_exit_code(&[diagnostic]), 5);
+    }
+
+    #[test]
+    fn pretty_without_json_is_only_allowed_for_effects_and_package_effects() {
+        let effects = super::Commands::Effects {
+            api: None,
+            compat: Vec::new(),
+            wasm_threads: false,
+            sandbox: None,
+            files: Vec::new(),
+        };
+        let package_effects = super::Commands::PackageEffects {
+            api: None,
+            compat: Vec::new(),
+            wasm_threads: false,
+            sandbox: None,
+            target: Vec::new(),
+        };
+        let package_audit = super::Commands::PackageAudit {
+            api: None,
+            compat: Vec::new(),
+            wasm_threads: false,
+            sandbox: None,
+            target: Vec::new(),
+            preview: false,
+        };
+
+        assert!(command_allows_pretty_without_json(Some(&effects)));
+        assert!(command_allows_pretty_without_json(Some(&package_effects)));
+        assert!(!command_allows_pretty_without_json(Some(&package_audit)));
+        assert!(!command_allows_pretty_without_json(None));
+    }
+
+    #[test]
+    fn package_audit_preview_rejects_before_target_validation() {
+        let output = CliOutputOptions {
+            format: OutputFormat::Text,
+            pretty: false,
+            verbose: false,
+            quiet: false,
+            color: ColorChoice::Auto,
+        };
+
+        let exit_code =
+            package_audit_command(Vec::new(), true, None, Vec::new(), false, None, &output)
+                .expect_err("preview should fail before target validation");
+
+        assert_eq!(exit_code, 5);
+
+        let diagnostic = package_audit_preview_diagnostic();
+        let context = diagnostic.context.as_ref().expect("diagnostic context");
+        assert_eq!(diagnostic.code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
+        assert_eq!(context.flag.as_deref(), Some("--preview"));
+        assert_eq!(context.requested_value.as_deref(), Some("true"));
+        assert_eq!(context.effective_value.as_deref(), Some("true"));
     }
 
     #[test]
