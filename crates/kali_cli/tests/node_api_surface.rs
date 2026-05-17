@@ -3,6 +3,10 @@ use std::{fs, path::PathBuf, process::Command};
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
+use kali_common::{
+    process_kill_zero_probe_satisfies_source, process_kill_zero_probe_type_assertion_source,
+};
+
 fn kali_bin() -> PathBuf {
     std::env::var_os("CARGO_BIN_EXE_kali")
         .map(PathBuf::from)
@@ -3184,11 +3188,8 @@ fn node_api_surface_supports_process_kill_zero_probe_satisfies_wrappers_in_ts_an
             let dir = tempdir().expect("tempdir");
             let run_file = dir.path().join(format!("main.{extension}"));
             let test_file = dir.path().join(format!("main.test.{extension}"));
-            fs::write(
-                &run_file,
-                "console.log(process.kill((0 satisfies number))); console.log(globalThis.process.kill((0 satisfies number))); console.log(globalThis.process[\"kill\"]((0 satisfies number))); console.log(globalThis[\"process\"][\"kill\"]((0 satisfies number))); console.log(process[\"kill\"]((0 satisfies number)));\n",
-            )
-            .expect("write run file");
+            fs::write(&run_file, process_kill_zero_probe_satisfies_source())
+                .expect("write run file");
             fs::write(
                 &test_file,
                 "Kali.test('process kill satisfies', () => { if (!process.kill((0 satisfies number)) || !globalThis.process.kill((0 satisfies number)) || !globalThis.process[\"kill\"]((0 satisfies number)) || !globalThis[\"process\"][\"kill\"]((0 satisfies number)) || !process[\"kill\"]((0 satisfies number))) { throw new Error('expected zero probe'); } });\n",
@@ -3285,11 +3286,8 @@ fn node_api_surface_supports_process_kill_zero_probe_type_assertion_wrappers_in_
             let dir = tempdir().expect("tempdir");
             let run_file = dir.path().join(format!("main.{extension}"));
             let test_file = dir.path().join(format!("main.test.{extension}"));
-            fs::write(
-                &run_file,
-                "console.log(process.kill((0 as number))); console.log(globalThis.process.kill((0 as number))); console.log(globalThis.process[\"kill\"]((0 as number))); console.log(globalThis[\"process\"][\"kill\"]((0 as number))); console.log(process[\"kill\"]((0 as number)));\n",
-            )
-            .expect("write run file");
+            fs::write(&run_file, process_kill_zero_probe_type_assertion_source())
+                .expect("write run file");
             fs::write(
                 &test_file,
                 "Kali.test('process kill type assertion', () => { if (!process.kill((0 as number)) || !globalThis.process.kill((0 as number)) || !globalThis.process[\"kill\"]((0 as number)) || !globalThis[\"process\"][\"kill\"]((0 as number)) || !process[\"kill\"]((0 as number))) { throw new Error('expected zero probe'); } });\n",

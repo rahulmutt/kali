@@ -215,6 +215,41 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 }
 
 #[test]
+fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_order() {
+    let targets = process_kill_zero_probe_call_target_aliases();
+    let satisfies_source = process_kill_zero_probe_satisfies_source();
+    let type_assertion_source = process_kill_zero_probe_type_assertion_source();
+    let expected_satisfies = format!(
+        "{};",
+        targets
+            .iter()
+            .map(|alias| format!("{alias}((0 satisfies number))"))
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+    let expected_type_assertion = format!(
+        "{};",
+        targets
+            .iter()
+            .map(|alias| format!("{alias}((0 as number))"))
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+
+    let mut unique_targets = std::collections::HashSet::new();
+    for target in targets.iter().copied() {
+        assert!(
+            unique_targets.insert(target),
+            "duplicate call-target alias in typed zero-probe inventory: {target}"
+        );
+    }
+
+    assert_eq!(targets.len(), unique_targets.len());
+    assert_eq!(satisfies_source, expected_satisfies);
+    assert_eq!(type_assertion_source, expected_type_assertion);
+}
+
+#[test]
 fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = object_has_own_frozen_callable_aliases();
     let source = object_has_own_frozen_callable_source();

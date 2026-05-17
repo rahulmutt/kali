@@ -8236,11 +8236,8 @@ fn test_resolution_supports_process_kill_zero_probe_through_static_zero_aliases_
 fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_surface() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        "process.kill((0 satisfies number)); globalThis.process.kill((0 satisfies number)); globalThis[\"process\"][\"kill\"]((0 satisfies number)); globalThis[\"process\"].kill((0 satisfies number)); globalThis.process[\"kill\"]((0 satisfies number));",
-    )
-    .unwrap();
+    let source = kali_common::process_kill_zero_probe_satisfies_source();
+    fs::write(&source_path, source).unwrap();
 
     let satisfies_zero = || {
         Expression::SatisfiesExpression(Box::new(SatisfiesExpression {

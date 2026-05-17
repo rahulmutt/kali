@@ -384,13 +384,42 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     aliases
 }
 
+/// Canonical call-target aliases for TS-wrapped supported Node `process.kill(0)` slices.
+pub const fn process_kill_zero_probe_call_target_aliases() -> &'static [&'static str] {
+    &[
+        r#"process.kill"#,
+        r#"process["kill"]"#,
+        r#"globalThis.process.kill"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"]["kill"]"#,
+    ]
+}
+
+fn join_wrapped_zero_probe_call_targets(argument_source: &str) -> String {
+    let mut source = process_kill_zero_probe_call_target_aliases()
+        .iter()
+        .map(|alias| format!("{alias}{argument_source}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    source.push(';');
+    source
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` zero-probe slices wrapped in a TS `satisfies` expression.
+pub fn process_kill_zero_probe_satisfies_source() -> String {
+    join_wrapped_zero_probe_call_targets("((0 satisfies number))")
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` zero-probe slices wrapped in a TS type assertion.
+pub fn process_kill_zero_probe_type_assertion_source() -> String {
+    join_wrapped_zero_probe_call_targets("((0 as number))")
+}
+
 /// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
 pub fn process_kill_zero_probe_alias_inventory_source() -> String {
-    format!(
-        "{} {}",
-        process_kill_zero_probe_direct_source().trim_end(),
-        process_kill_zero_probe_wrapped_source().trim_end()
-    )
+    let aliases = process_kill_zero_probe_aliases();
+    join_semicolon_terminated_segments(aliases.as_slice())
 }
 
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
