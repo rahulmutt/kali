@@ -48120,8 +48120,8 @@ fn run_and_test_reject_class_generator_and_async_generator_method_lowering_when_
 }
 
 #[test]
-fn run_and_test_reject_async_class_expressions_in_jsx_and_tsx_input() {
-    for extension in ["jsx", "tsx"] {
+fn run_and_test_reject_async_class_expressions_in_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         for command in ["run", "test"] {
             for json_output in [false, true] {
                 assert_runtime_entrypoint_rejection(
