@@ -65,6 +65,8 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Browser bundle/harness coverage now also includes the fully bracketed `globalThis.Object.prototype.hasOwnProperty["call"]` spelling on the supported `Object.hasOwn` slice.
 - Browser-requested `run` / `test` browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS input alongside positive `--max-threads` requests, keeping the browser/runtime threading evidence explicit.
 
+- The shared process.kill(0) zero-probe wording helper now also covers the bracketed `((process["kill"]))` alias pair in the canonical rejection wording.
+
 ## Exit gate
 
 - Each promoted semantic slice has parser/checker/lowering/runtime evidence.
