@@ -45,9 +45,14 @@ export async function browserSetIteration() {
     singleBracketed.push(value);
   }
   const frozenValues = Object.freeze(aliasValues);
+  const frozenSet = Object.freeze(Set);
   const frozenDirect = [];
   for (const value of new Set(frozenValues)) {
     frozenDirect.push(value);
+  }
+  const frozenAlias = [];
+  for (const value of new (frozenSet)(values)) {
+    frozenAlias.push(value);
   }
 
   assertSetIteration(direct);
@@ -57,6 +62,7 @@ export async function browserSetIteration() {
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
   assertSetIteration(frozenDirect);
+  assertSetIteration(frozenAlias);
   console.log('browser set constructor iteration ok');
 }
 "##
@@ -100,9 +106,14 @@ export async function browserMapIteration() {
     singleBracketed.push(JSON.stringify(entry));
   }
   const frozenMapValues = Object.freeze(aliasValues);
+  const frozenMap = Object.freeze(Map);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(JSON.stringify(entry));
+  }
+  const frozenAlias = [];
+  for (const entry of new (frozenMap)(values)) {
+    frozenAlias.push(JSON.stringify(entry));
   }
 
   assertMapIteration(direct);
@@ -112,6 +123,7 @@ export async function browserMapIteration() {
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
+  assertMapIteration(frozenAlias);
   console.log('browser map constructor iteration ok');
 }
 "##

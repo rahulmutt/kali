@@ -50,9 +50,14 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
     singleBracketed.push(entry);
   }
   const frozenMapValues = Object.freeze(aliasValues);
+  const frozenMap = Object.freeze(Map);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(entry);
+  }
+  const frozenAlias = [];
+  for (const entry of new (frozenMap)(values)) {
+    frozenAlias.push(entry);
   }
 
   assertMapIteration(direct);
@@ -62,6 +67,7 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
+  assertMapIteration(frozenAlias);
   console.log('browser map constructor iteration ok');
 }
 
@@ -112,9 +118,14 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
     singleBracketed.push(entry);
   }
   const frozenMapValues = Object.freeze(aliasValues);
+  const frozenMap = Object.freeze(Map);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(entry);
+  }
+  const frozenAlias = [];
+  for (const entry of new (frozenMap)(values)) {
+    frozenAlias.push(entry);
   }
 
   assertMapIteration(direct);
@@ -124,6 +135,7 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
+  assertMapIteration(frozenAlias);
   console.log('browser map constructor iteration ok');
 });
 "##
