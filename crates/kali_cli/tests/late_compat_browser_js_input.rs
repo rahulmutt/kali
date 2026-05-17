@@ -880,6 +880,10 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         source.contains(r#"globalThis["process"]["exit"]"#),
         "source: {source}"
     );
+    assert!(
+        source.contains(kali_common::process_kill_zero_probe_alias_inventory_source().as_str()),
+        "source: {source}"
+    );
 }
 
 #[test]

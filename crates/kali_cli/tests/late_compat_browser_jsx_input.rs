@@ -78,6 +78,10 @@ fn browser_late_process_control_source_includes_zero_probe_invocation_forms() {
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+    assert!(
+        source.contains(kali_common::process_kill_zero_probe_alias_inventory_source().as_str()),
+        "source: {source}"
+    );
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {

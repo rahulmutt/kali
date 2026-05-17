@@ -272,6 +272,10 @@ fn late_process_control_source_includes_zero_probe_spellings() {
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+    assert!(
+        source.contains(kali_common::process_kill_zero_probe_alias_inventory_source().as_str()),
+        "source: {source}"
+    );
 }
 
 #[test]
