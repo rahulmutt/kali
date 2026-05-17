@@ -66569,6 +66569,39 @@ fn package_audit_preview_flag_is_rejected_before_registry_lookup() {
 }
 
 #[test]
+fn package_audit_pretty_still_wins_over_preview_without_json() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("--preview")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
+    assert!(
+        !output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(stderr.contains("--pretty"), "stderr: {stderr}");
+    assert!(stderr.contains("JSON output is active"), "stderr: {stderr}");
+}
+
+#[test]
 fn package_audit_pretty_without_json_is_rejected_before_registry_lookup() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
