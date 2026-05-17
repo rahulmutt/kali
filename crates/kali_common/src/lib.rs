@@ -360,8 +360,9 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
 
 /// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
 pub fn process_kill_zero_probe_alias_inventory_source() -> String {
-    let aliases = process_kill_zero_probe_aliases();
-    join_zero_probe_aliases(&aliases)
+    let direct_source = process_kill_zero_probe_direct_source();
+    let wrapped_source = process_kill_zero_probe_wrapped_source();
+    format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end())
 }
 
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
