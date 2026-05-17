@@ -9,12 +9,13 @@ fn kali_bin() -> String {
 
 fn browser_bundle_number_predicates_js_source() -> &'static str {
     r##"// kali-tree-shake: browserNumberPredicates
-function browserNumberPredicates() {
+async function browserNumberPredicates() {
   const alias = 1;
   const finite = Number.isFinite;
   const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
     Number.isInteger(alias) !== true ||
     Number.isSafeInteger(alias) !== true ||
     Number.isInteger(1.5) !== false ||
@@ -46,12 +47,13 @@ function browserNumberPredicates() {
 
 fn browser_bundle_number_predicates_ts_source() -> &'static str {
     r##"// kali-tree-shake: browserNumberPredicates
-function browserNumberPredicates() {
+async function browserNumberPredicates() {
   const alias = 1 as const;
   const finite = Number.isFinite;
   const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
+    Number.isSafeInteger(await alias) !== true ||
     Number.isInteger(alias) !== true ||
     Number.isSafeInteger(alias) !== true ||
     Number.isInteger(1.5) !== false ||
