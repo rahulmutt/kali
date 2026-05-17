@@ -351,13 +351,15 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     aliases
 }
 
+/// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
+pub fn process_kill_zero_probe_alias_inventory_source() -> String {
+    let aliases = process_kill_zero_probe_aliases();
+    join_zero_probe_aliases(&aliases)
+}
+
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_source() -> String {
-    format!(
-        "{} {}",
-        process_kill_zero_probe_direct_source().trim_end(),
-        process_kill_zero_probe_wrapped_source().trim_end(),
-    )
+    process_kill_zero_probe_alias_inventory_source()
 }
 
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
@@ -371,7 +373,7 @@ pub fn process_kill_zero_probe_unavailable_message() -> String {
 
 /// Canonical late-process-control source text that embeds the supported Node zero-probe slice.
 pub fn late_process_control_source() -> String {
-    let process_kill_zero_probe_source = process_kill_zero_probe_source();
+    let process_kill_zero_probe_source = process_kill_zero_probe_alias_inventory_source();
     let prefix = "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process[\"chdir\"]; process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); ((process)).kill(0); ((globalThis.process)).kill(0); {}; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];";
     format!("{} {}", prefix, process_kill_zero_probe_source.trim_end())
 }

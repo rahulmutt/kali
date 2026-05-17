@@ -97,6 +97,7 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let aliases = process_kill_zero_probe_aliases();
     let source = process_kill_zero_probe_source();
+    let inventory_source = process_kill_zero_probe_alias_inventory_source();
     let direct_source = process_kill_zero_probe_direct_source();
     let wrapped_source = process_kill_zero_probe_wrapped_source();
     let expected = format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end());
@@ -105,10 +106,12 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         r#"process.kill"#,
         r#"process.kill(0)"#,
         r#"process["kill"](0)"#,
+        r#"process["kill"]((0))"#,
         r#"globalThis.process.kill"#,
         r#"globalThis.process["kill"](+0)"#,
         r#"globalThis["process"]["kill"]((0))"#,
         r#"Object.freeze(process)["kill"](+0)"#,
+        r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
         r#"((globalThis["process"]["kill"]))(+0)"#,
     ] {
         assert!(
@@ -128,6 +131,7 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     assert!(direct.iter().all(|alias| !wrapped.contains(alias)));
     assert_eq!(direct_source, format!("{};", direct.join("; ")));
     assert_eq!(wrapped_source, format!("{};", wrapped.join("; ")));
+    assert_eq!(inventory_source, expected);
     assert_eq!(source, expected);
 }
 
