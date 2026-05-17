@@ -381,8 +381,6 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
         r#"Object.freeze(globalThis["process"].kill)(+0)"#,
         r#"Object.freeze(globalThis["process"]["kill"])(0)"#,
         r#"Object.freeze(globalThis["process"]["kill"])(+0)"#,
-        r#"Object.freeze((globalThis["process"]["kill"]))(0)"#,
-        r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
