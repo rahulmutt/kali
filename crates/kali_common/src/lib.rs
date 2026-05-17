@@ -293,6 +293,17 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
     ]
 }
 
+/// Canonical full alias inventory for the supported Node `process.kill(0)` zero-probe slice.
+pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
+    let mut aliases = Vec::with_capacity(
+        process_kill_zero_probe_direct_zero_aliases().len()
+            + process_kill_zero_probe_wrapped_zero_aliases().len(),
+    );
+    aliases.extend_from_slice(process_kill_zero_probe_direct_zero_aliases());
+    aliases.extend_from_slice(process_kill_zero_probe_wrapped_zero_aliases());
+    aliases
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub const fn process_kill_zero_probe_unavailable_message() -> &'static str {
     "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases: process[\"kill\"](0), process[\"kill\"](+0), process[\"kill\"]((0)), globalThis.process.kill(0), globalThis.process.kill(+0), globalThis.process.kill((0)), globalThis.process[\"kill\"](0), globalThis.process[\"kill\"](+0), globalThis.process[\"kill\"]((0)), globalThis[\"process\"].kill(0), globalThis[\"process\"].kill(+0), globalThis[\"process\"].kill((0)), globalThis[\"process\"][\"kill\"](0), globalThis[\"process\"][\"kill\"](+0), globalThis[\"process\"][\"kill\"]((0)), Object.freeze(process.kill)(0), Object.freeze(process.kill)(+0), Object.freeze((process.kill))(0), Object.freeze((process.kill))(+0), Object.freeze(globalThis.process.kill)(0), Object.freeze(globalThis.process.kill)(+0), Object.freeze((globalThis.process.kill))(0), Object.freeze((globalThis.process.kill))(+0), Object.freeze(globalThis.process[\"kill\"])(0), Object.freeze(globalThis.process[\"kill\"])(+0), Object.freeze((globalThis.process[\"kill\"]))(+0), Object.freeze((globalThis.process[\"kill\"]))(0), Object.freeze(globalThis[\"process\"].kill)(0), Object.freeze(globalThis[\"process\"].kill)(+0), Object.freeze(globalThis[\"process\"][\"kill\"])(0), Object.freeze(globalThis[\"process\"][\"kill\"])(+0), Object.freeze((globalThis[\"process\"][\"kill\"]))(0), Object.freeze((globalThis[\"process\"][\"kill\"]))(+0), Object.freeze(process)[\"kill\"](0), Object.freeze(process)[\"kill\"](+0), Object.freeze(globalThis.process)[\"kill\"](0), Object.freeze(globalThis.process)[\"kill\"](+0), Object.freeze(globalThis[\"process\"])[\"kill\"](0), Object.freeze(globalThis[\"process\"])[\"kill\"](+0), Object.freeze(globalThis.process[\"kill\"])(0), Object.freeze(globalThis.process[\"kill\"])(+0), Object.freeze(globalThis[\"process\"].kill)(0), Object.freeze(globalThis[\"process\"].kill)(+0), Object.freeze((globalThis[\"process\"].kill))(0), Object.freeze((globalThis[\"process\"].kill))(+0), ((process[\"kill\"]))(0), ((process[\"kill\"]))(+0), ((globalThis.process[\"kill\"]))(0), ((globalThis.process[\"kill\"]))(+0), ((globalThis.process.kill))(0), ((globalThis.process.kill))(+0), ((process.kill))(0), ((process.kill))(+0), ((globalThis[\"process\"][\"kill\"]))(0), ((globalThis[\"process\"][\"kill\"]))(+0), ((globalThis[\"process\"].kill))(0), ((globalThis[\"process\"].kill))(+0); use the zero liveness-probe subset or the later compatibility path"

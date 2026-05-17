@@ -74,13 +74,10 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 #[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let message = process_kill_zero_probe_unavailable_message();
-    let aliases = process_kill_zero_probe_direct_zero_aliases()
-        .iter()
-        .chain(process_kill_zero_probe_wrapped_zero_aliases().iter());
+    let aliases = process_kill_zero_probe_aliases();
 
     let mut unique_aliases = std::collections::HashSet::new();
-    for alias in aliases {
-        let alias = *alias;
+    for alias in aliases.iter().copied() {
         assert!(
             unique_aliases.insert(alias),
             "duplicate alias in zero-probe inventory: {alias}"
@@ -90,4 +87,9 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
             "missing alias from zero-probe message: {alias}"
         );
     }
+    assert_eq!(
+        unique_aliases.len(),
+        aliases.len(),
+        "alias inventory should be duplicate-free"
+    );
 }
