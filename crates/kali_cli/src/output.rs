@@ -2671,6 +2671,7 @@ mod tests {
     fn browser_runtime_contract_accepts_trimmed_canonical_labels() {
         let mut contract = browser_runtime_contract_fixture();
         contract["hostLabel"] = json!(" browser-requested ");
+        contract["hostDescription"] = json!(" real browser host ");
         contract["hostDescriptionNote"] =
             json!(" browser runtime host description: real browser host ");
 
@@ -2684,6 +2685,10 @@ mod tests {
             (
                 "hostLabel",
                 "doctor browserRuntimeContract hostLabel must be `browser-requested`",
+            ),
+            (
+                "hostDescription",
+                "doctor browserRuntimeContract hostDescription must be `real browser host`",
             ),
             (
                 "hostDescriptionNote",
