@@ -101,9 +101,13 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
 
     for expected_alias in [
         r#"process.kill"#,
+        r#"process.kill(0)"#,
+        r#"process["kill"](0)"#,
         r#"globalThis.process.kill"#,
-        r#"process["kill"]((0))"#,
+        r#"globalThis.process["kill"](+0)"#,
         r#"globalThis["process"]["kill"]((0))"#,
+        r#"Object.freeze(process)["kill"](+0)"#,
+        r#"((globalThis["process"]["kill"]))(+0)"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
