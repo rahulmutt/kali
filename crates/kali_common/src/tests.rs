@@ -208,3 +208,24 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
         "prefix should preserve the process-control preamble: {prefix}"
     );
 }
+
+#[test]
+fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
+    let source = late_process_env_mutation_source();
+    assert!(
+        source.contains(r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
+        "source: {source}"
+    );
+}

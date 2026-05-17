@@ -388,6 +388,11 @@ pub fn late_process_control_source() -> String {
     )
 }
 
+/// Canonical late-process-environment-mutation source text used by the browser and runtime smoke.
+pub fn late_process_env_mutation_source() -> &'static str {
+    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
+}
+
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;

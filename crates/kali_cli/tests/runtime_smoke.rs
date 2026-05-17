@@ -151,7 +151,7 @@ fn late_process_control_source() -> String {
 }
 
 fn late_process_env_mutation_source() -> &'static str {
-    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
+    kali_common::late_process_env_mutation_source()
 }
 
 fn late_object_model_source() -> &'static str {

@@ -61,6 +61,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
+- The browser/runtime late `process.env` mutation fixture now reuses the shared `kali_common` source helper, keeping the bracketed Node aliases synchronized across smoke paths.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
 - The shared `process.kill(0)` zero-probe inventory assembly now uses explicit direct-plus-wrapped concatenation, while the duplicate-free invariant remains test-backed.
 - The node package-corpus zero-probe slice now also mirrors the receiver-freeze `process` spellings with `0` / `+0` aliases, keeping the corpus aligned with the shared Node smoke matrix.
