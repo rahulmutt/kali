@@ -237,6 +237,18 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis["process"]["cwd"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["chdir"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["process"]["exit"]"#),
+        "source: {source}"
+    );
+    assert!(
         prefix.ends_with("globalThis.process[\"exit\"];"),
         "prefix should preserve the process-control preamble: {prefix}"
     );
