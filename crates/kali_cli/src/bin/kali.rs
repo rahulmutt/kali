@@ -35,9 +35,10 @@ use kali_npm::{
 };
 use kali_optimize::ProfileData;
 use kali_runtime::{
-    browser_harness_command_parts_checked, browser_runtime_request_context,
-    browser_runtime_unavailable_diagnostic, normalize_runtime_profiles, BrowserRuntimeContract,
-    RuntimeBackend, RuntimeCtx, RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
+    browser_harness_command_parts_checked, browser_runtime_contract_value,
+    browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
+    normalize_runtime_profiles, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
+    RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -363,6 +364,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             .output()
             .is_ok();
     let browser_runtime_contract = BrowserRuntimeContract::descriptor();
+    let browser_runtime_contract_json = browser_runtime_contract_value();
     let payload = json!({
         "browserHarness": {
             "envVar": BROWSER_HARNESS_COMMAND_ENV,
@@ -373,14 +375,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             "args": args,
             "executableAvailable": executable_available,
         },
-        "browserRuntimeContract": {
-            "hostLabel": browser_runtime_contract.host_label,
-            "hostDescription": browser_runtime_contract.host_description,
-            "hostDescriptionNote": browser_runtime_contract.host_description_note,
-            "supportedCommands": browser_runtime_contract.supported_commands,
-            "diagnosticHint": browser_runtime_contract.diagnostic_hint,
-            "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
-        }
+        "browserRuntimeContract": browser_runtime_contract_json,
     });
     validate_doctor_payload_value(&payload)
         .expect("constructed doctor payload must satisfy schema-v1 shape");
