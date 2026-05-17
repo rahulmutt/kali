@@ -744,6 +744,40 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
 }
 
 #[test]
+fn check_rejects_frozen_late_object_model_revocable_calls_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Object.freeze(Proxy.revocable)({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze(globalThis[\"Proxy\"][\"revocable\"])({}, {});",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Proxy.revocable"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains(r#"globalThis["Proxy"]["revocable"]"#),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn browser_late_process_control_source_includes_bracketed_forms() {
     let source = late_process_control_source();
     for expected in [
