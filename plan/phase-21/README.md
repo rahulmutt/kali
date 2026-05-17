@@ -65,6 +65,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - The package-audit preview shim now uses schema-v1 command-shape wording in its rejection diagnostic, and the CLI unit coverage now pins that exact message so the legacy flag stays aligned with the CLI and maturity matrix.
 - The browser/runtime late `process.env` mutation fixture now reuses the shared `kali_common` source helper, keeping the bracketed Node aliases synchronized across smoke paths.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
+- The shared `Object.hasOwn` frozen-callable aliases now live in `kali_common` as a canonical helper/source pair, mirroring the `process.kill(0)` inventory pattern for future reuse.
 - The shared `process.kill(0)` zero-probe inventory assembly now uses an explicit ordered unique union of the direct and wrapped families, while the duplicate-free invariant remains test-backed, and the canonical inventory source now composes the dedicated direct and wrapped source helpers.
 - The shared zero-probe helper also now carries the direct frozen `globalThis["process"].kill` aliases and the parenthesized receiver-freeze `globalThis.process` / `globalThis["process"]` spellings so the canonical inventory stays aligned with the browser/runtime smoke matrix.
 - The node package-corpus zero-probe slice now also mirrors the receiver-freeze `process` spellings with `0` / `+0` aliases, keeping the corpus aligned with the shared Node smoke matrix.

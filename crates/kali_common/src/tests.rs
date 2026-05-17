@@ -206,6 +206,36 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 }
 
 #[test]
+fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = object_has_own_frozen_callable_aliases();
+    let source = object_has_own_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        r#"Object.freeze(globalThis.Object["hasOwn"])"#,
+        r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
+        r#"Object.freeze((globalThis["Object"]["hasOwn"]))"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Object.hasOwn frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once() {
     let source = late_process_control_source();
     let prefix = late_process_control_prefix_source();

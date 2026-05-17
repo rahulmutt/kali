@@ -388,6 +388,21 @@ pub fn process_kill_zero_probe_source() -> String {
     process_kill_zero_probe_alias_inventory_source()
 }
 
+/// Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice.
+pub const fn object_has_own_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Object["hasOwn"])"#,
+        r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
+        r#"Object.freeze((globalThis["Object"]["hasOwn"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Object.hasOwn` frozen callable aliases.
+pub fn object_has_own_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(object_has_own_frozen_callable_aliases())
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_unavailable_message() -> String {
     let aliases = process_kill_zero_probe_aliases();
