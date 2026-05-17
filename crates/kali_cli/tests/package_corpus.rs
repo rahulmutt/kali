@@ -43,6 +43,18 @@ fn kali_bin() -> PathBuf {
         .expect("kali binary path")
 }
 
+fn node_process_corpus_body() -> String {
+    let process_kill_zero_probe_source = kali_common::process_kill_zero_probe_source();
+    let mut body = String::from(
+        "export default function root() { return process.cwd().length > 0 && typeof process[\"cwd\"] === \"function\" && typeof globalThis.process[\"cwd\"] === \"function\" && typeof globalThis[\"process\"][\"cwd\"] === \"function\" && typeof process.chdir === \"function\" && typeof process[\"chdir\"] === \"function\" && typeof globalThis.process[\"chdir\"] === \"function\" && typeof globalThis[\"process\"][\"chdir\"] === \"function\" && process.pid > 0 && ",
+    );
+    body.push_str(process_kill_zero_probe_source.trim_end_matches(';'));
+    body.push_str(
+        " && typeof process.exit === \"function\" && typeof process[\"exit\"] === \"function\" && typeof globalThis.process[\"exit\"] === \"function\" && typeof globalThis[\"process\"][\"exit\"] === \"function\" ? 0 : 1; }\n",
+    );
+    body
+}
+
 fn write_manifest(root: &Path, api_surface: Option<&str>) {
     let manifest = match api_surface {
         Some(api_surface) => format!(
@@ -13987,6 +13999,7 @@ export default function dotenv() {
 #[test]
 fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testable_on_the_node_surface_on_js_input(
 ) {
+    let node_process_corpus_body = node_process_corpus_body();
     for (package, body, expected) in [
         (
             "node-buffer-corpus",
@@ -14035,7 +14048,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            r#"export default function root() { return process.cwd().length > 0 && typeof process["cwd"] === "function" && typeof globalThis.process["cwd"] === "function" && typeof globalThis["process"]["cwd"] === "function" && typeof process.chdir === "function" && typeof process["chdir"] === "function" && typeof globalThis.process["chdir"] === "function" && typeof globalThis["process"]["chdir"] === "function" && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(process)["kill"](+0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.exit === "function" && typeof process["exit"] === "function" && typeof globalThis.process["exit"] === "function" && typeof globalThis["process"]["exit"] === "function" ? 0 : 1; }\n"#,
+            node_process_corpus_body.as_str(),
             "0",
         ),
         (
@@ -14249,6 +14262,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
 #[test]
 fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testable_on_the_inherited_node_surface_on_js_input(
 ) {
+    let node_process_corpus_body = node_process_corpus_body();
     for (package, body, expected) in [
         (
             "node-buffer-corpus",
@@ -14267,7 +14281,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            r#"export default function root() { return process.cwd().length > 0 && typeof process["cwd"] === "function" && typeof globalThis.process["cwd"] === "function" && typeof globalThis["process"]["cwd"] === "function" && typeof process.chdir === "function" && typeof process["chdir"] === "function" && typeof globalThis.process["chdir"] === "function" && typeof globalThis["process"]["chdir"] === "function" && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(process)["kill"](+0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.exit === "function" && typeof process["exit"] === "function" && typeof globalThis.process["exit"] === "function" && typeof globalThis["process"]["exit"] === "function" ? 0 : 1; }\n"#,
+            node_process_corpus_body.as_str(),
             "0",
         ),
         (

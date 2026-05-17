@@ -10,7 +10,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 - The spec-owned availability and current-state nuance remain in [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - The proof-backed boundary remains owned by [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 - The shared `process.kill(0)` zero-probe helper inventory now also tracks the bare `process.kill` / `globalThis.process.kill` / bracketed reference spellings alongside the direct `Object.freeze(process.kill)` / `Object.freeze(globalThis.process.kill)` aliases, the receiver-freeze sibling spellings, and the wrapped `process["kill"]((0))` alias so diagnostics stay aligned with the current corpus, and the common crate now also exposes a combined full alias inventory helper plus a source-string helper for downstream checks and rejection corpora; that combined inventory is now built as a unique ordered union of the direct and wrapped alias families.
-- The Node package-corpus smoke now also mirrors the bracketed `process["cwd"]` / `process["chdir"]` / `process["exit"]` spellings plus their `globalThis.process[...]` and `globalThis["process"][...]` aliases on the documented Node surface.
+- The Node package-corpus smoke now also mirrors the bracketed `process["cwd"]` / `process["chdir"]` / `process["exit"]` spellings plus their `globalThis.process[...]` and `globalThis["process"][...]` aliases on the documented Node surface, and the process-corpus body now sources the shared `process.kill(0)` zero-probe helper inventory directly so the corpus and diagnostics stay aligned.
 
 ## Live surface at a glance
 
