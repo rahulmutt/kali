@@ -5140,6 +5140,7 @@ mod tests {
         let diagnostic = package_audit_preview_diagnostic();
         let context = diagnostic.context.as_ref().expect("diagnostic context");
         assert_eq!(diagnostic.code, Some(e5::INVALID_CLI_USAGE as u32));
+        assert_eq!(diagnostic.message, "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape");
         assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
         assert_eq!(context.flag.as_deref(), Some("--preview"));
         assert_eq!(context.requested_value.as_deref(), Some("true"));

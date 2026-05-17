@@ -62,7 +62,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
-- The package-audit preview shim now uses schema-v1 command-shape wording in its rejection diagnostic, keeping the legacy flag message aligned with the CLI and maturity matrix.
+- The package-audit preview shim now uses schema-v1 command-shape wording in its rejection diagnostic, and the CLI unit coverage now pins that exact message so the legacy flag stays aligned with the CLI and maturity matrix.
 - The browser/runtime late `process.env` mutation fixture now reuses the shared `kali_common` source helper, keeping the bracketed Node aliases synchronized across smoke paths.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
 - The shared `process.kill(0)` zero-probe inventory assembly now uses an explicit ordered unique union of the direct and wrapped families, while the duplicate-free invariant remains test-backed, and the canonical inventory source now composes the dedicated direct and wrapped source helpers.
