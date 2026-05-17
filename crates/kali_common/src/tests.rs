@@ -81,12 +81,16 @@ fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
         r#"globalThis["process"]["kill"](0)"#,
         r#"Object.freeze(process.kill)(0)"#,
         r#"Object.freeze(globalThis.process.kill)(0)"#,
+        r#"Object.freeze(globalThis["process"].kill)(0)"#,
+        r#"Object.freeze(globalThis["process"].kill)(+0)"#,
         r#"Object.freeze(globalThis["process"]["kill"])(+0)"#,
         r#"Object.freeze(globalThis.process)["kill"](+0)"#,
         r#"((process["kill"]))(0)"#,
         r#"((process["kill"]))(+0)"#,
         r#"((globalThis.process["kill"]))(+0)"#,
         r#"((globalThis["process"]["kill"]))(+0)"#,
+        r#"((globalThis["process"].kill))(0)"#,
+        r#"((globalThis["process"].kill))(+0)"#,
     ] {
         assert!(
             message.contains(alias),
