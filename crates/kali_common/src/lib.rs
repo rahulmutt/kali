@@ -376,7 +376,11 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
 
 /// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
 pub fn process_kill_zero_probe_alias_inventory_source() -> String {
-    process_kill_zero_probe_aliases().join("; ") + ";"
+    format!(
+        "{} {}",
+        process_kill_zero_probe_direct_source().trim_end(),
+        process_kill_zero_probe_wrapped_source().trim_end()
+    )
 }
 
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
