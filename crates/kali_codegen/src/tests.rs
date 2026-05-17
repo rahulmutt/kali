@@ -4234,6 +4234,8 @@ fn process_kill_zero_probe_lowers_through_transparent_wrappers_without_process_e
         "Object.freeze(globalThis[\"process\"][\"kill\"])(+0);",
         "Object.freeze(process)[\"kill\"](0);",
         "Object.freeze(process)[\"kill\"](+0);",
+        "Object.freeze((process)[\"kill\"])(0);",
+        "Object.freeze((process)[\"kill\"])(+0);",
         "Object.freeze(globalThis.process)[\"kill\"](0);",
         "Object.freeze(globalThis.process)[\"kill\"](+0);",
         "Object.freeze(globalThis[\"process\"])[\"kill\"](0);",
@@ -4440,6 +4442,20 @@ fn process_kill_non_zero_probe_is_rejected_by_codegen() {
         result.diagnostics.iter().any(|diag| diag
             .message
             .contains(r#"Object.freeze(process)["kill"](+0)"#)),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics.iter().any(|diag| diag
+            .message
+            .contains(r#"Object.freeze((process)["kill"])(0)"#)),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics.iter().any(|diag| diag
+            .message
+            .contains(r#"Object.freeze((process)["kill"])(+0)"#)),
         "{:?}",
         result.diagnostics
     );

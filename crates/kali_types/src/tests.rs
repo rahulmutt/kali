@@ -10,6 +10,7 @@ use kali_ast::{
     UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
     YieldExpression,
 };
+use kali_common::process_kill_zero_probe_source;
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
 use tempfile::tempdir;
@@ -8041,8 +8042,9 @@ fn test_resolution_supports_process_kill_zero_probe_wrappers_on_node_surface() {
 fn test_resolution_supports_bracketed_process_kill_zero_probe_wrappers_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
-    let source = r#"process["kill"]((0)); globalThis["process"]["kill"](+0); globalThis.process["kill"](0); globalThis["process"].kill(0); ((process["kill"]))(0); ((globalThis["process"]["kill"]))(0); ((globalThis["process"]["kill"]))(+0); ((globalThis.process["kill"]))(0); ((globalThis["process"].kill))(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis["process"]["kill"]))(0); Object.freeze((globalThis["process"]["kill"]))(+0); Object.freeze((globalThis["process"].kill))(0); Object.freeze((globalThis["process"].kill))(+0); Object.freeze((globalThis.process["kill"]))(0); Object.freeze((globalThis.process["kill"]))(+0); const killer = process.kill; const bracketedKiller = globalThis["process"]["kill"]; const sequenceKiller = (process.kill, process.kill); killer(0); bracketedKiller(+0); sequenceKiller(0);"#;
-    fs::write(&source_path, source).unwrap();
+    let mut source = process_kill_zero_probe_source();
+    source.push_str(" const killer = process.kill; const bracketedKiller = globalThis[\"process\"][\"kill\"]; const sequenceKiller = (process.kill, process.kill); killer(0); bracketedKiller(+0); sequenceKiller(0);");
+    fs::write(&source_path, &source).unwrap();
 
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
     let tokens = lexer.lex_all().tokens;
@@ -8315,6 +8317,20 @@ fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
         result.diagnostics[0]
             .message
             .contains(r#"Object.freeze(process)["kill"](+0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((process)["kill"])(0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((process)["kill"])(+0)"#),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
