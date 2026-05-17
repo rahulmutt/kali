@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_floor_trunc_ceil_run_source() -> &'static str {
-    "const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias));\n"
+    "const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); console.log(Object.freeze(globalThis.Math[\"floor\"])(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias));\n"
 }
 
 fn browser_harness_math_floor_trunc_ceil_test_source() -> &'static str {
@@ -18,6 +18,8 @@ fn browser_harness_math_floor_trunc_ceil_test_source() -> &'static str {
   console.log(Math.floor(alias));
   console.log(Math.trunc(alias));
   console.log(Math.ceil(alias));
+  console.log(Object.freeze(globalThis.Math[\"floor\"])(alias));
+  console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias));
 });
 "#
 }
