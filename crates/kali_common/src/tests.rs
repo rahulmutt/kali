@@ -72,8 +72,15 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 }
 
 #[test]
-fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
+fn test_process_kill_zero_probe_unavailable_message_lists_wrapped_zero_aliases() {
     let message = process_kill_zero_probe_unavailable_message();
+    for alias in process_kill_zero_probe_wrapped_zero_aliases() {
+        assert!(
+            message.contains(alias),
+            "missing alias from zero-probe message: {alias}"
+        );
+    }
+
     for alias in [
         r#"process.kill(0)"#,
         r#"process.kill(+0)"#,
