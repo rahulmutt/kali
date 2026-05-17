@@ -8320,7 +8320,7 @@ fn test_resolution_supports_process_kill_zero_probe_satisfies_wrappers_on_node_s
 fn test_resolution_supports_process_kill_zero_probe_object_freeze_wrappers_on_node_surface() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
-    let source = r#"Object.freeze(process.kill)(0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](+0); Object.freeze(globalThis[\"process\"])[\"kill\"](0); Object.freeze(globalThis[\"process\"])[\"kill\"](+0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis[\"process\"][\"kill\"]))(0); Object.freeze((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze((globalThis[\"process\"].kill))(0); Object.freeze((globalThis[\"process\"].kill))(+0); Object.freeze((globalThis.process[\"kill\"]))(0); Object.freeze((globalThis.process[\"kill\"]))(+0);"#;
+    let source = r#"Object.freeze(process.kill)(0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](+0); Object.freeze(globalThis[\"process\"])[\"kill\"](0); Object.freeze(globalThis[\"process\"])[\"kill\"](+0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze((globalThis.process.kill))(0); Object.freeze((globalThis.process.kill))(+0); Object.freeze((globalThis[\"process\"][\"kill\"]))(0); Object.freeze((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze((globalThis[\"process\"].kill))(0); Object.freeze((globalThis[\"process\"].kill))(+0); Object.freeze((globalThis.process[\"kill\"]))(0); Object.freeze((globalThis.process[\"kill\"]))(+0); Object.freeze((process))[\"kill\"](0); Object.freeze((process))[\"kill\"](+0); Object.freeze((globalThis.process))[\"kill\"](0); Object.freeze((globalThis.process))[\"kill\"](+0); Object.freeze((globalThis["process"]))[\"kill\"](0); Object.freeze((globalThis["process"]))[\"kill\"](+0);"#;
     fs::write(&source_path, source).unwrap();
 
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
@@ -8423,6 +8423,48 @@ fn test_resolution_rejects_process_kill_non_zero_literal_on_node_surface() {
         result.diagnostics[0]
             .message
             .contains(r#"Object.freeze(globalThis.process["kill"])(+0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((process))["kill"](0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((process))["kill"](+0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((globalThis.process))["kill"](0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((globalThis.process))["kill"](+0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((globalThis["process"]))["kill"](0)"#),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains(r#"Object.freeze((globalThis["process"]))["kill"](+0)"#),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
