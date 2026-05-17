@@ -325,6 +325,12 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
         r#"((globalThis["process"].kill))(+0)"#,
         r#"((globalThis["process"]["kill"]))(0)"#,
         r#"((globalThis["process"]["kill"]))(+0)"#,
+        r#"Object.freeze((process))["kill"](0)"#,
+        r#"Object.freeze((process))["kill"](+0)"#,
+        r#"Object.freeze((globalThis.process))["kill"](0)"#,
+        r#"Object.freeze((globalThis.process))["kill"](+0)"#,
+        r#"Object.freeze((globalThis["process"]))["kill"](0)"#,
+        r#"Object.freeze((globalThis["process"]))["kill"](+0)"#,
     ]
 }
 
