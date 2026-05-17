@@ -1402,9 +1402,10 @@ fn validate_browser_runtime_supported_commands_value(
     if items.is_empty() {
         return Err(format!("{context} must contain at least one item"));
     }
-    if items.len() != 2 {
+    if items.len() != BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS.len() {
         return Err(format!(
-            "{context} must be exactly [`run`, `test`] in that order"
+            "{context} must be exactly {} in that order",
+            browser_runtime_supported_commands_message()
         ));
     }
 
@@ -1443,6 +1444,34 @@ fn validate_browser_runtime_supported_commands_value(
     Ok(())
 }
 
+const BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS: [&str; 2] = ["run", "test"];
+const BROWSER_RUNTIME_CONTRACT_NOTES: [&str; 5] = [
+    "supported browser runtime commands: run, test",
+    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+    "browser runtime host description: real browser host",
+];
+
+fn browser_runtime_supported_commands_message() -> String {
+    format!(
+        "[`{}`, `{}`]",
+        BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS[0],
+        BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS[1]
+    )
+}
+
+fn browser_runtime_contract_notes_message() -> String {
+    format!(
+        "[`{}`, `{}`, `{}`, `{}`, `{}`]",
+        BROWSER_RUNTIME_CONTRACT_NOTES[0],
+        BROWSER_RUNTIME_CONTRACT_NOTES[1],
+        BROWSER_RUNTIME_CONTRACT_NOTES[2],
+        BROWSER_RUNTIME_CONTRACT_NOTES[3],
+        BROWSER_RUNTIME_CONTRACT_NOTES[4]
+    )
+}
+
 fn validate_browser_runtime_diagnostic_notes_value(
     value: Option<&Value>,
     context: &str,
@@ -1456,13 +1485,7 @@ fn validate_browser_runtime_diagnostic_notes_value(
     }
 
     let mut seen = HashSet::new();
-    let expected_notes = [
-        "supported browser runtime commands: run, test",
-        "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
-        "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
-        "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
-        "browser runtime host description: real browser host",
-    ];
+    let expected_notes = BROWSER_RUNTIME_CONTRACT_NOTES;
 
     for (index, (item, expected_item)) in items.iter().zip(expected_notes.iter()).enumerate() {
         let Some(item) = item.as_str() else {
@@ -1481,14 +1504,16 @@ fn validate_browser_runtime_diagnostic_notes_value(
         }
         if trimmed != *expected_item {
             return Err(format!(
-                "{context} must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
+                "{context} must be exactly {} in that order",
+                browser_runtime_contract_notes_message()
             ));
         }
     }
 
     if items.len() != expected_notes.len() {
         return Err(format!(
-            "{context} must be exactly [`supported browser runtime commands: run, test`, `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`, `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`, `browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid`, `browser runtime host description: real browser host`] in that order"
+            "{context} must be exactly {} in that order",
+            browser_runtime_contract_notes_message()
         ));
     }
 
