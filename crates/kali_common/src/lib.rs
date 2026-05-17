@@ -342,26 +342,13 @@ pub fn process_kill_zero_probe_wrapped_source() -> String {
     join_zero_probe_aliases(process_kill_zero_probe_wrapped_zero_aliases())
 }
 
-fn push_unique_aliases(
-    aliases: &mut Vec<&'static str>,
-    candidates: impl IntoIterator<Item = &'static str>,
-) {
-    for alias in candidates {
-        if !aliases.contains(&alias) {
-            aliases.push(alias);
-        }
-    }
-}
-
 /// Canonical full alias inventory for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let mut aliases = Vec::with_capacity(direct.len() + wrapped.len());
-
-    push_unique_aliases(&mut aliases, direct.iter().copied());
-    push_unique_aliases(&mut aliases, wrapped.iter().copied());
-
+    aliases.extend(direct.iter().copied());
+    aliases.extend(wrapped.iter().copied());
     aliases
 }
 
