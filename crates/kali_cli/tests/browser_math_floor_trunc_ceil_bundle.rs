@@ -17,7 +17,11 @@ function mathFloorTruncCeilAliasChain() {
   console.log(Math.ceil(alias));
   console.log(Object.freeze(globalThis.Math["floor"])(alias));
   console.log(Object.freeze(globalThis["Math"]["floor"])(alias));
-  return [Math.floor(alias), Math.trunc(alias), Math.ceil(alias), Object.freeze(globalThis.Math["floor"])(alias), Object.freeze(globalThis["Math"]["floor"])(alias)];
+  console.log(Object.freeze(globalThis.Math["trunc"])(alias));
+  console.log(Object.freeze(globalThis["Math"]["trunc"])(alias));
+  console.log(Object.freeze(globalThis.Math["ceil"])(alias));
+  console.log(Object.freeze(globalThis["Math"]["ceil"])(alias));
+  return [Math.floor(alias), Math.trunc(alias), Math.ceil(alias), Object.freeze(globalThis.Math["floor"])(alias), Object.freeze(globalThis["Math"]["floor"])(alias), Object.freeze(globalThis.Math["trunc"])(alias), Object.freeze(globalThis["Math"]["trunc"])(alias), Object.freeze(globalThis.Math["ceil"])(alias), Object.freeze(globalThis["Math"]["ceil"])(alias)];
 }
 "##
 }

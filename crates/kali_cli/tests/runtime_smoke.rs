@@ -31132,7 +31132,7 @@ fn run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias));
+        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); const frozenTrunc = Object.freeze(globalThis.Math["trunc"]); const frozenBracketedTrunc = Object.freeze(globalThis["Math"]["trunc"]); const frozenCeil = Object.freeze(globalThis.Math["ceil"]); const frozenBracketedCeil = Object.freeze(globalThis["Math"]["ceil"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias)); console.log(frozenTrunc(alias)); console.log(frozenBracketedTrunc(alias)); console.log(frozenCeil(alias)); console.log(frozenBracketedCeil(alias));
 "#,
     )
     .expect("write source");
@@ -31161,7 +31161,7 @@ fn json_run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias));
+        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); const frozenTrunc = Object.freeze(globalThis.Math["trunc"]); const frozenBracketedTrunc = Object.freeze(globalThis["Math"]["trunc"]); const frozenCeil = Object.freeze(globalThis.Math["ceil"]); const frozenBracketedCeil = Object.freeze(globalThis["Math"]["ceil"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias)); console.log(frozenTrunc(alias)); console.log(frozenBracketedTrunc(alias)); console.log(frozenCeil(alias)); console.log(frozenBracketedCeil(alias));
 "#,
     )
     .expect("write source");
