@@ -4745,7 +4745,8 @@ fn parse_registry_package_target(
                     format!("`kali {command}` requires a package name after `jsr:`"),
                 ));
             }
-            if spec.starts_with("http://")
+            if spec.contains(':')
+                || spec.starts_with("http://")
                 || spec.starts_with("https://")
                 || spec.starts_with("./")
                 || spec.starts_with("../")

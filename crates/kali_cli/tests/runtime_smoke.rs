@@ -63824,6 +63824,10 @@ fn package_registry_commands_reject_malformed_jsr_targets() {
             "jsr:/absolute/pkg",
             "accepts only registry package identifiers",
         ),
+        (
+            "jsr:npm:lodash",
+            "accepts only registry package identifiers",
+        ),
     ] {
         for command in ["package-effects", "package-audit"] {
             let output = Command::new(kali_bin())
@@ -63860,6 +63864,10 @@ fn json_package_registry_commands_reject_malformed_jsr_targets() {
         ),
         (
             "jsr:/absolute/pkg",
+            "accepts only registry package identifiers",
+        ),
+        (
+            "jsr:npm:lodash",
             "accepts only registry package identifiers",
         ),
     ] {
