@@ -247,6 +247,7 @@ fn late_process_control_source_includes_zero_probe_spellings() {
         "((process.kill))(0)",
         r#"((process["kill"]))(0)"#,
         "((globalThis.process.kill))(0)",
+        "((globalThis.process.kill))(+0)",
         r#"((globalThis["process"].kill))(0)"#,
         r#"((globalThis.process["kill"]))(0)"#,
         r#"Object.freeze(globalThis.process["kill"])(0)"#,
