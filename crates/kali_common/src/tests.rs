@@ -76,6 +76,8 @@ fn test_process_kill_zero_probe_unavailable_message_lists_mixed_frozen_alias() {
     let message = process_kill_zero_probe_unavailable_message();
     for alias in [
         r#"process["kill"](0)"#,
+        r#"process["kill"](+0)"#,
+        r#"process.kill(+0)"#,
         r#"globalThis.process.kill(0)"#,
         r#"globalThis.process.kill(+0)"#,
         r#"globalThis.process["kill"](0)"#,
