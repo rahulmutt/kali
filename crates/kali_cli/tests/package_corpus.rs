@@ -14035,7 +14035,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            r#"export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(process)["kill"](+0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.chdir === "function" && typeof process.exit === "function" ? 0 : 1; }\n"#,
+            r#"export default function root() { return process.cwd().length > 0 && typeof process["cwd"] === "function" && typeof globalThis.process["cwd"] === "function" && typeof globalThis["process"]["cwd"] === "function" && typeof process.chdir === "function" && typeof process["chdir"] === "function" && typeof globalThis.process["chdir"] === "function" && typeof globalThis["process"]["chdir"] === "function" && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(process)["kill"](+0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.exit === "function" && typeof process["exit"] === "function" && typeof globalThis.process["exit"] === "function" && typeof globalThis["process"]["exit"] === "function" ? 0 : 1; }\n"#,
             "0",
         ),
         (
@@ -14077,6 +14077,30 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             assert!(
                 body.contains("process.exit"),
                 "node process corpus should confirm process.exit"
+            );
+            assert!(
+                body.contains(r#"typeof process["chdir"] === "function""#),
+                r#"node process corpus should confirm process[\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis.process["chdir"] === "function""#),
+                r#"node process corpus should confirm globalThis.process[\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis["process"]["chdir"] === "function""#),
+                r#"node process corpus should confirm globalThis[\"process\"][\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof process["exit"] === "function""#),
+                r#"node process corpus should confirm process[\"exit\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis.process["exit"] === "function""#),
+                r#"node process corpus should confirm globalThis.process[\"exit\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis["process"]["exit"] === "function""#),
+                r#"node process corpus should confirm globalThis[\"process\"][\"exit\"]"#
             );
             assert!(
                 body.contains(r#"globalThis.process.kill(0)"#),
@@ -14243,7 +14267,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
         ),
         (
             "node-process-corpus",
-            "export default function root() { return process.cwd().length > 0 && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && globalThis.process.kill(0) && globalThis[\"process\"].kill(0) && globalThis[\"process\"][\"kill\"](0) && process[\"kill\"](0) && globalThis.process[\"kill\"](0) && Object.freeze(globalThis.process[\"kill\"])(0) && Object.freeze(globalThis[\"process\"][\"kill\"])(0) && Object.freeze(process)[\"kill\"](0) && Object.freeze(globalThis.process)[\"kill\"](0) && Object.freeze(globalThis[\"process\"])[\"kill\"](0) && ((globalThis[\"process\"][\"kill\"]))(0) && typeof process.chdir === \"function\" && typeof process.exit === \"function\" ? 0 : 1; }\n",
+            r#"export default function root() { return process.cwd().length > 0 && typeof process["cwd"] === "function" && typeof globalThis.process["cwd"] === "function" && typeof globalThis["process"]["cwd"] === "function" && typeof process.chdir === "function" && typeof process["chdir"] === "function" && typeof globalThis.process["chdir"] === "function" && typeof globalThis["process"]["chdir"] === "function" && process.pid > 0 && process.kill(0) && process.kill((0)) && process.kill(+0) && process["kill"]((0)) && globalThis.process.kill(0) && globalThis.process.kill(+0) && globalThis["process"].kill(0) && globalThis["process"].kill((0)) && globalThis["process"]["kill"](0) && globalThis["process"]["kill"]((0)) && process["kill"](0) && globalThis.process["kill"](0) && Object.freeze(process.kill)(0) && Object.freeze(process.kill)(+0) && Object.freeze(globalThis.process.kill)(0) && Object.freeze(globalThis.process.kill)(+0) && Object.freeze(globalThis["process"]["kill"])(0) && Object.freeze(globalThis["process"]["kill"])(+0) && Object.freeze(process)["kill"](0) && Object.freeze(process)["kill"](+0) && Object.freeze(globalThis.process)["kill"](0) && Object.freeze(globalThis.process)["kill"](+0) && Object.freeze(globalThis["process"])["kill"](0) && Object.freeze(globalThis["process"])["kill"](+0) && ((globalThis["process"]["kill"]))(0) && ((process["kill"]))(+0) && ((globalThis.process["kill"]))(+0) && ((globalThis["process"]["kill"]))(0) && typeof process.exit === "function" && typeof process["exit"] === "function" && typeof globalThis.process["exit"] === "function" && typeof globalThis["process"]["exit"] === "function" ? 0 : 1; }\n"#,
             "0",
         ),
         (
@@ -14265,6 +14289,30 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
             assert!(
                 body.contains("process.exit"),
                 "node process corpus should confirm process.exit"
+            );
+            assert!(
+                body.contains(r#"typeof process["chdir"] === "function""#),
+                r#"node process corpus should confirm process[\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis.process["chdir"] === "function""#),
+                r#"node process corpus should confirm globalThis.process[\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis["process"]["chdir"] === "function""#),
+                r#"node process corpus should confirm globalThis[\"process\"][\"chdir\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof process["exit"] === "function""#),
+                r#"node process corpus should confirm process[\"exit\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis.process["exit"] === "function""#),
+                r#"node process corpus should confirm globalThis.process[\"exit\"]"#
+            );
+            assert!(
+                body.contains(r#"typeof globalThis["process"]["exit"] === "function""#),
+                r#"node process corpus should confirm globalThis[\"process\"][\"exit\"]"#
             );
             assert!(
                 body.contains(r#"globalThis.process.kill(0)"#),
