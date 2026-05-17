@@ -46456,6 +46456,82 @@ fn test_supports_for_await_array_iteration_in_browser_api_surface_with_harness_t
     );
 }
 
+#[test]
+fn run_supports_for_await_array_iteration_with_await_wrapper_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            "for await (const value of await [1, 2]) { console.log(value); }\n",
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path())
+            .arg("run")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(0));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1"), "stdout: {stdout}");
+        assert!(stdout.contains("2"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_with_await_wrapper_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input_in_json(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("smoke.test.{extension}"));
+        fs::write(
+            &source_path,
+            "for await (const value of await [1, 2]) { console.log(value); }\n",
+        )
+        .expect("write source");
+
+        let output = Command::new(kali_bin())
+            .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("test")
+            .arg("--api")
+            .arg("browser")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(0));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "test");
+        assert_eq!(json["success"], true);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            errors.is_empty(),
+            "errors array should be empty: {errors:?}"
+        );
+    }
+}
+
 fn assert_browser_for_of_array_iteration(output: &str) {
     assert!(output.contains("1"), "output: {output}");
     assert!(output.contains("2"), "output: {output}");
