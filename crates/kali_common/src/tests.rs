@@ -77,7 +77,18 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let source = process_kill_zero_probe_source();
     let expected = format!("{};", aliases.join("; "));
 
-    assert!(aliases.contains(&r#"process["kill"]((0))"#));
+    for expected_alias in [
+        r#"process.kill"#,
+        r#"globalThis.process.kill"#,
+        r#"process["kill"]((0))"#,
+        r#"globalThis["process"]["kill"]((0))"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
     assert_eq!(source, expected);
 }
 
