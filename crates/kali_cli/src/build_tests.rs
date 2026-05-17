@@ -6442,6 +6442,8 @@ fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface
         for source in [
             "class Example { *main() { yield 1; } }\nnew Example();\n",
             "class Example { async *main() { yield 1; } }\nnew Example();\n",
+            "const Example = class NamedExample { *main() { yield 1; } };\n",
+            "export default (class NamedExample { async *main() { yield 1; } });\n",
         ] {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
@@ -6730,6 +6732,8 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
         for source in [
             "class Example { *main() { yield 1; } }\nnew Example();\n",
             "class Example { async *main() { yield 1; } }\nnew Example();\n",
+            "const Example = class NamedExample { *main() { yield 1; } };\n",
+            "export default (class NamedExample { async *main() { yield 1; } });\n",
         ] {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));

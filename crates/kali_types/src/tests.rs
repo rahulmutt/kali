@@ -1,7 +1,7 @@
 use super::*;
 use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
-    BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
+    BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration, ClassExpression,
     DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
     Expression, ExpressionOrSpread, ExpressionStatement, ForOfLefthand, ForOfStatement,
     FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, MethodDefinition,
@@ -7949,6 +7949,69 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
     assert!(result.diagnostics[0]
         .message
         .contains("async-generator class method lowering is unavailable"));
+}
+
+#[test]
+fn test_resolution_rejects_generator_class_expression_lowering() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+
+    let cases = vec![
+        (
+            Statement::VariableDeclaration(VariableDeclaration {
+                declarations: vec![VariableDeclarator {
+                    id: "Example".to_string(),
+                    init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                        id: Some("NamedExample".to_string()),
+                        body: Box::new(ClassBody {
+                            methods: vec![MethodDefinition {
+                                name: "main".to_string(),
+                                params: vec![],
+                                body: Some(Box::new(BlockStatement { body: vec![] })),
+                                is_async: false,
+                                generator: true,
+                            }],
+                        }),
+                    }))),
+                }],
+                kind: "const".to_string(),
+            }),
+            "generator class method lowering is unavailable",
+        ),
+        (
+            Statement::ExportDefault(ExportDefaultDeclaration::Expression(
+                Expression::ClassExpression(Box::new(ClassExpression {
+                    id: Some("NamedExample".to_string()),
+                    body: Box::new(ClassBody {
+                        methods: vec![MethodDefinition {
+                            name: "main".to_string(),
+                            params: vec![],
+                            body: Some(Box::new(BlockStatement { body: vec![] })),
+                            is_async: true,
+                            generator: true,
+                        }],
+                    }),
+                })),
+            )),
+            "async-generator class method lowering is unavailable",
+        ),
+    ];
+
+    for (statement, expected_message) in cases {
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement]);
+        assert_eq!(
+            result.diagnostics.len(),
+            1,
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e5::FEATURE_UNAVAILABLE as u32)
+        );
+        assert!(result.diagnostics[0].message.contains(expected_message));
+    }
 }
 
 #[test]
