@@ -880,9 +880,15 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         source.contains(r#"globalThis["process"]["exit"]"#),
         "source: {source}"
     );
+    let zero_probe_source = kali_common::process_kill_zero_probe_alias_inventory_source();
     assert!(
-        source.contains(kali_common::process_kill_zero_probe_alias_inventory_source().as_str()),
+        source.contains(zero_probe_source.as_str()),
         "source: {source}"
+    );
+    assert_eq!(
+        source.matches(zero_probe_source.as_str()).count(),
+        1,
+        "browser JS late-compat source should embed the shared zero-probe inventory exactly once"
     );
 }
 
