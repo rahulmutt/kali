@@ -72,78 +72,19 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 }
 
 #[test]
-fn test_process_kill_zero_probe_unavailable_message_lists_wrapped_zero_aliases() {
+fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let message = process_kill_zero_probe_unavailable_message();
-    let aliases = process_kill_zero_probe_wrapped_zero_aliases();
+    let aliases = process_kill_zero_probe_direct_zero_aliases()
+        .iter()
+        .chain(process_kill_zero_probe_wrapped_zero_aliases().iter());
 
     let mut unique_aliases = std::collections::HashSet::new();
     for alias in aliases {
+        let alias = *alias;
         assert!(
             unique_aliases.insert(alias),
             "duplicate alias in zero-probe inventory: {alias}"
         );
-        assert!(
-            message.contains(alias),
-            "missing alias from zero-probe message: {alias}"
-        );
-    }
-
-    for alias in [
-        r#"process.kill(0)"#,
-        r#"process.kill(+0)"#,
-        r#"process["kill"](0)"#,
-        r#"process["kill"](+0)"#,
-        r#"process["kill"]((0))"#,
-        r#"globalThis.process.kill(0)"#,
-        r#"globalThis.process.kill(+0)"#,
-        r#"globalThis.process.kill((0))"#,
-        r#"globalThis["process"].kill((0))"#,
-        r#"globalThis.process["kill"](0)"#,
-        r#"globalThis.process["kill"](+0)"#,
-        r#"globalThis.process["kill"]((0))"#,
-        r#"globalThis["process"].kill(0)"#,
-        r#"globalThis["process"].kill(+0)"#,
-        r#"globalThis["process"].kill((0))"#,
-        r#"globalThis["process"]["kill"](0)"#,
-        r#"globalThis["process"]["kill"](+0)"#,
-        r#"globalThis["process"]["kill"]((0))"#,
-        r#"Object.freeze(process.kill)(0)"#,
-        r#"Object.freeze(process.kill)(+0)"#,
-        r#"Object.freeze((process.kill))(0)"#,
-        r#"Object.freeze((process.kill))(+0)"#,
-        r#"Object.freeze(globalThis.process.kill)(0)"#,
-        r#"Object.freeze(globalThis.process.kill)(+0)"#,
-        r#"Object.freeze(process)["kill"](0)"#,
-        r#"Object.freeze(process)["kill"](+0)"#,
-        r#"Object.freeze(globalThis.process)["kill"](0)"#,
-        r#"Object.freeze(globalThis.process)["kill"](+0)"#,
-        r#"Object.freeze(globalThis["process"])["kill"](0)"#,
-        r#"Object.freeze(globalThis["process"])["kill"](+0)"#,
-        r#"Object.freeze(globalThis.process["kill"])(0)"#,
-        r#"Object.freeze(globalThis.process["kill"])(+0)"#,
-        r#"Object.freeze((globalThis["process"]["kill"]))(0)"#,
-        r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
-        r#"Object.freeze((globalThis.process["kill"]))(0)"#,
-        r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
-        r#"Object.freeze(globalThis["process"]["kill"])(0)"#,
-        r#"Object.freeze(globalThis["process"]["kill"])(+0)"#,
-        r#"Object.freeze(globalThis["process"].kill)(0)"#,
-        r#"Object.freeze(globalThis["process"].kill)(+0)"#,
-        r#"Object.freeze((globalThis["process"].kill))(0)"#,
-        r#"Object.freeze((globalThis["process"].kill))(+0)"#,
-        r#"((process.kill))(0)"#,
-        r#"((process.kill))(+0)"#,
-        r#"((process["kill"]))(0)"#,
-        r#"((process["kill"]))(+0)"#,
-        r#"((globalThis.process.kill))(0)"#,
-        r#"((globalThis.process.kill))(+0)"#,
-        r#"((globalThis.process["kill"]))(0)"#,
-        r#"((globalThis.process["kill"]))(+0)"#,
-        r#"((globalThis["process"].kill))(0)"#,
-        r#"((globalThis["process"].kill))(+0)"#,
-        r#"((globalThis["process"]["kill"]))(0)"#,
-        r#"((globalThis["process"]["kill"]))(+0)"#,
-    ] {
         assert!(
             message.contains(alias),
             "missing alias from zero-probe message: {alias}"

@@ -235,6 +235,24 @@ pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> 
     }
 }
 
+/// Canonical direct aliases for the supported Node `process.kill(0)` zero-probe slice.
+pub const fn process_kill_zero_probe_direct_zero_aliases() -> &'static [&'static str] {
+    &[
+        r#"process.kill(0)"#,
+        r#"process.kill(+0)"#,
+        r#"process["kill"](0)"#,
+        r#"process["kill"](+0)"#,
+        r#"globalThis.process.kill(0)"#,
+        r#"globalThis.process.kill(+0)"#,
+        r#"globalThis.process["kill"](0)"#,
+        r#"globalThis.process["kill"](+0)"#,
+        r#"globalThis["process"].kill(0)"#,
+        r#"globalThis["process"].kill(+0)"#,
+        r#"globalThis["process"]["kill"](0)"#,
+        r#"globalThis["process"]["kill"](+0)"#,
+    ]
+}
+
 /// Canonical wrapped-zero aliases for the supported Node `process.kill(0)` zero-probe slice.
 pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'static str] {
     &[
