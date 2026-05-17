@@ -22,6 +22,7 @@ use kali_ast::{
 use kali_common::{
     generator_class_method_lowering_unavailable_message,
     generator_function_lowering_unavailable_message,
+    generator_function_lowering_unavailable_message_for_flavors,
     template::resolve_interpolated_template_literal,
 };
 use kali_error::{
@@ -156,6 +157,8 @@ pub struct TypeContext {
     runtime_profiles: Vec<String>,
     sandbox_policy_attached: bool,
     in_generator_function: bool,
+    has_generator_function: bool,
+    has_async_generator_function: bool,
 }
 
 impl TypeContext {
@@ -184,6 +187,8 @@ impl TypeContext {
             runtime_profiles: Vec::new(),
             sandbox_policy_attached: false,
             in_generator_function: false,
+            has_generator_function: false,
+            has_async_generator_function: false,
         }
     }
 
@@ -311,6 +316,7 @@ impl TypeContext {
 
         self.push_scope(ScopeType::Module);
         self.resolve_statement_list(statements);
+        self.emit_pending_generator_function_lowering_diagnostic();
         self.scope_stack.clear();
 
         ResolutionResult {
@@ -330,6 +336,8 @@ impl TypeContext {
 
     pub fn clear_diagnostics(&mut self) {
         self.diagnostics.clear();
+        self.has_generator_function = false;
+        self.has_async_generator_function = false;
     }
 
     pub fn check_type_annotation(&mut self, _node_id: NodeId, annotation: &str) {
@@ -419,6 +427,29 @@ impl TypeContext {
         for statement in statements {
             self.resolve_statement(statement);
         }
+    }
+
+    fn record_generator_function_lowering(&mut self, is_async: bool) {
+        self.has_generator_function = true;
+        if is_async {
+            self.has_async_generator_function = true;
+        }
+    }
+
+    fn emit_pending_generator_function_lowering_diagnostic(&mut self) {
+        if !self.has_generator_function && !self.has_async_generator_function {
+            return;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            generator_function_lowering_unavailable_message_for_flavors(
+                self.has_generator_function,
+                self.has_async_generator_function,
+            ),
+        ));
+        self.has_generator_function = false;
+        self.has_async_generator_function = false;
     }
 
     fn resolve_statement(&mut self, statement: &Statement) {
@@ -556,6 +587,7 @@ impl TypeContext {
                 params,
                 body,
                 generator,
+                is_async,
                 ..
             }) => {
                 self.bind_current_scope(name.clone());
@@ -563,10 +595,7 @@ impl TypeContext {
                 let previous_generator = self.in_generator_function;
                 self.in_generator_function = *generator;
                 if *generator {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        generator_function_lowering_unavailable_message(*generator),
-                    ));
+                    self.record_generator_function_lowering(*is_async);
                 }
                 self.bind_name_list(params);
                 self.resolve_block_body(body);
@@ -3663,10 +3692,7 @@ impl TypeContext {
         let previous_generator = self.in_generator_function;
         self.in_generator_function = expr.generator;
         if expr.generator {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                generator_function_lowering_unavailable_message(expr.is_async),
-            ));
+            self.record_generator_function_lowering(expr.is_async);
         }
         if let Some(name) = &expr.id {
             self.bind_current_scope(name.clone());
