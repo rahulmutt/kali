@@ -15,7 +15,21 @@ function mathPowExponentOneIdentity() {
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
   console.log(globalThis["Math"]["pow"](2, alias));
-  return [Math.pow(2, alias), globalThis.Math.pow(2, alias), globalThis["Math"]["pow"](2, alias)];
+  console.log(globalThis.Math["pow"](2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
+  return [
+    Math.pow(2, alias),
+    globalThis.Math.pow(2, alias),
+    globalThis["Math"]["pow"](2, alias),
+    globalThis.Math["pow"](2, alias),
+    Object.freeze(globalThis.Math["pow"])(2, alias),
+    Object.freeze(globalThis["Math"]["pow"])(2, alias),
+    Object.freeze(globalThis.Math.pow)(2, alias),
+    Object.freeze(globalThis["Math"].pow)(2, alias),
+  ];
 }
 "##
 }
@@ -96,11 +110,14 @@ await mod.mathPowExponentOneIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2\n2\n2\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("2\n2\n2\n2\n2\n2\n2\n2\n"),
+        "stdout: {stdout}"
+    );
 }
 
 fn browser_harness_math_pow_exponent_one_identity_run_source() -> &'static str {
-    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias));\n"
+    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias)); console.log(globalThis.Math[\"pow\"](2, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias)); console.log(Object.freeze(globalThis.Math.pow)(2, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(2, alias));\n"
 }
 
 fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str {
@@ -110,6 +127,11 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str 
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
   console.log(globalThis["Math"]["pow"](2, alias));
+  console.log(globalThis.Math["pow"](2, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
 });
 "#
 }
@@ -122,7 +144,21 @@ function mathPowBaseOneIdentity() {
   console.log(Math.pow(1, alias));
   console.log(globalThis.Math.pow(1, alias));
   console.log(globalThis["Math"]["pow"](1, alias));
-  return [Math.pow(1, alias), globalThis.Math.pow(1, alias), globalThis["Math"]["pow"](1, alias)];
+  console.log(globalThis.Math["pow"](1, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
+  return [
+    Math.pow(1, alias),
+    globalThis.Math.pow(1, alias),
+    globalThis["Math"]["pow"](1, alias),
+    globalThis.Math["pow"](1, alias),
+    Object.freeze(globalThis.Math["pow"])(1, alias),
+    Object.freeze(globalThis["Math"]["pow"])(1, alias),
+    Object.freeze(globalThis.Math.pow)(1, alias),
+    Object.freeze(globalThis["Math"].pow)(1, alias),
+  ];
 }
 "##
 }
@@ -207,11 +243,14 @@ await mod.mathPowBaseOneIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n1\n1\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("1\n1\n1\n1\n1\n1\n1\n1\n"),
+        "stdout: {stdout}"
+    );
 }
 
 fn browser_harness_math_pow_base_one_identity_run_source() -> &'static str {
-    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias));\n"
+    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias)); console.log(globalThis.Math[\"pow\"](1, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(1, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(1, alias)); console.log(Object.freeze(globalThis.Math.pow)(1, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(1, alias));\n"
 }
 
 fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
@@ -221,6 +260,11 @@ fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
   console.log(Math.pow(1, alias));
   console.log(globalThis.Math.pow(1, alias));
   console.log(globalThis["Math"]["pow"](1, alias));
+  console.log(globalThis.Math["pow"](1, alias));
+  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
+  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
+  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
 });
 "#
 }
@@ -348,7 +392,7 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.js",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         false,
     );
 }
@@ -359,7 +403,7 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.ts",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         false,
     );
 }
@@ -370,7 +414,7 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.jsx",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         false,
     );
 }
@@ -381,7 +425,7 @@ fn run_supports_math_pow_exponent_one_identity_when_browser_harness_is_configure
         "run",
         "main.tsx",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         false,
     );
 }
@@ -393,7 +437,7 @@ fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_conf
         "run",
         "main.js",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         true,
     );
 }
@@ -405,7 +449,7 @@ fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_conf
         "run",
         "main.ts",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         true,
     );
 }
@@ -417,7 +461,7 @@ fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_conf
         "run",
         "main.jsx",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         true,
     );
 }
@@ -429,7 +473,7 @@ fn json_run_supports_math_pow_exponent_one_identity_when_browser_harness_is_conf
         "run",
         "main.tsx",
         browser_harness_math_pow_exponent_one_identity_run_source(),
-        "2\n2\n2",
+        "2\n2\n2\n2\n2\n2\n2\n2",
         true,
     );
 }
@@ -440,7 +484,7 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.js",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\nok 1",
+        "2\n2\n2\n2\n2\n2\n2\n2\nok 1",
         false,
     );
 }
@@ -451,7 +495,7 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.ts",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\nok 1",
+        "2\n2\n2\n2\n2\n2\n2\n2\nok 1",
         false,
     );
 }
@@ -462,7 +506,7 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.jsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\nok 1",
+        "2\n2\n2\n2\n2\n2\n2\n2\nok 1",
         false,
     );
 }
@@ -473,7 +517,7 @@ fn test_supports_math_pow_exponent_one_identity_when_browser_harness_is_configur
         "test",
         "smoke.test.tsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\nok 1",
+        "2\n2\n2\n2\n2\n2\n2\n2\nok 1",
         false,
     );
 }
@@ -485,7 +529,7 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
         "test",
         "smoke.test.js",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\n",
+        "2\n2\n2\n2\n2\n2\n2\n2\n",
         true,
     );
 }
@@ -497,7 +541,7 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
         "test",
         "smoke.test.ts",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\n",
+        "2\n2\n2\n2\n2\n2\n2\n2\n",
         true,
     );
 }
@@ -509,7 +553,7 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
         "test",
         "smoke.test.jsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\n",
+        "2\n2\n2\n2\n2\n2\n2\n2\n",
         true,
     );
 }
@@ -521,7 +565,7 @@ fn json_test_supports_math_pow_exponent_one_identity_when_browser_harness_is_con
         "test",
         "smoke.test.tsx",
         browser_harness_math_pow_exponent_one_identity_test_source(),
-        "2\n2\n2\n",
+        "2\n2\n2\n2\n2\n2\n2\n2\n",
         true,
     );
 }
@@ -572,7 +616,7 @@ fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in
         "run",
         "main.js",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         false,
     );
 }
@@ -583,7 +627,7 @@ fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configur
         "run",
         "main.js",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         true,
     );
 }
@@ -594,7 +638,7 @@ fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in
         "run",
         "main.ts",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         false,
     );
 }
@@ -605,7 +649,7 @@ fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in
         "run",
         "main.jsx",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         false,
     );
 }
@@ -616,7 +660,7 @@ fn run_supports_math_pow_base_one_identity_when_browser_harness_is_configured_in
         "run",
         "main.tsx",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         false,
     );
 }
@@ -627,7 +671,7 @@ fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configur
         "run",
         "main.ts",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         true,
     );
 }
@@ -638,7 +682,7 @@ fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configur
         "run",
         "main.jsx",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         true,
     );
 }
@@ -649,7 +693,7 @@ fn json_run_supports_math_pow_base_one_identity_when_browser_harness_is_configur
         "run",
         "main.tsx",
         browser_harness_math_pow_base_one_identity_run_source(),
-        "1\n1\n1",
+        "1\n1\n1\n1\n1\n1\n1\n1",
         true,
     );
 }
@@ -660,7 +704,7 @@ fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_i
         "test",
         "smoke.test.js",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\nok 1",
+        "1\n1\n1\n1\n1\n1\n1\n1\nok 1",
         false,
     );
 }
@@ -671,7 +715,7 @@ fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_i
         "test",
         "smoke.test.ts",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\nok 1",
+        "1\n1\n1\n1\n1\n1\n1\n1\nok 1",
         false,
     );
 }
@@ -682,7 +726,7 @@ fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_i
         "test",
         "smoke.test.jsx",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\nok 1",
+        "1\n1\n1\n1\n1\n1\n1\n1\nok 1",
         false,
     );
 }
@@ -693,7 +737,7 @@ fn test_supports_math_pow_base_one_identity_when_browser_harness_is_configured_i
         "test",
         "smoke.test.tsx",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\nok 1",
+        "1\n1\n1\n1\n1\n1\n1\n1\nok 1",
         false,
     );
 }
@@ -704,7 +748,7 @@ fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configu
         "test",
         "smoke.test.js",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\n",
+        "1\n1\n1\n1\n1\n1\n1\n1\n",
         true,
     );
 }
@@ -715,7 +759,7 @@ fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configu
         "test",
         "smoke.test.ts",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\n",
+        "1\n1\n1\n1\n1\n1\n1\n1\n",
         true,
     );
 }
@@ -726,7 +770,7 @@ fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configu
         "test",
         "smoke.test.jsx",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\n",
+        "1\n1\n1\n1\n1\n1\n1\n1\n",
         true,
     );
 }
@@ -737,7 +781,7 @@ fn json_test_supports_math_pow_base_one_identity_when_browser_harness_is_configu
         "test",
         "smoke.test.tsx",
         browser_harness_math_pow_base_one_identity_test_source(),
-        "1\n1\n1\n",
+        "1\n1\n1\n1\n1\n1\n1\n1\n",
         true,
     );
 }
