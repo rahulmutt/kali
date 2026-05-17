@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_pow_run_source() -> &'static str {
-    "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\n"
+    "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\nconsole.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias));\n"
 }
 
 fn browser_harness_math_pow_test_source() -> &'static str {
@@ -19,6 +19,7 @@ fn browser_harness_math_pow_test_source() -> &'static str {
   console.log(globalThis.Math.pow(2, alias));
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
+  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
 });
 "#
 }
@@ -67,12 +68,12 @@ fn assert_browser_harness_math_pow(command: &str, filename: &str, source: &str, 
             assert_eq!(json["payload"]["skipped"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("8\n8"), "json: {json}");
+        assert!(stdout.contains("8\n8\n8"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("8\n8"), "stdout: {stdout}");
+        assert!(stdout.contains("8\n8\n8"), "stdout: {stdout}");
         if command == "test" {
             assert!(stdout.contains("ok 1"), "stdout: {stdout}");
         }
