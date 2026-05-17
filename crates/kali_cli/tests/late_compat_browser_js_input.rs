@@ -797,6 +797,8 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"globalThis.process.kill(0)"#,
         r#"globalThis.process["kill"](+0)"#,
         r#"globalThis.process["kill"]((0))"#,
+        r#"process["kill"]((0))"#,
+        r#"globalThis["process"].kill((0))"#,
         r#"globalThis["process"].kill(0)"#,
         r#"globalThis["process"].kill(+0)"#,
         r#"globalThis["process"]["kill"](0)"#,
