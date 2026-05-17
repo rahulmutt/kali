@@ -98,22 +98,33 @@ fn assert_browser_requested_accepts_zero_spawned_process_budget(
 }
 
 #[test]
-fn run_supports_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_requested_accepts_zero_spawned_process_budget(
-        "run",
-        "main.js",
-        "console.log('browser spawned process budget ok');\n",
-    );
+fn run_supports_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_requested_accepts_zero_spawned_process_budget(
+            "run",
+            source_name,
+            "console.log('browser spawned process budget ok');\n",
+        );
+    }
 }
 
 #[test]
-fn test_supports_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_requested_accepts_zero_spawned_process_budget(
-        "test",
+fn test_supports_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in [
         "smoke.test.js",
-        r#"Kali.test('browser spawned process budget', () => {
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_requested_accepts_zero_spawned_process_budget(
+            "test",
+            source_name,
+            r#"Kali.test('browser spawned process budget', () => {
   console.log('browser spawned process budget ok');
 });
 "#,
-    );
+        );
+    }
 }
