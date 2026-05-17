@@ -1817,7 +1817,7 @@ fn test_parse_async_generator_class_method_preserves_generator_flags() {
 
 #[test]
 fn test_parse_class_expression_preserves_method_modifiers() {
-    let tokens = lex("const Example = class NamedExample { async *main() { yield 1; } };");
+    let tokens = lex("const Example = class NamedExample { async *main() { yield* other(); } };");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
@@ -1839,7 +1839,30 @@ fn test_parse_class_expression_preserves_method_modifiers() {
                     assert_eq!(method.name, "main");
                     assert!(method.is_async, "expected async flag to be preserved");
                     assert!(method.generator, "expected generator flag to be preserved");
-                    assert!(method.body.as_ref().is_some());
+                    let body = method.body.as_ref().expect("method body");
+                    assert_eq!(body.body.len(), 1);
+                    match &body.body[0] {
+                        Statement::ExpressionStatement(expr_stmt) => {
+                            match expr_stmt.expression.as_ref() {
+                                Expression::YieldExpression(yield_expr) => {
+                                    assert!(
+                                        yield_expr.delegate,
+                                        "expected yield* delegation to be preserved"
+                                    );
+                                    let argument =
+                                        yield_expr.argument.as_ref().expect("yield argument");
+                                    match argument {
+                                        Expression::CallExpression(call_expr) => {
+                                            assert_eq!(call_expr.args.len(), 0)
+                                        }
+                                        other => panic!("unexpected yield* argument: {other:?}"),
+                                    }
+                                }
+                                other => panic!("Expected YieldExpression, got {other:?}"),
+                            }
+                        }
+                        other => panic!("Expected ExpressionStatement, got {other:?}"),
+                    }
                 }
                 other => panic!("Expected ClassExpression, got {other:?}"),
             }
@@ -1850,7 +1873,7 @@ fn test_parse_class_expression_preserves_method_modifiers() {
 
 #[test]
 fn test_parse_default_export_class_expression_preserves_method_modifiers() {
-    let tokens = lex("export default (class NamedExample { async *main() { yield 1; } });");
+    let tokens = lex("export default (class NamedExample { async *main() { yield* other(); } });");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
@@ -1877,7 +1900,34 @@ fn test_parse_default_export_class_expression_preserves_method_modifiers() {
                             assert_eq!(method.name, "main");
                             assert!(method.is_async, "expected async flag to be preserved");
                             assert!(method.generator, "expected generator flag to be preserved");
-                            assert!(method.body.as_ref().is_some());
+                            let body = method.body.as_ref().expect("method body");
+                            assert_eq!(body.body.len(), 1);
+                            match &body.body[0] {
+                                Statement::ExpressionStatement(expr_stmt) => {
+                                    match expr_stmt.expression.as_ref() {
+                                        Expression::YieldExpression(yield_expr) => {
+                                            assert!(
+                                                yield_expr.delegate,
+                                                "expected yield* delegation to be preserved"
+                                            );
+                                            let argument = yield_expr
+                                                .argument
+                                                .as_ref()
+                                                .expect("yield argument");
+                                            match argument {
+                                                Expression::CallExpression(call_expr) => {
+                                                    assert_eq!(call_expr.args.len(), 0)
+                                                }
+                                                other => {
+                                                    panic!("unexpected yield* argument: {other:?}")
+                                                }
+                                            }
+                                        }
+                                        other => panic!("Expected YieldExpression, got {other:?}"),
+                                    }
+                                }
+                                other => panic!("Expected ExpressionStatement, got {other:?}"),
+                            }
                             break;
                         }
                         other => panic!("Expected default-export class expression, got {other:?}"),

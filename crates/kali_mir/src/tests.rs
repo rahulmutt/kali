@@ -123,7 +123,7 @@ fn test_mir_lowering_preserves_function_flavor_metadata_for_class_methods() {
 #[test]
 fn test_mir_lowering_preserves_function_flavor_metadata_for_class_expressions() {
     let hir = parse_and_lower_hir(
-        "const Example = class NamedExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } };",
+        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } };",
     );
     let mir = MirLowerer::new().lower_hir_result(&hir);
 
