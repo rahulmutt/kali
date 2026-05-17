@@ -66551,6 +66551,7 @@ fn package_audit_preview_flag_is_rejected_before_registry_lookup() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("--preview"), "stderr: {stderr}");
     assert!(stderr.contains("package-audit"), "stderr: {stderr}");
 }
