@@ -1646,6 +1646,63 @@ fn validate_run_and_test_payload_value_rejects_incoherent_thread_topology_counts
 }
 
 #[test]
+fn validate_run_and_test_payload_value_rejects_whitespace_thread_topology_script_url() {
+    let whitespace_thread_topology = json!({
+        "totalInstances": 1,
+        "terminatedInstances": 0,
+        "liveInstances": [{
+            "instanceId": 0,
+            "scriptUrl": "   ",
+            "postedMessages": [],
+            "postedSharedBuffers": [],
+            "wasTerminated": false,
+        }],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": whitespace_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": whitespace_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err =
+            validator(&payload).expect_err("whitespace thread topology scriptUrl should fail");
+        assert!(err.contains("scriptUrl"), "{kind} error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
 fn merge_thread_topology_snapshot_values_renumbers_and_orders_live_instances() {
     let mut target = json!({
         "totalInstances": 2,
