@@ -2637,7 +2637,9 @@ fn collect_library_exports_from_statements_with_context(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            generator_function_lowering_message(func.is_async),
+                            kali_common::generator_function_lowering_unavailable_message(
+                                func.is_async,
+                            ),
                         ));
                     } else {
                         let export_name = if func.name.is_empty() {
@@ -3447,7 +3449,9 @@ fn collect_library_exports_from_statements(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            generator_function_lowering_message(func.is_async),
+                            kali_common::generator_function_lowering_unavailable_message(
+                                func.is_async,
+                            ),
                         ));
                     } else {
                         let export_name = if func.name.is_empty() {
@@ -4011,10 +4015,6 @@ fn collect_direct_bundle_calls_from_expression(
     }
 }
 
-fn generator_function_lowering_message(is_async: bool) -> &'static str {
-    kali_common::generator_function_lowering_unavailable_message(is_async)
-}
-
 fn collect_declared_function_signatures(
     statements: &[Statement],
     source_path: &Path,
@@ -4027,7 +4027,7 @@ fn collect_declared_function_signatures(
                 if func.generator {
                     diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        generator_function_lowering_message(func.is_async),
+                        kali_common::generator_function_lowering_unavailable_message(func.is_async),
                     ));
                     continue;
                 }
@@ -4107,7 +4107,7 @@ fn infer_function_binding_signature(
             if func.generator {
                 diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    generator_function_lowering_message(func.is_async),
+                    kali_common::generator_function_lowering_unavailable_message(func.is_async),
                 ));
                 return None;
             }

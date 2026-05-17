@@ -19,7 +19,11 @@ use kali_ast::{
     TryStatement, TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration,
     WhileStatement, WithStatement,
 };
-use kali_common::template::resolve_interpolated_template_literal;
+use kali_common::{
+    generator_class_method_lowering_unavailable_message,
+    generator_function_lowering_unavailable_message,
+    template::resolve_interpolated_template_literal,
+};
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
 };
@@ -135,22 +139,6 @@ impl StaticObjectIdentityValue {
             (Self::Reference(left), Self::Reference(right)) => left == right,
             _ => false,
         }
-    }
-}
-
-fn generator_function_lowering_message(is_async: bool) -> &'static str {
-    if is_async {
-        "async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
-    } else {
-        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
-    }
-}
-
-fn class_generator_method_lowering_message(is_async: bool) -> &'static str {
-    if is_async {
-        "async-generator class method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path"
-    } else {
-        "generator class method lowering is unavailable in the current phase; use a plain or async method, or the later compatibility path"
     }
 }
 
@@ -577,7 +565,7 @@ impl TypeContext {
                 if *generator {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        generator_function_lowering_message(*generator),
+                        generator_function_lowering_unavailable_message(*generator),
                     ));
                 }
                 self.bind_name_list(params);
@@ -3673,7 +3661,7 @@ impl TypeContext {
         if expr.generator {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                generator_function_lowering_message(expr.is_async),
+                generator_function_lowering_unavailable_message(expr.is_async),
             ));
         }
         if let Some(name) = &expr.id {
@@ -3712,7 +3700,7 @@ impl TypeContext {
             if method.generator {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    class_generator_method_lowering_message(method.is_async),
+                    generator_class_method_lowering_unavailable_message(method.is_async),
                 ));
                 continue;
             }
