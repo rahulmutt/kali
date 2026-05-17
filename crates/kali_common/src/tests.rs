@@ -211,7 +211,7 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
     let prefix = late_process_control_prefix_source();
     let zero_probe_source = process_kill_zero_probe_source();
 
-    assert!(source.starts_with(prefix), "source: {source}");
+    assert!(source.starts_with(&prefix), "source: {source}");
     assert!(source.contains(&zero_probe_source), "source: {source}");
     assert_eq!(
         source.matches(&zero_probe_source).count(),

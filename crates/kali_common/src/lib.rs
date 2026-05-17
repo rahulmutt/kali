@@ -338,10 +338,14 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
     ]
 }
 
-fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
-    let mut source = aliases.join("; ");
+fn join_semicolon_terminated_segments(segments: &[&str]) -> String {
+    let mut source = segments.join("; ");
     source.push(';');
     source
+}
+
+fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
+    join_semicolon_terminated_segments(aliases)
 }
 
 /// Canonical direct zero-probe source text for the supported Node `process.kill(0)` slice.
@@ -391,8 +395,71 @@ pub fn process_kill_zero_probe_unavailable_message() -> String {
 
 /// Canonical late-process-control source prefix that groups the supported
 /// Deno and process-control aliases before the shared zero-probe inventory.
-const fn late_process_control_prefix_source() -> &'static str {
-    "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); ((process)).kill(0); ((process)).kill(+0); ((globalThis.process)).kill(0); ((globalThis.process)).kill(+0); ((globalThis[\"process\"])).kill(0); ((globalThis[\"process\"])).kill(+0); process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];"
+const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
+    "Deno.pid",
+    "globalThis.Deno.pid",
+    "globalThis[\"Deno\"][\"pid\"]",
+    "globalThis[\"Deno\"].cwd",
+    "globalThis[\"Deno\"].chdir",
+    "globalThis[\"Deno\"].exit",
+    "Deno[\"pid\"]",
+    "globalThis.Deno[\"pid\"]",
+    "globalThis.Deno.cwd",
+    "globalThis[\"Deno\"][\"cwd\"]",
+    "globalThis.Deno[\"cwd\"]",
+    "Deno[\"cwd\"]",
+    "Deno.chdir",
+    "globalThis.Deno.chdir",
+    "globalThis[\"Deno\"][\"chdir\"]",
+    "globalThis.Deno[\"chdir\"]",
+    "Deno[\"chdir\"]",
+    "globalThis.Deno.exit",
+    "globalThis[\"Deno\"][\"exit\"]",
+    "globalThis.Deno[\"exit\"]",
+    "Deno[\"exit\"]",
+    "process.pid",
+    "globalThis.process.pid",
+    "globalThis[\"process\"][\"pid\"]",
+    "globalThis[\"process\"].pid",
+    "process[\"pid\"]",
+    "globalThis.process[\"pid\"]",
+    "process.cwd",
+    "globalThis.process.cwd",
+    "globalThis[\"process\"].cwd",
+    "globalThis[\"process\"][\"cwd\"]",
+    "process[\"cwd\"]",
+    "globalThis.process[\"cwd\"]",
+    "process.chdir",
+    "globalThis.process.chdir",
+    "globalThis[\"process\"].chdir",
+    "globalThis[\"process\"][\"chdir\"]",
+    "process[\"chdir\"]",
+    "globalThis.process[\"chdir\"]",
+    "process.kill",
+    "globalThis.process.kill",
+    "globalThis[\"process\"].kill",
+    "globalThis[\"process\"][\"kill\"]",
+    "process[\"kill\"]",
+    "globalThis.process[\"kill\"]",
+    "const zero = 0",
+    "const zeroAlias = zero",
+    "process.kill(zeroAlias)",
+    "((process)).kill(0)",
+    "((process)).kill(+0)",
+    "((globalThis.process)).kill(0)",
+    "((globalThis.process)).kill(+0)",
+    "((globalThis[\"process\"])).kill(0)",
+    "((globalThis[\"process\"])).kill(+0)",
+    "process.exit",
+    "globalThis.process.exit",
+    "globalThis[\"process\"].exit",
+    "globalThis[\"process\"][\"exit\"]",
+    "process[\"exit\"]",
+    "globalThis.process[\"exit\"]",
+];
+
+fn late_process_control_prefix_source() -> String {
+    join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_PREFIX_SEGMENTS)
 }
 
 /// Canonical late-process-control source text that embeds the supported Node zero-probe slice.
