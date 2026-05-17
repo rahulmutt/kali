@@ -4248,7 +4248,7 @@ fn command_allows_pretty_without_json(command: Option<&Commands>) -> bool {
 fn package_audit_preview_diagnostic() -> Diagnostic {
     Diagnostic::error(
         e5::INVALID_CLI_USAGE as u32,
-        "`--preview` is no longer accepted for package-audit",
+        "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape",
     )
     .with_context(
         DiagnosticContext::new(DiagnosticContextOrigin::Cli)

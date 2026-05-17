@@ -67439,7 +67439,7 @@ fn package_audit_rejects_preview_compatibility_shim() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(
-        stderr.contains("`--preview` is no longer accepted for package-audit"),
+        stderr.contains("legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape"),
         "stderr: {stderr}"
     );
 }
@@ -67600,7 +67600,7 @@ fn package_audit_rejects_preview_compatibility_shim_without_package_argument() {
         errors[0]["message"]
             .as_str()
             .expect("message string")
-            .contains("`--preview` is no longer accepted for package-audit"),
+            .contains("legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape"),
         "errors: {errors:?}"
     );
     assert!(json["stdout"].is_null());
