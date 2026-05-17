@@ -3565,6 +3565,56 @@ fn test_resolution_accepts_object_is_with_static_primitive_literals() {
 }
 
 #[test]
+fn test_resolution_accepts_object_is_signed_zero_literal_pairs() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "-".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "+".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "-".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                    Expression::UnaryExpression(Box::new(UnaryExpression {
+                        operator: "-".to_string(),
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_object_is_with_same_static_reference() {
     let mut ctx = TypeContext::new();
     let statements = vec![
