@@ -55,6 +55,26 @@ fn node_process_corpus_body() -> String {
     body
 }
 
+fn assert_node_process_corpus_has_zero_probe_inventory(body: &str) {
+    for expected in [
+        "const zero = 0",
+        "const zeroAlias = zero",
+        "process.kill(zeroAlias)",
+    ] {
+        assert!(
+            body.contains(expected),
+            "node process corpus should confirm {expected}"
+        );
+    }
+
+    for alias in kali_common::process_kill_zero_probe_aliases() {
+        assert!(
+            body.contains(alias),
+            "node process corpus should confirm {alias}"
+        );
+    }
+}
+
 fn write_manifest(root: &Path, api_surface: Option<&str>) {
     let manifest = match api_surface {
         Some(api_surface) => format!(
@@ -14115,78 +14135,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
                 body.contains(r#"typeof globalThis["process"]["exit"] === "function""#),
                 r#"node process corpus should confirm globalThis[\"process\"][\"exit\"]"#
             );
-            assert!(
-                body.contains(r#"globalThis.process.kill(0)"#),
-                "node process corpus should confirm globalThis.process.kill(0)"
-            );
-            assert!(
-                body.contains(r#"globalThis.process.kill(+0)"#),
-                "node process corpus should confirm globalThis.process.kill(+0)"
-            );
-            assert!(
-                body.contains(r#"process["kill"]((0))"#),
-                r#"node process corpus should confirm process["kill"]((0))"#
-            );
-            assert!(
-                body.contains(r#"globalThis["process"].kill((0))"#),
-                r#"node process corpus should confirm globalThis["process"].kill((0))"#
-            );
-            assert!(
-                body.contains(r#"globalThis["process"]["kill"]((0))"#),
-                r#"node process corpus should confirm globalThis["process"]["kill"]((0))"#
-            );
-            assert!(
-                body.contains(r#"globalThis["process"]["kill"](0)"#),
-                r#"node process corpus should confirm globalThis["process"]["kill"](0)"#
-            );
-            assert!(
-                body.contains(r#"process["kill"](0)"#),
-                r#"node process corpus should confirm process["kill"](0)"#
-            );
-            assert!(
-                body.contains(r#"globalThis.process["kill"](0)"#),
-                r#"node process corpus should confirm globalThis.process["kill"](0)"#
-            );
-            assert!(
-                body.contains(r#"Object.freeze(process.kill)(0)"#),
-                "node process corpus should confirm Object.freeze(process.kill)(0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(process.kill)(+0)"#),
-                "node process corpus should confirm Object.freeze(process.kill)(+0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(process)["kill"](0)"#),
-                "node process corpus should confirm Object.freeze(process)[\"kill\"](0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(process)["kill"](+0)"#),
-                "node process corpus should confirm Object.freeze(process)[\"kill\"](+0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis.process.kill)(0)"#),
-                "node process corpus should confirm Object.freeze(globalThis.process.kill)(0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis.process.kill)(+0)"#),
-                "node process corpus should confirm Object.freeze(globalThis.process.kill)(+0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis.process)["kill"](0)"#),
-                "node process corpus should confirm Object.freeze(globalThis.process)[\"kill\"](0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis.process)["kill"](+0)"#),
-                "node process corpus should confirm Object.freeze(globalThis.process)[\"kill\"](+0)"
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis["process"]["kill"])(0)"#),
-                r#"node process corpus should confirm Object.freeze(globalThis["process"]["kill"])(0)"#
-            );
-            assert!(
-                body.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#),
-                r#"node process corpus should confirm Object.freeze(globalThis["process"]["kill"])(+0)"#
-            );
+            assert_node_process_corpus_has_zero_probe_inventory(body);
         }
         if package == "node-timers-corpus" {
             assert!(
@@ -14348,26 +14297,7 @@ fn node_builtin_corpus_packages_remain_checkable_buildable_executable_and_testab
                 body.contains(r#"typeof globalThis["process"]["exit"] === "function""#),
                 r#"node process corpus should confirm globalThis[\"process\"][\"exit\"]"#
             );
-            assert!(
-                body.contains(r#"globalThis.process.kill(0)"#),
-                "node process corpus should confirm globalThis.process.kill(0)"
-            );
-            assert!(
-                body.contains(r#"globalThis["process"].kill(0)"#),
-                "node process corpus should confirm globalThis[\"process\"].kill(0)"
-            );
-            assert!(
-                body.contains(r#"globalThis["process"]["kill"](0)"#),
-                "node process corpus should confirm globalThis[\"process\"][\"kill\"](0)"
-            );
-            assert!(
-                body.contains(r#"process["kill"](0)"#),
-                "node process corpus should confirm process[\"kill\"](0)"
-            );
-            assert!(
-                body.contains(r#"globalThis.process["kill"](0)"#),
-                "node process corpus should confirm globalThis.process[\"kill\"](0)"
-            );
+            assert_node_process_corpus_has_zero_probe_inventory(body);
         }
 
         let dir = tempdir().expect("tempdir");
