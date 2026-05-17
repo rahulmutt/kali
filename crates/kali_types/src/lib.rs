@@ -1900,6 +1900,10 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_frozen_late_object_model_call(expr) {
+            return;
+        }
+
         if self.resolve_static_object_identity_call(expr) {
             return;
         }
@@ -2112,6 +2116,63 @@ impl TypeContext {
                 e5::FEATURE_UNAVAILABLE as u32,
                 kali_common::process_kill_zero_probe_unavailable_message(),
             ));
+        }
+    }
+
+    fn resolve_frozen_late_object_model_call(&mut self, expr: &CallExpression) -> bool {
+        if !Self::is_object_freeze_call(expr) {
+            return false;
+        }
+
+        let Some(argument) = expr.args.first() else {
+            return false;
+        };
+        let Some((dotted, bracketed)) = self.resolve_frozen_late_object_model_name(argument) else {
+            return false;
+        };
+
+        if !matches!(
+            dotted.as_str(),
+            "Proxy.revocable" | "globalThis.Proxy.revocable"
+        ) {
+            return false;
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
+                dotted, bracketed
+            ),
+        ));
+        true
+    }
+
+    fn resolve_frozen_late_object_model_name(
+        &self,
+        expression: &Expression,
+    ) -> Option<(String, String)> {
+        let mut current = expression;
+        loop {
+            match current {
+                Expression::ParenthesizedExpression(expr) => current = &expr.expression,
+                Expression::TypeAssertion(expr) => current = &expr.expression,
+                Expression::SatisfiesExpression(expr) => current = &expr.expression,
+                Expression::ChainExpression(expr) => current = &expr.expression,
+                Expression::DecoratedExpression(expr) => current = &expr.expression,
+                Expression::SequenceExpression(expr) => {
+                    let Some(last) = expr.expressions.last() else {
+                        return None;
+                    };
+                    current = last;
+                }
+                Expression::MemberExpression(member) => {
+                    let dotted = Self::member_access_name(member)?;
+                    let bracketed = Self::member_access_name_bracketed(member)?;
+                    return Some((dotted, bracketed));
+                }
+                _ => return None,
+            }
         }
     }
 

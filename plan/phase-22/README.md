@@ -47,7 +47,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 ### 22.4 Late object/runtime APIs
 
-- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints. Frozen `Proxy.revocable` aliases now also reject through the same canonical `E5506` path in runtime, browser, and Node smoke.
+- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints. Frozen `Proxy.revocable` aliases now also reject through the same canonical `E5506` path in runtime, browser, and Node smoke, including the Node API-surface frozen-alias regression coverage.
 - Promote only with conformance, sandbox/resource, effect-report, and JSON-output evidence.
 
 ## Exit gate

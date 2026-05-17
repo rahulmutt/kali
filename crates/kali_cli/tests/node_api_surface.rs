@@ -3406,6 +3406,22 @@ fn node_api_surface_rejects_late_object_model_members_in_js_input_on_check_build
             r#"Object.freeze(Proxy.revocable)({}, {});"#,
             "Proxy.revocable",
         ),
+        (
+            r#"Object.freeze(globalThis.Proxy.revocable)({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
+        (
+            r#"Object.freeze(globalThis["Proxy"]["revocable"])({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
+        (
+            r#"Object.freeze(globalThis["Proxy"].revocable)({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
+        (
+            r#"Object.freeze(globalThis.Proxy["revocable"])({}, {});"#,
+            "globalThis.Proxy.revocable",
+        ),
         (r#"WeakMap;"#, "WeakMap"),
         (r#"globalThis.WeakMap;"#, "globalThis.WeakMap"),
         (r#"globalThis["WeakMap"];"#, "globalThis.WeakMap"),
