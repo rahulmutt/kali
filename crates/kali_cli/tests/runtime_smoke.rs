@@ -31117,7 +31117,7 @@ fn run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; console.log(Math.floor(alias));
+        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias));
 "#,
     )
     .expect("write source");
@@ -31146,7 +31146,7 @@ fn json_run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; console.log(Math.floor(alias));
+        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenBracketedFloor(alias));
 "#,
     )
     .expect("write source");
