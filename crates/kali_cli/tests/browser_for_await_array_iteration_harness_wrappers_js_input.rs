@@ -25,6 +25,14 @@ for await (const item of ([1, (value)] satisfies readonly [1, 2])) {
 "##
 }
 
+fn for_await_transparent_await_source() -> &'static str {
+    r##"// kali-tree-shake: forAwaitArrayIterationTransparentAwaitWrapper
+for await (const item of await [1, 2]) {
+  console.log(item);
+}
+"##
+}
+
 fn for_await_parenthesized_const_alias_source() -> &'static str {
     r##"// kali-tree-shake: forAwaitArrayIterationParenthesizedConstAliasWrapper
 const value = 2;
@@ -638,6 +646,182 @@ fn json_test_supports_for_await_array_iteration_lowering_with_const_alias_chain_
         "test",
         "main.tsx",
         for_await_const_alias_chain_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.js",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.js",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.js",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.js",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.ts",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.ts",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.ts",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_ts_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.ts",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.jsx",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.jsx",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.jsx",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_jsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.jsx",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.tsx",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.tsx",
+        for_await_transparent_await_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "run",
+        "main.tsx",
+        for_await_transparent_await_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_for_await_array_iteration_lowering_with_transparent_await_wrapper_in_browser_api_surface_with_harness_tsx_input(
+) {
+    assert_browser_harness_for_await_wrapper(
+        "test",
+        "main.tsx",
+        for_await_transparent_await_source(),
         true,
     );
 }
