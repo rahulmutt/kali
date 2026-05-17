@@ -45,6 +45,8 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   }
   const frozenValues = Object.freeze(aliasValues);
   const frozenSet = Object.freeze(Set);
+  const frozenGlobalThisSet = Object.freeze(globalThis.Set);
+  const frozenGlobalThisBracketedSet = Object.freeze(globalThis["Set"]);
   const frozenDirect = [];
   for (const value of new Set(frozenValues)) {
     frozenDirect.push(value);
@@ -52,6 +54,14 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   const frozenAlias = [];
   for (const value of new (frozenSet)(values)) {
     frozenAlias.push(value);
+  }
+  const frozenGlobalDirect = [];
+  for (const value of new (frozenGlobalThisSet)(values)) {
+    frozenGlobalDirect.push(value);
+  }
+  const frozenGlobalBracketed = [];
+  for (const value of new (frozenGlobalThisBracketedSet)(values)) {
+    frozenGlobalBracketed.push(value);
   }
 
   let returnFinally = false;
@@ -101,6 +111,8 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   assertSetIteration(singleBracketed);
   assertSetIteration(frozenDirect);
   assertSetIteration(frozenAlias);
+  assertSetIteration(frozenGlobalDirect);
+  assertSetIteration(frozenGlobalBracketed);
   console.log('browser set constructor iteration ok');
 }
 
@@ -146,6 +158,8 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   }
   const frozenValues = Object.freeze(aliasValues);
   const frozenSet = Object.freeze(Set);
+  const frozenGlobalThisSet = Object.freeze(globalThis.Set);
+  const frozenGlobalThisBracketedSet = Object.freeze(globalThis["Set"]);
   const frozenDirect = [];
   for (const value of new Set(frozenValues)) {
     frozenDirect.push(value);
@@ -153,6 +167,14 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   const frozenAlias = [];
   for (const value of new (frozenSet)(values)) {
     frozenAlias.push(value);
+  }
+  const frozenGlobalDirect = [];
+  for (const value of new (frozenGlobalThisSet)(values)) {
+    frozenGlobalDirect.push(value);
+  }
+  const frozenGlobalBracketed = [];
+  for (const value of new (frozenGlobalThisBracketedSet)(values)) {
+    frozenGlobalBracketed.push(value);
   }
 
   let returnFinally = false;
@@ -202,6 +224,8 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   assertSetIteration(singleBracketed);
   assertSetIteration(frozenDirect);
   assertSetIteration(frozenAlias);
+  assertSetIteration(frozenGlobalDirect);
+  assertSetIteration(frozenGlobalBracketed);
   console.log('browser set constructor iteration ok');
 });
 "##

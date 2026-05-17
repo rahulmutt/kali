@@ -51,6 +51,8 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   }
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
+  const frozenGlobalThisMap = Object.freeze(globalThis.Map);
+  const frozenGlobalThisBracketedMap = Object.freeze(globalThis["Map"]);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(entry);
@@ -58,6 +60,14 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   const frozenAlias = [];
   for (const entry of new (frozenMap)(values)) {
     frozenAlias.push(entry);
+  }
+  const frozenGlobalDirect = [];
+  for (const entry of new (frozenGlobalThisMap)(values)) {
+    frozenGlobalDirect.push(entry);
+  }
+  const frozenGlobalBracketed = [];
+  for (const entry of new (frozenGlobalThisBracketedMap)(values)) {
+    frozenGlobalBracketed.push(entry);
   }
 
   let returnFinally = false;
@@ -112,6 +122,8 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
   assertMapIteration(frozenAlias);
+  assertMapIteration(frozenGlobalDirect);
+  assertMapIteration(frozenGlobalBracketed);
   console.log('browser map constructor iteration ok');
 }
 
@@ -163,6 +175,8 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   }
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
+  const frozenGlobalThisMap = Object.freeze(globalThis.Map);
+  const frozenGlobalThisBracketedMap = Object.freeze(globalThis["Map"]);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(entry);
@@ -170,6 +184,14 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   const frozenAlias = [];
   for (const entry of new (frozenMap)(values)) {
     frozenAlias.push(entry);
+  }
+  const frozenGlobalDirect = [];
+  for (const entry of new (frozenGlobalThisMap)(values)) {
+    frozenGlobalDirect.push(entry);
+  }
+  const frozenGlobalBracketed = [];
+  for (const entry of new (frozenGlobalThisBracketedMap)(values)) {
+    frozenGlobalBracketed.push(entry);
   }
 
   let returnFinally = false;
@@ -224,6 +246,8 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
   assertMapIteration(frozenAlias);
+  assertMapIteration(frozenGlobalDirect);
+  assertMapIteration(frozenGlobalBracketed);
   console.log('browser map constructor iteration ok');
 });
 "##

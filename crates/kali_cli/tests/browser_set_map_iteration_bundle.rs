@@ -46,6 +46,8 @@ export async function browserSetIteration() {
   }
   const frozenValues = Object.freeze(aliasValues);
   const frozenSet = Object.freeze(Set);
+  const frozenGlobalThisSet = Object.freeze(globalThis.Set);
+  const frozenGlobalThisBracketedSet = Object.freeze(globalThis["Set"]);
   const frozenDirect = [];
   for (const value of new Set(frozenValues)) {
     frozenDirect.push(value);
@@ -53,6 +55,14 @@ export async function browserSetIteration() {
   const frozenAlias = [];
   for (const value of new (frozenSet)(values)) {
     frozenAlias.push(value);
+  }
+  const frozenGlobalDirect = [];
+  for (const value of new (frozenGlobalThisSet)(values)) {
+    frozenGlobalDirect.push(value);
+  }
+  const frozenGlobalBracketed = [];
+  for (const value of new (frozenGlobalThisBracketedSet)(values)) {
+    frozenGlobalBracketed.push(value);
   }
 
   let setReturnFinally = false;
@@ -102,6 +112,8 @@ export async function browserSetIteration() {
   assertSetIteration(singleBracketed);
   assertSetIteration(frozenDirect);
   assertSetIteration(frozenAlias);
+  assertSetIteration(frozenGlobalDirect);
+  assertSetIteration(frozenGlobalBracketed);
   console.log('browser set constructor iteration ok');
 }
 "##
@@ -146,6 +158,8 @@ export async function browserMapIteration() {
   }
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
+  const frozenGlobalThisMap = Object.freeze(globalThis.Map);
+  const frozenGlobalThisBracketedMap = Object.freeze(globalThis["Map"]);
   const frozenDirect = [];
   for (const entry of new Map(frozenMapValues)) {
     frozenDirect.push(JSON.stringify(entry));
@@ -153,6 +167,14 @@ export async function browserMapIteration() {
   const frozenAlias = [];
   for (const entry of new (frozenMap)(values)) {
     frozenAlias.push(JSON.stringify(entry));
+  }
+  const frozenGlobalDirect = [];
+  for (const entry of new (frozenGlobalThisMap)(values)) {
+    frozenGlobalDirect.push(JSON.stringify(entry));
+  }
+  const frozenGlobalBracketed = [];
+  for (const entry of new (frozenGlobalThisBracketedMap)(values)) {
+    frozenGlobalBracketed.push(JSON.stringify(entry));
   }
 
   let mapReturnFinally = false;
@@ -207,6 +229,8 @@ export async function browserMapIteration() {
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
   assertMapIteration(frozenAlias);
+  assertMapIteration(frozenGlobalDirect);
+  assertMapIteration(frozenGlobalBracketed);
   console.log('browser map constructor iteration ok');
 }
 "##
