@@ -150,10 +150,16 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         r#"((globalThis["process"]["kill"]))(+0)"#,
         r#"Object.freeze((process))["kill"](0)"#,
         r#"Object.freeze((process))["kill"](+0)"#,
+        r#"Object.freeze((process)).kill(0)"#,
+        r#"Object.freeze((process)).kill(+0)"#,
         r#"Object.freeze((globalThis.process))["kill"](0)"#,
         r#"Object.freeze((globalThis.process))["kill"](+0)"#,
+        r#"Object.freeze((globalThis.process)).kill(0)"#,
+        r#"Object.freeze((globalThis.process)).kill(+0)"#,
         r#"Object.freeze((globalThis["process"]))["kill"](0)"#,
         r#"Object.freeze((globalThis["process"]))["kill"](+0)"#,
+        r#"Object.freeze((globalThis["process"])).kill(0)"#,
+        r#"Object.freeze((globalThis["process"])).kill(+0)"#,
         r#"Object.freeze((process).kill)(0)"#,
         r#"Object.freeze((process).kill)(+0)"#,
     ] {
@@ -260,6 +266,30 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
     );
     assert!(
         source.contains(r#"Object.freeze((process).kill)(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((process)).kill(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((process)).kill(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis.process)).kill(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis.process)).kill(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"])).kill(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"])).kill(+0)"#),
         "source: {source}"
     );
     assert!(
