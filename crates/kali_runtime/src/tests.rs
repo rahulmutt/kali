@@ -637,6 +637,19 @@ fn browser_harness_command_parts_checked_trims_surrounding_whitespace() {
 }
 
 #[test]
+fn browser_harness_command_parts_checked_trims_surrounding_whitespace_and_preserves_quotes() {
+    let parts = browser_harness_command_parts_checked(Some(
+        "\n  chrome --headless --profile \"real browser\"  \t",
+    ))
+    .expect("trimmed quoted browser harness command should parse");
+
+    assert_eq!(
+        parts,
+        vec!["chrome", "--headless", "--profile", "real browser"]
+    );
+}
+
+#[test]
 fn browser_runtime_harness_page_wraps_the_module_body_for_real_browser_hosts() {
     let page = browser_runtime_harness_page(
         &[0x00, 0x61, 0x73, 0x6d],
