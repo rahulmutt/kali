@@ -7,11 +7,11 @@ fn kali_bin() -> String {
 }
 
 fn frozen_callable_helpers_source() -> &'static str {
-    "const object = { a: 1 }; console.log(Object.freeze(globalThis.Object.hasOwn)(object, \"a\")); console.log(Object.freeze(globalThis.Math.floor)(1.6));\n"
+    "const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6));\n"
 }
 
 fn frozen_callable_helpers_test_source() -> &'static str {
-    "Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(globalThis.Object.hasOwn)(object, \"a\")); console.log(Object.freeze(globalThis.Math.floor)(1.6)); });\n"
+    "Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); });\n"
 }
 
 fn assert_run_supports_frozen_callable_helpers_in_input(extension: &str, json_output: bool) {
