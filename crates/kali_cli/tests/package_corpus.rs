@@ -46,7 +46,7 @@ fn kali_bin() -> PathBuf {
 fn node_process_corpus_body() -> String {
     let process_kill_zero_probe_source = kali_common::process_kill_zero_probe_source();
     let mut body = String::from(
-        "export default function root() { return process.cwd().length > 0 && typeof process[\"cwd\"] === \"function\" && typeof globalThis.process[\"cwd\"] === \"function\" && typeof globalThis[\"process\"][\"cwd\"] === \"function\" && typeof process.chdir === \"function\" && typeof process[\"chdir\"] === \"function\" && typeof globalThis.process[\"chdir\"] === \"function\" && typeof globalThis[\"process\"][\"chdir\"] === \"function\" && process.pid > 0 && ",
+        "export default function root() { const zero = 0; const zeroAlias = zero; return process.cwd().length > 0 && typeof process[\"cwd\"] === \"function\" && typeof globalThis.process[\"cwd\"] === \"function\" && typeof globalThis[\"process\"][\"cwd\"] === \"function\" && typeof process.chdir === \"function\" && typeof process[\"chdir\"] === \"function\" && typeof globalThis.process[\"chdir\"] === \"function\" && typeof globalThis[\"process\"][\"chdir\"] === \"function\" && process.pid > 0 && process.kill(zeroAlias) && ",
     );
     body.push_str(process_kill_zero_probe_source.trim_end_matches(';'));
     body.push_str(
