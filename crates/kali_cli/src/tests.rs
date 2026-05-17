@@ -1,5 +1,5 @@
 use super::*;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use tempfile::tempdir;
 
 #[test]
@@ -92,6 +92,22 @@ fn package_audit_command_parses_preview_flag() {
         }
         other => panic!("expected package-audit command, got {other:?}"),
     }
+}
+
+#[test]
+fn package_audit_preview_flag_stays_hidden_from_help() {
+    let mut command = Args::command();
+    let help = command
+        .find_subcommand_mut("package-audit")
+        .expect("package-audit subcommand")
+        .render_long_help()
+        .to_string();
+
+    assert!(!help.contains("--preview"), "help: {help}");
+    assert!(
+        help.contains("Registry package target to audit"),
+        "help: {help}"
+    );
 }
 
 #[test]
