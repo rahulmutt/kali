@@ -347,8 +347,14 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let mut aliases = Vec::with_capacity(direct.len() + wrapped.len());
-    aliases.extend(direct.iter().copied());
-    aliases.extend(wrapped.iter().copied());
+    let mut seen = std::collections::HashSet::with_capacity(direct.len() + wrapped.len());
+
+    for alias in direct.iter().chain(wrapped.iter()).copied() {
+        if seen.insert(alias) {
+            aliases.push(alias);
+        }
+    }
+
     aliases
 }
 
