@@ -1389,6 +1389,9 @@ impl TypeContext {
             Expression::Literal(LiteralValue::String(value)) => {
                 Some(StaticObjectIdentityValue::String(value.clone()))
             }
+            Expression::TemplateLiteral(template) => self
+                .resolve_static_string_expression(&Expression::TemplateLiteral(template.clone()))
+                .map(StaticObjectIdentityValue::String),
             Expression::BigIntLiteral(value) => value
                 .strip_suffix('n')
                 .and_then(|value| value.parse::<i64>().ok())

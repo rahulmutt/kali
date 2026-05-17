@@ -121,6 +121,30 @@ fn test_resolution_accepts_wrapped_call_targets_with_type_assertions_and_satisfi
                 ],
             }))),
         }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::TemplateLiteral(TemplateLiteral {
+                        quasis: vec![TemplateElement {
+                            value: "hello".to_string(),
+                            tail: true,
+                        }],
+                        expressions: vec![],
+                    }),
+                    Expression::TemplateLiteral(TemplateLiteral {
+                        quasis: vec![TemplateElement {
+                            value: "hello".to_string(),
+                            tail: true,
+                        }],
+                        expressions: vec![],
+                    }),
+                ],
+            }))),
+        }),
     ];
 
     let result = ctx.resolve_statements(&statements);
@@ -2985,6 +3009,30 @@ fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
                 args: vec![
                     Expression::Literal(LiteralValue::String("hello".to_string())),
                     Expression::Literal(LiteralValue::String("hello".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::TemplateLiteral(TemplateLiteral {
+                        quasis: vec![TemplateElement {
+                            value: "hello".to_string(),
+                            tail: true,
+                        }],
+                        expressions: vec![],
+                    }),
+                    Expression::TemplateLiteral(TemplateLiteral {
+                        quasis: vec![TemplateElement {
+                            value: "hello".to_string(),
+                            tail: true,
+                        }],
+                        expressions: vec![],
+                    }),
                 ],
             }))),
         }),
