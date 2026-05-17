@@ -1134,6 +1134,48 @@ fn math_floor_trunc_and_ceil_member_constant_folds_through_bracketed_global_this
 }
 
 #[test]
+fn math_floor_member_constant_folding_is_available_through_object_freeze_callable_wrapper() {
+    let program = parse_and_lower_lir(
+        "console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
+fn object_has_own_lowers_through_object_freeze_callable_wrapper() {
+    let program = parse_and_lower_lir(
+        "console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2]])), \"a\")); console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(Object.freeze(Object.fromEntries([[\"b\", 1], [\"a\", 2]])), \"a\"));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn math_max_member_constant_folds_static_numeric_literal_operand() {
     let program = parse_and_lower_lir("console.log(Math.max(1, 2, 3));");
     let mut ctx = CodegenCtx::new(TargetConfig {
