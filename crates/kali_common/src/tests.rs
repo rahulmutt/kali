@@ -116,6 +116,8 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         r#"Object.freeze(process)["kill"](+0)"#,
         r#"Object.freeze((process)["kill"])(0)"#,
         r#"Object.freeze((process)["kill"])(+0)"#,
+        r#"Object.freeze((process["kill"]))(0)"#,
+        r#"Object.freeze((process["kill"]))(+0)"#,
         r#"Object.freeze(globalThis.process)["kill"](0)"#,
         r#"Object.freeze(globalThis.process)["kill"](+0)"#,
         r#"Object.freeze((globalThis.process)["kill"])(0)"#,
