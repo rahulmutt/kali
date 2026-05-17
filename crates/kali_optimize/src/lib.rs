@@ -939,6 +939,9 @@ impl Optimizer {
         let Some(callee_id) = snapshot.children.first().copied() else {
             return false;
         };
+        let Some(callee_id) = self.resolve_constant_binding(program, callee_id, bindings) else {
+            return false;
+        };
         let Some(callee_node) = program.nodes.get(callee_id.0 as usize).cloned() else {
             return false;
         };
