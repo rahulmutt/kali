@@ -2742,12 +2742,12 @@ fn node_api_surface_supports_bracketed_process_control_in_js_jsx_and_tsx_input_o
             let test_file = dir.path().join(format!("main.test.{extension}"));
             fs::write(
                 &run_file,
-                "globalThis.process.cwd(); globalThis[\"process\"][\"cwd\"](); process[\"cwd\"](); globalThis.process.chdir('.'); globalThis[\"process\"][\"chdir\"]('.'); process[\"chdir\"]('.'); globalThis.process.exit(7); globalThis[\"process\"][\"exit\"](7); process[\"exit\"](7);\n",
+                "globalThis.process.cwd(); globalThis[\"process\"][\"cwd\"](); globalThis.process[\"cwd\"](); process[\"cwd\"](); globalThis.process.chdir('.'); globalThis[\"process\"][\"chdir\"]('.'); globalThis.process[\"chdir\"]('.'); process[\"chdir\"]('.'); globalThis.process.exit(7); globalThis[\"process\"][\"exit\"](7); globalThis.process[\"exit\"](7); process[\"exit\"](7);\n",
             )
             .expect("write run file");
             fs::write(
                 &test_file,
-                "Kali.test('process control', () => { globalThis.process.cwd(); globalThis.process.chdir('.'); globalThis.process.exit(7); });\n",
+                "Kali.test('process control', () => { globalThis.process.cwd(); globalThis[\"process\"][\"cwd\"](); globalThis.process[\"cwd\"](); process[\"cwd\"](); globalThis.process.chdir('.'); globalThis[\"process\"][\"chdir\"]('.'); globalThis.process[\"chdir\"]('.'); process[\"chdir\"]('.'); globalThis.process.exit(7); globalThis[\"process\"][\"exit\"](7); globalThis.process[\"exit\"](7); process[\"exit\"](7); });\n",
             )
             .expect("write test file");
 

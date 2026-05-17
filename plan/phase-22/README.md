@@ -42,6 +42,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Preserve explicit gates for unavailable host members and unsupported alias spellings.
 - Browser late-compat process-control coverage now also rejects the alias-target zero-probe spelling `globalThis["process"]["kill"](+0)` across JS, TS, JSX, and TSX input, plus the receiver-freeze aliases and their +0 siblings `Object.freeze(process)["kill"](0)` / `Object.freeze(globalThis.process)["kill"](0)` / `Object.freeze(globalThis["process"])["kill"](0)`, so the negative matrix stays aligned with the documented Node zero-probe aliases. Browser-targeted build smoke now also carries the bracketed `Object.freeze(globalThis["process"]["kill"])(+0)` alias on that same slice, and the browser late-compat smoke corpus now mirrors that bracketed frozen `+0` alias across the JS, TS, JSX, and TSX rejection fixtures.
 - The Node API-surface positive regression now also covers the `Object.freeze(...)`-wrapped zero-probe aliases on the explicit and inherited Node surfaces.
+- The Node API-surface process-control regression now also covers the bracketed `process["cwd"]` / `process["chdir"]` / `process["exit"]` spellings and their `globalThis.process[...]` / `globalThis["process"][...]` aliases on the documented Node surface in JS, JSX, and TSX input.
 
 ### 22.4 Late object/runtime APIs
 
