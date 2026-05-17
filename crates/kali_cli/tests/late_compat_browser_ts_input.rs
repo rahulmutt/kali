@@ -28,11 +28,7 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> String {
-    let process_kill_zero_probe_source = kali_common::process_kill_zero_probe_source();
-    format!(
-        "process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); process.kill(0); process.kill(+0); process[\"kill\"](+0); process.kill((0)); ((process)).kill(0); ((globalThis.process)).kill(0); globalThis.process.kill(0); globalThis.process[\"kill\"](+0); globalThis[\"process\"][\"kill\"](+0); globalThis[\"process\"][\"kill\"]((0)); globalThis[\"process\"].kill(0); globalThis[\"process\"].kill(+0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); Object.freeze(globalThis.process.kill)(0); Object.freeze(globalThis.process.kill)(+0); Object.freeze((globalThis.process[\"kill\"]))(0); Object.freeze((globalThis.process[\"kill\"]))(+0); Object.freeze((globalThis[\"process\"][\"kill\"]))(0); Object.freeze((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze(globalThis.process[\"kill\"])(0); Object.freeze(globalThis.process[\"kill\"])(+0); Object.freeze((process.kill))(0); Object.freeze((process.kill))(+0); Object.freeze(globalThis[\"process\"].kill)(0); Object.freeze(globalThis[\"process\"].kill)(+0); Object.freeze(globalThis[\"process\"][\"kill\"])(0); Object.freeze(globalThis[\"process\"][\"kill\"])(+0); Object.freeze(process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](0); Object.freeze(globalThis.process)[\"kill\"](+0); Object.freeze(globalThis[\"process\"])[\"kill\"](0); Object.freeze(globalThis[\"process\"])[\"kill\"](+0); Object.freeze(process.kill)(0); Object.freeze(process.kill)(+0); ((process.kill))(0); ((process[\"kill\"]))(0); ((process[\"kill\"]))(+0); ((globalThis.process.kill))(0); ((globalThis.process[\"kill\"]))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0); ((globalThis[\"process\"][\"kill\"]))(+0); {}; process.exit; globalThis[\"process\"].chdir; globalThis[\"process\"].exit; globalThis[\"process\"][\"cwd\"]; globalThis[\"process\"][\"chdir\"]; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];",
-        process_kill_zero_probe_source.trim_end_matches(';'),
-    )
+    kali_common::late_process_control_source()
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {

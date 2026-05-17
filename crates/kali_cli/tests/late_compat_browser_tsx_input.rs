@@ -32,11 +32,7 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> String {
-    let process_kill_zero_probe_source = kali_common::process_kill_zero_probe_source();
-    format!(
-        "Deno.pid; globalThis.Deno.pid; globalThis[\"Deno\"][\"pid\"]; globalThis[\"Deno\"].cwd; globalThis[\"Deno\"].chdir; globalThis[\"Deno\"].exit; Deno[\"pid\"]; globalThis.Deno[\"pid\"]; globalThis.Deno.cwd; globalThis[\"Deno\"][\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno[\"cwd\"]; globalThis.Deno[\"cwd\"]; Deno.chdir; globalThis.Deno.chdir; globalThis[\"Deno\"][\"chdir\"]; globalThis.Deno[\"chdir\"]; Deno[\"chdir\"]; globalThis.Deno[\"chdir\"]; globalThis.Deno.exit; globalThis[\"Deno\"][\"exit\"]; globalThis.Deno[\"exit\"]; Deno[\"exit\"]; globalThis.Deno[\"exit\"]; process.pid; globalThis.process.pid; globalThis[\"process\"][\"pid\"]; globalThis[\"process\"].pid; process[\"pid\"]; globalThis.process[\"pid\"]; process.cwd; globalThis.process.cwd; globalThis[\"process\"].cwd; globalThis[\"process\"][\"cwd\"]; process[\"cwd\"]; globalThis.process[\"cwd\"]; process.chdir; globalThis.process.chdir; globalThis[\"process\"].chdir; globalThis[\"process\"][\"chdir\"]; process[\"chdir\"]; globalThis.process[\"chdir\"]; process.kill; globalThis.process.kill; globalThis[\"process\"].kill; globalThis[\"process\"][\"kill\"]; process[\"kill\"]; globalThis.process[\"kill\"]; const zero = 0; const zeroAlias = zero; process.kill(zeroAlias); process.kill(0); process.kill(+0); process[\"kill\"](+0); process.kill((0)); ((process)).kill(0); ((globalThis.process)).kill(0); globalThis.process.kill(0); globalThis.process[\"kill\"](+0); globalThis[\"process\"][\"kill\"](+0); globalThis[\"process\"][\"kill\"]((0)); globalThis[\"process\"].kill(0); globalThis[\"process\"].kill(+0); globalThis[\"process\"][\"kill\"](0); globalThis.process[\"kill\"](0); {}; process.exit; globalThis.process.exit; globalThis[\"process\"].exit; globalThis[\"process\"][\"exit\"]; process[\"exit\"]; globalThis.process[\"exit\"];",
-        process_kill_zero_probe_source.trim_end_matches(';'),
-    )
+    kali_common::late_process_control_source()
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {

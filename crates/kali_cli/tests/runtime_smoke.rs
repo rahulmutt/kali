@@ -147,11 +147,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> String {
-    let process_kill_zero_probe_source = kali_common::process_kill_zero_probe_source();
-    format!(
-        r#"process.pid; globalThis.process.pid; globalThis["process"].pid; process["pid"]; globalThis.process["pid"]; globalThis["process"]["pid"]; globalThis.process.cwd; globalThis["process"].cwd; process["cwd"]; globalThis.process["cwd"]; globalThis["process"]["cwd"]; process.chdir; globalThis.process.chdir; globalThis["process"].chdir; process["chdir"]; globalThis.process["chdir"]; globalThis["process"]["chdir"]; ((process)).kill(0); ((globalThis.process)).kill(0); {}; process.exit; globalThis.process.exit; globalThis["process"].exit; process["exit"]; globalThis.process["exit"]; globalThis["process"]["exit"];"#,
-        process_kill_zero_probe_source.trim_end_matches(';'),
-    )
+    kali_common::late_process_control_source()
 }
 
 fn late_process_env_mutation_source() -> &'static str {
