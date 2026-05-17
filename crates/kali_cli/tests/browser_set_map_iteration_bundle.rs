@@ -55,6 +55,45 @@ export async function browserSetIteration() {
     frozenAlias.push(value);
   }
 
+  let setReturnFinally = false;
+  function setReturnProbe() {
+    try {
+      for (const value of new Set(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      setReturnFinally = true;
+    }
+  }
+  const setReturnValue = setReturnProbe();
+  if (setReturnValue !== 1 || !setReturnFinally) {
+    throw new Error('unexpected Set constructor return/finally semantics');
+  }
+
+  let setThrowFinally = false;
+  function setThrowProbe() {
+    try {
+      for (const value of new Set(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      setThrowFinally = true;
+    }
+  }
+  let setThrew = false;
+  try {
+    setThrowProbe();
+  } catch {
+    setThrew = true;
+  }
+  if (!setThrew || !setThrowFinally) {
+    throw new Error('unexpected Set constructor throw/finally semantics');
+  }
+
   assertSetIteration(direct);
   assertSetIteration(alias);
   assertSetIteration(wrappedAlias);
@@ -114,6 +153,50 @@ export async function browserMapIteration() {
   const frozenAlias = [];
   for (const entry of new (frozenMap)(values)) {
     frozenAlias.push(JSON.stringify(entry));
+  }
+
+  let mapReturnFinally = false;
+  function mapReturnProbe() {
+    try {
+      let returnEntry = null;
+      for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+        returnEntry = entry;
+        break;
+      }
+      if (returnEntry === null) {
+        throw new Error('unexpected empty Map constructor iteration');
+      }
+      return returnEntry;
+    } finally {
+      mapReturnFinally = true;
+    }
+  }
+  const mapReturnEntry = mapReturnProbe();
+  if (mapReturnEntry[0] !== 1 || mapReturnEntry[1] !== 2 || !mapReturnFinally) {
+    throw new Error('unexpected Map constructor return/finally semantics');
+  }
+
+  let mapThrowFinally = false;
+  function mapThrowProbe() {
+    try {
+      for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+        if (entry[0] === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Map constructor iteration');
+    } finally {
+      mapThrowFinally = true;
+    }
+  }
+  let mapThrew = false;
+  try {
+    mapThrowProbe();
+  } catch {
+    mapThrew = true;
+  }
+  if (!mapThrew || !mapThrowFinally) {
+    throw new Error('unexpected Map constructor throw/finally semantics');
   }
 
   assertMapIteration(direct);

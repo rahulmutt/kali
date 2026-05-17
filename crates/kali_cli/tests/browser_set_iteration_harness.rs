@@ -54,6 +54,45 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
     frozenAlias.push(value);
   }
 
+  let returnFinally = false;
+  function setReturnProbe() {
+    try {
+      for (const value of new Set(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      returnFinally = true;
+    }
+  }
+  const returnValue = setReturnProbe();
+  if (returnValue !== 1 || !returnFinally) {
+    throw new Error('unexpected Set constructor return/finally semantics');
+  }
+
+  let throwFinally = false;
+  function setThrowProbe() {
+    try {
+      for (const value of new Set(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      throwFinally = true;
+    }
+  }
+  let threw = false;
+  try {
+    setThrowProbe();
+  } catch {
+    threw = true;
+  }
+  if (!threw || !throwFinally) {
+    throw new Error('unexpected Set constructor throw/finally semantics');
+  }
+
   assertSetIteration(direct);
   assertSetIteration(alias);
   assertSetIteration(wrappedAlias);
@@ -114,6 +153,45 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   const frozenAlias = [];
   for (const value of new (frozenSet)(values)) {
     frozenAlias.push(value);
+  }
+
+  let returnFinally = false;
+  function setReturnProbe() {
+    try {
+      for (const value of new Set(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      returnFinally = true;
+    }
+  }
+  const returnValue = setReturnProbe();
+  if (returnValue !== 1 || !returnFinally) {
+    throw new Error('unexpected Set constructor return/finally semantics');
+  }
+
+  let throwFinally = false;
+  function setThrowProbe() {
+    try {
+      for (const value of new Set(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      throwFinally = true;
+    }
+  }
+  let threw = false;
+  try {
+    setThrowProbe();
+  } catch {
+    threw = true;
+  }
+  if (!threw || !throwFinally) {
+    throw new Error('unexpected Set constructor throw/finally semantics');
   }
 
   assertSetIteration(direct);
