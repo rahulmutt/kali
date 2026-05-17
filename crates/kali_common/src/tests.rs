@@ -97,7 +97,9 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let aliases = process_kill_zero_probe_aliases();
     let source = process_kill_zero_probe_source();
-    let expected = format!("{};", aliases.join("; "));
+    let direct_source = process_kill_zero_probe_direct_source();
+    let wrapped_source = process_kill_zero_probe_wrapped_source();
+    let expected = format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end());
 
     for expected_alias in [
         r#"process.kill"#,
@@ -124,6 +126,8 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     assert_eq!(aliases.len(), direct.len() + wrapped.len());
     assert_eq!(aliases, expected_aliases);
     assert!(direct.iter().all(|alias| !wrapped.contains(alias)));
+    assert_eq!(direct_source, format!("{};", direct.join("; ")));
+    assert_eq!(wrapped_source, format!("{};", wrapped.join("; ")));
     assert_eq!(source, expected);
 }
 

@@ -320,6 +320,22 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
     ]
 }
 
+fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
+    let mut source = aliases.join("; ");
+    source.push(';');
+    source
+}
+
+/// Canonical direct zero-probe source text for the supported Node `process.kill(0)` slice.
+pub fn process_kill_zero_probe_direct_source() -> String {
+    join_zero_probe_aliases(process_kill_zero_probe_direct_zero_aliases())
+}
+
+/// Canonical wrapped zero-probe source text for the supported Node `process.kill(0)` slice.
+pub fn process_kill_zero_probe_wrapped_source() -> String {
+    join_zero_probe_aliases(process_kill_zero_probe_wrapped_zero_aliases())
+}
+
 /// Canonical full alias inventory for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     let direct = process_kill_zero_probe_direct_zero_aliases();
@@ -337,10 +353,11 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
 
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_source() -> String {
-    let aliases = process_kill_zero_probe_aliases();
-    let mut source = aliases.join("; ");
-    source.push(';');
-    source
+    format!(
+        "{} {}",
+        process_kill_zero_probe_direct_source().trim_end(),
+        process_kill_zero_probe_wrapped_source().trim_end(),
+    )
 }
 
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
