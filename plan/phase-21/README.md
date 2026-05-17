@@ -46,6 +46,8 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Keep non-literal dynamic import, broad reflective APIs, and eval-adjacent forms gated unless their spec rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 
+- The freeze-wrapped helper smoke now also covers the mixed dot-root spellings `Object.freeze(globalThis.Object["hasOwn"])(object, "a")` and `Object.freeze(globalThis.Math["floor"])(1.6)` alongside the existing bracketed-root variants, keeping the transparent-wrapper helper matrix aligned with the supported static-object-helper slice.
+
 ### 21.4 Bounded TS/JS inference
 
 - Grow inference inside deterministic budgets only.
