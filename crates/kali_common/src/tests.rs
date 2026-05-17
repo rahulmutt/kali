@@ -169,6 +169,10 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     assert_eq!(direct_source, format!("{};", direct.join("; ")));
     assert_eq!(wrapped_source, format!("{};", wrapped.join("; ")));
     assert_eq!(inventory_source, expected);
+    assert_eq!(
+        inventory_source,
+        format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end())
+    );
     assert_eq!(source, expected);
 }
 

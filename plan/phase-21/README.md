@@ -64,7 +64,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
 - The browser/runtime late `process.env` mutation fixture now reuses the shared `kali_common` source helper, keeping the bracketed Node aliases synchronized across smoke paths.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
-- The shared `process.kill(0)` zero-probe inventory assembly now uses an explicit ordered unique union of the direct and wrapped families, while the duplicate-free invariant remains test-backed.
+- The shared `process.kill(0)` zero-probe inventory assembly now uses an explicit ordered unique union of the direct and wrapped families, while the duplicate-free invariant remains test-backed, and the canonical inventory source now composes the dedicated direct and wrapped source helpers.
 - The node package-corpus zero-probe slice now also mirrors the receiver-freeze `process` spellings with `0` / `+0` aliases, keeping the corpus aligned with the shared Node smoke matrix.
 - The wrapped zero-probe inventory test now also asserts duplicate-free aliases, the inventory builder now uses an explicit ordered unique union of the direct and wrapped families, and the late-compat browser JS/TS/TSX fixtures were deduplicated to match.
 - The browser late-compat TSX fixture now also asserts the shared zero-probe inventory source exactly once, keeping the browser TSX rejection corpus aligned with the common helper.
