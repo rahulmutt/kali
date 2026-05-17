@@ -2328,7 +2328,7 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
                 "runtimeProfiles": [],
                 "compatFeatures": [],
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2337,6 +2337,39 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 
     validate_package_effects_payload_value(&value)
         .expect("package-effects payload should validate");
+}
+
+#[test]
+fn validate_package_effects_payload_value_rejects_non_single_root_reports() {
+    for entry_points in [json!([]), json!(["semver", "semver-helpers"])] {
+        let value = json!({
+            "schemaVersion": 1,
+            "package": {
+                "name": "semver",
+                "version": "7.6.3",
+                "registry": "npm",
+            },
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "default",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": entry_points,
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
+
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("non-single-root package-effects payloads should fail validation");
+        assert!(
+            err.contains("entryPoints must contain exactly one item"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]
@@ -2355,7 +2388,7 @@ fn validate_package_effects_payload_value_rejects_unexpected_keys() {
                 "runtimeProfiles": [],
                 "compatFeatures": [],
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2385,7 +2418,7 @@ fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
                 "runtimeProfiles": [],
                 "compatFeatures": [],
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2410,7 +2443,7 @@ fn validate_package_effects_payload_value_rejects_unexpected_nested_keys() {
                 "runtimeProfiles": [],
                 "compatFeatures": [],
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2440,7 +2473,7 @@ fn validate_package_effects_payload_value_rejects_unexpected_analysis_context_ke
                 "compatFeatures": [],
                 "unexpected": true,
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2477,7 +2510,7 @@ fn validate_package_effects_payload_value_rejects_non_string_package_coordinate_
                     "runtimeProfiles": [],
                     "compatFeatures": [],
                 },
-                "entryPoints": [],
+                "entryPoints": ["semver"],
                 "effects": [],
                 "dynamicEffects": false,
                 "dynamicReasons": [],
@@ -2521,7 +2554,7 @@ fn validate_package_effects_payload_value_rejects_whitespace_package_coordinate_
                     "runtimeProfiles": [],
                     "compatFeatures": [],
                 },
-                "entryPoints": [],
+                "entryPoints": ["semver"],
                 "effects": [],
                 "dynamicEffects": false,
                 "dynamicReasons": [],
@@ -2564,7 +2597,7 @@ fn validate_package_effects_payload_value_rejects_duplicate_analysis_context_set
                 "runtimeProfiles": ["wasm-threads", "wasm-threads"],
                 "compatFeatures": ["eval", "eval"],
             },
-            "entryPoints": [],
+            "entryPoints": ["semver"],
             "effects": [],
             "dynamicEffects": false,
             "dynamicReasons": [],
@@ -2609,7 +2642,7 @@ fn validate_package_effects_payload_value_rejects_whitespace_analysis_context_se
             "report": {
                 "schemaVersion": 1,
                 "analysisContext": analysis_context,
-                "entryPoints": [],
+                "entryPoints": ["semver"],
                 "effects": [],
                 "dynamicEffects": false,
                 "dynamicReasons": [],

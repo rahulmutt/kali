@@ -297,11 +297,21 @@ pub fn validate_package_effects_payload_value(value: &Value) -> Result<(), Strin
 
     validate_schema_version_one(object.get("schemaVersion"), "package-effects payload")?;
     validate_package_coordinate_value(object.get("package"))?;
-    validate_effects_payload_value(
-        object
-            .get("report")
-            .expect("validated package-effects payload report key"),
-    )?;
+    let report = object
+        .get("report")
+        .expect("validated package-effects payload report key");
+    validate_effects_payload_value(report)?;
+    let Some(report_object) = report.as_object() else {
+        return Err("package-effects payload report must be a JSON object".to_string());
+    };
+    let Some(entry_points) = report_object.get("entryPoints").and_then(Value::as_array) else {
+        unreachable!("validated by validate_effects_payload_value")
+    };
+    if entry_points.len() != 1 {
+        return Err(
+            "package-effects payload report entryPoints must contain exactly one item".to_string(),
+        );
+    }
     Ok(())
 }
 
