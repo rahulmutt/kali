@@ -389,6 +389,31 @@ fn test_parse_for_await_of_statement() {
 }
 
 #[test]
+fn test_parse_for_await_of_statement_accepts_await_wrapped_literal_arrays() {
+    let tokens = lex("for await (const item of await [1, 2]) { item; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ForOfStatement(stmt) = &output.statements[0] else {
+        panic!("Expected ForOfStatement, got {:?}", output.statements[0]);
+    };
+    assert!(stmt.is_await, "expected for-await-of flag to be preserved");
+    match &stmt.right {
+        Expression::ArrayExpression(array) => {
+            assert_eq!(array.elements.len(), 2);
+        }
+        other => panic!("Expected ArrayExpression right-hand, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_dynamic_import_expression() {
     let tokens = lex("const mod = import(\"./lazy\");");
     let mut parser = Parser::new(FileId::new(0), tokens);
