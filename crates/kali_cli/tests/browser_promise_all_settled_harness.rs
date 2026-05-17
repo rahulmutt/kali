@@ -13,6 +13,7 @@ fn browser_promise_all_settled_run_source() -> &'static str {
   const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   if (
     settled.length !== 2 ||
     settled[0].status !== 'fulfilled' ||
@@ -33,7 +34,12 @@ fn browser_promise_all_settled_run_source() -> &'static str {
     bracketedSettled[0].status !== 'fulfilled' ||
     bracketedSettled[0].value !== 1 ||
     bracketedSettled[1].status !== 'rejected' ||
-    bracketedSettled[1].reason !== 'boom'
+    bracketedSettled[1].reason !== 'boom' ||
+    frozenBracketedSettled.length !== 2 ||
+    frozenBracketedSettled[0].status !== 'fulfilled' ||
+    frozenBracketedSettled[0].value !== 1 ||
+    frozenBracketedSettled[1].status !== 'rejected' ||
+    frozenBracketedSettled[1].reason !== 'boom'
   ) {
     throw new Error('unexpected Promise.allSettled semantics');
   }
@@ -54,6 +60,7 @@ fn browser_promise_all_settled_test_source() -> &'static str {
   const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   if (
     settled.length !== 2 ||
     settled[0].status !== 'fulfilled' ||
@@ -74,7 +81,12 @@ fn browser_promise_all_settled_test_source() -> &'static str {
     bracketedSettled[0].status !== 'fulfilled' ||
     bracketedSettled[0].value !== 1 ||
     bracketedSettled[1].status !== 'rejected' ||
-    bracketedSettled[1].reason !== 'boom'
+    bracketedSettled[1].reason !== 'boom' ||
+    frozenBracketedSettled.length !== 2 ||
+    frozenBracketedSettled[0].status !== 'fulfilled' ||
+    frozenBracketedSettled[0].value !== 1 ||
+    frozenBracketedSettled[1].status !== 'rejected' ||
+    frozenBracketedSettled[1].reason !== 'boom'
   ) {
     throw new Error('unexpected Promise.allSettled semantics');
   }
