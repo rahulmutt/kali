@@ -421,6 +421,48 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
         BrowserRuntimeContract::summary_file_fallback_note(),
         "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid"
     );
+    let contract = browser_runtime_contract_value();
+    assert_eq!(contract["hostLabel"], "browser-requested");
+    assert_eq!(contract["hostDescription"], "real browser host");
+    assert_eq!(
+        contract["hostDescriptionNote"],
+        "browser runtime host description: real browser host"
+    );
+    assert_eq!(
+        contract["supportedCommands"]
+            .as_array()
+            .expect("supportedCommands array"),
+        &[
+            serde_json::Value::String("run".to_string()),
+            serde_json::Value::String("test".to_string()),
+        ]
+    );
+    assert_eq!(
+        contract["diagnosticHint"],
+        "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work."
+    );
+    assert_eq!(
+        contract["diagnosticNotes"]
+            .as_array()
+            .expect("diagnosticNotes array"),
+        &[
+            serde_json::Value::String(
+                "supported browser runtime commands: run, test".to_string(),
+            ),
+            serde_json::Value::String(
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work".to_string(),
+            ),
+            serde_json::Value::String(
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness".to_string(),
+            ),
+            serde_json::Value::String(
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid".to_string(),
+            ),
+            serde_json::Value::String(
+                "browser runtime host description: real browser host".to_string(),
+            ),
+        ]
+    );
     assert_eq!(
         BrowserRuntimeContract::diagnostic_notes(),
         &[

@@ -189,6 +189,20 @@ pub struct BrowserRuntimeContractDescriptor {
     pub contract_scope_note: &'static str,
 }
 
+/// Canonical JSON fixture for the later standalone browser runtime contract.
+pub fn browser_runtime_contract_value() -> serde_json::Value {
+    let descriptor = BrowserRuntimeContract::descriptor();
+
+    serde_json::json!({
+        "hostLabel": descriptor.host_label,
+        "hostDescription": descriptor.host_description,
+        "hostDescriptionNote": descriptor.host_description_note,
+        "supportedCommands": descriptor.supported_commands,
+        "diagnosticHint": descriptor.diagnostic_hint,
+        "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
+    })
+}
+
 /// Environment variable used to override the browser harness command.
 pub const BROWSER_HARNESS_COMMAND_ENV: &str = "KALI_BROWSER_BUNDLE_HARNESS_COMMAND";
 
