@@ -31,7 +31,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - HIR, MIR, LIR, and function-plan tests now also preserve class-expression generator metadata alongside the existing class-method coverage.
 - Direct `run` / `test` execution for async class methods now has an explicit E5506 gate; keep generator-class lowering gated until the dedicated packet lands.
 - Keep all unsupported forms behind canonical `E5506` gates until the full runtime path exists.
-- Browser late-compat and Node surface smoke now also pin the mixed frozen `Object.freeze(globalThis["process"].kill)(0)` alias and its `+0` zero-literal sibling, plus direct `globalThis.process["kill"](+0)` / `globalThis["process"].kill(+0)` / `globalThis["process"]["kill"](+0)` zero-probe aliases; the browser late-compat source corpus now also asserts the direct `globalThis.process["kill"](+0)` spelling across JS, TS, JSX, and TSX input.
+- Browser late-compat and Node surface smoke now also pin the mixed frozen `Object.freeze(globalThis["process"].kill)(0)` alias and its `+0` zero-literal sibling, plus direct `globalThis.process["kill"](+0)` / `globalThis["process"].kill(+0)` / `globalThis["process"]["kill"](+0)` zero-probe aliases; the browser late-compat source corpus now also asserts the direct `globalThis.process["kill"](+0)` spelling across JS, TS, JSX, and TSX input, and the same browser matrix now also covers the doubly wrapped `((globalThis["process"]["kill"]))(+0)` alias.
 
 ### 21.2 Iterator and async-iterator protocols
 
