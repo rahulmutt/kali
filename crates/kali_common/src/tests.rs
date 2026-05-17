@@ -77,6 +77,7 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let source = process_kill_zero_probe_source();
     let expected = format!("{};", aliases.join("; "));
 
+    assert!(aliases.contains(&r#"process["kill"]((0))"#));
     assert_eq!(source, expected);
 }
 
