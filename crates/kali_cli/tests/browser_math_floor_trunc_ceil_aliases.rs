@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::{fs, process::Command, sync::OnceLock};
 
 use serde_json::Value;
 use tempfile::tempdir;
@@ -7,31 +7,44 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
+    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("console.log({alias}(alias));"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn browser_harness_math_floor_trunc_ceil_run_source() -> &'static str {
-    "const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); console.log(Object.freeze(globalThis.Math[\"floor\"])(alias)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(alias)); console.log(Object.freeze(globalThis.Math[\"trunc\"])(alias)); console.log(Object.freeze((globalThis.Math[\"trunc\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"trunc\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"trunc\"]))(alias)); console.log(Object.freeze(globalThis.Math[\"ceil\"])(alias)); console.log(Object.freeze((globalThis.Math[\"ceil\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"ceil\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"ceil\"]))(alias));\n"
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE
+        .get_or_init(|| {
+            format!(
+                "const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); {}\n",
+                math_floor_trunc_ceil_frozen_callable_invocations()
+            )
+        })
+        .as_str()
 }
 
 fn browser_harness_math_floor_trunc_ceil_test_source() -> &'static str {
-    r#"Kali.test('math floor trunc ceil identities', () => {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE
+        .get_or_init(|| {
+            format!(
+                r#"Kali.test('math floor trunc ceil identities', () => {{
   const value = 1.6;
   const alias = value;
   console.log(Math.floor(alias));
   console.log(Math.trunc(alias));
   console.log(Math.ceil(alias));
-  console.log(Object.freeze(globalThis.Math[\"floor\"])(alias));
-  console.log(Object.freeze((globalThis.Math[\"floor\"]))(alias));
-  console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias));
-  console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(alias));
-  console.log(Object.freeze(globalThis.Math[\"trunc\"])(alias));
-  console.log(Object.freeze((globalThis.Math[\"trunc\"]))(alias));
-  console.log(Object.freeze(globalThis[\"Math\"][\"trunc\"])(alias));
-  console.log(Object.freeze((globalThis[\"Math\"][\"trunc\"]))(alias));
-  console.log(Object.freeze(globalThis.Math[\"ceil\"])(alias));
-  console.log(Object.freeze((globalThis.Math[\"ceil\"]))(alias));
-  console.log(Object.freeze(globalThis[\"Math\"][\"ceil\"])(alias));
-  console.log(Object.freeze((globalThis[\"Math\"][\"ceil\"]))(alias));
-});
-"#
+  {}
+}});
+"#,
+                math_floor_trunc_ceil_frozen_callable_invocations()
+            )
+        })
+        .as_str()
 }
 
 fn assert_browser_harness_math_floor_trunc_ceil(

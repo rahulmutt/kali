@@ -413,6 +413,29 @@ pub fn object_has_own_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(object_has_own_frozen_callable_aliases())
 }
 
+/// Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.
+pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["floor"])"#,
+        r#"Object.freeze((globalThis.Math["floor"]))"#,
+        r#"Object.freeze(globalThis["Math"]["floor"])"#,
+        r#"Object.freeze((globalThis["Math"]["floor"]))"#,
+        r#"Object.freeze(globalThis.Math["trunc"])"#,
+        r#"Object.freeze((globalThis.Math["trunc"]))"#,
+        r#"Object.freeze(globalThis["Math"]["trunc"])"#,
+        r#"Object.freeze((globalThis["Math"]["trunc"]))"#,
+        r#"Object.freeze(globalThis.Math["ceil"])"#,
+        r#"Object.freeze((globalThis.Math["ceil"]))"#,
+        r#"Object.freeze(globalThis["Math"]["ceil"])"#,
+        r#"Object.freeze((globalThis["Math"]["ceil"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases.
+pub fn math_floor_trunc_ceil_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_floor_trunc_ceil_frozen_callable_aliases())
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_unavailable_message() -> String {
     let aliases = process_kill_zero_probe_aliases();

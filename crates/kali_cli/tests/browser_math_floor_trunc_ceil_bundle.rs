@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::{fs, process::Command, sync::OnceLock};
 
 use serde_json::Value;
 use tempfile::tempdir;
@@ -7,29 +7,43 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
+    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}(alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn math_floor_trunc_ceil_frozen_callable_entries() -> String {
+    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("{alias}(alias)"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn browser_bundle_math_floor_trunc_ceil_alias_source() -> &'static str {
-    r##"// kali-tree-shake: mathFloorTruncCeilAliasChain
-function mathFloorTruncCeilAliasChain() {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE
+        .get_or_init(|| {
+            format!(
+                r##"// kali-tree-shake: mathFloorTruncCeilAliasChain
+function mathFloorTruncCeilAliasChain() {{
   const value = 1.6;
   const alias = value;
   console.log(Math.floor(alias));
   console.log(Math.trunc(alias));
   console.log(Math.ceil(alias));
-  console.log(Object.freeze(globalThis.Math["floor"])(alias));
-  console.log(Object.freeze((globalThis.Math["floor"]))(alias));
-  console.log(Object.freeze((globalThis["Math"]["floor"]))(alias));
-  console.log(Object.freeze(globalThis["Math"]["floor"])(alias));
-  console.log(Object.freeze((globalThis.Math["trunc"]))(alias));
-  console.log(Object.freeze(globalThis.Math["trunc"])(alias));
-  console.log(Object.freeze((globalThis["Math"]["trunc"]))(alias));
-  console.log(Object.freeze(globalThis["Math"]["trunc"])(alias));
-  console.log(Object.freeze((globalThis.Math["ceil"]))(alias));
-  console.log(Object.freeze(globalThis.Math["ceil"])(alias));
-  console.log(Object.freeze((globalThis["Math"]["ceil"]))(alias));
-  console.log(Object.freeze(globalThis["Math"]["ceil"])(alias));
-  return [Math.floor(alias), Math.trunc(alias), Math.ceil(alias), Object.freeze(globalThis.Math["floor"])(alias), Object.freeze((globalThis.Math["floor"]))(alias), Object.freeze((globalThis["Math"]["floor"]))(alias), Object.freeze(globalThis["Math"]["floor"])(alias), Object.freeze((globalThis.Math["trunc"]))(alias), Object.freeze(globalThis.Math["trunc"])(alias), Object.freeze((globalThis["Math"]["trunc"]))(alias), Object.freeze(globalThis["Math"]["trunc"])(alias), Object.freeze((globalThis.Math["ceil"]))(alias), Object.freeze(globalThis.Math["ceil"])(alias), Object.freeze((globalThis["Math"]["ceil"]))(alias), Object.freeze(globalThis["Math"]["ceil"])(alias)];
-}
-"##
+{}
+  return [Math.floor(alias), Math.trunc(alias), Math.ceil(alias), {}];
+}}
+"##,
+                math_floor_trunc_ceil_frozen_callable_invocations(),
+                math_floor_trunc_ceil_frozen_callable_entries()
+            )
+        })
+        .as_str()
 }
 
 fn assert_browser_bundle_math_floor_trunc_ceil_alias(filename: &str, json_output: bool) {
