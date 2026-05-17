@@ -6,6 +6,7 @@ use std::{
     path::PathBuf,
 };
 
+use kali_common::generator_function_lowering_unavailable_message;
 use kali_error::{
     _error_codes::{e3, e5, e8},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
@@ -203,6 +204,7 @@ struct FunctionEmitter<'a> {
     diagnostics: &'a mut Vec<Diagnostic>,
     strings: &'a mut StringPool,
     source_path: Option<PathBuf>,
+    current_function_flavor: Option<FunctionFlavor>,
     locals: BTreeMap<String, u32>,
     bindings: BTreeMap<String, LirNodeId>,
     reported_placeholder_fallbacks: HashSet<String>,
@@ -224,6 +226,7 @@ impl<'a> FunctionEmitter<'a> {
         diagnostics: &'a mut Vec<Diagnostic>,
         strings: &'a mut StringPool,
         source_path: Option<PathBuf>,
+        current_function_flavor: Option<FunctionFlavor>,
         params: &[String],
         local_names: &[String],
     ) -> Self {
@@ -249,6 +252,7 @@ impl<'a> FunctionEmitter<'a> {
             diagnostics,
             strings,
             source_path,
+            current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
             reported_placeholder_fallbacks: HashSet::new(),
@@ -902,7 +906,10 @@ impl<'a> FunctionEmitter<'a> {
             "yield" | "yield*" | "delegate" => {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+                    generator_function_lowering_unavailable_message(matches!(
+                        self.current_function_flavor,
+                        Some(FunctionFlavor::AsyncGenerator)
+                    )),
                 ));
                 function.instruction(&Instruction::Unreachable);
                 EmittedValue {
@@ -5791,6 +5798,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             &mut diagnostics,
             &mut string_pool,
             ctx.source_path.clone(),
+            function.flavor,
             &function.params,
             &function.locals,
         );
