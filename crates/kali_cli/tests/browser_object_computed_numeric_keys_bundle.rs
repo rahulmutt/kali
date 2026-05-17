@@ -9,7 +9,7 @@ fn kali_bin() -> String {
 
 fn browser_bundle_computed_numeric_keys_source() -> &'static str {
     r##"// kali-tree-shake: computedNumericObjectKeys
-function computedNumericObjectKeys() {
+export async function computedNumericObjectKeys() {
   const obj = { [-1]: 'neg', [+2]: 'pos', [(-0)]: 'zero' };
   console.log(obj[-1]);
   console.log(obj[2]);
@@ -18,10 +18,30 @@ function computedNumericObjectKeys() {
 "##
 }
 
-fn assert_browser_bundle_computed_numeric_keys(filename: &str, json_output: bool) {
+fn browser_bundle_computed_numeric_keys_with_await_wrappers_source() -> &'static str {
+    r##"// kali-tree-shake: computedNumericObjectKeysWithAwaitWrappers
+export async function computedNumericObjectKeysWithAwaitWrappers() {
+  const obj = {
+    [await 1]: 'neg',
+    [+(await 2)]: 'pos',
+    [(0, await 0)]: 'zero',
+  };
+  console.log(obj[1]);
+  console.log(obj[2]);
+  console.log(obj[0]);
+}
+"##
+}
+
+fn assert_browser_bundle_computed_numeric_keys(
+    filename: &str,
+    json_output: bool,
+    source: &str,
+    harness_function: &str,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, browser_bundle_computed_numeric_keys_source()).expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -72,9 +92,11 @@ fn assert_browser_bundle_computed_numeric_keys(filename: &str, json_output: bool
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        r#"const mod = await import(bundleJs.href);
-await mod.computedNumericObjectKeys();
+        &format!(
+            r#"const mod = await import(bundleJs.href);
+await mod.{harness_function}();
 "#,
+        ),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -106,13 +128,47 @@ await mod.computedNumericObjectKeys();
 #[test]
 fn build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input() {
     for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
-        assert_browser_bundle_computed_numeric_keys(filename, false);
+        assert_browser_bundle_computed_numeric_keys(
+            filename,
+            false,
+            browser_bundle_computed_numeric_keys_source(),
+            "computedNumericObjectKeys",
+        );
     }
 }
 
 #[test]
 fn json_build_emits_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input() {
     for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
-        assert_browser_bundle_computed_numeric_keys(filename, true);
+        assert_browser_bundle_computed_numeric_keys(
+            filename,
+            true,
+            browser_bundle_computed_numeric_keys_source(),
+            "computedNumericObjectKeys",
+        );
+    }
+}
+
+#[test]
+fn build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_computed_numeric_keys(
+            filename,
+            false,
+            browser_bundle_computed_numeric_keys_with_await_wrappers_source(),
+            "computedNumericObjectKeysWithAwaitWrappers",
+        );
+    }
+}
+
+#[test]
+fn json_build_emits_await_wrapped_computed_numeric_object_keys_in_js_ts_jsx_and_tsx_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_computed_numeric_keys(
+            filename,
+            true,
+            browser_bundle_computed_numeric_keys_with_await_wrappers_source(),
+            "computedNumericObjectKeysWithAwaitWrappers",
+        );
     }
 }

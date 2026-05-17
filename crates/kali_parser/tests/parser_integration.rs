@@ -1261,3 +1261,84 @@ mod complex_structures {
         }
     }
 }
+
+/// Tests for computed object literal property names
+mod computed_object_property_names {
+    use super::*;
+
+    fn assert_number_property_name(property: &kali_ast::PropertyName, expected: f64) {
+        match property {
+            kali_ast::PropertyName::Number(actual) => assert_eq!(*actual, expected),
+            other => panic!("Expected numeric property name, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_await_and_sequence_wrapped_computed_numeric_object_keys() {
+        let output = parse(
+            r#"async function computeComputedNumericObjectKeys() {
+  const object = {
+    [await 1]: 'neg',
+    [+(await 2)]: 'pos',
+    [(0, await 0)]: 'zero',
+  };
+}
+"#,
+        );
+
+        assert_eq!(output.statements.len(), 1);
+        assert!(
+            output.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            output.diagnostics
+        );
+
+        match &output.statements[0] {
+            kali_ast::Statement::FunctionDeclaration(function) => {
+                assert!(function.is_async);
+                assert_eq!(function.body.body.len(), 1);
+
+                match &function.body.body[0] {
+                    kali_ast::Statement::VariableDeclaration(declaration) => {
+                        let object = match declaration.declarations[0].init.as_ref() {
+                            Some(kali_ast::Expression::ObjectExpression(object)) => object,
+                            other => panic!("Expected ObjectExpression, got {other:?}"),
+                        };
+
+                        assert_eq!(object.properties.len(), 3);
+                        assert_number_property_name(&object.properties[0].key, 1.0);
+                        assert_number_property_name(&object.properties[1].key, 2.0);
+                        assert_number_property_name(&object.properties[2].key, 0.0);
+
+                        match &object.properties[0].value {
+                            kali_ast::Expression::Literal(kali_ast::LiteralValue::String(
+                                value,
+                            )) => {
+                                assert_eq!(value, "'neg'");
+                            }
+                            other => panic!("Expected string literal value, got {other:?}"),
+                        }
+                        match &object.properties[1].value {
+                            kali_ast::Expression::Literal(kali_ast::LiteralValue::String(
+                                value,
+                            )) => {
+                                assert_eq!(value, "'pos'");
+                            }
+                            other => panic!("Expected string literal value, got {other:?}"),
+                        }
+                        match &object.properties[2].value {
+                            kali_ast::Expression::Literal(kali_ast::LiteralValue::String(
+                                value,
+                            )) => {
+                                assert_eq!(value, "'zero'");
+                            }
+                            other => panic!("Expected string literal value, got {other:?}"),
+                        }
+                    }
+                    other => panic!("Expected VariableDeclaration, got {other:?}"),
+                }
+            }
+            other => panic!("Expected FunctionDeclaration, got {other:?}"),
+        }
+    }
+}
