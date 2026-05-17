@@ -10548,6 +10548,33 @@ fn test_resolution_supports_for_await_of_array_iteration_with_decorated_wrappers
 }
 
 #[test]
+fn test_resolution_supports_for_await_of_await_wrapped_iterables_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for await (const value of await [1, 2]) { console.log(value); }",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        "for await (const value of await [1, 2]) { console.log(value); }".to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_await_of_array_iteration_with_decorated_spread_targets_in_js_input()
 {
     let dir = tempfile::tempdir().unwrap();

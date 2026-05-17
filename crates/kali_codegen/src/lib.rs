@@ -4381,7 +4381,14 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
-        let array = self.node(array_id).clone();
+        let mut array = self.node(array_id).clone();
+        if array.kind == LirNodeKind::Value && array.text.is_none() && array.children.len() == 1 {
+            let child_id = array.children[0];
+            let child = self.node(child_id).clone();
+            if self.is_array_literal(&child) {
+                array = child;
+            }
+        }
 
         let Some(loop_name) = self.for_of_binding_name(node) else {
             self.diagnostics.push(Diagnostic::error(

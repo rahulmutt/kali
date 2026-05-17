@@ -648,6 +648,7 @@ impl TypeContext {
                 Expression::SatisfiesExpression(expr) => &expr.expression,
                 Expression::ChainExpression(expr) => &expr.expression,
                 Expression::DecoratedExpression(expr) => &expr.expression,
+                Expression::AwaitExpression(expr) => &expr.argument,
                 Expression::SequenceExpression(expr) => match expr.expressions.last() {
                     Some(expression) => expression,
                     None => return current,

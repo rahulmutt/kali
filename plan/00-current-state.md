@@ -6,6 +6,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 
 - `cargo run -q -p kali_cli --bin kali -- --help` exposes the current public command set.
 - The workspace contains Rust crates for CLI, lexer/parser, AST/HIR/MIR/LIR, type checking, codegen, runtime, sandbox/effects, package management, optimization, Deno/Web/Node API projections, embedding/C ABI, formatting, linting, and bindings.
+- For-await array iteration now also accepts a transparent `await` wrapper over a literal array on the parser, checker, codegen, and runtime smoke path.
 - The spec-owned availability and current-state nuance remain in [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - The proof-backed boundary remains owned by [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 

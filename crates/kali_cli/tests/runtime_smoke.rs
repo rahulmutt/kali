@@ -30392,6 +30392,33 @@ fn run_supports_for_await_array_iteration_semantics_for_now_in_js_input() {
 }
 
 #[test]
+fn run_supports_for_await_array_iteration_with_await_wrapped_literal_array_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"for await (const value of await [1, 2, 3]) {
+  console.log(value);
+}
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["1", "2", "3"], "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_for_await_array_iteration_semantics_with_const_string_alias_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");

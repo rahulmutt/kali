@@ -535,7 +535,13 @@ impl Parser {
 
             if init_expr.is_none() && self.stream.current_kind() == Some(&TokenType::Of) {
                 let _ = self.stream.advance();
+                let previous_async = self.in_async_function;
+                self.in_async_function = true;
                 let right = self.parse_expression();
+                self.in_async_function = previous_async;
+                let right = self
+                    .unwrap_await_literal_array_expression(right.clone())
+                    .unwrap_or(right);
                 let _ = self.stream.accept(TokenType::RightParen);
 
                 let body_stmt = self
@@ -1908,6 +1914,36 @@ impl Parser {
 
         let _ = self.stream.accept(TokenType::RightBrace);
         Expression::ObjectExpression(ObjectExpression { properties })
+    }
+
+    fn unwrap_await_literal_array_expression(&self, expression: Expression) -> Option<Expression> {
+        match expression {
+            Expression::AwaitExpression(await_expr) => {
+                self.unwrap_await_literal_array_expression(await_expr.argument)
+            }
+            Expression::ParenthesizedExpression(parenthesized) => {
+                self.unwrap_await_literal_array_expression(*parenthesized.expression)
+            }
+            Expression::TypeAssertion(assertion) => {
+                self.unwrap_await_literal_array_expression(*assertion.expression)
+            }
+            Expression::SatisfiesExpression(satisfies) => {
+                self.unwrap_await_literal_array_expression(*satisfies.expression)
+            }
+            Expression::DecoratedExpression(decorated) => {
+                self.unwrap_await_literal_array_expression(*decorated.expression)
+            }
+            Expression::ChainExpression(chain) => {
+                self.unwrap_await_literal_array_expression(*chain.expression)
+            }
+            Expression::SequenceExpression(sequence) => sequence
+                .expressions
+                .last()
+                .cloned()
+                .and_then(|expression| self.unwrap_await_literal_array_expression(expression)),
+            Expression::ArrayExpression(_) => Some(expression),
+            _ => None,
+        }
     }
 
     fn computed_object_property_name(&self, expression: Expression) -> Option<PropertyName> {
