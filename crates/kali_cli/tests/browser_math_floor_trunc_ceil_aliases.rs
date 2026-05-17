@@ -19,6 +19,7 @@ fn browser_harness_math_floor_trunc_ceil_test_source() -> &'static str {
   console.log(Math.trunc(alias));
   console.log(Math.ceil(alias));
   console.log(Object.freeze(globalThis.Math[\"floor\"])(alias));
+  console.log(Object.freeze((globalThis.Math[\"floor\"]))(alias));
   console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias));
   console.log(Object.freeze(globalThis.Math[\"trunc\"])(alias));
   console.log(Object.freeze(globalThis[\"Math\"][\"trunc\"])(alias));

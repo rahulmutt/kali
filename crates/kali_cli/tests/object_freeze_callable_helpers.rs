@@ -7,11 +7,11 @@ fn kali_bin() -> String {
 }
 
 fn frozen_callable_helpers_source() -> &'static str {
-    "const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6));\n"
+    "const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze((globalThis[\"Object\"][\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze((globalThis.Object[\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(1.6)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(1.6));\n"
 }
 
 fn frozen_callable_helpers_test_source() -> &'static str {
-    "Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); });\n"
+    "Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze((globalThis[\"Object\"][\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze((globalThis.Object[\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(1.6)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(1.6)); });\n"
 }
 
 fn assert_run_supports_frozen_callable_helpers_in_input(extension: &str, json_output: bool) {
@@ -42,11 +42,11 @@ fn assert_run_supports_frozen_callable_helpers_in_input(extension: &str, json_ou
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n1\n1\n");
+        assert_eq!(json["stdout"], "1\n1\n1\n1\n1\n1\n1\n1\n");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "1\n1\n1\n1\n", "stdout: {stdout}");
+        assert_eq!(stdout, "1\n1\n1\n1\n1\n1\n1\n1\n", "stdout: {stdout}");
     }
 }
 
@@ -83,7 +83,10 @@ fn assert_test_supports_frozen_callable_helpers_in_input(extension: &str, json_o
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n1\n1\n1\n"), "stdout: {stdout}");
+        assert!(
+            stdout.contains("1\n1\n1\n1\n1\n1\n1\n1\n"),
+            "stdout: {stdout}"
+        );
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
 }
