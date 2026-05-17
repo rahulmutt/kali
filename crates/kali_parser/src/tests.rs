@@ -1737,6 +1737,48 @@ fn test_parse_class_expression_preserves_method_modifiers() {
 }
 
 #[test]
+fn test_parse_default_export_class_expression_preserves_method_modifiers() {
+    let tokens = lex("export default (class NamedExample { async *main() { yield 1; } });");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportDefault(decl) => match decl {
+            kali_ast::ExportDefaultDeclaration::Expression(expr) => {
+                let mut expr = expr.as_ref();
+                loop {
+                    match expr {
+                        Expression::ParenthesizedExpression(parenthesized) => {
+                            expr = parenthesized.expression.as_ref();
+                        }
+                        Expression::ClassExpression(class_expr) => {
+                            assert_eq!(class_expr.id.as_deref(), Some("NamedExample"));
+                            assert_eq!(class_expr.body.methods.len(), 1);
+                            let method = &class_expr.body.methods[0];
+                            assert_eq!(method.name, "main");
+                            assert!(method.is_async, "expected async flag to be preserved");
+                            assert!(method.generator, "expected generator flag to be preserved");
+                            assert!(method.body.as_ref().is_some());
+                            break;
+                        }
+                        other => panic!("Expected default-export class expression, got {other:?}"),
+                    }
+                }
+            }
+            other => panic!("Expected default-export class expression, got {other:?}"),
+        },
+        other => panic!("Expected ExportDefaultDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_async_function_expression() {
     let tokens = lex("const make = async function() { return 1; };");
     let mut parser = Parser::new(FileId::new(0), tokens);
