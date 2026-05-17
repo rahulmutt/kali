@@ -46376,6 +46376,45 @@ function assertMapIteration(values) {
 
 function setAndMapIteration() {
   const values = [1, 2, 1];
+  let setReturnFinally = false;
+  function setReturnProbe() {
+    try {
+      for (const value of new Set(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Set constructor iteration');
+    } finally {
+      setReturnFinally = true;
+    }
+  }
+  const setReturnValue = setReturnProbe();
+  if (setReturnValue !== 1 || !setReturnFinally) {
+    throw new Error('unexpected Set constructor return/finally semantics');
+  }
+
+  let mapThrowFinally = false;
+  function mapThrowProbe() {
+    try {
+      for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+        if (entry[0] === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Map constructor iteration');
+    } finally {
+      mapThrowFinally = true;
+    }
+  }
+  let mapThrew = false;
+  try {
+    mapThrowProbe();
+  } catch {
+    mapThrew = true;
+  }
+  if (!mapThrew || !mapThrowFinally) {
+    throw new Error('unexpected Map constructor throw/finally semantics');
+  }
+
   const setAlias = Set;
   const wrappedSetAlias = (setAlias);
   const aliasValues = (values);
@@ -46488,6 +46527,45 @@ fn set_and_map_iteration_test_source() -> &'static str {
 
   function setAndMapIteration() {
     const values = [1, 2, 1];
+    let setReturnFinally = false;
+    function setReturnProbe() {
+      try {
+        for (const value of new Set(values)) {
+          return value;
+        }
+        throw new Error('unexpected empty Set constructor iteration');
+      } finally {
+        setReturnFinally = true;
+      }
+    }
+    const setReturnValue = setReturnProbe();
+    if (setReturnValue !== 1 || !setReturnFinally) {
+      throw new Error('unexpected Set constructor return/finally semantics');
+    }
+
+    let mapThrowFinally = false;
+    function mapThrowProbe() {
+      try {
+        for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) {
+          if (entry[0] === 1) {
+            throw new Error('boom');
+          }
+        }
+        throw new Error('unexpected empty Map constructor iteration');
+      } finally {
+        mapThrowFinally = true;
+      }
+    }
+    let mapThrew = false;
+    try {
+      mapThrowProbe();
+    } catch {
+      mapThrew = true;
+    }
+    if (!mapThrew || !mapThrowFinally) {
+      throw new Error('unexpected Map constructor throw/finally semantics');
+    }
+
     const setAlias = Set;
     const wrappedSetAlias = (setAlias);
     const aliasValues = (values);
@@ -46556,6 +46634,7 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const entry of new globalThis['Map'](mapValues)) {
       singleBracketedMap.push(entry);
     }
+
     const frozenMapValues = Object.freeze(mapValues);
     const frozenMapDirect = [];
     for (const entry of new Map(frozenMapValues)) {
