@@ -1,5 +1,6 @@
 use std::{fs, process::Command};
 
+use kali_runtime::BROWSER_HARNESS_COMMAND_ENV;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -189,6 +190,60 @@ fn assert_inherited_browser_iterator_source_rejects(
         let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], if bundle { "build" } else { "check" });
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            !errors.is_empty(),
+            "errors array should not be empty: {json}"
+        );
+        let message = errors[0]["message"].as_str().expect("error message");
+        assert_eq!(errors[0]["code"], "E5506");
+        assert!(
+            message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("literal array"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_requested_iterator_source_rejects(
+    source: &str,
+    filename: &str,
+    json_output: bool,
+    command: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut cmd = Command::new(kali_bin());
+    cmd.env(BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path());
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    let output = cmd
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "command unexpectedly succeeded");
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
         let errors = json["errors"].as_array().expect("errors array");
@@ -916,5 +971,49 @@ fn check_rejects_set_constructor_iteration_from_call_expression_source_under_inh
                 false,
             );
         }
+    }
+}
+
+#[test]
+fn run_rejects_non_literal_set_and_map_constructor_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for source in [
+        set_constructor_call_expression_source(),
+        map_constructor_call_expression_source(),
+    ] {
+        assert_browser_requested_iterator_source_rejects(source, "main.js", false, "run");
+    }
+}
+
+#[test]
+fn json_run_rejects_non_literal_set_and_map_constructor_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for source in [
+        set_constructor_call_expression_source(),
+        map_constructor_call_expression_source(),
+    ] {
+        assert_browser_requested_iterator_source_rejects(source, "main.js", true, "run");
+    }
+}
+
+#[test]
+fn test_rejects_non_literal_set_and_map_constructor_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for source in [
+        set_constructor_call_expression_source(),
+        map_constructor_call_expression_source(),
+    ] {
+        assert_browser_requested_iterator_source_rejects(source, "smoke.test.js", false, "test");
+    }
+}
+
+#[test]
+fn json_test_rejects_non_literal_set_and_map_constructor_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for source in [
+        set_constructor_call_expression_source(),
+        map_constructor_call_expression_source(),
+    ] {
+        assert_browser_requested_iterator_source_rejects(source, "smoke.test.js", true, "test");
     }
 }
