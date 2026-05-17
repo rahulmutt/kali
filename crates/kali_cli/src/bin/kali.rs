@@ -3085,7 +3085,9 @@ fn run_command(
     if let Err(diagnostic) = validate_runtime_entrypoint(&source, effective_api) {
         return emit_diagnostics_and_exit("run", vec![diagnostic], 5, output, None, None);
     }
-    if let Err(diagnostics) = build::reject_async_class_methods_in_runtime_entrypoint(&source) {
+    if let Err(diagnostics) =
+        build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
+    {
         return emit_diagnostics_and_exit(
             "run",
             diagnostics,
@@ -3320,7 +3322,9 @@ fn test_command(
                 fs::read_to_string(&source).ok().as_deref(),
             );
         }
-        if let Err(diagnostics) = build::reject_async_class_methods_in_runtime_entrypoint(&source) {
+        if let Err(diagnostics) =
+            build::reject_async_and_generator_class_methods_in_runtime_entrypoint(&source)
+        {
             return emit_diagnostics_and_exit(
                 "test",
                 diagnostics,

@@ -6129,7 +6129,7 @@ fn assert_runtime_entrypoint_rejects_async_class_expression_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
-    let error = reject_async_class_methods_in_runtime_entrypoint(&source_path)
+    let error = reject_async_and_generator_class_methods_in_runtime_entrypoint(&source_path)
         .expect_err("async class method lowering should fail in the direct runtime path");
     assert!(
         error.iter().any(|diagnostic| diagnostic.code
@@ -6158,7 +6158,7 @@ fn assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "generator class method lowering is unavailable in the direct runtime path"
     };
 
-    let error = reject_async_class_methods_in_runtime_entrypoint(&source_path)
+    let error = reject_async_and_generator_class_methods_in_runtime_entrypoint(&source_path)
         .expect_err("generator class method lowering should fail in the direct runtime path");
     assert!(
         error.iter().any(|diagnostic| diagnostic.code

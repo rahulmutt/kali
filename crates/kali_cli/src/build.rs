@@ -2866,7 +2866,7 @@ fn parse_source_file(source_path: &Path) -> Result<Vec<Statement>, Vec<Diagnosti
     Ok(parsed.statements)
 }
 
-pub fn reject_async_class_methods_in_runtime_entrypoint(
+pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
     source_path: &Path,
 ) -> Result<(), Vec<Diagnostic>> {
     fn push_async_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>) {

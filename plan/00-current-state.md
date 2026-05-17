@@ -12,6 +12,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 - The shared `process.kill(0)` zero-probe helper inventory now also tracks the bare `process.kill` / `globalThis.process.kill` / bracketed reference spellings alongside the direct `Object.freeze(process.kill)` / `Object.freeze(globalThis.process.kill)` aliases, the receiver-freeze sibling spellings, and the wrapped `process["kill"]((0))` alias so diagnostics stay aligned with the current corpus, and the common crate now also exposes a combined full alias inventory helper plus a source-string helper for downstream checks and rejection corpora; that combined inventory is now built as a unique ordered union of the direct and wrapped alias families.
 - The browser late-compat and runtime smoke process-control bodies now source their shared late-process-control text from the common helper, keeping the `process.kill(0)` slice synchronized across the corpus and diagnostics.
 - The Node package-corpus smoke now also mirrors the bracketed `process["cwd"]` / `process["chdir"]` / `process["exit"]` spellings plus their `globalThis.process[...]` and `globalThis["process"][...]` aliases on the documented Node surface, and the process-corpus body now sources the shared `process.kill(0)` zero-probe helper inventory directly so the corpus and diagnostics stay aligned.
+- The shared runtime-entrypoint class-method gate helper now uses a name that matches the rejected generator/async-generator slice more precisely.
 
 ## Live surface at a glance
 
