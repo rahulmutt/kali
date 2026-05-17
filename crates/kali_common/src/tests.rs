@@ -72,6 +72,15 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 }
 
 #[test]
+fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_aliases();
+    let source = process_kill_zero_probe_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
     let message = process_kill_zero_probe_unavailable_message();

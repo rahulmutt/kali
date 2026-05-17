@@ -312,6 +312,14 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
     aliases
 }
 
+/// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
+pub fn process_kill_zero_probe_source() -> String {
+    let aliases = process_kill_zero_probe_aliases();
+    let mut source = aliases.join("; ");
+    source.push(';');
+    source
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_unavailable_message() -> String {
     let aliases = process_kill_zero_probe_aliases();
