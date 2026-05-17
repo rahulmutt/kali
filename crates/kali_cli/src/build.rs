@@ -4270,6 +4270,7 @@ fn infer_expression_type(expression: &Expression) -> Option<&'static str> {
         Expression::Literal(value) => infer_literal_type(value),
         Expression::Identifier(name) if name == "undefined" => Some("undefined"),
         Expression::BigIntLiteral(_) => Some("bigint"),
+        Expression::TemplateLiteral(_) => Some("string"),
         Expression::ParenthesizedExpression(parenthesized) => {
             infer_expression_type(&parenthesized.expression)
         }

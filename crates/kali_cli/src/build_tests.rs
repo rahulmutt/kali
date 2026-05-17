@@ -9112,6 +9112,56 @@ fn collect_library_exports_infers_literal_return_types_for_function_declarations
 }
 
 #[test]
+fn collect_library_exports_infers_template_literal_return_types_for_function_declarations_and_aliases(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "export function main(input) { return `${input}`; } export { main as alias };",
+    )
+    .expect("write source");
+
+    let statements = vec![
+        Statement::FunctionDeclaration(kali_ast::FunctionDeclaration {
+            name: "main".to_string(),
+            params: vec!["input".to_string()],
+            body: Box::new(kali_ast::BlockStatement {
+                body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
+                    argument: Some(Expression::TemplateLiteral(kali_ast::TemplateLiteral {
+                        quasis: vec![kali_ast::TemplateElement {
+                            value: String::new(),
+                            tail: true,
+                        }],
+                        expressions: vec![Expression::Identifier("input".to_string())],
+                    })),
+                })],
+            }),
+            is_async: false,
+            generator: false,
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "main".to_string(),
+                exported: "alias".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 2, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "main" && export.signature == "(input) => string" }));
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "alias" && export.signature == "(input) => string" }));
+}
+
+#[test]
 fn collect_library_exports_resolves_named_re_exports_across_source_graph() {
     let dir = tempdir().expect("tempdir");
     let helper_path = dir.path().join("helper.ts");

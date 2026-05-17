@@ -52,6 +52,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Preserve annotation-required boundaries for exported/public and cross-module surfaces when inference would exceed the bounded contract.
 - Add positive and negative checker baselines for TS and first-class JS input.
 - Library-export signature collection now also resolves function-binding alias chains within the bounded slice, including same-statement `const` aliases when the target signature is already known.
+- Template-literal function returns now infer `string` signatures through the same bounded export-signature path, keeping library exports aligned with the actual expression type.
 - Default-export aliases now resolve through the same bounded function-binding map used for local export aliases, and the regression corpus now also covers default-export alias chains and multi-hop source-graph re-export chains, including the new default-export alias-chain source-graph regression.
 
 ### 21.5 Conformance hygiene
