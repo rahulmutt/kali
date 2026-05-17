@@ -2873,7 +2873,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(pid_expr) = args.next() else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                    kali_common::process_kill_zero_probe_unavailable_message(),
                 ));
                 function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
@@ -2884,7 +2884,7 @@ impl<'a> FunctionEmitter<'a> {
             let Some(pid_text) = self.render_static_value(*pid_expr) else {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                    kali_common::process_kill_zero_probe_unavailable_message(),
                 ));
                 function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {
@@ -2895,7 +2895,7 @@ impl<'a> FunctionEmitter<'a> {
             if parse_number_literal(&pid_text) != Some(0) || args.next().is_some() {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                    kali_common::process_kill_zero_probe_unavailable_message(),
                 ));
                 function.instruction(&Instruction::I64Const(0));
                 return EmittedValue {

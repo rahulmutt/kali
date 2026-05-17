@@ -2052,7 +2052,7 @@ impl TypeContext {
         let Some(first_arg) = expr.args.first() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                kali_common::process_kill_zero_probe_unavailable_message(),
             ));
             return;
         };
@@ -2060,7 +2060,7 @@ impl TypeContext {
         let Some(first_value) = self.resolve_static_numeric_literal_value(first_arg) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                kali_common::process_kill_zero_probe_unavailable_message(),
             ));
             return;
         };
@@ -2068,7 +2068,7 @@ impl TypeContext {
         if first_value != 0.0 || expr.args.len() != 1 {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                kali_common::process_kill_zero_probe_unavailable_message().to_string(),
+                kali_common::process_kill_zero_probe_unavailable_message(),
             ));
         }
     }

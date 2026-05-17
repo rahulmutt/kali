@@ -73,8 +73,12 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 
 #[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
-    let message = process_kill_zero_probe_unavailable_message();
     let aliases = process_kill_zero_probe_aliases();
+    let message = process_kill_zero_probe_unavailable_message();
+    let expected = format!(
+        "process.kill is unavailable unless it is invoked as process.kill(0) or one of its supported Node zero-probe aliases: {}; use the zero liveness-probe subset or the later compatibility path",
+        aliases.join(", ")
+    );
 
     let mut unique_aliases = std::collections::HashSet::new();
     for alias in aliases.iter().copied() {
@@ -82,11 +86,9 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
             unique_aliases.insert(alias),
             "duplicate alias in zero-probe inventory: {alias}"
         );
-        assert!(
-            message.contains(alias),
-            "missing alias from zero-probe message: {alias}"
-        );
     }
+
+    assert_eq!(message, expected);
     assert_eq!(
         unique_aliases.len(),
         aliases.len(),
