@@ -12,8 +12,10 @@ fn frozen_object_has_own_source() -> &'static str {
 const alias = object;
 const wrapped = (0, alias);
 const frozenHasOwn = Object.freeze(globalThis.Object["hasOwn"]);
+const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
 const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
-if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
+if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenParenthesizedHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !frozenParenthesizedBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
   throw new Error('unexpected frozen Object.hasOwn result');
 }
 console.log('frozen object hasOwn ok');
@@ -26,8 +28,10 @@ fn frozen_object_has_own_test_source() -> &'static str {
   const alias = object;
   const wrapped = (0, alias);
   const frozenHasOwn = Object.freeze(globalThis.Object["hasOwn"]);
+  const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
   const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
-  if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+  const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
+  if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenParenthesizedHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !frozenParenthesizedBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
     throw new Error('unexpected frozen Object.hasOwn result');
   }
 });
