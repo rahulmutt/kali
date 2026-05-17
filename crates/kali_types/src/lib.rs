@@ -1110,7 +1110,7 @@ impl TypeContext {
                 if !self.in_generator_function {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+                        generator_function_lowering_unavailable_message(false),
                     ));
                 }
                 if let Some(argument) = &expr.argument {

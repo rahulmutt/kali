@@ -235,6 +235,19 @@ pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> 
     }
 }
 
+/// Canonical feature-unavailable wording for mixed generator/async-generator function lowering slices.
+pub fn generator_function_lowering_unavailable_message_for_flavors(
+    has_generator: bool,
+    has_async_generator: bool,
+) -> String {
+    match (has_generator, has_async_generator) {
+        (true, true) => "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
+        (true, false) => generator_function_lowering_unavailable_message(false).to_string(),
+        (false, true) => generator_function_lowering_unavailable_message(true).to_string(),
+        (false, false) => generator_function_lowering_unavailable_message(false).to_string(),
+    }
+}
+
 /// Canonical direct aliases for the supported Node `process.kill(0)` zero-probe slice.
 pub const fn process_kill_zero_probe_direct_zero_aliases() -> &'static [&'static str] {
     &[

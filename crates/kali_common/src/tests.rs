@@ -72,6 +72,26 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 }
 
 #[test]
+fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() {
+    assert_eq!(
+        generator_function_lowering_unavailable_message_for_flavors(true, true),
+        "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
+    );
+    assert_eq!(
+        generator_function_lowering_unavailable_message_for_flavors(true, false),
+        generator_function_lowering_unavailable_message(false)
+    );
+    assert_eq!(
+        generator_function_lowering_unavailable_message_for_flavors(false, true),
+        generator_function_lowering_unavailable_message(true)
+    );
+    assert_eq!(
+        generator_function_lowering_unavailable_message_for_flavors(false, false),
+        generator_function_lowering_unavailable_message(false)
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
