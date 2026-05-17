@@ -67,7 +67,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Browser bundle/harness coverage now also includes the fully bracketed `globalThis.Object.prototype.hasOwnProperty["call"]` spelling on the supported `Object.hasOwn` slice.
 - Browser-requested `run` / `test` browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS input alongside positive `--max-threads` requests, keeping the browser/runtime threading evidence explicit.
 
-- The shared process.kill(0) zero-probe wording helper now also covers the bracketed `((process["kill"]))` alias pair plus the mixed frozen `Object.freeze(globalThis["process"].kill)` and wrapped `((globalThis["process"].kill))` aliases in the canonical rejection wording; the focused helper test also now pins the receiver-freeze siblings `Object.freeze(process)["kill"]`, `Object.freeze(globalThis.process)["kill"]`, and `Object.freeze(globalThis["process"])["kill"]`.
+- The shared process.kill(0) zero-probe wording helper now also covers the bracketed `((process["kill"]))` alias pair plus the mixed frozen `Object.freeze(globalThis["process"].kill)` and wrapped `((globalThis["process"].kill))` aliases in the canonical rejection wording; the focused helper test also now pins the receiver-freeze siblings `Object.freeze(process)["kill"]`, `Object.freeze(globalThis.process)["kill"]`, and `Object.freeze(globalThis["process"])["kill"]`, while the Node API-surface/browser-compat smoke also pins the wrapped `((globalThis.process["kill"]))(+0)` alias alongside the existing zero-probe matrix.
 
 ## Exit gate
 
