@@ -1663,7 +1663,7 @@ fn assert_build_source_file_supports_math_floor_const_numeric_alias_chain_in_inp
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.floor(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); console.log(Object.freeze(globalThis.Math[\"floor\"])(alias)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(alias)); console.log(Object.freeze(globalThis.Math[\"trunc\"])(alias)); console.log(Object.freeze((globalThis.Math[\"trunc\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"trunc\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"trunc\"]))(alias)); console.log(Object.freeze(globalThis.Math[\"ceil\"])(alias)); console.log(Object.freeze((globalThis.Math[\"ceil\"]))(alias)); console.log(Object.freeze(globalThis[\"Math\"][\"ceil\"])(alias)); console.log(Object.freeze((globalThis[\"Math\"][\"ceil\"]))(alias));\n",
     )
     .expect("write source");
 
