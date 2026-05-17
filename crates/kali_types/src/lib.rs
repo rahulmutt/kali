@@ -1296,6 +1296,9 @@ impl TypeContext {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_string_expression(&expr.expression)
             }
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_string_expression(&expr.argument)
+            }
             Expression::TypeAssertion(expr) => {
                 self.resolve_static_string_expression(&expr.expression)
             }
@@ -1377,6 +1380,9 @@ impl TypeContext {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_identity_reference_name(&expr.expression)
             }
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_object_identity_reference_name(&expr.argument)
+            }
             Expression::TypeAssertion(expr) => {
                 self.resolve_static_object_identity_reference_name(&expr.expression)
             }
@@ -1429,6 +1435,9 @@ impl TypeContext {
             Expression::Literal(LiteralValue::Null) => Some(StaticObjectIdentityValue::Null),
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_identity_literal_value(&expr.expression)
+            }
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_object_identity_literal_value(&expr.argument)
             }
             Expression::UnaryExpression(expr) if expr.operator == "+" => {
                 match self.resolve_static_object_identity_literal_value(&expr.argument) {
@@ -1546,6 +1555,7 @@ impl TypeContext {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_reference_root(&expr.expression)
             }
+            Expression::AwaitExpression(expr) => self.resolve_static_reference_root(&expr.argument),
             Expression::TypeAssertion(expr) => self.resolve_static_reference_root(&expr.expression),
             Expression::SatisfiesExpression(expr) => {
                 self.resolve_static_reference_root(&expr.expression)
@@ -1644,6 +1654,9 @@ impl TypeContext {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
+            }
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_object_keys_target(&expr.argument)
             }
             Expression::TypeAssertion(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
