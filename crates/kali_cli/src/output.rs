@@ -1399,10 +1399,12 @@ fn validate_browser_runtime_supported_commands_value(
         return Err(format!("{context} must be an array"));
     };
 
+    let expected_commands = kali_runtime::BrowserRuntimeContract::supported_commands();
+
     if items.is_empty() {
         return Err(format!("{context} must contain at least one item"));
     }
-    if items.len() != BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS.len() {
+    if items.len() != expected_commands.len() {
         return Err(format!(
             "{context} must be exactly {} in that order",
             browser_runtime_supported_commands_message()
@@ -1444,31 +1446,20 @@ fn validate_browser_runtime_supported_commands_value(
     Ok(())
 }
 
-const BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS: [&str; 2] = ["run", "test"];
-const BROWSER_RUNTIME_CONTRACT_NOTES: [&str; 5] = [
-    "supported browser runtime commands: run, test",
-    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
-    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
-    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
-    "browser runtime host description: real browser host",
-];
-
 fn browser_runtime_supported_commands_message() -> String {
-    format!(
-        "[`{}`, `{}`]",
-        BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS[0],
-        BROWSER_RUNTIME_CONTRACT_SUPPORTED_COMMANDS[1]
-    )
+    let commands = kali_runtime::BrowserRuntimeContract::supported_commands();
+    format!("[`{}`, `{}`]", commands[0], commands[1])
 }
 
 fn browser_runtime_contract_notes_message() -> String {
+    let notes = kali_runtime::BrowserRuntimeContract::diagnostic_notes();
     format!(
-        "[`{}`, `{}`, `{}`, `{}`, `{}`]",
-        BROWSER_RUNTIME_CONTRACT_NOTES[0],
-        BROWSER_RUNTIME_CONTRACT_NOTES[1],
-        BROWSER_RUNTIME_CONTRACT_NOTES[2],
-        BROWSER_RUNTIME_CONTRACT_NOTES[3],
-        BROWSER_RUNTIME_CONTRACT_NOTES[4]
+        "[{}]",
+        notes
+            .iter()
+            .map(|note| format!("`{note}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
     )
 }
 
@@ -1485,7 +1476,7 @@ fn validate_browser_runtime_diagnostic_notes_value(
     }
 
     let mut seen = HashSet::new();
-    let expected_notes = BROWSER_RUNTIME_CONTRACT_NOTES;
+    let expected_notes = kali_runtime::BrowserRuntimeContract::diagnostic_notes();
 
     for (index, (item, expected_item)) in items.iter().zip(expected_notes.iter()).enumerate() {
         let Some(item) = item.as_str() else {
@@ -1552,46 +1543,42 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "doctor browserRuntimeContract",
     )?;
 
-    const BROWSER_RUNTIME_HOST_LABEL: &str = "browser-requested";
+    let browser_runtime_contract = kali_runtime::BrowserRuntimeContract::descriptor();
 
-    if !trimmed_string_matches(object.get("hostLabel"), BROWSER_RUNTIME_HOST_LABEL) {
+    if !trimmed_string_matches(object.get("hostLabel"), browser_runtime_contract.host_label) {
         return Err(format!(
-            "doctor browserRuntimeContract hostLabel must be `{BROWSER_RUNTIME_HOST_LABEL}`"
+            "doctor browserRuntimeContract hostLabel must be `{}`",
+            browser_runtime_contract.host_label
         ));
     }
-
-    const BROWSER_RUNTIME_HOST_DESCRIPTION: &str = "real browser host";
 
     if !trimmed_string_matches(
         object.get("hostDescription"),
-        BROWSER_RUNTIME_HOST_DESCRIPTION,
+        browser_runtime_contract.host_description,
     ) {
         return Err(format!(
-            "doctor browserRuntimeContract hostDescription must be `{BROWSER_RUNTIME_HOST_DESCRIPTION}`"
+            "doctor browserRuntimeContract hostDescription must be `{}`",
+            browser_runtime_contract.host_description
         ));
     }
-
-    const BROWSER_RUNTIME_DIAGNOSTIC_HINT: &str =
-        "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.";
 
     if !trimmed_string_matches(
         object.get("diagnosticHint"),
-        BROWSER_RUNTIME_DIAGNOSTIC_HINT,
+        browser_runtime_contract.diagnostic_hint,
     ) {
         return Err(format!(
-            "doctor browserRuntimeContract diagnosticHint must be `{BROWSER_RUNTIME_DIAGNOSTIC_HINT}`"
+            "doctor browserRuntimeContract diagnosticHint must be `{}`",
+            browser_runtime_contract.diagnostic_hint
         ));
     }
 
-    const BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE: &str =
-        "browser runtime host description: real browser host";
-
     if !trimmed_string_matches(
         object.get("hostDescriptionNote"),
-        BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE,
+        browser_runtime_contract.host_description_note,
     ) {
         return Err(format!(
-            "doctor browserRuntimeContract hostDescriptionNote must be `{BROWSER_RUNTIME_HOST_DESCRIPTION_NOTE}`"
+            "doctor browserRuntimeContract hostDescriptionNote must be `{}`",
+            browser_runtime_contract.host_description_note
         ));
     }
 
