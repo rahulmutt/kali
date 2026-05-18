@@ -2772,6 +2772,27 @@ mod tests {
     }
 
     #[test]
+    fn browser_runtime_contract_accepts_trimmed_all_runtime_fields() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["hostLabel"] = json!(" browser-requested ");
+        contract["hostDescription"] = json!(" real browser host ");
+        contract["hostDescriptionNote"] =
+            json!(" browser runtime host description: real browser host ");
+        contract["supportedCommands"] = json!([" run ", " test "]);
+        contract["diagnosticHint"] = json!(" Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ");
+        contract["diagnosticNotes"] = json!([
+            " supported browser runtime commands: run, test ",
+            " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
+            " browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ",
+            " browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid ",
+            " browser runtime host description: real browser host ",
+        ]);
+
+        validate_browser_runtime_contract_value(Some(&contract))
+            .expect("trimmed browser runtime contract fields should validate");
+    }
+
+    #[test]
     fn browser_runtime_contract_rejects_whitespace_only_canonical_labels() {
         for (field, expected) in [
             (
