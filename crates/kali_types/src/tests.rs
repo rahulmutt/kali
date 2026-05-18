@@ -179,6 +179,9 @@ fn test_resolution_supports_bracketed_reflect_own_keys_iteration_target_in_js_in
     let source = r#"for (const key of globalThis["Reflect"]["ownKeys"]({ a: 1 })) {
     console.log(key);
 }
+for (const key of globalThis['Reflect']['ownKeys']({ a: 1 })) {
+    console.log(key);
+}
 "#;
     fs::write(&source_path, source).unwrap();
 
@@ -8736,6 +8739,7 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_ex
     console.log(Number.isSafeInteger(await 1));
     console.log(Object.keys(await { a: 1 }));
     console.log(Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 })));
+    console.log(globalThis['Reflect']['ownKeys'](await Object.freeze({ c: 3, a: 1 })));
 }
 main();
 "#;
