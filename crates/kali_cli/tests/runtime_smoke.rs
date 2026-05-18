@@ -63486,6 +63486,75 @@ fn package_effects_command_emits_json_envelope_under_quiet_inherited_browser_con
 }
 
 #[test]
+fn package_effects_command_emits_json_envelope_under_quiet_inherited_browser_and_threaded_context()
+{
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/browser-threaded-purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser",
+    "runtimeProfiles": ["wasm-threads"]
+  }
+}"#,
+    )
+    .expect("write manifest");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "browser-threaded-purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(
+        package_dir.join("index.js"),
+        "console.log('browser threaded package');",
+    )
+    .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("--quiet")
+        .arg("--output")
+        .arg("json")
+        .arg("browser-threaded-purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert_eq!(json["success"], true);
+    assert_eq!(
+        json["payload"]["package"]["name"],
+        "browser-threaded-purepkg"
+    );
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["apiSurface"],
+        "browser"
+    );
+    assert_eq!(
+        json["payload"]["report"]["analysisContext"]["runtimeProfiles"],
+        json!(["wasm-threads"])
+    );
+    assert_eq!(
+        json["payload"]["report"]["entryPoints"],
+        json!(["browser-threaded-purepkg"])
+    );
+}
+
+#[test]
 fn package_effects_command_is_deterministic_across_repeated_json_envelope_invocations_under_inherited_browser_context(
 ) {
     let dir = tempdir().expect("tempdir");
