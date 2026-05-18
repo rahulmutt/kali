@@ -247,7 +247,7 @@ kali run --wasm-threads main.ts             # Enable WASM threads (SharedArrayBu
 
 `kali run` is a direct-input command in early phases: it requires exactly one explicit executable/analyzable source entrypoint, accepts guest arguments only after `--`, and does not guess a project default such as `main.ts`.
 
-In schema v1 JSON mode, `run` and `test` payloads may include optional `hostContract`, `runtimeBackend`, and `threadTopology` provenance snapshots; those fields are deterministic observability data, not support claims. When present, `threadTopology.liveInstances` is serialized in ascending `instanceId` order and remains duplicate-free so repeated emissions stay stable. Each `threadTopology.liveInstances[].scriptUrl` is a canonical absolute URL string, so validators reject relative or whitespace-only spellings.
+In schema v1 JSON mode, `run` and `test` payloads may include optional `hostContract`, `runtimeBackend`, and `threadTopology` provenance snapshots; those fields are deterministic observability data, not support claims. When present, `threadTopology.liveInstances` is serialized in ascending `instanceId` order and remains duplicate-free so repeated emissions stay stable. Each `threadTopology.liveInstances[].scriptUrl` is a canonical absolute URL string, not a relative or whitespace-padded spelling.
 
 Initial implementations use wasmtime; alternative runtime backends are a later-phase feature. Feature flags and subcommands that depend on later phases should be hidden or clearly diagnosed when unavailable rather than exposed as silently nonfunctional options.
 

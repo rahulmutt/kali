@@ -2260,36 +2260,56 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 #[test]
 fn browser_runtime_contract_docs_track_trimmed_validation_rules() {
     let root = repo_root();
-    let schemas = fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas spec");
+    let docs = [
+        (
+            "specs/18-schemas.md",
+            [
+                "hostLabel: const",
+                "hostDescription: non-empty, non-whitespace string",
+                "hostDescriptionNote: const",
+                "supportedCommands: string[]",
+                "diagnosticHint: non-empty, non-whitespace string",
+                "diagnosticNotes: string[]",
+                "validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail",
+                "validators compare each emitted note after trimming surrounding whitespace, but whitespace-only notes still fail",
+            ]
+            .as_slice(),
+        ),
+        (
+            "specs/12-cli.md",
+            [
+                "The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden.",
+                "Each `threadTopology.liveInstances[].scriptUrl` is a canonical absolute URL string, not a relative or whitespace-padded spelling.",
+            ]
+            .as_slice(),
+        ),
+    ];
 
-    for expected in [
-        "hostLabel: const",
-        "hostDescription: non-empty, non-whitespace string",
-        "hostDescriptionNote: const",
-        "supportedCommands: string[]",
-        "diagnosticHint: non-empty, non-whitespace string",
-        "diagnosticNotes: string[]",
-        "validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail",
-        "validators compare each emitted note after trimming surrounding whitespace, but whitespace-only notes still fail",
-    ] {
-        assert!(
-            schemas.contains(expected),
-            "specs/18-schemas.md is missing browser runtime contract marker: {expected}"
-        );
+    for (doc, expectations) in docs {
+        let contents = fs::read_to_string(root.join(doc)).expect("read browser runtime docs");
+        for expected in expectations {
+            assert!(
+                contents.contains(expected),
+                "{doc} is missing browser runtime contract marker: {expected}"
+            );
+        }
     }
 }
 
 #[test]
 fn run_test_result_provenance_docs_track_canonical_thread_topology_script_urls() {
     let root = repo_root();
-    let schemas = fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas spec");
+    let docs = ["specs/18-schemas.md", "specs/12-cli.md"];
 
-    assert!(
-        schemas.contains(
-            "canonical absolute URL string, not a relative or whitespace-padded spelling"
-        ),
-        "specs/18-schemas.md should describe the canonical threadTopology scriptUrl form"
-    );
+    for doc in docs {
+        let contents = fs::read_to_string(root.join(doc)).expect("read run/test provenance docs");
+        assert!(
+            contents.contains(
+                "canonical absolute URL string, not a relative or whitespace-padded spelling"
+            ),
+            "{doc} should describe the canonical threadTopology scriptUrl form"
+        );
+    }
 }
 
 #[test]
