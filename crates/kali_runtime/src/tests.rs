@@ -2369,6 +2369,20 @@ fn browser_requested_runtime_reports_thread_topology_from_thread_spawn() {
     assert!(instance.posted_messages.is_empty());
     assert!(instance.posted_shared_buffers.is_empty());
     assert!(!instance.was_terminated);
+    assert_eq!(
+        outcome.thread_topology.snapshot_value(),
+        serde_json::json!({
+            "totalInstances": 1,
+            "terminatedInstances": 0,
+            "liveInstances": [{
+                "instanceId": 0,
+                "scriptUrl": "https://example.com/thread.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false
+            }]
+        })
+    );
 }
 
 #[test]
