@@ -2678,6 +2678,20 @@ mod tests {
     }
 
     #[test]
+    fn browser_runtime_contract_rejects_duplicate_supported_commands_items_after_trim() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["supportedCommands"] = json!([" run ", "run"]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("duplicate supportedCommands item should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract supportedCommands must not contain duplicate item `run`"
+        );
+    }
+
+    #[test]
     fn browser_runtime_contract_rejects_whitespace_only_diagnostic_notes_items() {
         let mut contract = browser_runtime_contract_fixture();
         contract["diagnosticNotes"] = json!([
@@ -2694,6 +2708,26 @@ mod tests {
         assert_eq!(
             err,
             "doctor browserRuntimeContract diagnosticNotes[1] must be a non-empty, non-whitespace string"
+        );
+    }
+
+    #[test]
+    fn browser_runtime_contract_rejects_duplicate_diagnostic_notes_items_after_trim() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["diagnosticNotes"] = json!([
+            " supported browser runtime commands: run, test ",
+            "supported browser runtime commands: run, test",
+            "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+            "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+            "browser runtime host description: real browser host"
+        ]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("duplicate diagnosticNotes item should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract diagnosticNotes must not contain duplicate item `supported browser runtime commands: run, test`"
         );
     }
 
