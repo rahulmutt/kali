@@ -27,8 +27,13 @@ fn late_js_compatibility_source_with_mixed_process_forms() -> String {
     )
 }
 fn late_js_compatibility_source_without_object_has_own() -> String {
-    late_js_compatibility_source()
-        .replace("Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis.Object[\"hasOwn\"](globalThis, \"a\"); globalThis[\"Object\"].hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis.Object[\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); globalThis.Object.prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); ", "")
+    late_js_compatibility_source().replace(
+        &format!(
+            "{} ",
+            kali_common::late_compat_object_has_own_source("globalThis", r#""a""#)
+        ),
+        "",
+    )
 }
 
 fn late_process_env_mutation_source() -> String {
@@ -397,6 +402,14 @@ fn late_js_compatibility_source_includes_bracketed_process_object_and_env_forms(
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+}
+
+#[test]
+fn late_js_compatibility_source_without_object_has_own_omits_shared_helper_block() {
+    let source = late_js_compatibility_source_without_object_has_own();
+    let helper_block = kali_common::late_compat_object_has_own_source("globalThis", r#""a""#);
+
+    assert!(!source.contains(helper_block.as_str()), "source: {source}");
 }
 
 #[test]

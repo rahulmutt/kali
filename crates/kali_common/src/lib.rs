@@ -552,6 +552,35 @@ pub fn object_has_own_property_call_frozen_callable_condition_source(
         .join(" || ")
 }
 
+/// Canonical source text for the supported late-compat `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice.
+pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str) -> String {
+    let source = [
+        format!("Object.hasOwn({receiver_source}, {key_source})"),
+        format!("globalThis.Object.hasOwn({receiver_source}, {key_source})"),
+        format!(r#"globalThis.Object["hasOwn"]({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"].hasOwn({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"]["hasOwn"]({receiver_source}, {key_source})"#),
+        format!(r#"Object["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!(r#"Object["hasOwnProperty"]["call"]({receiver_source}, {key_source})"#),
+        format!(r#"globalThis.Object["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"].hasOwnProperty.call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"]["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!("Object.prototype.hasOwnProperty.call({receiver_source}, {key_source})"),
+        format!("globalThis.Object.prototype.hasOwnProperty.call({receiver_source}, {key_source})"),
+        format!(r#"globalThis.Object.prototype.hasOwnProperty["call"]({receiver_source}, {key_source})"#),
+        format!(r#"globalThis.Object["prototype"].hasOwnProperty.call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis.Object["prototype"]["hasOwnProperty"]["call"]({receiver_source}, {key_source})"#),
+        format!(r#"globalThis.Object.prototype["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"].prototype.hasOwnProperty.call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"].prototype.hasOwnProperty["call"]({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"].prototype["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"]["prototype"].hasOwnProperty.call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({receiver_source}, {key_source})"#),
+    ]
+    .join("; ");
+    format!("{source};")
+}
+
 /// Canonical source text for the supported `Object.prototype.hasOwnProperty.call` helper.
 pub const fn object_has_own_property_call_source() -> &'static str {
     "Object.prototype.hasOwnProperty.call"

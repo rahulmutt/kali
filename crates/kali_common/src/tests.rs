@@ -457,6 +457,25 @@ fn test_object_has_own_property_call_binding_source_is_canonical() {
 }
 
 #[test]
+fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order() {
+    let source = late_compat_object_has_own_source("globalThis", r#""a""#);
+
+    for expected in [
+        r#"Object.hasOwn(globalThis, "a")"#,
+        r#"globalThis.Object.hasOwn(globalThis, "a")"#,
+        r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+        r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+    ] {
+        assert!(source.contains(expected), "missing alias: {expected}");
+    }
+
+    assert!(
+        source.ends_with(';'),
+        "source should be semicolon-terminated: {source}"
+    );
+}
+
+#[test]
 fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_floor_trunc_ceil_frozen_callable_aliases();
     let source = math_floor_trunc_ceil_frozen_callable_source();
