@@ -2664,6 +2664,20 @@ mod tests {
     }
 
     #[test]
+    fn browser_runtime_contract_rejects_empty_supported_commands() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["supportedCommands"] = json!([]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("empty supportedCommands should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract supportedCommands must contain at least one item"
+        );
+    }
+
+    #[test]
     fn browser_runtime_contract_rejects_whitespace_only_supported_commands_items() {
         let mut contract = browser_runtime_contract_fixture();
         contract["supportedCommands"] = json!(["run", "  "]);
@@ -2688,6 +2702,20 @@ mod tests {
         assert_eq!(
             err,
             "doctor browserRuntimeContract supportedCommands must not contain duplicate item `run`"
+        );
+    }
+
+    #[test]
+    fn browser_runtime_contract_rejects_empty_diagnostic_notes() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["diagnosticNotes"] = json!([]);
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("empty diagnosticNotes should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract diagnosticNotes must contain at least one item"
         );
     }
 
