@@ -3997,7 +3997,8 @@ fn assert_check_source_file_supports_set_constructor_iteration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); }\n",
+        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new (Object.freeze((Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis.Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis[\"Set\"])))([1, 2, 1])) { console.log(value); }
+",
     )
     .expect("write source");
 
@@ -4013,7 +4014,8 @@ fn assert_build_source_file_supports_set_constructor_iteration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); }\n",
+        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new (Object.freeze((Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis.Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis[\"Set\"])))([1, 2, 1])) { console.log(value); }
+",
     )
     .expect("write source");
 
@@ -4042,7 +4044,8 @@ fn assert_check_source_file_supports_map_constructor_iteration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }\n",
+        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis.Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis[\"Map\"])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }
+",
     )
     .expect("write source");
 
@@ -4058,7 +4061,8 @@ fn assert_build_source_file_supports_map_constructor_iteration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }\n",
+        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis.Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis[\"Map\"])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }
+",
     )
     .expect("write source");
 
