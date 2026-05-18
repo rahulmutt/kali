@@ -9845,6 +9845,40 @@ fn collect_library_exports_infers_default_function_expression_exports_through_fr
 }
 
 #[test]
+fn collect_library_exports_infers_const_function_expression_exports_through_freeze_wrapper_across_source_graph(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let helper_path = dir.path().join(format!("helper.{extension}"));
+        let bridge_path = dir.path().join(format!("bridge.{extension}"));
+        let entry_path = dir.path().join(format!("entry.{extension}"));
+
+        fs::write(
+            &helper_path,
+            "const main = Object.freeze((input) => 1); export default main;",
+        )
+        .expect("write helper source");
+        fs::write(
+            &bridge_path,
+            format!("export {{ default as bridged }} from './helper.{extension}';"),
+        )
+        .expect("write bridge source");
+        fs::write(
+            &entry_path,
+            format!("export {{ bridged as final }} from './bridge.{extension}';"),
+        )
+        .expect("write entry source");
+
+        let exports = collect_library_exports(&entry_path, ApiSurface::Deno, &[])
+            .expect("library exports should resolve through freeze-wrapped source graph aliases");
+
+        assert_eq!(exports.len(), 1, "exports for {extension}: {exports:?}");
+        assert_eq!(exports[0].name, "final");
+        assert_eq!(exports[0].signature, "(input) => number");
+    }
+}
+
+#[test]
 fn collect_library_exports_infers_default_function_expression_exports_through_nullish_wrapper() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
