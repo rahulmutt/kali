@@ -1,5 +1,6 @@
 use std::{fs, process::Command};
 
+use kali_common::math_pow_frozen_callable_aliases;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -7,34 +8,42 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_math_pow_alias_source() -> &'static str {
-    r##"// kali-tree-shake: mathPowAliasChain
-function mathPowAliasChain() {
+fn browser_bundle_math_pow_frozen_lines() -> String {
+    math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}(2, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn browser_bundle_math_pow_alias_source() -> String {
+    format!(
+        r##"// kali-tree-shake: mathPowAliasChain
+function mathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
   console.log(Math.pow(2, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+{}
   return Math.pow(2, alias);
-}
-"##
+}}
+"##,
+        browser_bundle_math_pow_frozen_lines()
+    )
 }
 
-fn browser_bundle_global_this_math_pow_alias_source() -> &'static str {
-    r##"// kali-tree-shake: globalThisMathPowAliasChain
-function globalThisMathPowAliasChain() {
+fn browser_bundle_global_this_math_pow_alias_source() -> String {
+    format!(
+        r##"// kali-tree-shake: globalThisMathPowAliasChain
+function globalThisMathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
   console.log(globalThis.Math.pow(2, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+{}
   return globalThis.Math.pow(2, alias);
-}
-"##
+}}
+"##,
+        browser_bundle_math_pow_frozen_lines()
+    )
 }
 
 fn assert_browser_bundle_math_pow_alias(filename: &str, json_output: bool) {
@@ -46,15 +55,15 @@ fn assert_browser_bundle_math_pow_alias(filename: &str, json_output: bool) {
     );
 }
 
-fn assert_browser_bundle_math_pow_alias_with_source(
+fn assert_browser_bundle_math_pow_alias_with_source<S: AsRef<str>>(
     filename: &str,
     json_output: bool,
-    source: &'static str,
+    source: S,
     export_name: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command

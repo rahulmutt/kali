@@ -318,6 +318,40 @@ fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order(
 }
 
 #[test]
+fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_pow_frozen_callable_aliases();
+    let source = math_pow_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        r#"Object.freeze(globalThis.Math["pow"])"#,
+        r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze(globalThis["Math"]["pow"])"#,
+        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze(globalThis.Math.pow)"#,
+        r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze(globalThis["Math"].pow)"#,
+        r#"Object.freeze((globalThis["Math"].pow))"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.pow frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once() {
     let source = late_process_control_source();
     let prefix = late_process_control_prefix_source();

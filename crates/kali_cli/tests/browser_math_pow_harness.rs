@@ -1,5 +1,6 @@
 use std::{fs, process::Command};
 
+use kali_common::math_pow_frozen_callable_aliases;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -7,30 +8,46 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_harness_math_pow_run_source() -> &'static str {
-    "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\nconsole.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias));\nconsole.log(Object.freeze((globalThis.Math[\"pow\"]))(2, alias));\nconsole.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias));\nconsole.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(2, alias));\n"
+fn browser_harness_math_pow_frozen_lines() -> String {
+    math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("console.log({alias}(2, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
-fn browser_harness_math_pow_test_source() -> &'static str {
-    r#"Kali.test('math pow alias chain', () => {
+fn browser_harness_math_pow_run_source() -> String {
+    format!(
+        "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\n{}\n",
+        browser_harness_math_pow_frozen_lines()
+    )
+}
+
+fn browser_harness_math_pow_test_source() -> String {
+    format!(
+        r#"Kali.test('math pow alias chain', () => {{
   const exponent = 3;
   const alias = exponent;
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
-});
-"#
+  {}
+}});
+"#,
+        browser_harness_math_pow_frozen_lines()
+    )
 }
 
-fn assert_browser_harness_math_pow(command: &str, filename: &str, source: &str, json_output: bool) {
+fn assert_browser_harness_math_pow<S: AsRef<str>>(
+    command: &str,
+    filename: &str,
+    source: S,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut output = Command::new(kali_bin());
     output

@@ -465,6 +465,25 @@ pub fn math_floor_trunc_ceil_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_floor_trunc_ceil_frozen_callable_aliases())
 }
 
+/// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["pow"])"#,
+        r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze(globalThis["Math"]["pow"])"#,
+        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze(globalThis.Math.pow)"#,
+        r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze(globalThis["Math"].pow)"#,
+        r#"Object.freeze((globalThis["Math"].pow))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.pow` frozen callable aliases.
+pub fn math_pow_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_pow_frozen_callable_aliases())
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_unavailable_message() -> String {
     let aliases = process_kill_zero_probe_aliases();
