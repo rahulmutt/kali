@@ -37,8 +37,8 @@ use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_harness_command_parts_checked, browser_runtime_contract_value,
     browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
-    RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
+    normalize_runtime_profiles, RuntimeBackend, RuntimeCtx, RuntimeHostContract,
+    BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -363,8 +363,10 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             .arg("--version")
             .output()
             .is_ok();
-    let browser_runtime_contract = BrowserRuntimeContract::descriptor();
     let browser_runtime_contract_json = browser_runtime_contract_value();
+    let browser_runtime_contract = browser_runtime_contract_json
+        .as_object()
+        .expect("browser runtime contract must be a JSON object");
     let payload = json!({
         "browserHarness": {
             "envVar": BROWSER_HARNESS_COMMAND_ENV,
@@ -403,21 +405,52 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         println!("  command: {}", command_parts.join(" "));
         println!("  executable available: {}", executable_available);
         println!("Browser runtime contract:");
-        println!("  host label: {}", browser_runtime_contract.host_label);
+        println!(
+            "  host label: {}",
+            browser_runtime_contract
+                .get("hostLabel")
+                .and_then(Value::as_str)
+                .expect("browser runtime contract hostLabel string")
+        );
         println!(
             "  host description: {}",
-            browser_runtime_contract.host_description
+            browser_runtime_contract
+                .get("hostDescription")
+                .and_then(Value::as_str)
+                .expect("browser runtime contract hostDescription string")
         );
         println!(
             "  supported commands: {}",
-            browser_runtime_contract.supported_commands.join(", ")
+            browser_runtime_contract
+                .get("supportedCommands")
+                .and_then(Value::as_array)
+                .expect("browser runtime contract supportedCommands array")
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .expect("browser runtime contract supportedCommands item string")
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
         );
         println!(
             "  diagnostic hint: {}",
-            browser_runtime_contract.diagnostic_hint
+            browser_runtime_contract
+                .get("diagnosticHint")
+                .and_then(Value::as_str)
+                .expect("browser runtime contract diagnosticHint string")
         );
-        for note in BrowserRuntimeContract::diagnostic_notes() {
-            println!("  note: {note}");
+        for note in browser_runtime_contract
+            .get("diagnosticNotes")
+            .and_then(Value::as_array)
+            .expect("browser runtime contract diagnosticNotes array")
+        {
+            println!(
+                "  note: {}",
+                note.as_str()
+                    .expect("browser runtime contract diagnosticNotes item string")
+            );
         }
     }
 
