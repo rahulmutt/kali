@@ -236,15 +236,15 @@ pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> 
 }
 
 /// Canonical feature-unavailable wording for mixed generator/async-generator function lowering slices.
-pub fn generator_function_lowering_unavailable_message_for_flavors(
+pub const fn generator_function_lowering_unavailable_message_for_flavors(
     has_generator: bool,
     has_async_generator: bool,
-) -> String {
+) -> &'static str {
     match (has_generator, has_async_generator) {
-        (true, true) => "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path".to_string(),
-        (true, false) => generator_function_lowering_unavailable_message(false).to_string(),
-        (false, true) => generator_function_lowering_unavailable_message(true).to_string(),
-        (false, false) => generator_function_lowering_unavailable_message(false).to_string(),
+        (true, true) => "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path",
+        (true, false) => generator_function_lowering_unavailable_message(false),
+        (false, true) => generator_function_lowering_unavailable_message(true),
+        (false, false) => generator_function_lowering_unavailable_message(false),
     }
 }
 

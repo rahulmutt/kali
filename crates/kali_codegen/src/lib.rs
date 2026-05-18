@@ -5522,7 +5522,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 }
 
-fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> String {
+fn generator_lowering_unavailable_message(function_plans: &[FunctionPlan]) -> &'static str {
     let has_generator = function_plans
         .iter()
         .any(|plan| matches!(plan.flavor, Some(FunctionFlavor::Generator)));

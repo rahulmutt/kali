@@ -73,8 +73,10 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 
 #[test]
 fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() {
+    const BOTH: &str = generator_function_lowering_unavailable_message_for_flavors(true, true);
+
     assert_eq!(
-        generator_function_lowering_unavailable_message_for_flavors(true, true),
+        BOTH,
         "generator and async-generator function lowering is unavailable in the current phase; use a synchronous function or the later compatibility path"
     );
     assert_eq!(
