@@ -128,6 +128,8 @@ fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() 
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
+    let parenthesized_receiver_freeze_source =
+        process_kill_zero_probe_parenthesized_receiver_freeze_source();
     let aliases = process_kill_zero_probe_aliases();
     let source = process_kill_zero_probe_source();
     let inventory_source = process_kill_zero_probe_alias_inventory_source();
@@ -222,6 +224,17 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end())
     );
     assert_eq!(source, expected);
+    assert_eq!(
+        parenthesized_receiver_freeze_source,
+        concat!(
+            "Object.freeze((process)).kill(0); ",
+            "Object.freeze((process)).kill(+0); ",
+            "Object.freeze((globalThis.process)).kill(0); ",
+            "Object.freeze((globalThis.process)).kill(+0); ",
+            "Object.freeze((globalThis[\"process\"])).kill(0); ",
+            "Object.freeze((globalThis[\"process\"])).kill(+0);"
+        )
+    );
 }
 
 #[test]

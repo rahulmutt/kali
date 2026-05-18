@@ -348,6 +348,18 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
     ]
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` receiver-freeze dot aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_source() -> String {
+    join_semicolon_terminated_segments(&[
+        r#"Object.freeze((process)).kill(0)"#,
+        r#"Object.freeze((process)).kill(+0)"#,
+        r#"Object.freeze((globalThis.process)).kill(0)"#,
+        r#"Object.freeze((globalThis.process)).kill(+0)"#,
+        r#"Object.freeze((globalThis["process"])).kill(0)"#,
+        r#"Object.freeze((globalThis["process"])).kill(+0)"#,
+    ])
+}
+
 fn join_semicolon_terminated_segments(segments: &[&str]) -> String {
     let mut source = segments.join("; ");
     source.push(';');
