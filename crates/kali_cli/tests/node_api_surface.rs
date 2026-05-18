@@ -2172,6 +2172,84 @@ fn node_api_surface_rejects_node_worker_threads_module_in_js_input_on_check_buil
 }
 
 #[test]
+fn inherited_node_api_surface_rejects_node_worker_threads_module_in_js_input_on_check_build_run_and_test_commands(
+) {
+    let dir = tempdir().expect("tempdir");
+    let run_file = dir.path().join("main.js");
+    let test_file = dir.path().join("main.test.js");
+    fs::write(
+        &run_file,
+        "import { Worker } from 'node:worker_threads';\nconsole.log(typeof Worker);\n",
+    )
+    .expect("write run file");
+    fs::write(
+        &test_file,
+        "import { Worker } from 'node:worker_threads';\nKali.test('node worker_threads', () => console.log(typeof Worker));\n",
+    )
+    .expect("write test file");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "node"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let expected_message =
+        "node builtin 'node:worker_threads' is not available on the explicit Node API surface";
+
+    for command in ["check", "build", "run", "test"] {
+        let input_path = if command == "test" {
+            &test_file
+        } else {
+            &run_file
+        };
+
+        let mut text_command = Command::new(kali_bin());
+        text_command.current_dir(dir.path()).arg(command);
+        text_command.arg(input_path);
+
+        let text_output = text_command.output().expect("run kali");
+        assert!(
+            !text_output.status.success(),
+            "{command} should be rejected on the inherited Node surface for node:worker_threads\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&text_output.stdout),
+            String::from_utf8_lossy(&text_output.stderr)
+        );
+        let text_stderr = String::from_utf8_lossy(&text_output.stderr);
+        assert!(
+            text_stderr.contains(expected_message),
+            "{command} stderr for inherited node:worker_threads: {text_stderr}"
+        );
+
+        let mut json_command = Command::new(kali_bin());
+        json_command
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg(command)
+            .arg(input_path);
+
+        let json_output = json_command.output().expect("run kali");
+        assert!(
+            !json_output.status.success(),
+            "json {command} should surface the inherited Node worker_threads rejection as machine-readable output\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&json_output.stdout),
+            String::from_utf8_lossy(&json_output.stderr)
+        );
+        let json = parse_json_stdout(&json_output);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        assert_eq!(json["errors"][0]["code"], "E5506");
+        assert_eq!(json["errors"][0]["message"], expected_message);
+    }
+}
+
+#[test]
 fn node_api_surface_supports_process_env_property_mutation_in_js_input_on_check_build_run_and_test_commands(
 ) {
     let source_variants = [
