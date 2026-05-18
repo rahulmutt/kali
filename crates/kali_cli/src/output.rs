@@ -1012,6 +1012,11 @@ fn validate_canonical_absolute_url_string_value(
             "{context} must be a non-empty, non-whitespace string"
         ));
     }
+    if trimmed != value {
+        return Err(format!(
+            "{context} must not have leading or trailing whitespace"
+        ));
+    }
 
     Url::parse(trimmed)
         .map_err(|_| format!("{context} must be a valid absolute URL, got {value}"))?;
