@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use tempfile::tempdir;
 
 use kali_common::{
+    process_kill_zero_probe_call_target_bindings_source,
     process_kill_zero_probe_console_log_source, process_kill_zero_probe_guard_source,
     process_kill_zero_probe_satisfies_source,
     process_kill_zero_probe_sequence_call_target_bindings_source,
@@ -3043,17 +3044,22 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
             let dir = tempdir().expect("tempdir");
             let run_file = dir.path().join(format!("main.{extension}"));
             let test_file = dir.path().join(format!("main.test.{extension}"));
+            let call_target_bindings_source = process_kill_zero_probe_call_target_bindings_source();
             let sequence_call_target_bindings_source =
                 process_kill_zero_probe_sequence_call_target_bindings_source();
             let run_source = [
-                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const dotBracketKill = globalThis.process[\"kill\"]; const fullyBracketedKill = globalThis[\"process\"][\"kill\"]; ",
+                "const zero = 0; const zeroAlias = zero; ",
+                call_target_bindings_source.as_str(),
+                " ",
                 sequence_call_target_bindings_source.as_str(),
                 " console.log(process.kill(zeroAlias)); console.log(globalThis.process.kill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(globalThis.process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(fullyBracketedSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
             ]
             .concat();
             fs::write(&run_file, run_source).expect("write run file");
             let test_source = [
-                "const zero = 0; const zeroAlias = zero; const kill = process.kill; const bracketedKill = globalThis[\"process\"][\"kill\"]; const dotBracketKill = globalThis.process[\"kill\"]; const fullyBracketedKill = globalThis[\"process\"][\"kill\"]; ",
+                "const zero = 0; const zeroAlias = zero; ",
+                call_target_bindings_source.as_str(),
+                " ",
                 sequence_call_target_bindings_source.as_str(),
                 " Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !globalThis.process.kill(+zero) || !globalThis[\"process\"][\"kill\"](zero) || !process[\"kill\"](zero) || !kill(0) || !bracketedKill(+0) || !dotBracketKill(0) || !fullyBracketedKill(0) || !sequenceKill(0) || !bracketedRootSequenceKill(0) || !dotRootSequenceKill(0) || !bracketedSequenceKill(0) || !dotBracketSequenceKill(0) || !fullyBracketedSequenceKill(0) || !((globalThis[\"process\"][\"kill\"]))(+0)) { throw new Error('expected zero probe'); } });\n",
             ]

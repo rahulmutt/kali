@@ -470,6 +470,16 @@ pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String 
     ])
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` direct call-target bindings.
+pub fn process_kill_zero_probe_call_target_bindings_source() -> String {
+    join_semicolon_terminated_segments(&[
+        r#"const kill = process.kill"#,
+        r#"const bracketedKill = globalThis["process"]["kill"]"#,
+        r#"const dotBracketKill = globalThis.process["kill"]"#,
+        r#"const fullyBracketedKill = globalThis["process"]["kill"]"#,
+    ])
+}
+
 /// Canonical `console.log(...)` source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_console_log_source() -> String {
     let statements = process_kill_zero_probe_aliases()

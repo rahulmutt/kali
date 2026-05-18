@@ -314,6 +314,21 @@ fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_o
 }
 
 #[test]
+fn test_process_kill_zero_probe_direct_call_target_bindings_source_is_canonical() {
+    let source = process_kill_zero_probe_call_target_bindings_source();
+
+    assert_eq!(
+        source,
+        concat!(
+            "const kill = process.kill; ",
+            "const bracketedKill = globalThis[\"process\"][\"kill\"]; ",
+            "const dotBracketKill = globalThis.process[\"kill\"]; ",
+            "const fullyBracketedKill = globalThis[\"process\"][\"kill\"];"
+        )
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_sequence_call_target_bindings_source_is_canonical() {
     let source = process_kill_zero_probe_sequence_call_target_bindings_source();
 
