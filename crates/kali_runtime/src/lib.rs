@@ -3664,8 +3664,9 @@ fn parse_thread_runtime_instance_snapshot_value(
     }
 
     let instance_id = object.get("instanceId")?.as_u64()? as usize;
-    let script_url = object.get("scriptUrl")?.as_str()?.trim();
-    if script_url.is_empty() {
+    let script_url = object.get("scriptUrl")?.as_str()?;
+    let trimmed_script_url = script_url.trim();
+    if trimmed_script_url.is_empty() || trimmed_script_url != script_url {
         return None;
     }
 
