@@ -169,6 +169,142 @@ fn assert_explicit_browser_api_surface_accepts_zero_spawned_process_budget(
     }
 }
 
+fn assert_browser_requested_rejects_positive_spawned_process_budget(
+    command: &str,
+    source_name: &str,
+    source: &str,
+) {
+    for json_output in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(source_name);
+        fs::write(&source_path, source).expect("write source");
+
+        let mut cli = Command::new(kali_bin());
+        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if json_output {
+            cli.arg("--output").arg("json");
+        }
+        let output = cli
+            .arg(command)
+            .arg("--max-spawned-processes")
+            .arg("1")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(5));
+
+        if json_output {
+            let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            assert_eq!(json["exitCode"], 5);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert!(!errors.is_empty(), "errors: {errors:?}");
+            assert_eq!(errors[0]["code"], "E5506");
+            assert!(
+                errors[0]["message"]
+                    .as_str()
+                    .expect("error message")
+                    .contains("resources.maxSpawnedProcesses"),
+                "json: {json}"
+            );
+            assert_eq!(errors[0]["context"]["origin"], "cli");
+            assert_eq!(errors[0]["context"]["flag"], "--max-spawned-processes");
+            assert_eq!(errors[0]["context"]["requestedValue"], "1");
+            assert_eq!(errors[0]["context"]["effectiveValue"], "1");
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("E5506"), "stderr: {stderr}");
+            assert!(
+                stderr.contains("resources.maxSpawnedProcesses"),
+                "stderr: {stderr}"
+            );
+            assert!(
+                stderr.contains("--max-spawned-processes"),
+                "stderr: {stderr}"
+            );
+        }
+    }
+}
+
+fn assert_explicit_browser_api_surface_rejects_positive_spawned_process_budget(
+    command: &str,
+    source_name: &str,
+    source: &str,
+) {
+    for json_output in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(source_name);
+        fs::write(&source_path, source).expect("write source");
+
+        let mut cli = Command::new(kali_bin());
+        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if json_output {
+            cli.arg("--output").arg("json");
+        }
+        let output = cli
+            .arg(command)
+            .arg("--api")
+            .arg("browser")
+            .arg("--max-spawned-processes")
+            .arg("1")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(5));
+
+        if json_output {
+            let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], command);
+            assert_eq!(json["success"], false);
+            assert_eq!(json["exitCode"], 5);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert!(!errors.is_empty(), "errors: {errors:?}");
+            assert_eq!(errors[0]["code"], "E5506");
+            assert!(
+                errors[0]["message"]
+                    .as_str()
+                    .expect("error message")
+                    .contains("resources.maxSpawnedProcesses"),
+                "json: {json}"
+            );
+            assert_eq!(errors[0]["context"]["origin"], "cli");
+            assert_eq!(errors[0]["context"]["flag"], "--max-spawned-processes");
+            assert_eq!(errors[0]["context"]["requestedValue"], "1");
+            assert_eq!(errors[0]["context"]["effectiveValue"], "1");
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("E5506"), "stderr: {stderr}");
+            assert!(
+                stderr.contains("resources.maxSpawnedProcesses"),
+                "stderr: {stderr}"
+            );
+            assert!(
+                stderr.contains("--max-spawned-processes"),
+                "stderr: {stderr}"
+            );
+        }
+    }
+}
+
 #[test]
 fn run_supports_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
 ) {
@@ -202,6 +338,38 @@ fn test_supports_zero_spawned_process_budget_when_browser_harness_is_configured_
 }
 
 #[test]
+fn run_rejects_positive_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_requested_rejects_positive_spawned_process_budget(
+            "run",
+            source_name,
+            "console.log('browser spawned process budget ok');\n",
+        );
+    }
+}
+
+#[test]
+fn test_rejects_positive_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_requested_rejects_positive_spawned_process_budget(
+            "test",
+            source_name,
+            r#"Kali.test('browser spawned process budget', () => {
+  console.log('browser spawned process budget ok');
+});
+"#,
+        );
+    }
+}
+
+#[test]
 fn run_and_test_support_explicit_browser_api_surface_with_zero_spawned_process_budget_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
 ) {
     for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
@@ -211,6 +379,26 @@ fn run_and_test_support_explicit_browser_api_surface_with_zero_spawned_process_b
             "console.log('browser spawned process budget ok');\n",
         );
         assert_explicit_browser_api_surface_accepts_zero_spawned_process_budget(
+            "test",
+            source_name,
+            r#"Kali.test('browser spawned process budget', () => {
+  console.log('browser spawned process budget ok');
+});
+"#,
+        );
+    }
+}
+
+#[test]
+fn run_and_test_reject_positive_spawned_process_budget_with_explicit_browser_api_surface_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_explicit_browser_api_surface_rejects_positive_spawned_process_budget(
+            "run",
+            source_name,
+            "console.log('browser spawned process budget ok');\n",
+        );
+        assert_explicit_browser_api_surface_rejects_positive_spawned_process_budget(
             "test",
             source_name,
             r#"Kali.test('browser spawned process budget', () => {

@@ -27,7 +27,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Browser-harness max-thread smoke now also asserts the empty `threadTopology` snapshot in JSON output so the browser-requested threaded path stays aligned with the standalone contract.
 - Browser-harness max-thread smoke now also accepts the zero-capable `--max-threads 0` budget with the same empty `threadTopology` snapshot, keeping the browser-threaded budget path aligned with the standalone zero-deny contract.
 - Browser-requested browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS, TS, JSX, and TSX input alongside positive `--max-threads` requests.
-- Browser-requested run/test JS, TS, JSX, and TSX smoke now also accepts the zero-capable `--max-threads 0` / `--max-spawned-processes 0` budget with matching human-output and JSON-output evidence, including the dedicated zero-spawned-process regression added in the current repository.
+- Browser-requested run/test JS, TS, JSX, and TSX smoke now also accepts the zero-capable `--max-threads 0` / `--max-spawned-processes 0` budget with matching human-output and JSON-output evidence, including the dedicated zero-spawned-process regression added in the current repository, while positive `--max-spawned-processes` requests now also reject with the canonical `E5506` budget gate on the browser-requested and explicit browser-API paths.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract
