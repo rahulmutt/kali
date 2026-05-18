@@ -261,7 +261,7 @@ fn run_supports_for_of_array_from_iteration_in_js_ts_jsx_and_tsx_input() {
         assert_for_of_array_iteration_spread(
             "run",
             filename,
-            "const values = [1, 2]; for (const value of Array.from(values)) { console.log(value); } for (const value of globalThis.Array.from(values)) { console.log(value); } for (const value of Object.freeze(Array.from)(values)) { console.log(value); } for (const value of Object.freeze(globalThis.Array.from)(values)) { console.log(value); } for await (const value of Array.from(values)) { console.log(value); } for await (const value of globalThis.Array.from(values)) { console.log(value); }\n",
+            "const values = [1, 2]; for (const value of Array.from(values)) { console.log(value); } for (const value of globalThis.Array.from(values)) { console.log(value); } for (const value of Object.freeze(Array.from)(values)) { console.log(value); } for (const value of Object.freeze(globalThis.Array.from)(values)) { console.log(value); } for (const value of Object.freeze((globalThis.Array.from))(values)) { console.log(value); } for await (const value of Array.from(values)) { console.log(value); } for await (const value of globalThis.Array.from(values)) { console.log(value); } for await (const value of Object.freeze((globalThis.Array.from))(values)) { console.log(value); }\n",
             "1\n2\n",
         );
     }
@@ -278,7 +278,7 @@ fn test_supports_for_of_array_from_iteration_in_js_ts_jsx_and_tsx_input() {
         assert_for_of_array_iteration_spread(
             "test",
             filename,
-            "Kali.test('for-of Array.from', () => { const values = [1, 2]; for (const value of Array.from(values)) { console.log(value); } for (const value of globalThis.Array.from(values)) { console.log(value); } for (const value of Object.freeze(Array.from)(values)) { console.log(value); } for (const value of Object.freeze(globalThis.Array.from)(values)) { console.log(value); } for await (const value of Array.from(values)) { console.log(value); } for await (const value of globalThis.Array.from(values)) { console.log(value); } });\n",
+            "Kali.test('for-of Array.from', () => { const values = [1, 2]; for (const value of Array.from(values)) { console.log(value); } for (const value of globalThis.Array.from(values)) { console.log(value); } for (const value of Object.freeze(Array.from)(values)) { console.log(value); } for (const value of Object.freeze(globalThis.Array.from)(values)) { console.log(value); } for (const value of Object.freeze((globalThis.Array.from))(values)) { console.log(value); } for await (const value of Array.from(values)) { console.log(value); } for await (const value of globalThis.Array.from(values)) { console.log(value); } for await (const value of Object.freeze((globalThis.Array.from))(values)) { console.log(value); } });\n",
             "ok 1",
         );
     }
