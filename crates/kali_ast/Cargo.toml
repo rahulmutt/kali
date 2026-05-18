@@ -12,3 +12,4 @@ serde = { workspace = true }
 
 [dev-dependencies]
 insta = "1.41"
+serde_json = { workspace = true }

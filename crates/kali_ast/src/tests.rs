@@ -28,3 +28,55 @@ fn test_ast_conversion() {
     let ast: AST = builder.into();
     assert!(ast.root().is_some());
 }
+
+#[test]
+fn test_function_kind_metadata_survives_serde_roundtrip() {
+    let function = FunctionDeclaration {
+        name: "generatorFn".to_string(),
+        params: vec!["value".to_string()],
+        body: Box::new(BlockStatement { body: vec![] }),
+        is_async: true,
+        generator: true,
+    };
+    let function_expr = FunctionExpression {
+        id: Some("asyncGeneratorExpr".to_string()),
+        params: vec![FunctionParam {
+            name: "value".to_string(),
+        }],
+        body: Some(Box::new(BlockStatement { body: vec![] })),
+        is_async: true,
+        generator: true,
+    };
+    let class = ClassExpression {
+        id: Some("Example".to_string()),
+        body: Box::new(ClassBody {
+            methods: vec![
+                MethodDefinition {
+                    name: "outer".to_string(),
+                    params: vec!["value".to_string()],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: true,
+                    generator: true,
+                },
+                MethodDefinition {
+                    name: "inner".to_string(),
+                    params: vec![],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: false,
+                    generator: true,
+                },
+            ],
+        }),
+    };
+
+    let round_tripped_function: FunctionDeclaration =
+        serde_json::from_str(&serde_json::to_string(&function).unwrap()).unwrap();
+    let round_tripped_function_expr: FunctionExpression =
+        serde_json::from_str(&serde_json::to_string(&function_expr).unwrap()).unwrap();
+    let round_tripped_class: ClassExpression =
+        serde_json::from_str(&serde_json::to_string(&class).unwrap()).unwrap();
+
+    assert_eq!(round_tripped_function, function);
+    assert_eq!(round_tripped_function_expr, function_expr);
+    assert_eq!(round_tripped_class, class);
+}
