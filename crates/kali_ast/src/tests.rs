@@ -68,6 +68,27 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
             ],
         }),
     };
+    let class_decl = ClassDeclaration {
+        name: "DeclExample".to_string(),
+        body: Box::new(ClassBody {
+            methods: vec![
+                MethodDefinition {
+                    name: "outer".to_string(),
+                    params: vec!["value".to_string()],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: true,
+                    generator: true,
+                },
+                MethodDefinition {
+                    name: "inner".to_string(),
+                    params: vec![],
+                    body: Some(Box::new(BlockStatement { body: vec![] })),
+                    is_async: false,
+                    generator: true,
+                },
+            ],
+        }),
+    };
 
     let round_tripped_function: FunctionDeclaration =
         serde_json::from_str(&serde_json::to_string(&function).unwrap()).unwrap();
@@ -75,8 +96,11 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         serde_json::from_str(&serde_json::to_string(&function_expr).unwrap()).unwrap();
     let round_tripped_class: ClassExpression =
         serde_json::from_str(&serde_json::to_string(&class).unwrap()).unwrap();
+    let round_tripped_class_decl: ClassDeclaration =
+        serde_json::from_str(&serde_json::to_string(&class_decl).unwrap()).unwrap();
 
     assert_eq!(round_tripped_function, function);
     assert_eq!(round_tripped_function_expr, function_expr);
     assert_eq!(round_tripped_class, class);
+    assert_eq!(round_tripped_class_decl, class_decl);
 }
