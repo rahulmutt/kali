@@ -253,6 +253,27 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_process_kill_zero_probe_alias_inventory_source_is_prefix_free_and_single_sourced() {
+    let direct_source = process_kill_zero_probe_direct_source();
+    let wrapped_source = process_kill_zero_probe_wrapped_source();
+    let inventory_source = process_kill_zero_probe_alias_inventory_source();
+    let prefix_source = late_process_control_prefix_source();
+
+    assert_eq!(
+        inventory_source,
+        format!("{} {}", direct_source.trim_end(), wrapped_source.trim_end())
+    );
+    assert!(
+        !inventory_source.contains(&prefix_source),
+        "inventory: {inventory_source}"
+    );
+    assert!(
+        !inventory_source.contains("process.kill(zeroAlias)"),
+        "inventory: {inventory_source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_frozen_callable_source_lists_all_aliases_in_order() {
     let source = process_kill_zero_probe_parenthesized_frozen_callable_source();
     assert_eq!(
