@@ -3900,6 +3900,42 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_fields
 }
 
 #[test]
+fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_note_fields() {
+    for (field, padded_value) in [
+        (
+            "hostDescriptionNote",
+            " browser runtime host description: real browser host ",
+        ),
+        (
+            "diagnosticHint",
+            " Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ",
+        ),
+    ] {
+        let mut browser_runtime_contract = browser_runtime_contract_value();
+        let contract = browser_runtime_contract
+            .as_object_mut()
+            .expect("browser runtime contract object");
+        contract.insert(field.to_string(), json!(padded_value));
+
+        let value = json!({
+            "browserHarness": {
+                "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                "source": "env",
+                "override": "node --test",
+                "command": ["node", "--test"],
+                "executable": "node",
+                "args": ["--test"],
+                "executableAvailable": true,
+            },
+            "browserRuntimeContract": browser_runtime_contract,
+        });
+
+        validate_doctor_payload_value(&value)
+            .expect("trimmed browser runtime contract note fields should validate");
+    }
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_label() {
     for host_label in ["", " \n\t "] {
         let value = json!({
