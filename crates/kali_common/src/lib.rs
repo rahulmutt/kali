@@ -427,6 +427,24 @@ pub fn process_kill_zero_probe_source() -> String {
     process_kill_zero_probe_alias_inventory_source()
 }
 
+/// Canonical `console.log(...)` source text for the supported Node `process.kill(0)` slice.
+pub fn process_kill_zero_probe_console_log_source() -> String {
+    let statements = process_kill_zero_probe_aliases()
+        .iter()
+        .map(|alias| format!("console.log({alias})"))
+        .collect::<Vec<_>>();
+    format!("{};", statements.join("; "))
+}
+
+/// Canonical rejection-guard source text for the supported Node `process.kill(0)` slice.
+pub fn process_kill_zero_probe_guard_source() -> String {
+    process_kill_zero_probe_aliases()
+        .iter()
+        .map(|alias| format!("!{alias}"))
+        .collect::<Vec<_>>()
+        .join(" || ")
+}
+
 /// Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice.
 pub const fn object_has_own_frozen_callable_aliases() -> &'static [&'static str] {
     &[

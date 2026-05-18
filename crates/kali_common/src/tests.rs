@@ -267,6 +267,32 @@ fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_o
 }
 
 #[test]
+fn test_process_kill_zero_probe_console_log_source_lists_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_aliases();
+    let source = process_kill_zero_probe_console_log_source();
+    let expected = aliases
+        .iter()
+        .map(|alias| format!("console.log({alias})"))
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    assert_eq!(source, format!("{expected};"));
+}
+
+#[test]
+fn test_process_kill_zero_probe_guard_source_lists_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_aliases();
+    let source = process_kill_zero_probe_guard_source();
+    let expected = aliases
+        .iter()
+        .map(|alias| format!("!{alias}"))
+        .collect::<Vec<_>>()
+        .join(" || ");
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = object_has_own_frozen_callable_aliases();
     let source = object_has_own_frozen_callable_source();
