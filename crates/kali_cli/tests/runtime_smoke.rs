@@ -61657,39 +61657,47 @@ fn json_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context
     }
 }
 
-#[test]
-fn json_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_analysis_context() {
-    for source_name in ["main.ts", "main.jsx", "main.tsx"] {
-        let dir = tempdir().expect("tempdir");
-        let source_path = dir.path().join(source_name);
-        fs::write(
-            &source_path,
-            "console.log('ok');\nfetch('https://example.com');",
-        )
-        .expect("write source");
-        fs::write(
-            dir.path().join("kali.json"),
-            r#"{
+fn assert_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context(
+    source_name: &str,
+    explicit_browser_api_surface: bool,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(source_name);
+    fs::write(
+        &source_path,
+        "console.log('ok');\nfetch('https://example.com');",
+    )
+    .expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
   "schemaVersion": 1,
   "compilerOptions": {
     "apiSurface": "browser",
     "runtimeProfiles": ["wasm-threads"]
   }
 }"#,
-        )
-        .expect("write manifest");
+    )
+    .expect("write manifest");
 
-        let output = Command::new(kali_bin())
-            .current_dir(dir.path())
-            .arg("--output")
-            .arg("json")
-            .arg("effects")
-            .arg(&source_path)
-            .output()
-            .expect("run kali");
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path());
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg("effects");
+    if explicit_browser_api_surface {
+        cli.arg("--api").arg("browser");
+        cli.arg("--wasm-threads");
+    }
+    cli.arg(&source_path);
 
-        assert!(!output.status.success());
-        assert_eq!(output.status.code(), Some(5));
+    let output = cli.output().expect("run kali");
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+
+    if json_output {
         let json = parse_json_stdout(&output);
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "effects");
@@ -61708,6 +61716,61 @@ fn json_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_analys
                     .expect("error message")
                     .contains("wasm-threads"),
             "json: {json}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("runtime profile") || stderr.contains("wasm-threads"),
+            "stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context(
+            source_name,
+            true,
+            false,
+        );
+    }
+}
+
+#[test]
+fn json_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context(
+            source_name,
+            true,
+            true,
+        );
+    }
+}
+
+#[test]
+fn effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_analysis_context_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context(
+            source_name,
+            false,
+            false,
+        );
+    }
+}
+
+#[test]
+fn json_effects_rejects_inherited_wasm_threads_runtime_profile_in_browser_analysis_context_in_js_ts_jsx_and_tsx_inputs(
+) {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_effects_rejects_wasm_threads_runtime_profile_in_browser_analysis_context(
+            source_name,
+            false,
+            true,
         );
     }
 }
