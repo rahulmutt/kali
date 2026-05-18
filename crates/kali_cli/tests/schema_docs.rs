@@ -2250,6 +2250,11 @@ fn cli_spec_examples_track_the_current_repository_surface() {
             "specs/12-cli.md is missing CLI example or contract marker: {expected}"
         );
     }
+
+    assert!(
+        cli_spec.contains("The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, but whitespace-only values still fail validation."),
+        "specs/12-cli.md should describe diagnosticHint trimming alongside the other browser runtime contract fields"
+    );
 }
 
 #[test]
