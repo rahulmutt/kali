@@ -8730,9 +8730,7 @@ for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
 }
 
 #[test]
-fn test_resolution_supports_await_wrapped_static_helper_inputs_in_js_input() {
-    let dir = tempdir().unwrap();
-    let source_path = dir.path().join("main.js");
+fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_extensions() {
     let source = r#"async function main() {
     console.log(Object.is(await 1, await 1));
     console.log(Number.isSafeInteger(await 1));
@@ -8741,20 +8739,25 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_in_js_input() {
 }
 main();
 "#;
-    fs::write(&source_path, source).unwrap();
 
-    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
-    let tokens = lexer.lex_all().tokens;
-    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
-    let statements = parser.parse(None).statements;
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
 
-    let mut ctx = TypeContext::with_base_path(&source_path);
-    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
