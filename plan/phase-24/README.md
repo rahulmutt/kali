@@ -32,7 +32,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 - Keep `--profile` as deterministic build-only additive input.
 - Reject malformed, unknown-field, version-mismatched, and nondeterministic profile data.
 - Do not create a fourth build-mode vocabulary.
-- Current progress: empty `--profile` files now fail with the canonical `E5509` parse path in both human and JSON `build` output, alongside the existing malformed/version/unknown-field coverage.
+- Current progress: empty and whitespace-only `--profile` files now fail with the canonical `E5509` parse path in both human and JSON `build` output, alongside the existing malformed/version/unknown-field coverage.
 
 ### 24.4 Benchmark promotion
 

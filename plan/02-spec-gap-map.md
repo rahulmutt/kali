@@ -47,7 +47,7 @@ Owners: `specs/07-specialization.md`, `specs/08-wasm-codegen.md`, `specs/16-test
 Remaining goals:
 
 - Deepen `release` and `release-advanced` optimizations while preserving JavaScript-visible semantics, sandbox effects, proof boundaries, and deterministic artifacts.
-- Treat `--profile` as a deterministic build-only additive input; do not create a hidden fourth build mode.
+- Treat `--profile` as a deterministic build-only additive input; do not create a hidden fourth build mode. The current repository snapshot now also rejects empty and whitespace-only profile files with the canonical `E5509` parse path in both human and JSON `build` output.
 - Promote performance wording only when benchmark evidence names workload, build mode, baseline, and reproducibility constraints.
 - Keep optimization inventories as concise evidence snapshots.
 

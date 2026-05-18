@@ -9056,6 +9056,14 @@ fn load_profile_data_file_validates_version_and_normalizes_samples() {
         .any(|diagnostic| diagnostic.code
             == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)));
 
+    fs::write(&profile_path, " \n\t").expect("rewrite whitespace-only profile");
+    let error =
+        load_profile_data_file(&profile_path).expect_err("whitespace-only profile should fail");
+    assert!(error
+        .iter()
+        .any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::INVALID_CONFIG as u32)));
+
     fs::write(
         &profile_path,
         r#"{"version":1,"samples":[{"kind":"function","key":" ","weight":1}]}"#,

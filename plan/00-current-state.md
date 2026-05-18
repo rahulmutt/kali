@@ -46,6 +46,8 @@ This file records the planning baseline for the active continuation roadmap. It 
 - The browser late-compat TS/JSX/TSX fixtures and runtime smoke now also assert the bare `((globalThis.process["kill"]))(+0)` zero-probe alias from the shared inventory, keeping the non-JS wrapper matrix aligned with the JS/browser helper coverage.
 - Standalone run/test smoke now also covers the await-wrapped `Object.is` / `Number.isSafeInteger` / `Object.keys` / `Reflect.ownKeys` helper slice through an async test callback that returns the probe promise, keeping the shared await-wrapper evidence aligned across both execution lanes.
 
+- The `--profile` build input now also rejects empty and whitespace-only files through the canonical `E5509` parse path in both human and JSON output, keeping the deterministic PGO input contract explicit.
+
 ## Live surface at a glance
 
 The checked-in repository already includes:
