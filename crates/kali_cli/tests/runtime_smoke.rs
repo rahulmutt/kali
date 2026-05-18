@@ -67347,6 +67347,7 @@ fn package_audit_pretty_still_wins_over_preview_without_json() {
     assert!(stderr.contains("E5508"), "stderr: {stderr}");
     assert!(stderr.contains("--pretty"), "stderr: {stderr}");
     assert!(stderr.contains("JSON output is active"), "stderr: {stderr}");
+    assert!(!stderr.contains("--preview"), "stderr: {stderr}");
 }
 
 #[test]
