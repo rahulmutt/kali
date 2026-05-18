@@ -372,6 +372,18 @@ pub fn process_kill_zero_probe_parenthesized_frozen_callable_source() -> String 
     ])
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` parenthesized receiver-freeze bracket aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source() -> String {
+    join_semicolon_terminated_segments(&[
+        r#"Object.freeze((process)["kill"])(0)"#,
+        r#"Object.freeze((process)["kill"])(+0)"#,
+        r#"Object.freeze((globalThis.process)["kill"])(0)"#,
+        r#"Object.freeze((globalThis.process)["kill"])(+0)"#,
+        r#"Object.freeze((globalThis["process"])["kill"])(0)"#,
+        r#"Object.freeze((globalThis["process"])["kill"])(+0)"#,
+    ])
+}
+
 fn join_semicolon_terminated_segments(segments: &[&str]) -> String {
     let mut source = segments.join("; ");
     source.push(';');
