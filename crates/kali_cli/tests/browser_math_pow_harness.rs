@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_common::math_pow_frozen_callable_aliases;
+use kali_common::math_pow_frozen_callable_source;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -9,8 +9,9 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_pow_frozen_lines() -> String {
-    math_pow_frozen_callable_aliases()
-        .iter()
+    math_pow_frozen_callable_source()
+        .trim_end_matches(';')
+        .split("; ")
         .map(|alias| format!("console.log({alias}(2, alias));"))
         .collect::<Vec<_>>()
         .join("\n")
