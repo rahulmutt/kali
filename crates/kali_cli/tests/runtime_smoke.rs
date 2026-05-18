@@ -23,6 +23,7 @@ use sha2::{Digest, Sha256, Sha512};
 use tar::Builder;
 use wasmparser::{Operator, Parser, Payload};
 
+use kali_common::math_floor_trunc_ceil_frozen_callable_aliases;
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use kali_runtime::split_command_spec;
 use tempfile::tempdir;
@@ -31236,14 +31237,66 @@ stderr: {}",
     assert!(stdout.contains("1"), "json: {json}");
 }
 
+fn math_floor_trunc_ceil_const_numeric_alias_chain_source() -> String {
+    let variable_names = [
+        "frozenFloor",
+        "frozenParenFloor",
+        "frozenDotFloor",
+        "frozenParenDotFloor",
+        "frozenBracketedFloor",
+        "frozenParenBracketedFloor",
+        "frozenMixedFloor",
+        "frozenParenMixedFloor",
+        "frozenBareFloor",
+        "frozenParenBareFloor",
+        "frozenTrunc",
+        "frozenParenTrunc",
+        "frozenDotTrunc",
+        "frozenParenDotTrunc",
+        "frozenBracketedTrunc",
+        "frozenParenBracketedTrunc",
+        "frozenMixedTrunc",
+        "frozenParenMixedTrunc",
+        "frozenBareTrunc",
+        "frozenParenBareTrunc",
+        "frozenCeil",
+        "frozenParenCeil",
+        "frozenDotCeil",
+        "frozenParenDotCeil",
+        "frozenBracketedCeil",
+        "frozenParenBracketedCeil",
+        "frozenMixedCeil",
+        "frozenParenMixedCeil",
+        "frozenBareCeil",
+        "frozenParenBareCeil",
+    ];
+    let frozen_callable_aliases = math_floor_trunc_ceil_frozen_callable_aliases();
+    debug_assert_eq!(variable_names.len(), frozen_callable_aliases.len());
+
+    let declarations = variable_names
+        .iter()
+        .zip(frozen_callable_aliases.iter())
+        .map(|(name, alias)| format!("const {name} = {alias};"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let invocations = variable_names
+        .iter()
+        .map(|name| format!("console.log({name}(alias));"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    format!(
+        "const value = 1.6; const alias = value; {declarations} console.log(Math.floor(alias)); console.log(Math.trunc(alias)); console.log(Math.ceil(alias)); {invocations}\n"
+    )
+}
+
 #[test]
 fn run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenParenFloor = Object.freeze((globalThis.Math["floor"])); const frozenDotFloor = Object.freeze(globalThis.Math.floor); const frozenParenDotFloor = Object.freeze((globalThis.Math.floor)); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); const frozenParenBracketedFloor = Object.freeze((globalThis["Math"]["floor"])); const frozenMixedFloor = Object.freeze(globalThis["Math"].floor); const frozenParenMixedFloor = Object.freeze((globalThis["Math"].floor)); const frozenTrunc = Object.freeze(globalThis.Math["trunc"]); const frozenParenTrunc = Object.freeze((globalThis.Math["trunc"])); const frozenDotTrunc = Object.freeze(globalThis.Math.trunc); const frozenParenDotTrunc = Object.freeze((globalThis.Math.trunc)); const frozenBracketedTrunc = Object.freeze(globalThis["Math"]["trunc"]); const frozenParenBracketedTrunc = Object.freeze((globalThis["Math"]["trunc"])); const frozenMixedTrunc = Object.freeze(globalThis["Math"].trunc); const frozenParenMixedTrunc = Object.freeze((globalThis["Math"].trunc)); const frozenCeil = Object.freeze(globalThis.Math["ceil"]); const frozenParenCeil = Object.freeze((globalThis.Math["ceil"])); const frozenDotCeil = Object.freeze(globalThis.Math.ceil); const frozenParenDotCeil = Object.freeze((globalThis.Math.ceil)); const frozenBracketedCeil = Object.freeze(globalThis["Math"]["ceil"]); const frozenParenBracketedCeil = Object.freeze((globalThis["Math"]["ceil"])); const frozenMixedCeil = Object.freeze(globalThis["Math"].ceil); const frozenParenMixedCeil = Object.freeze((globalThis["Math"].ceil)); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenParenFloor(alias)); console.log(frozenDotFloor(alias)); console.log(frozenParenDotFloor(alias)); console.log(frozenBracketedFloor(alias)); console.log(frozenParenBracketedFloor(alias)); console.log(frozenMixedFloor(alias)); console.log(frozenParenMixedFloor(alias)); console.log(frozenTrunc(alias)); console.log(frozenParenTrunc(alias)); console.log(frozenDotTrunc(alias)); console.log(frozenParenDotTrunc(alias)); console.log(frozenBracketedTrunc(alias)); console.log(frozenParenBracketedTrunc(alias)); console.log(frozenMixedTrunc(alias)); console.log(frozenParenMixedTrunc(alias)); console.log(frozenCeil(alias)); console.log(frozenParenCeil(alias)); console.log(frozenDotCeil(alias)); console.log(frozenParenDotCeil(alias)); console.log(frozenBracketedCeil(alias)); console.log(frozenParenBracketedCeil(alias)); console.log(frozenMixedCeil(alias)); console.log(frozenParenMixedCeil(alias));
-"#,
+        math_floor_trunc_ceil_const_numeric_alias_chain_source(),
     )
     .expect("write source");
 
@@ -31271,8 +31324,7 @@ fn json_run_supports_math_floor_const_numeric_alias_chain_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"const value = 1.6; const alias = value; const frozenFloor = Object.freeze(globalThis.Math["floor"]); const frozenParenFloor = Object.freeze((globalThis.Math["floor"])); const frozenDotFloor = Object.freeze(globalThis.Math.floor); const frozenParenDotFloor = Object.freeze((globalThis.Math.floor)); const frozenBracketedFloor = Object.freeze(globalThis["Math"]["floor"]); const frozenParenBracketedFloor = Object.freeze((globalThis["Math"]["floor"])); const frozenMixedFloor = Object.freeze(globalThis["Math"].floor); const frozenParenMixedFloor = Object.freeze((globalThis["Math"].floor)); const frozenTrunc = Object.freeze(globalThis.Math["trunc"]); const frozenParenTrunc = Object.freeze((globalThis.Math["trunc"])); const frozenDotTrunc = Object.freeze(globalThis.Math.trunc); const frozenParenDotTrunc = Object.freeze((globalThis.Math.trunc)); const frozenBracketedTrunc = Object.freeze(globalThis["Math"]["trunc"]); const frozenParenBracketedTrunc = Object.freeze((globalThis["Math"]["trunc"])); const frozenMixedTrunc = Object.freeze(globalThis["Math"].trunc); const frozenParenMixedTrunc = Object.freeze((globalThis["Math"].trunc)); const frozenCeil = Object.freeze(globalThis.Math["ceil"]); const frozenParenCeil = Object.freeze((globalThis.Math["ceil"])); const frozenDotCeil = Object.freeze(globalThis.Math.ceil); const frozenParenDotCeil = Object.freeze((globalThis.Math.ceil)); const frozenBracketedCeil = Object.freeze(globalThis["Math"]["ceil"]); const frozenParenBracketedCeil = Object.freeze((globalThis["Math"]["ceil"])); const frozenMixedCeil = Object.freeze(globalThis["Math"].ceil); const frozenParenMixedCeil = Object.freeze((globalThis["Math"].ceil)); console.log(Math.floor(alias)); console.log(frozenFloor(alias)); console.log(frozenParenFloor(alias)); console.log(frozenDotFloor(alias)); console.log(frozenParenDotFloor(alias)); console.log(frozenBracketedFloor(alias)); console.log(frozenParenBracketedFloor(alias)); console.log(frozenMixedFloor(alias)); console.log(frozenParenMixedFloor(alias)); console.log(frozenTrunc(alias)); console.log(frozenParenTrunc(alias)); console.log(frozenDotTrunc(alias)); console.log(frozenParenDotTrunc(alias)); console.log(frozenBracketedTrunc(alias)); console.log(frozenParenBracketedTrunc(alias)); console.log(frozenMixedTrunc(alias)); console.log(frozenParenMixedTrunc(alias)); console.log(frozenCeil(alias)); console.log(frozenParenCeil(alias)); console.log(frozenDotCeil(alias)); console.log(frozenParenDotCeil(alias)); console.log(frozenBracketedCeil(alias)); console.log(frozenParenBracketedCeil(alias)); console.log(frozenMixedCeil(alias)); console.log(frozenParenMixedCeil(alias));
-"#,
+        math_floor_trunc_ceil_const_numeric_alias_chain_source(),
     )
     .expect("write source");
 
