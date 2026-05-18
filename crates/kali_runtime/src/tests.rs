@@ -4418,6 +4418,25 @@ fn runtime_host_state_rolls_back_failed_thread_spawns() {
 }
 
 #[test]
+fn runtime_host_state_rejects_whitespace_only_thread_script_urls() {
+    let mut state = KaliHostState {
+        runtime_profiles: vec!["wasm-threads".to_string()],
+        max_threads: Some(1),
+        ..Default::default()
+    };
+
+    let error = state
+        .spawn_thread_instance("   ")
+        .expect_err("whitespace-only URLs should be rejected before spawn bookkeeping");
+    assert!(
+        error.to_string().contains("non-empty absolute URL"),
+        "error: {error}"
+    );
+    assert_eq!(state.active_threads, 0);
+    assert_eq!(state.thread_topology.total_instances(), 0);
+}
+
+#[test]
 fn runtime_rejects_thread_spawn_host_imports_when_budget_is_zero() {
     let runtime = RuntimeCtx::with_api_surface(None, "deno")
         .with_runtime_profiles(vec!["wasm-threads".to_string()])

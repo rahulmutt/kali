@@ -4366,11 +4366,17 @@ impl KaliHostState {
         &mut self,
         script_url: impl AsRef<str>,
     ) -> wasmtime::Result<usize> {
-        let script_url = script_url.as_ref().trim().to_string();
+        let script_url = script_url.as_ref().trim();
+        if script_url.is_empty() {
+            return Err(wasmtime::Error::msg(
+                "thread script URL must be a non-empty absolute URL",
+            ));
+        }
+
         let active_threads = self.active_threads;
         enforce_operation(self, HostOperation::ThreadSpawn { active_threads })?;
         self.begin_thread()?;
-        match self.thread_topology.spawn_worker(&script_url) {
+        match self.thread_topology.spawn_worker(script_url) {
             Ok(instance_id) => Ok(instance_id),
             Err(error) => {
                 self.finish_thread();

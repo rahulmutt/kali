@@ -24,6 +24,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Runtime outcomes now also expose deterministic thread-topology snapshots so worker accounting stays observable after execution, and the browser-requested run/test harness path now also preserves those snapshots when guest code uses the threaded host import.
 - `kali run` / `kali test` JSON payloads now surface the deterministic `threadTopology` snapshot alongside the existing provenance labels.
 - The thread-topology regression set now also pins monotonic instance-id assignment after termination/re-spawn, keeping worker accounting deterministic when a released slot is followed by a new worker.
+- Whitespace-only thread script URLs now fail before topology allocation, keeping the threaded host-import rollback path explicit.
 - Browser-harness max-thread smoke now also asserts the empty `threadTopology` snapshot in JSON output so the browser-requested threaded path stays aligned with the standalone contract.
 - Browser-harness max-thread smoke now also accepts the zero-capable `--max-threads 0` budget with the same empty `threadTopology` snapshot, keeping the browser-threaded budget path aligned with the standalone zero-deny contract.
 - Browser-requested browser-harness smoke now also accepts inherited browser `runtimeProfiles=["wasm-threads"]` configs in JS, TS, JSX, and TSX input alongside positive `--max-threads` requests.
