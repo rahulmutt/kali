@@ -24422,8 +24422,8 @@ main();
 }
 
 #[test]
-fn run_rejects_async_class_method_sequencing_in_ts_and_js_input() {
-    for extension in ["ts", "js"] {
+fn run_rejects_async_class_method_sequencing_in_ts_js_jsx_and_tsx_input() {
+    for extension in ["ts", "js", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(
@@ -24465,8 +24465,8 @@ main();
 }
 
 #[test]
-fn json_run_rejects_async_class_method_sequencing_in_ts_and_js_input() {
-    for extension in ["ts", "js"] {
+fn json_run_rejects_async_class_method_sequencing_in_ts_js_jsx_and_tsx_input() {
+    for extension in ["ts", "js", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(
@@ -24515,8 +24515,8 @@ main();
 }
 
 #[test]
-fn test_rejects_async_class_method_sequencing_in_ts_and_js_input() {
-    for extension in ["ts", "js"] {
+fn test_rejects_async_class_method_sequencing_in_ts_js_jsx_and_tsx_input() {
+    for extension in ["ts", "js", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("smoke.test.{extension}"));
         fs::write(
@@ -24561,8 +24561,8 @@ fn test_rejects_async_class_method_sequencing_in_ts_and_js_input() {
 }
 
 #[test]
-fn json_test_rejects_async_class_method_sequencing_in_ts_and_js_input() {
-    for extension in ["ts", "js"] {
+fn json_test_rejects_async_class_method_sequencing_in_ts_js_jsx_and_tsx_input() {
+    for extension in ["ts", "js", "jsx", "tsx"] {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("smoke.test.{extension}"));
         fs::write(
