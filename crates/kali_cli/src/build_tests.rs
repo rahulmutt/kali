@@ -3748,6 +3748,24 @@ fn build_source_file_supports_fully_bracketed_global_this_math_pow_positive_inte
     );
 }
 
+#[test]
+fn build_source_file_supports_fully_bracketed_global_this_math_pow_positive_integer_exponent_alias_chain_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_fully_bracketed_global_this_math_pow_positive_integer_exponent_alias_chain_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_fully_bracketed_global_this_math_pow_positive_integer_exponent_alias_chain_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_fully_bracketed_global_this_math_pow_positive_integer_exponent_alias_chain_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
