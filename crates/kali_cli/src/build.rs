@@ -4177,6 +4177,16 @@ fn infer_function_binding_signature(
             declared_function_signatures,
             diagnostics,
         ),
+        Expression::CallExpression(call) if is_object_freeze_call(call) => {
+            call.args.first().and_then(|argument| {
+                infer_function_binding_signature(
+                    Some(argument),
+                    source_path,
+                    declared_function_signatures,
+                    diagnostics,
+                )
+            })
+        }
         Expression::SequenceExpression(sequence_expression) => sequence_expression
             .expressions
             .last()
@@ -4238,6 +4248,37 @@ fn infer_function_binding_signature(
         }
         _ => None,
     }
+}
+
+fn is_object_freeze_call(call: &kali_ast::CallExpression) -> bool {
+    matches!(
+        call_member_access_name(&call.callee).as_deref(),
+        Some("Object.freeze") | Some("globalThis.Object.freeze")
+    ) && call.args.len() == 1
+}
+
+fn call_member_access_name(expression: &Expression) -> Option<String> {
+    match expression {
+        Expression::MemberExpression(member) => member_access_name(member),
+        Expression::Identifier(name) => Some(name.clone()),
+        Expression::ParenthesizedExpression(expr) => call_member_access_name(&expr.expression),
+        Expression::TypeAssertion(expr) => call_member_access_name(&expr.expression),
+        Expression::SatisfiesExpression(expr) => call_member_access_name(&expr.expression),
+        Expression::ChainExpression(expr) => call_member_access_name(&expr.expression),
+        Expression::DecoratedExpression(expr) => call_member_access_name(&expr.expression),
+        Expression::SequenceExpression(expr) => {
+            expr.expressions.last().and_then(call_member_access_name)
+        }
+        Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+            OptionalChainInner::NonNull { object, .. } => call_member_access_name(object),
+        },
+        _ => None,
+    }
+}
+
+fn member_access_name(member: &kali_ast::MemberExpression) -> Option<String> {
+    let object = call_member_access_name(&member.object)?;
+    Some(format!("{object}.{}", member.property))
 }
 
 fn function_signature(params: &[String], return_type: Option<&str>, is_async: bool) -> String {

@@ -56,7 +56,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Add positive and negative checker baselines for TS and first-class JS input.
 - Library-export signature collection now also resolves function-binding alias chains within the bounded slice, including same-statement `const` aliases when the target signature is already known.
 - Template-literal function returns now infer `string` signatures through the same bounded export-signature path, keeping library exports aligned with the actual expression type.
-- Default-export aliases now resolve through the same bounded function-binding map used for local export aliases, and the regression corpus now also covers default-export alias chains, direct default re-export spellings, named re-exports into `default`, and multi-hop source-graph re-export chains, including the new default-export alias-chain source-graph regression.
+- Default-export aliases now resolve through the same bounded function-binding map used for local export aliases, and the regression corpus now also covers default-export alias chains, direct default re-export spellings, named re-exports into `default`, and multi-hop source-graph re-export chains, including the new default-export alias-chain source-graph regression. Transparent `Object.freeze(...)` wrappers around otherwise statically known callable exports now also flow through the same export-surface inference path.
 
 ### 21.5 Conformance hygiene
 

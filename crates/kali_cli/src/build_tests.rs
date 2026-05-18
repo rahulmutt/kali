@@ -9750,6 +9750,39 @@ fn collect_library_exports_infers_default_function_expression_exports_through_aw
 }
 
 #[test]
+fn collect_library_exports_infers_const_function_expression_bindings_through_freeze_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const main = Object.freeze((input) => 1); export { main };",
+    )
+    .expect("write source");
+
+    let exports = collect_library_exports(&source_path, ApiSurface::Deno, &[])
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert!(exports
+        .iter()
+        .any(|export| { export.name == "main" && export.signature == "(input) => number" }));
+}
+
+#[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_freeze_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "export default Object.freeze((input) => 1);").expect("write source");
+
+    let exports = collect_library_exports(&source_path, ApiSurface::Deno, &[])
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_default_function_expression_exports_through_nullish_wrapper() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

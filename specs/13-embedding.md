@@ -93,6 +93,7 @@ Header-split simplification:
 
 Phase-1 practical-use rule for `--lib`:
 - the Phase-1 **base library artifact** exists only on the export-surface-known path and may then be consumed by **exact-version consumers** or explicitly unstable experiments
+- transparent `Object.freeze(...)` wrappers around otherwise statically known callable exports remain part of that export-surface-known path when the underlying callable still resolves statically
 - it must **not** be described as part of the stable public embedding surface until the Phase-2 public library/WIT contract is frozen
 - docs and tooling should therefore avoid implying that plain Phase-1 `--lib` output alone guarantees long-term host-call compatibility across Kali releases
 
