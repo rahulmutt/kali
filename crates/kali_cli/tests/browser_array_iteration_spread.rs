@@ -29,6 +29,23 @@ export async function forAwaitArrayIterationSpreadWrapper() {
 "##
 }
 
+fn browser_bundle_array_from_source() -> &'static str {
+    r##"// kali-tree-shake: browserArrayFromWrappers
+export async function browserArrayFromWrappers() {
+  const values = [1, 2];
+  for (const value of Array.from(values)) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(Array.from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Array.from(values)) {
+    console.log(value);
+  }
+}
+"##
+}
+
 fn object_enumeration_spread_source() -> &'static str {
     r##"// kali-tree-shake: objectEnumerationSpreadWrapper
 export async function objectEnumerationSpreadWrapper() {
@@ -487,6 +504,64 @@ fn build_emits_for_await_spread_in_jsx_and_tsx_input() {
             true,
             for_await_spread_source(),
             "forAwaitArrayIterationSpreadWrapper",
+        );
+    }
+}
+
+#[test]
+fn build_emits_browser_array_from_wrappers_in_js_input() {
+    assert_browser_bundle_array_iteration_spread(
+        "app.js",
+        false,
+        browser_bundle_array_from_source(),
+        "browserArrayFromWrappers",
+    );
+}
+
+#[test]
+fn json_build_emits_browser_array_from_wrappers_in_js_input() {
+    assert_browser_bundle_array_iteration_spread(
+        "app.js",
+        true,
+        browser_bundle_array_from_source(),
+        "browserArrayFromWrappers",
+    );
+}
+
+#[test]
+fn build_emits_browser_array_from_wrappers_in_ts_input() {
+    assert_browser_bundle_array_iteration_spread(
+        "app.ts",
+        false,
+        browser_bundle_array_from_source(),
+        "browserArrayFromWrappers",
+    );
+}
+
+#[test]
+fn json_build_emits_browser_array_from_wrappers_in_ts_input() {
+    assert_browser_bundle_array_iteration_spread(
+        "app.ts",
+        true,
+        browser_bundle_array_from_source(),
+        "browserArrayFromWrappers",
+    );
+}
+
+#[test]
+fn build_emits_browser_array_from_wrappers_in_jsx_and_tsx_input() {
+    for filename in ["app.jsx", "app.tsx"] {
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            false,
+            browser_bundle_array_from_source(),
+            "browserArrayFromWrappers",
+        );
+        assert_browser_bundle_array_iteration_spread(
+            filename,
+            true,
+            browser_bundle_array_from_source(),
+            "browserArrayFromWrappers",
         );
     }
 }
