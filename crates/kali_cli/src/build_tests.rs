@@ -1655,6 +1655,67 @@ fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surfac
     );
 }
 
+fn assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, "console.log(Math.pow(2, -1));\n").expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("Math.pow negative exponents should fail");
+
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("Math.pow is unavailable for negative numeric literals")
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_js_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_ts_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
 fn assert_build_source_file_supports_math_floor_const_numeric_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
