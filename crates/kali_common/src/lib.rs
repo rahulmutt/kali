@@ -572,6 +572,10 @@ pub const fn math_pow_frozen_callable_aliases() -> &'static [&'static str] {
         r#"Object.freeze((globalThis.Math.pow))"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
         r#"Object.freeze((globalThis["Math"].pow))"#,
+        r#"Object.freeze(Math.pow)"#,
+        r#"Object.freeze((Math.pow))"#,
+        r#"Object.freeze(Math["pow"])"#,
+        r#"Object.freeze((Math["pow"]))"#,
     ]
 }
 

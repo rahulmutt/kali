@@ -473,6 +473,10 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis.Math.pow))"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
         r#"Object.freeze((globalThis["Math"].pow))"#,
+        r#"Object.freeze(Math.pow)"#,
+        r#"Object.freeze((Math.pow))"#,
+        r#"Object.freeze(Math["pow"])"#,
+        r#"Object.freeze((Math["pow"]))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
