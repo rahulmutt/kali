@@ -458,6 +458,8 @@ fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order(
         r#"Object.freeze((globalThis["Math"]["floor"]))"#,
         r#"Object.freeze(globalThis["Math"].floor)"#,
         r#"Object.freeze((globalThis["Math"].floor))"#,
+        r#"Object.freeze(Math["floor"])"#,
+        r#"Object.freeze((Math["floor"]))"#,
         r#"Object.freeze(globalThis.Math["trunc"])"#,
         r#"Object.freeze((globalThis.Math["trunc"]))"#,
         r#"Object.freeze(globalThis.Math.trunc)"#,
@@ -466,6 +468,8 @@ fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order(
         r#"Object.freeze((globalThis["Math"]["trunc"]))"#,
         r#"Object.freeze(globalThis["Math"].trunc)"#,
         r#"Object.freeze((globalThis["Math"].trunc))"#,
+        r#"Object.freeze(Math["trunc"])"#,
+        r#"Object.freeze((Math["trunc"]))"#,
         r#"Object.freeze(globalThis.Math["ceil"])"#,
         r#"Object.freeze((globalThis.Math["ceil"]))"#,
         r#"Object.freeze(globalThis.Math.ceil)"#,
@@ -474,6 +478,8 @@ fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order(
         r#"Object.freeze((globalThis["Math"]["ceil"]))"#,
         r#"Object.freeze(globalThis["Math"].ceil)"#,
         r#"Object.freeze((globalThis["Math"].ceil))"#,
+        r#"Object.freeze(Math["ceil"])"#,
+        r#"Object.freeze((Math["ceil"]))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),

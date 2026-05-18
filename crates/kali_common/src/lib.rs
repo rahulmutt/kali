@@ -564,6 +564,8 @@ pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'stat
         r#"Object.freeze((globalThis["Math"]["floor"]))"#,
         r#"Object.freeze(globalThis["Math"].floor)"#,
         r#"Object.freeze((globalThis["Math"].floor))"#,
+        r#"Object.freeze(Math["floor"])"#,
+        r#"Object.freeze((Math["floor"]))"#,
         r#"Object.freeze(globalThis.Math["trunc"])"#,
         r#"Object.freeze((globalThis.Math["trunc"]))"#,
         r#"Object.freeze(globalThis.Math.trunc)"#,
@@ -572,6 +574,8 @@ pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'stat
         r#"Object.freeze((globalThis["Math"]["trunc"]))"#,
         r#"Object.freeze(globalThis["Math"].trunc)"#,
         r#"Object.freeze((globalThis["Math"].trunc))"#,
+        r#"Object.freeze(Math["trunc"])"#,
+        r#"Object.freeze((Math["trunc"]))"#,
         r#"Object.freeze(globalThis.Math["ceil"])"#,
         r#"Object.freeze((globalThis.Math["ceil"]))"#,
         r#"Object.freeze(globalThis.Math.ceil)"#,
@@ -580,6 +584,8 @@ pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'stat
         r#"Object.freeze((globalThis["Math"]["ceil"]))"#,
         r#"Object.freeze(globalThis["Math"].ceil)"#,
         r#"Object.freeze((globalThis["Math"].ceil))"#,
+        r#"Object.freeze(Math["ceil"])"#,
+        r#"Object.freeze((Math["ceil"]))"#,
     ]
 }
 
