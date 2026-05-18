@@ -758,6 +758,9 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
 #[test]
 fn test_math_pow_invocation_lines_are_canonical() {
     let source = math_pow_invocation_lines(&math_pow_source(), "  ");
+    let direct = math_pow_invocation_lines_for_aliases(math_pow_aliases(), "2", "alias", "  ");
+    let direct_entries =
+        math_pow_invocation_entries_for_aliases(math_pow_aliases(), "2", "alias", "    ");
     let expected = concat!(
         "  console.log(Math.pow(2, alias));\n",
         "  console.log(Math['pow'](2, alias));\n",
@@ -770,8 +773,22 @@ fn test_math_pow_invocation_lines_are_canonical() {
         "  console.log(globalThis[\"Math\"].pow(2, alias));\n",
         "  console.log(globalThis[\"Math\"][\"pow\"](2, alias));"
     );
+    let expected_entries = concat!(
+        "    Math.pow(2, alias),\n",
+        "    Math['pow'](2, alias),\n",
+        "    Math[\"pow\"](2, alias),\n",
+        "    globalThis.Math.pow(2, alias),\n",
+        "    globalThis.Math['pow'](2, alias),\n",
+        "    globalThis.Math[\"pow\"](2, alias),\n",
+        "    globalThis['Math'].pow(2, alias),\n",
+        "    globalThis['Math']['pow'](2, alias),\n",
+        "    globalThis[\"Math\"].pow(2, alias),\n",
+        "    globalThis[\"Math\"][\"pow\"](2, alias),"
+    );
 
     assert_eq!(source, expected);
+    assert_eq!(direct, expected);
+    assert_eq!(direct_entries, expected_entries);
 }
 
 #[test]

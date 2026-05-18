@@ -1,35 +1,14 @@
 use std::{fs, process::Command};
 
-use kali_common::{math_pow_aliases, math_pow_frozen_callable_aliases};
+use kali_common::{
+    math_pow_aliases, math_pow_frozen_callable_aliases, math_pow_invocation_entries_for_aliases,
+    math_pow_invocation_lines_for_aliases,
+};
 use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
-
-fn browser_bundle_math_pow_invocation_lines(base: &str, argument: &str) -> String {
-    math_pow_aliases()
-        .iter()
-        .map(|alias| format!("  console.log({alias}({base}, {argument}));"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn browser_bundle_math_pow_invocation_entries(base: &str, argument: &str) -> String {
-    math_pow_aliases()
-        .iter()
-        .map(|alias| format!("    {alias}({base}, {argument}),"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn browser_harness_math_pow_invocation_lines(base: &str, argument: &str) -> String {
-    math_pow_aliases()
-        .iter()
-        .map(|alias| format!("console.log({alias}({base}, {argument}));"))
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 fn browser_bundle_math_pow_exponent_one_source() -> String {
@@ -57,9 +36,11 @@ function mathPowExponentOneIdentity() {{
   ];
 }}
 "##,
-        direct_lines = browser_bundle_math_pow_invocation_lines("2", "alias"),
+        direct_lines =
+            math_pow_invocation_lines_for_aliases(math_pow_aliases(), "2", "alias", "  "),
         frozen_lines = frozen_lines,
-        direct_entries = browser_bundle_math_pow_invocation_entries("2", "alias"),
+        direct_entries =
+            math_pow_invocation_entries_for_aliases(math_pow_aliases(), "2", "alias", "    "),
         frozen_entries = frozen_entries,
     )
 }
@@ -160,7 +141,7 @@ fn browser_harness_math_pow_identity_run_source(exponent_value: &str, pow_base: 
     format!(
         "const exponent = {exponent_value}; const alias = exponent; {direct_lines} {frozen_lines}\n",
         exponent_value = exponent_value,
-        direct_lines = browser_harness_math_pow_invocation_lines(pow_base, "alias"),
+        direct_lines = math_pow_invocation_lines_for_aliases(math_pow_aliases(), pow_base, "alias", ""),
         frozen_lines = frozen_lines,
     )
 }
@@ -186,7 +167,8 @@ fn browser_harness_math_pow_identity_test_source(
 "#,
         test_name = test_name,
         exponent_value = exponent_value,
-        direct_lines = browser_harness_math_pow_invocation_lines(pow_base, "alias"),
+        direct_lines =
+            math_pow_invocation_lines_for_aliases(math_pow_aliases(), pow_base, "alias", ""),
         frozen_lines = frozen_lines,
     )
 }
@@ -224,9 +206,11 @@ function mathPowBaseOneIdentity() {{
   ];
 }}
 "##,
-        direct_lines = browser_bundle_math_pow_invocation_lines("1", "alias"),
+        direct_lines =
+            math_pow_invocation_lines_for_aliases(math_pow_aliases(), "1", "alias", "  "),
         frozen_lines = frozen_lines,
-        direct_entries = browser_bundle_math_pow_invocation_entries("1", "alias"),
+        direct_entries =
+            math_pow_invocation_entries_for_aliases(math_pow_aliases(), "1", "alias", "    "),
         frozen_entries = frozen_entries,
     )
 }

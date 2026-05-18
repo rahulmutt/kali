@@ -767,6 +767,34 @@ pub fn math_pow_invocation_lines(source: &str, indentation: &str) -> String {
         .join("\n")
 }
 
+/// Canonical `console.log(...)` invocation lines for an arbitrary `Math.pow` alias inventory.
+pub fn math_pow_invocation_lines_for_aliases(
+    aliases: &[&str],
+    base: &str,
+    argument: &str,
+    indentation: &str,
+) -> String {
+    aliases
+        .iter()
+        .map(|alias| format!("{indentation}console.log({alias}({base}, {argument}));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Canonical `return [...]` invocation entries for an arbitrary `Math.pow` alias inventory.
+pub fn math_pow_invocation_entries_for_aliases(
+    aliases: &[&str],
+    base: &str,
+    argument: &str,
+    indentation: &str,
+) -> String {
+    aliases
+        .iter()
+        .map(|alias| format!("{indentation}{alias}({base}, {argument}),"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str] {
     &[
