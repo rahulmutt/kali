@@ -1227,6 +1227,38 @@ fn test_parse_dot_delete_member_expression_after_keyword_property() {
 }
 
 #[test]
+fn test_parse_dot_from_member_expression_after_keyword_property() {
+    let tokens = lex("Array.from([1, 2]);");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::ExpressionStatement(stmt) = &output.statements[0] else {
+        panic!(
+            "Expected ExpressionStatement, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Expression::CallExpression(call) = stmt.expression.as_ref() else {
+        panic!("Expected CallExpression, got {:?}", stmt.expression);
+    };
+    let Expression::MemberExpression(member) = &call.callee else {
+        panic!("Expected member expression callee, got {:?}", call.callee);
+    };
+    assert_eq!(member.property, "from");
+    let Expression::Identifier(array) = &member.object else {
+        panic!("Expected Array root, got {:?}", member.object);
+    };
+    assert_eq!(array, "Array");
+}
+
+#[test]
 fn test_parse_bigint_literal_expression() {
     let tokens = lex("const value = 42n;");
     let mut parser = Parser::new(FileId::new(0), tokens);

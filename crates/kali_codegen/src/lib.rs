@@ -1009,6 +1009,12 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
 
+            if self.is_array_from_call(node) {
+                let argument = node.children.get(1).copied()?;
+                id = argument;
+                continue;
+            }
+
             return Some(id);
         }
     }
@@ -3055,6 +3061,35 @@ impl<'a> FunctionEmitter<'a> {
                 | Some("globalThis.Object")
                 | Some(r#"globalThis["Object"]"#)
                 | Some(r#"globalThis['Object']"#)
+        )
+    }
+
+    fn is_array_from_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+
+        matches!(
+            callee_node.text.as_deref(),
+            Some(text)
+                if text == "from"
+                    || text.ends_with(".from")
+                    || text.ends_with(r#"["from"]"#)
+                    || text.ends_with(r#"['from']"#)
+        ) && matches!(
+            self.node(object).text.as_deref(),
+            Some("Array")
+                | Some("globalThis.Array")
+                | Some(r#"globalThis["Array"]"#)
+                | Some(r#"globalThis['Array']"#)
         )
     }
 

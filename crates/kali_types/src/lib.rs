@@ -711,6 +711,9 @@ impl TypeContext {
                             .args
                             .first()
                             .is_some_and(|arg| self.is_static_array_iteration_target(arg))
+                    || self.is_static_array_from_call(call)
+                        && call.args.len() == 1
+                        && self.is_static_array_iteration_target(&call.args[0])
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)
@@ -720,6 +723,22 @@ impl TypeContext {
                 .resolve_static_string_iterable_expression(other)
                 .is_some(),
         }
+    }
+
+    fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
+        matches!(
+            self.resolve_static_callable_name(&call.callee).as_deref(),
+            Some("Array.from")
+                | Some("globalThis.Array.from")
+                | Some(r#"globalThis["Array"].from"#)
+                | Some(r#"globalThis["Array"]["from"]"#)
+                | Some(r#"globalThis['Array'].from"#)
+                | Some(r#"globalThis['Array']['from']"#)
+                | Some(r#"Array["from"]"#)
+                | Some(r#"Array['from']"#)
+                | Some(r#"globalThis.Array["from"]"#)
+                | Some(r#"globalThis.Array['from']"#)
+        )
     }
 
     fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {

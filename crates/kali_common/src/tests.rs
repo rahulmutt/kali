@@ -137,7 +137,7 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let inventory_source = process_kill_zero_probe_alias_inventory_source();
     let direct_source = process_kill_zero_probe_direct_source();
     let wrapped_source = process_kill_zero_probe_wrapped_source();
-    let expected = format!("{}", aliases.join("; ")) + ";";
+    let expected = aliases.join("; ") + ";";
 
     for expected_alias in [
         r#"process.kill"#,

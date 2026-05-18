@@ -155,3 +155,23 @@ fn test_supports_for_await_break_and_continue_in_js_input() {
         );
     }
 }
+
+#[test]
+fn run_supports_for_of_array_from_iteration_in_js_input() {
+    assert_for_of_array_iteration_spread(
+        "run",
+        "main.js",
+        "for (const value of Array.from([1, 2])) { console.log(value); }\n",
+        "1\n2\n",
+    );
+}
+
+#[test]
+fn test_supports_for_of_array_from_iteration_in_ts_input() {
+    assert_for_of_array_iteration_spread(
+        "test",
+        "smoke.test.ts",
+        "Kali.test('for-of Array.from', () => { for await (const value of Array.from([1, 2])) { console.log(value); } });\n",
+        "ok 1",
+    );
+}
