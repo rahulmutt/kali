@@ -100,6 +100,8 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - The shared zero-probe inventory now also carries the doubly parenthesized `((globalThis.process.kill))(+0)` sibling, keeping the Node/browser smoke and canonical helper inventory aligned on the `+0` wrapper case as well.
 - The late-process-control prefix now also carries the parenthesized bracketed `globalThis["process"]` receiver-freeze aliases, keeping that wrapper family explicit in the same zero-probe smoke path.
 
+- The sequence-callable-target binding helper now also carries the fully bracketed `globalThis["process"]["kill"]` binding pair, keeping the Node surface alias matrix aligned with the shared helper source.
+
 ## Exit gate
 
 - Each promoted semantic slice has parser/checker/lowering/runtime evidence.

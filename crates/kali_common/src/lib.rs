@@ -433,6 +433,7 @@ pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String 
         r#"const sequenceKill = (process.kill, process.kill)"#,
         r#"const bracketedSequenceKill = (globalThis["process"]["kill"], globalThis["process"]["kill"])"#,
         r#"const dotBracketSequenceKill = (globalThis.process["kill"], globalThis.process["kill"])"#,
+        r#"const fullyBracketedSequenceKill = (globalThis["process"]["kill"], globalThis["process"]["kill"])"#,
     ])
 }
 
