@@ -790,6 +790,45 @@ fn thread_runtime_topology_assigns_one_instance_per_worker() {
 }
 
 #[test]
+fn thread_runtime_topology_keeps_monotonic_instance_ids_after_termination() {
+    let mut topology = ThreadRuntimeTopology::new();
+    let first = topology
+        .spawn_worker("https://example.com/worker-a.js")
+        .expect("first worker");
+    let second = topology
+        .spawn_worker("https://example.com/worker-b.js")
+        .expect("second worker");
+
+    assert!(topology.terminate(first));
+
+    let third = topology
+        .spawn_worker("https://example.com/worker-c.js")
+        .expect("third worker");
+
+    assert_eq!(first, 0);
+    assert_eq!(second, 1);
+    assert_eq!(third, 2);
+    assert_eq!(topology.instance_ids(), vec![first, second, third]);
+
+    let report = topology.snapshot();
+    assert_eq!(report.total_instances, 3);
+    assert_eq!(report.terminated_instances, 1);
+    assert_eq!(report.live_instances.len(), 2);
+    assert_eq!(
+        report
+            .live_instances
+            .iter()
+            .map(|snapshot| snapshot.instance_id)
+            .collect::<Vec<_>>(),
+        vec![second, third]
+    );
+    assert!(report
+        .live_instances
+        .iter()
+        .all(|snapshot| !snapshot.was_terminated));
+}
+
+#[test]
 fn thread_runtime_topology_snapshot_reports_live_instances_deterministically() {
     let mut topology = ThreadRuntimeTopology::new();
     let live = topology
