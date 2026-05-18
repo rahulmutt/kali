@@ -8524,6 +8524,55 @@ fn json_test_merges_missing_tests_failed_from_browser_summary_stdout_when_browse
 }
 
 #[test]
+fn json_test_uses_padded_browser_summary_labels_when_browser_harness_is_configured_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("padded-summary.test.js");
+    fs::write(
+        &source_path,
+        "Kali.test('browser padded labels', () => { console.log('browser padded labels'); });\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser padded labels\"],\"testsFailed\":4,\"hostContract\":\" browser-requested \",\"runtimeBackend\":\" browser-harness \"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser padded labels\"],\"testsFailed\":8,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 0);
+    assert_eq!(json["payload"]["failed"], 4);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("\"testsFailed\":8"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn json_test_falls_back_to_stdout_when_browser_summary_file_is_unparseable_when_browser_harness_is_configured_in_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
