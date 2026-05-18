@@ -313,6 +313,29 @@ main();
 "#
 }
 
+fn await_wrapped_static_helper_test_source() -> &'static str {
+    r#"Kali.test('await-wrapped static object helpers', () => {
+  async function main() {
+    if (!Object.is(await 1, await 1)) {
+      throw new Error('unexpected await-wrapped Object.is semantics');
+    }
+    if (!Number.isSafeInteger(await 1)) {
+      throw new Error('unexpected await-wrapped Number.isSafeInteger semantics');
+    }
+    const keys = Object.keys(await { a: 1 });
+    if (keys.length !== 1 || keys[0] !== 'a') {
+      throw new Error('unexpected await-wrapped Object.keys semantics');
+    }
+    const ownKeys = Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 }));
+    if (ownKeys.length !== 2 || ownKeys[0] !== 'b' || ownKeys[1] !== 'a') {
+      throw new Error('unexpected await-wrapped Reflect.ownKeys semantics');
+    }
+  }
+  return main();
+});
+"#
+}
+
 fn assert_object_keys_iteration(command: &str, filename: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -782,6 +805,18 @@ fn test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input() {
 fn run_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
         assert_object_keys_iteration("run", filename, await_wrapped_static_helper_run_source());
+    }
+}
+
+#[test]
+fn test_supports_await_wrapped_static_helper_inputs_in_js_ts_jsx_tsx_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_object_keys_iteration("test", filename, await_wrapped_static_helper_test_source());
     }
 }
 
