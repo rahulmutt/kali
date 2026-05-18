@@ -3,13 +3,21 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
-use kali_common::object_has_own_frozen_callable_condition_source;
+use kali_common::{
+    object_has_own_frozen_callable_condition_source,
+    object_has_own_property_call_frozen_callable_condition_source,
+};
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
 fn frozen_object_has_own_source() -> String {
+    let frozen_callable_condition_source = format!(
+        "{} || {}",
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
+        object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
+    );
     format!(
         r#"const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
 const alias = object;
@@ -24,11 +32,16 @@ if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalTh
 }}
 console.log('frozen object hasOwn ok');
 "#,
-        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+        frozen_callable_condition_source
     )
 }
 
 fn frozen_object_has_own_test_source() -> String {
+    let frozen_callable_condition_source = format!(
+        "{} || {}",
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
+        object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
+    );
     format!(
         r#"Kali.test('frozen object hasOwn', () => {{
   const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
@@ -44,7 +57,7 @@ fn frozen_object_has_own_test_source() -> String {
   }}
 }});
 "#,
-        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+        frozen_callable_condition_source
     )
 }
 

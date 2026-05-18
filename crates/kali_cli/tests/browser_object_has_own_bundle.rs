@@ -3,13 +3,21 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
-use kali_common::object_has_own_frozen_callable_condition_source;
+use kali_common::{
+    object_has_own_frozen_callable_condition_source,
+    object_has_own_property_call_frozen_callable_condition_source,
+};
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
 fn browser_bundle_object_has_own_js_source() -> String {
+    let frozen_callable_condition_source = format!(
+        "{} || {}",
+        object_has_own_frozen_callable_condition_source("alias", r#""a""#),
+        object_has_own_property_call_frozen_callable_condition_source("alias", r#""a""#)
+    );
     format!(
         r##"// kali-tree-shake: browserObjectHasOwn
 function browserObjectHasOwn() {{
@@ -24,11 +32,16 @@ function browserObjectHasOwn() {{
   console.log('browser object hasOwn ok');
 }}
 "##,
-        object_has_own_frozen_callable_condition_source("alias", r#""a""#)
+        frozen_callable_condition_source
     )
 }
 
 fn browser_bundle_object_has_own_ts_source() -> String {
+    let frozen_callable_condition_source = format!(
+        "{} || {}",
+        object_has_own_frozen_callable_condition_source("alias", r#""a""#),
+        object_has_own_property_call_frozen_callable_condition_source("alias", r#""a""#)
+    );
     format!(
         r##"// kali-tree-shake: browserObjectHasOwn
 function browserObjectHasOwn() {{
@@ -43,7 +56,7 @@ function browserObjectHasOwn() {{
   console.log('browser object hasOwn ok');
 }}
 "##,
-        object_has_own_frozen_callable_condition_source("alias", r#""a""#)
+        frozen_callable_condition_source
     )
 }
 

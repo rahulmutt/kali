@@ -293,6 +293,54 @@ fn test_object_has_own_frozen_callable_condition_source_lists_all_aliases_in_ord
 }
 
 #[test]
+fn test_object_has_own_property_call_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = object_has_own_property_call_frozen_callable_aliases();
+    let source = object_has_own_property_call_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        r#"Object.freeze(globalThis.Object.prototype.hasOwnProperty.call)"#,
+        r#"Object.freeze((globalThis.Object.prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty.call)"#,
+        r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis.Object.prototype["hasOwnProperty"]["call"])"#,
+        r#"Object.freeze((globalThis.Object.prototype["hasOwnProperty"]["call"]))"#,
+        r#"Object.freeze(globalThis["Object"]["prototype"]["hasOwnProperty"]["call"])"#,
+        r#"Object.freeze((globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]))"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Object.prototype.hasOwnProperty.call frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
+fn test_object_has_own_property_call_frozen_callable_condition_source_lists_all_aliases_in_order() {
+    let aliases = object_has_own_property_call_frozen_callable_aliases();
+    let condition_source =
+        object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#);
+    let expected = aliases
+        .iter()
+        .map(|alias| format!("!{alias}(wrapped, \"a\")"))
+        .collect::<Vec<_>>()
+        .join(" || ");
+
+    assert_eq!(condition_source, expected);
+}
+
+#[test]
 fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_floor_trunc_ceil_frozen_callable_aliases();
     let source = math_floor_trunc_ceil_frozen_callable_source();

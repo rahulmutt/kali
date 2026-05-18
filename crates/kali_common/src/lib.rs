@@ -454,6 +454,37 @@ pub fn object_has_own_frozen_callable_condition_source(
         .join(" || ")
 }
 
+/// Canonical frozen callable aliases for the supported `Object.prototype.hasOwnProperty.call` helper slice.
+pub const fn object_has_own_property_call_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Object.prototype.hasOwnProperty.call)"#,
+        r#"Object.freeze((globalThis.Object.prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty.call)"#,
+        r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis.Object.prototype["hasOwnProperty"]["call"])"#,
+        r#"Object.freeze((globalThis.Object.prototype["hasOwnProperty"]["call"]))"#,
+        r#"Object.freeze(globalThis["Object"]["prototype"]["hasOwnProperty"]["call"])"#,
+        r#"Object.freeze((globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.
+pub fn object_has_own_property_call_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(object_has_own_property_call_frozen_callable_aliases())
+}
+
+/// Canonical boolean-check source for the supported `Object.prototype.hasOwnProperty.call` frozen callable aliases.
+pub fn object_has_own_property_call_frozen_callable_condition_source(
+    receiver_source: &str,
+    key_source: &str,
+) -> String {
+    object_has_own_property_call_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("!{alias}({receiver_source}, {key_source})"))
+        .collect::<Vec<_>>()
+        .join(" || ")
+}
+
 /// Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.
 pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'static str] {
     &[
