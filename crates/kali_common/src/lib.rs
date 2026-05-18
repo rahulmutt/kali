@@ -375,6 +375,10 @@ pub fn process_kill_zero_probe_parenthesized_frozen_callable_source() -> String 
         r#"Object.freeze((process.kill))(+0)"#,
         r#"Object.freeze((globalThis.process.kill))(0)"#,
         r#"Object.freeze((globalThis.process.kill))(+0)"#,
+        r#"Object.freeze((process["kill"]))(0)"#,
+        r#"Object.freeze((process["kill"]))(+0)"#,
+        r#"Object.freeze((globalThis.process["kill"]))(0)"#,
+        r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
         r#"Object.freeze((globalThis["process"].kill))(0)"#,
         r#"Object.freeze((globalThis["process"].kill))(+0)"#,
     ])
