@@ -42,6 +42,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - `kali package-audit --pretty lodash` now has a regression guard for the required `E5508` invalid-usage path when JSON mode is absent, and the `--preview` shim is unit-tested to fail before target validation or registry lookup; when both flags are present without JSON mode, `--pretty` still wins and the registry is never queried.
 - `kali package-effects --pretty browserpkg` now also keeps the pretty-native-JSON path covered under inherited browser resolution without requiring `--output json`, matching the native JSON contract.
 - The browser-runtime doctor schema/docs now spell out that `hostDescription` is trimmed like the other canonical host fields, keeping the schema chapter aligned with the existing validator coverage.
+- The pretty-JSON doctor regression now also asserts the shared `browserRuntimeContract` fixture in both env-selected and auto-selected quiet output paths, keeping the JSON and helper-backed contract snapshots aligned.
 
 ## Exit gate
 

@@ -274,6 +274,10 @@ fn doctor_reports_env_selected_browser_harness_in_pretty_json_under_quiet() {
     assert_eq!(harness["command"], serde_json::json!(["node", "--test"]));
     assert_eq!(harness["executable"], "node");
     assert_eq!(harness["args"], serde_json::json!(["--test"]));
+
+    let contract = &json["payload"]["browserRuntimeContract"];
+    let shared_contract = browser_runtime_contract_value();
+    assert_eq!(contract, &shared_contract);
 }
 
 #[test]
@@ -318,6 +322,8 @@ fn doctor_reports_auto_selected_browser_harness_in_pretty_json_under_quiet() {
     assert!(harness["executableAvailable"].is_boolean());
 
     let contract = &json["payload"]["browserRuntimeContract"];
+    let shared_contract = browser_runtime_contract_value();
+    assert_eq!(contract, &shared_contract);
     assert_eq!(contract["hostLabel"], "browser-requested");
     assert_eq!(contract["hostDescription"], "real browser host");
     assert_eq!(
