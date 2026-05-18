@@ -2258,6 +2258,19 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 }
 
 #[test]
+fn run_test_result_provenance_docs_track_canonical_thread_topology_script_urls() {
+    let root = repo_root();
+    let schemas = fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas spec");
+
+    assert!(
+        schemas.contains(
+            "canonical absolute URL string, not a relative or whitespace-padded spelling"
+        ),
+        "specs/18-schemas.md should describe the canonical threadTopology scriptUrl form"
+    );
+}
+
+#[test]
 fn active_plan_tracks_runtime_host_phase() {
     let root = repo_root();
     let phase =

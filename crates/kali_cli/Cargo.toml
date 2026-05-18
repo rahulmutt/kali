@@ -28,6 +28,7 @@ kali_sandbox = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+url = { workspace = true }
 ignore = "0.4"
 globset = "0.4"
 wasm-encoder = { workspace = true }

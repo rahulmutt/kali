@@ -4,6 +4,7 @@ use std::{
     collections::{BTreeSet, HashSet},
     path::Path,
 };
+use url::Url;
 
 use crate::{ColorChoice, OutputFormat};
 
@@ -709,7 +710,7 @@ fn validate_thread_topology_instance_snapshot_value(value: &Value) -> Result<u64
         None => unreachable!("validated above"),
     };
 
-    validate_non_empty_string_value(object.get("scriptUrl"), "scriptUrl")?;
+    validate_canonical_absolute_url_string_value(object.get("scriptUrl"), "scriptUrl")?;
 
     match object.get("postedMessages") {
         Some(Value::Array(_)) => {}
@@ -995,6 +996,26 @@ fn validate_non_empty_string_value(value: Option<&Value>, context: &str) -> Resu
         Some(other) => Err(format!("{context} must be a string, got {other}")),
         None => unreachable!("validated above"),
     }
+}
+
+fn validate_canonical_absolute_url_string_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::String(value)) = value else {
+        return validate_non_empty_string_value(value, context);
+    };
+
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(format!(
+            "{context} must be a non-empty, non-whitespace string"
+        ));
+    }
+
+    Url::parse(trimmed)
+        .map_err(|_| format!("{context} must be a valid absolute URL, got {value}"))?;
+    Ok(())
 }
 
 fn validate_optional_non_empty_string_value(
