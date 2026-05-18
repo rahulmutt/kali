@@ -3930,6 +3930,7 @@ const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -3965,7 +3966,12 @@ if (
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||
   frozenBracketedKeys[2] !== 'b' ||
-  frozenBracketedKeys[3] !== 'a'
+  frozenBracketedKeys[3] !== 'a' ||
+  frozenCallableKeys.length !== 4 ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a'
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -3995,6 +4001,7 @@ const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -4030,7 +4037,12 @@ if (
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||
   frozenBracketedKeys[2] !== 'b' ||
-  frozenBracketedKeys[3] !== 'a'
+  frozenBracketedKeys[3] !== 'a' ||
+  frozenCallableKeys.length !== 4 ||
+  frozenCallableKeys[0] !== '1' ||
+  frozenCallableKeys[1] !== '2' ||
+  frozenCallableKeys[2] !== 'b' ||
+  frozenCallableKeys[3] !== 'a'
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
