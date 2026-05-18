@@ -37,8 +37,8 @@ use kali_optimize::ProfileData;
 use kali_runtime::{
     browser_harness_command_parts_checked, browser_runtime_contract_value,
     browser_runtime_request_context, browser_runtime_unavailable_diagnostic,
-    normalize_runtime_profiles, RuntimeBackend, RuntimeCtx, RuntimeHostContract,
-    BROWSER_HARNESS_COMMAND_ENV,
+    normalize_runtime_profiles, BrowserRuntimeContract, RuntimeBackend, RuntimeCtx,
+    RuntimeHostContract, BROWSER_HARNESS_COMMAND_ENV,
 };
 use kali_sandbox::{
     compare_effects_to_policy, effect_report_from_inference, infer_effects_from_roots,
@@ -364,9 +364,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             .output()
             .is_ok();
     let browser_runtime_contract_json = browser_runtime_contract_value();
-    let browser_runtime_contract = browser_runtime_contract_json
-        .as_object()
-        .expect("browser runtime contract fixture must be a JSON object");
+    let browser_runtime_contract = BrowserRuntimeContract::descriptor();
     let payload = json!({
         "browserHarness": {
             "envVar": BROWSER_HARNESS_COMMAND_ENV,
@@ -396,31 +394,6 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         );
     } else if !output.quiet {
         let harness = &payload["browserHarness"];
-        let contract_host_label = browser_runtime_contract["hostLabel"]
-            .as_str()
-            .expect("browser runtime contract hostLabel string");
-        let contract_host_description = browser_runtime_contract["hostDescription"]
-            .as_str()
-            .expect("browser runtime contract hostDescription string");
-        let contract_host_description_note = browser_runtime_contract["hostDescriptionNote"]
-            .as_str()
-            .expect("browser runtime contract hostDescriptionNote string");
-        let contract_supported_commands = browser_runtime_contract["supportedCommands"]
-            .as_array()
-            .expect("browser runtime contract supportedCommands array")
-            .iter()
-            .map(|item| {
-                item.as_str()
-                    .expect("browser runtime contract supportedCommands item")
-            })
-            .collect::<Vec<_>>();
-        let contract_diagnostic_hint = browser_runtime_contract["diagnosticHint"]
-            .as_str()
-            .expect("browser runtime contract diagnosticHint string");
-        let contract_diagnostic_notes = browser_runtime_contract["diagnosticNotes"]
-            .as_array()
-            .expect("browser runtime contract diagnosticNotes array");
-
         println!("Browser harness:");
         println!("  env var: {}", BROWSER_HARNESS_COMMAND_ENV);
         println!("  source: {}", harness["source"].as_str().unwrap_or(source));
@@ -430,23 +403,25 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         println!("  command: {}", command_parts.join(" "));
         println!("  executable available: {}", executable_available);
         println!("Browser runtime contract:");
-        println!("  host label: {}", contract_host_label);
-        println!("  host description: {}", contract_host_description);
+        println!("  host label: {}", browser_runtime_contract.host_label);
+        println!(
+            "  host description: {}",
+            browser_runtime_contract.host_description
+        );
         println!(
             "  host description note: {}",
-            contract_host_description_note
+            browser_runtime_contract.host_description_note
         );
         println!(
             "  supported commands: {}",
-            contract_supported_commands.join(", ")
+            browser_runtime_contract.supported_commands.join(", ")
         );
-        println!("  diagnostic hint: {}", contract_diagnostic_hint);
-        for note in contract_diagnostic_notes {
-            println!(
-                "  note: {}",
-                note.as_str()
-                    .expect("browser runtime contract diagnostic note string")
-            );
+        println!(
+            "  diagnostic hint: {}",
+            browser_runtime_contract.diagnostic_hint
+        );
+        for note in BrowserRuntimeContract::diagnostic_notes() {
+            println!("  note: {note}");
         }
     }
 
