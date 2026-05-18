@@ -19,7 +19,7 @@ fn browser_harness_math_pow_frozen_lines() -> String {
 
 fn browser_harness_math_pow_run_source() -> String {
     format!(
-        "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\n{}\n",
+        "const exponent = 3; const alias = exponent; console.log(Math.pow(2, alias));\nconsole.log(Math['pow'](2, alias));\nconsole.log(globalThis.Math.pow(2, alias));\nconsole.log(globalThis.Math[\"pow\"](2, alias));\nconsole.log(globalThis.Math['pow'](2, alias));\nconsole.log(globalThis[\"Math\"][\"pow\"](2, alias));\nconsole.log(globalThis[\"Math\"].pow(2, alias));\nconsole.log(globalThis['Math'].pow(2, alias));\nconsole.log(globalThis['Math']['pow'](2, alias));\n{}\n",
         browser_harness_math_pow_frozen_lines()
     )
 }
@@ -30,9 +30,14 @@ fn browser_harness_math_pow_test_source() -> String {
   const exponent = 3;
   const alias = exponent;
   console.log(Math.pow(2, alias));
+  console.log(Math['pow'](2, alias));
   console.log(globalThis.Math.pow(2, alias));
-  console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
+  console.log(globalThis.Math['pow'](2, alias));
+  console.log(globalThis["Math"]["pow"](2, alias));
+  console.log(globalThis["Math"].pow(2, alias));
+  console.log(globalThis['Math'].pow(2, alias));
+  console.log(globalThis['Math']['pow'](2, alias));
   {}
 }});
 "#,
