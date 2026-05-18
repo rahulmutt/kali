@@ -652,6 +652,10 @@ fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
         prefix.contains("process.kill; globalThis.process.kill;"),
         "prefix: {prefix}"
     );
+    assert!(
+        !prefix.contains("Object.freeze((process)).kill(0)"),
+        "prefix: {prefix}"
+    );
     assert!(!prefix.contains("process.kill(0)"), "prefix: {prefix}");
 }
 
@@ -678,6 +682,19 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
     );
     assert!(
         source.contains(r#"Object.freeze((process).kill)(+0)"#),
+        "source: {source}"
+    );
+    let parenthesized_receiver_freeze_source =
+        process_kill_zero_probe_parenthesized_receiver_freeze_source();
+    assert!(
+        source.contains(parenthesized_receiver_freeze_source.trim_end()),
+        "source: {source}"
+    );
+    assert_eq!(
+        source
+            .matches(parenthesized_receiver_freeze_source.trim_end())
+            .count(),
+        1,
         "source: {source}"
     );
     assert!(

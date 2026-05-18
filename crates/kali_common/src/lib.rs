@@ -757,12 +757,6 @@ const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
     "const zero = 0",
     "const zeroAlias = zero",
     "process.kill(zeroAlias)",
-    "((process)).kill(0)",
-    "((process)).kill(+0)",
-    "((globalThis.process)).kill(0)",
-    "((globalThis.process)).kill(+0)",
-    "((globalThis[\"process\"])).kill(0)",
-    "((globalThis[\"process\"])).kill(+0)",
     "process.exit",
     "globalThis.process.exit",
     "globalThis[\"process\"].exit",
@@ -780,9 +774,12 @@ pub fn late_process_control_prefix_source() -> String {
 /// Canonical late-process-control source text that embeds the supported Node zero-probe slice.
 pub fn late_process_control_source() -> String {
     let process_kill_zero_probe_source = process_kill_zero_probe_alias_inventory_source();
+    let parenthesized_receiver_freeze_source =
+        process_kill_zero_probe_parenthesized_receiver_freeze_source();
     format!(
-        "{} {}",
+        "{} {} {}",
         late_process_control_prefix_source(),
+        parenthesized_receiver_freeze_source.trim_end(),
         process_kill_zero_probe_source.trim_end()
     )
 }
