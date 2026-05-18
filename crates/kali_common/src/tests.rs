@@ -769,6 +769,21 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_pow_bracketed_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_pow_bracketed_frozen_callable_aliases();
+    let source = math_pow_bracketed_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze((globalThis.Math["pow"]))"#,
+            r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+        ]
+    );
+    assert_eq!(source, "Object.freeze((globalThis.Math[\"pow\"])); Object.freeze((globalThis[\"Math\"][\"pow\"]));");
+}
+
+#[test]
 fn test_math_pow_invocation_lines_are_canonical() {
     let source = math_pow_invocation_lines(&math_pow_source(), "  ");
     let direct = math_pow_invocation_lines_for_aliases(math_pow_aliases(), "2", "alias", "  ");

@@ -1,5 +1,9 @@
 use std::{fs, process::Command};
 
+use kali_common::{
+    math_pow_bracketed_frozen_callable_aliases, math_pow_bracketed_frozen_callable_source,
+    math_pow_invocation_entries_for_aliases, math_pow_invocation_lines,
+};
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -7,19 +11,26 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_bracketed_global_this_math_pow_frozen_source() -> &'static str {
-    r##"// kali-tree-shake: bracketedGlobalThisMathPowFrozenWrapper
-function bracketedGlobalThisMathPowFrozenWrapper() {
+fn browser_bundle_bracketed_global_this_math_pow_frozen_source() -> String {
+    format!(
+        r##"// kali-tree-shake: bracketedGlobalThisMathPowFrozenWrapper
+function bracketedGlobalThisMathPowFrozenWrapper() {{
   const exponent = 3;
   const alias = exponent;
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
+  {}
   return [
-    Object.freeze((globalThis.Math["pow"]))(2, alias),
-    Object.freeze((globalThis["Math"]["pow"]))(2, alias),
+{}
   ];
-}
-"##
+}}
+"##,
+        math_pow_invocation_lines(&math_pow_bracketed_frozen_callable_source(), "  "),
+        math_pow_invocation_entries_for_aliases(
+            math_pow_bracketed_frozen_callable_aliases(),
+            "2",
+            "alias",
+            "    ",
+        ),
+    )
 }
 
 fn assert_browser_bundle_bracketed_global_this_math_pow_frozen(filename: &str, json_output: bool) {

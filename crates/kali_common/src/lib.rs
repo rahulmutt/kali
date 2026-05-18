@@ -835,6 +835,19 @@ pub const fn math_pow_frozen_callable_parenthesized_aliases() -> &'static [&'sta
     ]
 }
 
+/// Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_bracketed_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.pow` bracketed-root frozen callable aliases.
+pub fn math_pow_bracketed_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_pow_bracketed_frozen_callable_aliases())
+}
+
 /// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
 pub fn math_pow_frozen_callable_aliases() -> Vec<&'static str> {
     let direct = math_pow_frozen_callable_direct_aliases();
