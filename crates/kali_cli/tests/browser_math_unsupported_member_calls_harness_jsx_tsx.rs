@@ -61,7 +61,7 @@ fn assert_browser_harness_unsupported_math_rejection(
 }
 
 fn browser_harness_run_source() -> &'static str {
-    "console.log(Math.sqrt(1.6));\nconsole.log(Math[\"sqrt\"](1.6));\nconsole.log(globalThis.Math[\"sqrt\"](1.6));\nconsole.log(globalThis[\"Math\"].sqrt(1.6));\nconsole.log(globalThis[\"Math\"][\"sqrt\"](1.6));\n"
+    "console.log(Math.sqrt(1.6));\nconsole.log(Math[\"sqrt\"](1.6));\nconsole.log(globalThis.Math[\"sqrt\"](1.6));\nconsole.log(globalThis[\"Math\"].sqrt(1.6));\nconsole.log(globalThis[\"Math\"][\"sqrt\"](1.6));\nconsole.log(globalThis['Math']['sqrt'](1.6));\n"
 }
 
 fn browser_harness_test_source() -> &'static str {
@@ -71,12 +71,13 @@ fn browser_harness_test_source() -> &'static str {
   console.log(globalThis.Math["sqrt"](1.6));
   console.log(globalThis["Math"].sqrt(1.6));
   console.log(globalThis["Math"]["sqrt"](1.6));
+  console.log(globalThis['Math']['sqrt'](1.6));
 });
 "#
 }
 
 fn browser_harness_run_atan2_source() -> &'static str {
-    "console.log(Math.atan2(1, 1));\nconsole.log(Math[\"atan2\"](1, 1));\nconsole.log(globalThis.Math[\"atan2\"](1, 1));\nconsole.log(globalThis[\"Math\"].atan2(1, 1));\nconsole.log(globalThis[\"Math\"][\"atan2\"](1, 1));\n"
+    "console.log(Math.atan2(1, 1));\nconsole.log(Math[\"atan2\"](1, 1));\nconsole.log(globalThis.Math[\"atan2\"](1, 1));\nconsole.log(globalThis[\"Math\"].atan2(1, 1));\nconsole.log(globalThis[\"Math\"][\"atan2\"](1, 1));\nconsole.log(globalThis['Math']['atan2'](1, 1));\n"
 }
 
 fn browser_harness_test_atan2_source() -> &'static str {
@@ -86,6 +87,7 @@ fn browser_harness_test_atan2_source() -> &'static str {
   console.log(globalThis.Math["atan2"](1, 1));
   console.log(globalThis["Math"].atan2(1, 1));
   console.log(globalThis["Math"]["atan2"](1, 1));
+  console.log(globalThis['Math']['atan2'](1, 1));
 });
 "#
 }
