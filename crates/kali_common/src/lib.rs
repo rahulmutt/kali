@@ -494,6 +494,7 @@ pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String 
 pub fn process_kill_zero_probe_call_target_bindings_source() -> String {
     join_semicolon_terminated_segments(&[
         r#"const kill = process.kill"#,
+        r#"const bracketedRootKill = process["kill"]"#,
         r#"const dotRootKill = globalThis.process.kill"#,
         r#"const bracketedKill = globalThis["process"].kill"#,
         r#"const dotBracketKill = globalThis.process["kill"]"#,

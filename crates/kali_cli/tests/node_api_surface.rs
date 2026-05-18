@@ -3052,7 +3052,7 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
                 call_target_bindings_source.as_str(),
                 " ",
                 sequence_call_target_bindings_source.as_str(),
-                " console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(globalThis.process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(fullyBracketedSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
+                " console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(bracketedRootKill(zero)); console.log(fullyBracketedKill(zero)); console.log(globalThis.process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(fullyBracketedSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
             ]
             .concat();
             fs::write(&run_file, run_source).expect("write run file");

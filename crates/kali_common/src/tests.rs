@@ -334,6 +334,7 @@ fn test_process_kill_zero_probe_direct_call_target_bindings_source_is_canonical(
         source,
         concat!(
             "const kill = process.kill; ",
+            "const bracketedRootKill = process[\"kill\"]; ",
             "const dotRootKill = globalThis.process.kill; ",
             "const bracketedKill = globalThis[\"process\"].kill; ",
             "const dotBracketKill = globalThis.process[\"kill\"]; ",
