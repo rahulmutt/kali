@@ -412,8 +412,8 @@ pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
 pub const fn process_kill_zero_probe_call_target_aliases() -> &'static [&'static str] {
     &[
         r#"process.kill"#,
-        r#"process["kill"]"#,
         r#"globalThis.process.kill"#,
+        r#"process["kill"]"#,
         r#"globalThis.process["kill"]"#,
         r#"globalThis["process"].kill"#,
         r#"globalThis["process"]["kill"]"#,
