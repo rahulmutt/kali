@@ -51551,6 +51551,75 @@ fn json_build_rejects_malformed_pgo_profile_data() {
 }
 
 #[test]
+fn build_rejects_empty_pgo_profile_data() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+    let profile_path = dir.path().join("profile.json");
+    fs::write(&profile_path, "").expect("write empty profile");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--profile")
+        .arg(&profile_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali build with empty profile");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5509"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("failed to parse PGO profile data")
+            || stderr.contains("EOF while parsing a value"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn json_build_rejects_empty_pgo_profile_data() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(1);").expect("write source");
+    let profile_path = dir.path().join("profile.json");
+    fs::write(&profile_path, "").expect("write empty profile");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("build")
+        .arg("--profile")
+        .arg(&profile_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali build with empty profile");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "build");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E5509");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("json build rejection message")
+            .contains("failed to parse PGO profile data")
+            || errors[0]["message"]
+                .as_str()
+                .expect("json build rejection message")
+                .contains("EOF while parsing a value"),
+        "errors: {errors:?}"
+    );
+}
+
+#[test]
 fn build_uses_inherited_browser_api_surface_for_bundle() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("app.ts");
