@@ -194,6 +194,32 @@ fn object_entries_from_entries_iteration_test_source() -> &'static str {
 "#
 }
 
+fn object_entries_iteration_frozen_literal_run_source() -> &'static str {
+    r#"const seen = [];
+for (const entry of Object.entries(Object.freeze({ "b": 1, "a": 2 }))) {
+  seen.push(entry[0]);
+  seen.push(entry[1]);
+}
+if (seen.length !== 4 || seen[0] !== 'b' || seen[1] !== 1 || seen[2] !== 'a' || seen[3] !== 2) {
+  throw new Error('unexpected frozen Object.entries iteration semantics');
+}
+"#
+}
+
+fn object_entries_iteration_frozen_literal_test_source() -> &'static str {
+    r#"Kali.test('frozen object entries iteration', () => {
+  const seen = [];
+  for (const entry of Object.entries(Object.freeze({ "b": 1, "a": 2 }))) {
+    seen.push(entry[0]);
+    seen.push(entry[1]);
+  }
+  if (seen.length !== 4 || seen[0] !== 'b' || seen[1] !== 1 || seen[2] !== 'a' || seen[3] !== 2) {
+    throw new Error('unexpected frozen Object.entries iteration semantics');
+  }
+});
+"#
+}
+
 fn object_enumeration_frozen_literal_run_source() -> &'static str {
     r#"const keys = [];
 for (const key of Object.keys(Object.freeze({ a: 1, b: 2 }))) {
@@ -648,6 +674,33 @@ fn test_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input() {
             "test",
             filename,
             object_entries_from_entries_iteration_test_source(),
+        );
+    }
+}
+
+#[test]
+fn run_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_object_keys_iteration(
+            "run",
+            filename,
+            object_entries_iteration_frozen_literal_run_source(),
+        );
+    }
+}
+
+#[test]
+fn test_supports_frozen_object_entries_iteration_in_js_ts_jsx_tsx_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_object_keys_iteration(
+            "test",
+            filename,
+            object_entries_iteration_frozen_literal_test_source(),
         );
     }
 }
