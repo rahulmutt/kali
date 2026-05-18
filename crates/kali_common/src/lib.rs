@@ -674,27 +674,50 @@ pub fn math_pow_source() -> String {
     join_semicolon_terminated_segments(math_pow_aliases())
 }
 
-/// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
-pub const fn math_pow_frozen_callable_aliases() -> &'static [&'static str] {
+/// Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str] {
     &[
         r#"Object.freeze(globalThis.Math["pow"])"#,
-        r#"Object.freeze((globalThis.Math["pow"]))"#,
         r#"Object.freeze(globalThis["Math"]["pow"])"#,
-        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
         r#"Object.freeze(globalThis.Math.pow)"#,
-        r#"Object.freeze((globalThis.Math.pow))"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
-        r#"Object.freeze((globalThis["Math"].pow))"#,
         r#"Object.freeze(Math.pow)"#,
-        r#"Object.freeze((Math.pow))"#,
         r#"Object.freeze(Math["pow"])"#,
+    ]
+}
+
+/// Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_frozen_callable_parenthesized_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze((globalThis["Math"].pow))"#,
+        r#"Object.freeze((Math.pow))"#,
         r#"Object.freeze((Math["pow"]))"#,
     ]
 }
 
+/// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
+pub fn math_pow_frozen_callable_aliases() -> Vec<&'static str> {
+    let direct = math_pow_frozen_callable_direct_aliases();
+    let parenthesized = math_pow_frozen_callable_parenthesized_aliases();
+    let mut aliases = Vec::with_capacity(direct.len() + parenthesized.len());
+    let mut seen = std::collections::HashSet::with_capacity(direct.len() + parenthesized.len());
+
+    for alias in direct.iter().chain(parenthesized.iter()).copied() {
+        if seen.insert(alias) {
+            aliases.push(alias);
+        }
+    }
+
+    aliases
+}
+
 /// Canonical source text for the supported `Math.pow` frozen callable aliases.
 pub fn math_pow_frozen_callable_source() -> String {
-    join_semicolon_terminated_segments(math_pow_frozen_callable_aliases())
+    let aliases = math_pow_frozen_callable_aliases();
+    join_semicolon_terminated_segments(&aliases)
 }
 
 /// Canonical root aliases for the supported `Set` constructor slice.

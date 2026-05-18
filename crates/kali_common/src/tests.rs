@@ -596,27 +596,37 @@ fn test_math_pow_source_lists_all_aliases_in_order() {
 
 #[test]
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
+    let direct_aliases = math_pow_frozen_callable_direct_aliases();
+    let parenthesized_aliases = math_pow_frozen_callable_parenthesized_aliases();
     let aliases = math_pow_frozen_callable_aliases();
     let source = math_pow_frozen_callable_source();
     let expected = format!("{};", aliases.join("; "));
 
     for expected_alias in [
         r#"Object.freeze(globalThis.Math["pow"])"#,
-        r#"Object.freeze((globalThis.Math["pow"]))"#,
         r#"Object.freeze(globalThis["Math"]["pow"])"#,
-        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
         r#"Object.freeze(globalThis.Math.pow)"#,
-        r#"Object.freeze((globalThis.Math.pow))"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
-        r#"Object.freeze((globalThis["Math"].pow))"#,
         r#"Object.freeze(Math.pow)"#,
-        r#"Object.freeze((Math.pow))"#,
         r#"Object.freeze(Math["pow"])"#,
+    ] {
+        assert!(
+            direct_aliases.contains(&expected_alias),
+            "missing direct alias: {expected_alias}"
+        );
+    }
+
+    for expected_alias in [
+        r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze((globalThis["Math"].pow))"#,
+        r#"Object.freeze((Math.pow))"#,
         r#"Object.freeze((Math["pow"]))"#,
     ] {
         assert!(
-            aliases.contains(&expected_alias),
-            "missing alias: {expected_alias}"
+            parenthesized_aliases.contains(&expected_alias),
+            "missing parenthesized alias: {expected_alias}"
         );
     }
 
@@ -629,6 +639,10 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     }
 
     assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(
+        aliases.len(),
+        direct_aliases.len() + parenthesized_aliases.len()
+    );
     assert_eq!(source, expected);
 }
 
