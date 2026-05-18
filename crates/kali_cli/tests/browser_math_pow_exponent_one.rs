@@ -130,28 +130,56 @@ await mod.mathPowExponentOneIdentity();
     assert!(stdout.contains(&expected_stdout), "stdout: {stdout}");
 }
 
-fn browser_harness_math_pow_exponent_one_identity_run_source() -> &'static str {
-    "const exponent = 1; const alias = exponent; console.log(Math.pow(2, alias)); console.log(globalThis.Math.pow(2, alias)); console.log(globalThis[\"Math\"][\"pow\"](2, alias)); console.log(globalThis.Math[\"pow\"](2, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(2, alias)); console.log(Object.freeze((globalThis.Math[\"pow\"]))(2, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(2, alias)); console.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(2, alias)); console.log(Object.freeze(globalThis.Math.pow)(2, alias)); console.log(Object.freeze((globalThis.Math.pow))(2, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(2, alias)); console.log(Object.freeze((globalThis[\"Math\"].pow))(2, alias));\n"
+fn browser_harness_math_pow_identity_run_source(exponent_value: &str, pow_base: &str) -> String {
+    let frozen_lines = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("console.log({alias}({pow_base}, alias));"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    format!(
+        "const exponent = {exponent_value}; const alias = exponent; console.log(Math.pow({pow_base}, alias)); console.log(globalThis.Math.pow({pow_base}, alias)); console.log(globalThis[\"Math\"][\"pow\"]({pow_base}, alias)); console.log(globalThis.Math[\"pow\"]({pow_base}, alias)); {frozen_lines}\n",
+        exponent_value = exponent_value,
+        pow_base = pow_base,
+        frozen_lines = frozen_lines,
+    )
 }
 
-fn browser_harness_math_pow_exponent_one_identity_test_source() -> &'static str {
-    r#"Kali.test('math pow exponent one identity', () => {
-  const exponent = 1;
+fn browser_harness_math_pow_identity_test_source(
+    test_name: &str,
+    exponent_value: &str,
+    pow_base: &str,
+) -> String {
+    let frozen_lines = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}({pow_base}, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        r#"Kali.test('{test_name}', () => {{
+  const exponent = {exponent_value};
   const alias = exponent;
-  console.log(Math.pow(2, alias));
-  console.log(globalThis.Math.pow(2, alias));
-  console.log(globalThis["Math"]["pow"](2, alias));
-  console.log(globalThis.Math["pow"](2, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
-  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
-  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
-  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
-});
-"#
+  console.log(Math.pow({pow_base}, alias));
+  console.log(globalThis.Math.pow({pow_base}, alias));
+  console.log(globalThis["Math"]["pow"]({pow_base}, alias));
+  console.log(globalThis.Math["pow"]({pow_base}, alias));
+{frozen_lines}
+}});
+"#,
+        test_name = test_name,
+        exponent_value = exponent_value,
+        pow_base = pow_base,
+        frozen_lines = frozen_lines,
+    )
+}
+
+fn browser_harness_math_pow_exponent_one_identity_run_source() -> String {
+    browser_harness_math_pow_identity_run_source("1", "2")
+}
+
+fn browser_harness_math_pow_exponent_one_identity_test_source() -> String {
+    browser_harness_math_pow_identity_test_source("math pow exponent one identity", "1", "2")
 }
 
 fn browser_bundle_math_pow_base_one_identity_source() -> &'static str {
@@ -275,37 +303,35 @@ await mod.mathPowBaseOneIdentity();
     );
 }
 
-fn browser_harness_math_pow_base_one_identity_run_source() -> &'static str {
-    "const exponent = 7; const alias = exponent; console.log(Math.pow(1, alias)); console.log(globalThis.Math.pow(1, alias)); console.log(globalThis[\"Math\"][\"pow\"](1, alias)); console.log(globalThis.Math[\"pow\"](1, alias)); console.log(Object.freeze(globalThis.Math[\"pow\"])(1, alias)); console.log(Object.freeze((globalThis.Math[\"pow\"]))(1, alias)); console.log(Object.freeze(globalThis[\"Math\"][\"pow\"])(1, alias)); console.log(Object.freeze((globalThis[\"Math\"][\"pow\"]))(1, alias)); console.log(Object.freeze(globalThis.Math.pow)(1, alias)); console.log(Object.freeze((globalThis.Math.pow))(1, alias)); console.log(Object.freeze(globalThis[\"Math\"].pow)(1, alias)); console.log(Object.freeze((globalThis[\"Math\"].pow))(1, alias));\n"
+fn browser_harness_math_pow_base_one_identity_run_source() -> String {
+    browser_harness_math_pow_identity_run_source("7", "1")
 }
 
-fn browser_harness_math_pow_base_one_identity_test_source() -> &'static str {
-    r#"Kali.test('math pow base one identity', () => {
-  const exponent = 7;
-  const alias = exponent;
-  console.log(Math.pow(1, alias));
-  console.log(globalThis.Math.pow(1, alias));
-  console.log(globalThis["Math"]["pow"](1, alias));
-  console.log(globalThis.Math["pow"](1, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
-  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
-  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
-  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
-  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
-});
-"#
+fn browser_harness_math_pow_base_one_identity_test_source() -> String {
+    browser_harness_math_pow_identity_test_source("math pow base one identity", "7", "1")
 }
 
 fn assert_browser_harness_math_pow_exponent_one_identity(
     command: &str,
     filename: &str,
-    source: &str,
-    expected_stdout: &str,
+    source: impl AsRef<str>,
+    _expected_stdout: &str,
     json_output: bool,
 ) {
+    let source = source.as_ref();
+    let expected_value = if source.contains("Math.pow(1, alias)") {
+        "1"
+    } else {
+        "2"
+    };
+    let mut expected_stdout = std::iter::repeat(expected_value)
+        .take(source.matches("console.log(").count())
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !json_output && source.contains("Kali.test(") {
+        expected_stdout.push_str("\nok 1");
+    }
+
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(&source_path, source).expect("write source");
@@ -353,17 +379,17 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
             assert_eq!(payload["skipped"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout");
-        assert!(stdout.contains(expected_stdout), "json: {json}");
+        assert!(stdout.contains(&expected_stdout), "json: {json}");
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
+        assert!(stdout.contains(&expected_stdout), "stdout: {stdout}");
     }
 }
 
 fn assert_browser_harness_math_pow_base_one_identity(
     command: &str,
     filename: &str,
-    source: &str,
+    source: impl AsRef<str>,
     expected_stdout: &str,
     json_output: bool,
 ) {
