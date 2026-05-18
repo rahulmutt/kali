@@ -427,6 +427,15 @@ pub fn process_kill_zero_probe_source() -> String {
     process_kill_zero_probe_alias_inventory_source()
 }
 
+/// Canonical source text for the supported Node zero-probe sequence-callable-target bindings.
+pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String {
+    join_semicolon_terminated_segments(&[
+        r#"const sequenceKill = (process.kill, process.kill)"#,
+        r#"const bracketedSequenceKill = (globalThis["process"]["kill"], globalThis["process"]["kill"])"#,
+        r#"const dotBracketSequenceKill = (globalThis.process["kill"], globalThis.process["kill"])"#,
+    ])
+}
+
 /// Canonical `console.log(...)` source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_console_log_source() -> String {
     let statements = process_kill_zero_probe_aliases()
