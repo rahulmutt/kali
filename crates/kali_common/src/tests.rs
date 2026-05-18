@@ -583,9 +583,13 @@ fn test_math_pow_source_lists_all_aliases_in_order() {
 
     for expected_alias in [
         "Math.pow",
+        r#"Math['pow']"#,
         r#"Math["pow"]"#,
         "globalThis.Math.pow",
+        r#"globalThis.Math['pow']"#,
         r#"globalThis.Math["pow"]"#,
+        r#"globalThis['Math'].pow"#,
+        r#"globalThis['Math']['pow']"#,
         r#"globalThis["Math"].pow"#,
         r#"globalThis["Math"]["pow"]"#,
     ] {
@@ -616,11 +620,14 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let expected = format!("{};", aliases.join("; "));
 
     for expected_alias in [
+        r#"Object.freeze(globalThis.Math['pow'])"#,
         r#"Object.freeze(globalThis.Math["pow"])"#,
+        r#"Object.freeze(globalThis['Math']['pow'])"#,
         r#"Object.freeze(globalThis["Math"]["pow"])"#,
         r#"Object.freeze(globalThis.Math.pow)"#,
+        r#"Object.freeze(globalThis['Math'].pow)"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
-        r#"Object.freeze(Math.pow)"#,
+        r#"Object.freeze(Math['pow'])"#,
         r#"Object.freeze(Math["pow"])"#,
     ] {
         assert!(
@@ -630,11 +637,14 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     }
 
     for expected_alias in [
+        r#"Object.freeze((globalThis.Math['pow']))"#,
         r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze((globalThis['Math']['pow']))"#,
         r#"Object.freeze((globalThis["Math"]["pow"]))"#,
         r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze((globalThis['Math'].pow))"#,
         r#"Object.freeze((globalThis["Math"].pow))"#,
-        r#"Object.freeze((Math.pow))"#,
+        r#"Object.freeze((Math['pow']))"#,
         r#"Object.freeze((Math["pow"]))"#,
     ] {
         assert!(

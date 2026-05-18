@@ -673,9 +673,13 @@ pub fn math_floor_trunc_ceil_frozen_callable_source() -> String {
 pub const fn math_pow_aliases() -> &'static [&'static str] {
     &[
         "Math.pow",
+        r#"Math['pow']"#,
         r#"Math["pow"]"#,
         "globalThis.Math.pow",
+        r#"globalThis.Math['pow']"#,
         r#"globalThis.Math["pow"]"#,
+        r#"globalThis['Math'].pow"#,
+        r#"globalThis['Math']['pow']"#,
         r#"globalThis["Math"].pow"#,
         r#"globalThis["Math"]["pow"]"#,
     ]
@@ -689,11 +693,14 @@ pub fn math_pow_source() -> String {
 /// Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str] {
     &[
+        r#"Object.freeze(globalThis.Math['pow'])"#,
         r#"Object.freeze(globalThis.Math["pow"])"#,
+        r#"Object.freeze(globalThis['Math']['pow'])"#,
         r#"Object.freeze(globalThis["Math"]["pow"])"#,
         r#"Object.freeze(globalThis.Math.pow)"#,
+        r#"Object.freeze(globalThis['Math'].pow)"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
-        r#"Object.freeze(Math.pow)"#,
+        r#"Object.freeze(Math['pow'])"#,
         r#"Object.freeze(Math["pow"])"#,
     ]
 }
@@ -701,11 +708,14 @@ pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str
 /// Canonical parenthesized frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_frozen_callable_parenthesized_aliases() -> &'static [&'static str] {
     &[
+        r#"Object.freeze((globalThis.Math['pow']))"#,
         r#"Object.freeze((globalThis.Math["pow"]))"#,
+        r#"Object.freeze((globalThis['Math']['pow']))"#,
         r#"Object.freeze((globalThis["Math"]["pow"]))"#,
         r#"Object.freeze((globalThis.Math.pow))"#,
+        r#"Object.freeze((globalThis['Math'].pow))"#,
         r#"Object.freeze((globalThis["Math"].pow))"#,
-        r#"Object.freeze((Math.pow))"#,
+        r#"Object.freeze((Math['pow']))"#,
         r#"Object.freeze((Math["pow"]))"#,
     ]
 }
