@@ -420,6 +420,13 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
                 .expect("browser runtime contract hostDescription string")
         );
         println!(
+            "  host description note: {}",
+            browser_runtime_contract
+                .get("hostDescriptionNote")
+                .and_then(Value::as_str)
+                .expect("browser runtime contract hostDescriptionNote string")
+        );
+        println!(
             "  supported commands: {}",
             browser_runtime_contract
                 .get("supportedCommands")

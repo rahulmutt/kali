@@ -115,6 +115,8 @@ fn doctor_reports_whitespace_padded_browser_harness_override_in_human_output() {
     assert!(stdout.contains("  command: node --test"));
     assert!(stdout.contains("Browser runtime contract:"));
     assert!(stdout.contains("  host label: browser-requested"));
+    assert!(stdout
+        .contains("  host description note: browser runtime host description: real browser host"));
 }
 
 #[test]
@@ -141,6 +143,8 @@ fn doctor_reports_env_selected_browser_harness_in_human_output() {
     assert!(stdout.contains("Browser runtime contract:"));
     assert!(stdout.contains("  host label: browser-requested"));
     assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout
+        .contains("  host description note: browser runtime host description: real browser host"));
     assert!(stdout.contains("  supported commands: run, test"));
     assert!(stdout.contains("  diagnostic hint:"));
     assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
@@ -184,6 +188,8 @@ fn doctor_reports_auto_selected_browser_harness_in_human_output() {
     assert!(stdout.contains("Browser runtime contract:"));
     assert!(stdout.contains("  host label: browser-requested"));
     assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout
+        .contains("  host description note: browser runtime host description: real browser host"));
     assert!(stdout.contains("  supported commands: run, test"));
     assert!(stdout.contains("  diagnostic hint:"));
     assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
@@ -226,6 +232,8 @@ fn doctor_reports_unavailable_browser_harness_executable() {
     assert!(stdout.contains("Browser runtime contract:"));
     assert!(stdout.contains("  host label: browser-requested"));
     assert!(stdout.contains("  host description: real browser host"));
+    assert!(stdout
+        .contains("  host description note: browser runtime host description: real browser host"));
     assert!(stdout.contains("  supported commands: run, test"));
     assert!(stdout.contains("  diagnostic hint:"));
     assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
