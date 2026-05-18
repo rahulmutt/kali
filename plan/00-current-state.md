@@ -22,6 +22,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 - The shared `Set` / `Map` constructor alias inventories now also live in `kali_common`, giving the constructor smoke a common root-and-frozen vocabulary for future reuse.
 - The sequence-callable-target binding helper now also carries the fully bracketed `globalThis["process"]["kill"]` binding pair and the bracketed-dot `globalThis["process"].kill` pair, keeping the Node surface alias matrix aligned with the shared helper source.
 - The canonical `process.kill(0)` alias-inventory source now literally composes the dedicated direct and wrapped helper strings, matching the shared single-source inventory note.
+- Runtime smoke now also pins the `+0` siblings for the unparenthesized receiver-freeze aliases `Object.freeze(globalThis.process)["kill"]` / `Object.freeze(globalThis["process"])["kill"]`, plus the doubly parenthesized bracketed `((globalThis["process"]["kill"]))(+0)` alias, so the zero-probe wrapper corpus stays aligned with the shared helper inventory.
 - The spec-owned availability and current-state nuance remain in [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - The inherited Node API-surface late-module rejection matrix now also pins `node:worker_threads` on the same canonical `E5506` path as the explicit Node surface.
 - The proof-backed boundary remains owned by [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
