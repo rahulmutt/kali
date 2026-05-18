@@ -47034,6 +47034,14 @@ fn set_and_map_iteration_test_source() -> &'static str {
 
     const setAlias = Set;
     const wrappedSetAlias = (setAlias);
+    const frozenSetAlias = Object.freeze(Set);
+    const wrappedFrozenSetAlias = Object.freeze((Set));
+    const frozenGlobalSetAlias = Object.freeze(globalThis.Set);
+    const wrappedFrozenGlobalSetAlias = Object.freeze((globalThis.Set));
+    const frozenBracketedSetAlias = Object.freeze(globalThis["Set"]);
+    const wrappedFrozenBracketedSetAlias = Object.freeze((globalThis["Set"]));
+    const frozenSingleBracketedSetAlias = Object.freeze(globalThis['Set']);
+    const wrappedFrozenSingleBracketedSetAlias = Object.freeze((globalThis['Set']));
     const aliasValues = (values);
     const direct = [];
     for (const value of new Set(values)) {
@@ -47061,8 +47069,36 @@ fn set_and_map_iteration_test_source() -> &'static str {
     }
     const frozenValues = Object.freeze(aliasValues);
     const frozenDirect = [];
-    for (const value of new Set(frozenValues)) {
+    for (const value of new frozenSetAlias(frozenValues)) {
       frozenDirect.push(value);
+    }
+    const wrappedFrozenDirect = [];
+    for (const value of new (wrappedFrozenSetAlias)(frozenValues)) {
+      wrappedFrozenDirect.push(value);
+    }
+    const frozenGlobalDirect = [];
+    for (const value of new frozenGlobalSetAlias(values)) {
+      frozenGlobalDirect.push(value);
+    }
+    const wrappedFrozenGlobalDirect = [];
+    for (const value of new (wrappedFrozenGlobalSetAlias)(values)) {
+      wrappedFrozenGlobalDirect.push(value);
+    }
+    const frozenBracketedDirect = [];
+    for (const value of new frozenBracketedSetAlias(values)) {
+      frozenBracketedDirect.push(value);
+    }
+    const wrappedFrozenBracketedDirect = [];
+    for (const value of new (wrappedFrozenBracketedSetAlias)(values)) {
+      wrappedFrozenBracketedDirect.push(value);
+    }
+    const frozenSingleBracketedDirect = [];
+    for (const value of new frozenSingleBracketedSetAlias(values)) {
+      frozenSingleBracketedDirect.push(value);
+    }
+    const wrappedFrozenSingleBracketedDirect = [];
+    for (const value of new (wrappedFrozenSingleBracketedSetAlias)(values)) {
+      wrappedFrozenSingleBracketedDirect.push(value);
     }
 
     assertSetIteration(direct);
@@ -47072,10 +47108,25 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertSetIteration(bracketed);
     assertSetIteration(singleBracketed);
     assertSetIteration(frozenDirect);
+    assertSetIteration(wrappedFrozenDirect);
+    assertSetIteration(frozenGlobalDirect);
+    assertSetIteration(wrappedFrozenGlobalDirect);
+    assertSetIteration(frozenBracketedDirect);
+    assertSetIteration(wrappedFrozenBracketedDirect);
+    assertSetIteration(frozenSingleBracketedDirect);
+    assertSetIteration(wrappedFrozenSingleBracketedDirect);
 
     const mapValues = [[1, 2], [1, 3], [4, 5]];
     const mapAlias = Map;
     const wrappedMapAlias = (mapAlias);
+    const frozenMapAlias = Object.freeze(Map);
+    const wrappedFrozenMapAlias = Object.freeze((Map));
+    const frozenGlobalMapAlias = Object.freeze(globalThis.Map);
+    const wrappedFrozenGlobalMapAlias = Object.freeze((globalThis.Map));
+    const frozenBracketedMapAlias = Object.freeze(globalThis["Map"]);
+    const wrappedFrozenBracketedMapAlias = Object.freeze((globalThis["Map"]));
+    const frozenSingleBracketedMapAlias = Object.freeze(globalThis['Map']);
+    const wrappedFrozenSingleBracketedMapAlias = Object.freeze((globalThis['Map']));
     const mapDirect = [];
     for (const entry of new Map(mapValues)) {
       mapDirect.push(entry);
@@ -47103,8 +47154,36 @@ fn set_and_map_iteration_test_source() -> &'static str {
 
     const frozenMapValues = Object.freeze(mapValues);
     const frozenMapDirect = [];
-    for (const entry of new Map(frozenMapValues)) {
+    for (const entry of new frozenMapAlias(frozenMapValues)) {
       frozenMapDirect.push(entry);
+    }
+    const wrappedFrozenMapDirect = [];
+    for (const entry of new (wrappedFrozenMapAlias)(frozenMapValues)) {
+      wrappedFrozenMapDirect.push(entry);
+    }
+    const frozenGlobalMapDirect = [];
+    for (const entry of new frozenGlobalMapAlias(mapValues)) {
+      frozenGlobalMapDirect.push(entry);
+    }
+    const wrappedFrozenGlobalMapDirect = [];
+    for (const entry of new (wrappedFrozenGlobalMapAlias)(mapValues)) {
+      wrappedFrozenGlobalMapDirect.push(entry);
+    }
+    const frozenBracketedMapDirect = [];
+    for (const entry of new frozenBracketedMapAlias(mapValues)) {
+      frozenBracketedMapDirect.push(entry);
+    }
+    const wrappedFrozenBracketedMapDirect = [];
+    for (const entry of new (wrappedFrozenBracketedMapAlias)(mapValues)) {
+      wrappedFrozenBracketedMapDirect.push(entry);
+    }
+    const frozenSingleBracketedMapDirect = [];
+    for (const entry of new frozenSingleBracketedMapAlias(mapValues)) {
+      frozenSingleBracketedMapDirect.push(entry);
+    }
+    const wrappedFrozenSingleBracketedMapDirect = [];
+    for (const entry of new (wrappedFrozenSingleBracketedMapAlias)(mapValues)) {
+      wrappedFrozenSingleBracketedMapDirect.push(entry);
     }
 
     assertMapIteration(mapDirect);
@@ -47114,6 +47193,13 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertMapIteration(bracketedMap);
     assertMapIteration(singleBracketedMap);
     assertMapIteration(frozenMapDirect);
+    assertMapIteration(wrappedFrozenMapDirect);
+    assertMapIteration(frozenGlobalMapDirect);
+    assertMapIteration(wrappedFrozenGlobalMapDirect);
+    assertMapIteration(frozenBracketedMapDirect);
+    assertMapIteration(wrappedFrozenBracketedMapDirect);
+    assertMapIteration(frozenSingleBracketedMapDirect);
+    assertMapIteration(wrappedFrozenSingleBracketedMapDirect);
 
     console.log('set and map constructor iteration ok');
   }
