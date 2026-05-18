@@ -756,6 +756,25 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_pow_invocation_lines_are_canonical() {
+    let source = math_pow_invocation_lines(&math_pow_source(), "  ");
+    let expected = concat!(
+        "  console.log(Math.pow(2, alias));\n",
+        "  console.log(Math['pow'](2, alias));\n",
+        "  console.log(Math[\"pow\"](2, alias));\n",
+        "  console.log(globalThis.Math.pow(2, alias));\n",
+        "  console.log(globalThis.Math['pow'](2, alias));\n",
+        "  console.log(globalThis.Math[\"pow\"](2, alias));\n",
+        "  console.log(globalThis['Math'].pow(2, alias));\n",
+        "  console.log(globalThis['Math']['pow'](2, alias));\n",
+        "  console.log(globalThis[\"Math\"].pow(2, alias));\n",
+        "  console.log(globalThis[\"Math\"][\"pow\"](2, alias));"
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_set_constructor_aliases_and_frozen_callable_source_are_canonical() {
     let aliases = set_constructor_aliases();
     let frozen_aliases = set_constructor_frozen_callable_aliases();

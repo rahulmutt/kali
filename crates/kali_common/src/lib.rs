@@ -757,6 +757,16 @@ pub fn math_pow_source() -> String {
     join_semicolon_terminated_segments(math_pow_aliases())
 }
 
+/// Canonical `console.log(...)` invocation lines for the supported `Math.pow` helper slice.
+pub fn math_pow_invocation_lines(source: &str, indentation: &str) -> String {
+    source
+        .trim_end_matches(';')
+        .split("; ")
+        .map(|alias| format!("{indentation}console.log({alias}(2, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Canonical direct frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str] {
     &[
