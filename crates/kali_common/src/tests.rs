@@ -130,6 +130,8 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
     let parenthesized_receiver_freeze_source =
         process_kill_zero_probe_parenthesized_receiver_freeze_source();
+    let parenthesized_receiver_freeze_bracket_aliases =
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases();
     let parenthesized_receiver_freeze_bracket_source =
         process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source();
     let aliases = process_kill_zero_probe_aliases();
@@ -238,6 +240,17 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
             "Object.freeze((globalThis[\"process\"])).kill(0); ",
             "Object.freeze((globalThis[\"process\"])).kill(+0);"
         )
+    );
+    assert_eq!(
+        parenthesized_receiver_freeze_bracket_aliases,
+        &[
+            r#"Object.freeze((process)["kill"])(0)"#,
+            r#"Object.freeze((process)["kill"])(+0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(+0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(+0)"#,
+        ]
     );
     assert_eq!(
         parenthesized_receiver_freeze_bracket_source,
