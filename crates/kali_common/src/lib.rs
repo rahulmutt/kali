@@ -647,6 +647,23 @@ pub fn math_floor_trunc_ceil_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_floor_trunc_ceil_frozen_callable_aliases())
 }
 
+/// Canonical direct aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_aliases() -> &'static [&'static str] {
+    &[
+        "Math.pow",
+        r#"Math["pow"]"#,
+        "globalThis.Math.pow",
+        r#"globalThis.Math["pow"]"#,
+        r#"globalThis["Math"].pow"#,
+        r#"globalThis["Math"]["pow"]"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.pow` helper aliases.
+pub fn math_pow_source() -> String {
+    join_semicolon_terminated_segments(math_pow_aliases())
+}
+
 /// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_frozen_callable_aliases() -> &'static [&'static str] {
     &[

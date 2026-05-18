@@ -548,6 +548,38 @@ fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order(
 }
 
 #[test]
+fn test_math_pow_source_lists_all_aliases_in_order() {
+    let aliases = math_pow_aliases();
+    let source = math_pow_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        "Math.pow",
+        r#"Math["pow"]"#,
+        "globalThis.Math.pow",
+        r#"globalThis.Math["pow"]"#,
+        r#"globalThis["Math"].pow"#,
+        r#"globalThis["Math"]["pow"]"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.pow inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_pow_frozen_callable_aliases();
     let source = math_pow_frozen_callable_source();
