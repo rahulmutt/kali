@@ -63971,6 +63971,14 @@ fn package_registry_commands_reject_non_registry_targets() {
         ("./local/pkg", "accepts only registry package identifiers"),
         ("../local/pkg", "accepts only registry package identifiers"),
         ("/absolute/pkg", "accepts only registry package identifiers"),
+        (
+            "file:///tmp/pkg",
+            "bare npm package names or `jsr:` identifiers",
+        ),
+        (
+            "git+https://example.com/pkg.git",
+            "bare npm package names or `jsr:` identifiers",
+        ),
         ("npm:lodash", "bare npm package names or `jsr:` identifiers"),
     ];
 
@@ -64056,6 +64064,14 @@ fn package_registry_commands_reject_non_registry_targets_in_json_output() {
         ("./local/pkg", "accepts only registry package identifiers"),
         ("../local/pkg", "accepts only registry package identifiers"),
         ("/absolute/pkg", "accepts only registry package identifiers"),
+        (
+            "file:///tmp/pkg",
+            "bare npm package names or `jsr:` identifiers",
+        ),
+        (
+            "git+https://example.com/pkg.git",
+            "bare npm package names or `jsr:` identifiers",
+        ),
         ("npm:lodash", "bare npm package names or `jsr:` identifiers"),
     ];
 
