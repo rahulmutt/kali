@@ -3292,8 +3292,8 @@ impl TypeContext {
             )
         {
             Some(format!(
-                "globalThis[\"process\"].{}, globalThis.process[\"{}\"]",
-                expr.property, expr.property
+                "globalThis[\"process\"].{}, globalThis.process[\"{}\"], globalThis[\"process\"][\"{}\"]",
+                expr.property, expr.property, expr.property
             ))
         } else {
             None

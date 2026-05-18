@@ -7875,8 +7875,9 @@ fn assert_build_source_file_rejects_process_kill_zero_probe_in_input(
     for expected in [
         "process.kill",
         "globalThis.process.kill",
-        r#"globalThis["process"]["kill"]"#,
         r#"globalThis["process"].kill"#,
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis["process"]["kill"]"#,
         r#"process["kill"]"#,
     ] {
         assert!(
