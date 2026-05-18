@@ -150,7 +150,7 @@ fn late_process_control_source() -> String {
     kali_common::late_process_control_source()
 }
 
-fn late_process_env_mutation_source() -> &'static str {
+fn late_process_env_mutation_source() -> String {
     kali_common::late_process_env_mutation_source()
 }
 

@@ -699,9 +699,31 @@ pub fn late_process_control_source() -> String {
     )
 }
 
+const LATE_PROCESS_ENV_MUTATION_SEGMENTS: &[&str] = &[
+    r#"process.env = {}"#,
+    r#"process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"globalThis.process.env = {}"#,
+    r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"process["env"] = {}"#,
+    r#"process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+    r#"globalThis.process["env"] = {}"#,
+    r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+    r#"globalThis["process"].env = {}"#,
+    r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"globalThis["process"]["env"] = {}"#,
+    r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+    r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+    r#"delete process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+    r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+    r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
+    r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+];
+
 /// Canonical late-process-environment-mutation source text used by the browser and runtime smoke.
-pub fn late_process_env_mutation_source() -> &'static str {
-    r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
+pub fn late_process_env_mutation_source() -> String {
+    join_semicolon_terminated_segments(LATE_PROCESS_ENV_MUTATION_SEGMENTS)
 }
 
 /// Canonical late-object-model source text used by the browser and runtime smoke.

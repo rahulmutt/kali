@@ -636,6 +636,9 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
 #[test]
 fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
     let source = late_process_env_mutation_source();
+    let expected = format!("{};", LATE_PROCESS_ENV_MUTATION_SEGMENTS.join("; "));
+
+    assert_eq!(source, expected);
     assert!(
         source.contains(r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
         "source: {source}"

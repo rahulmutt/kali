@@ -26,7 +26,7 @@ fn late_js_compatibility_source_without_object_has_own() -> String {
         .replace("Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis.Object[\"hasOwn\"](globalThis, \"a\"); globalThis[\"Object\"].hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis.Object[\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); globalThis.Object.prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); ", "")
 }
 
-fn late_process_env_mutation_source() -> &'static str {
+fn late_process_env_mutation_source() -> String {
     kali_common::late_process_env_mutation_source()
 }
 
