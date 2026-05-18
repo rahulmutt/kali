@@ -55542,6 +55542,97 @@ fn install_allow_scripts_rejects_jsr_targets_in_json() {
 }
 
 #[test]
+fn install_allow_scripts_rejects_bootstrap_heavy_registry_targets_on_the_cli() {
+    let _guard = kali_registry_lock().lock().unwrap();
+    let dir = tempdir().expect("tempdir");
+
+    let package_json = json!({
+        "name": "bootstrap-heavy",
+        "version": "1.0.0",
+        "main": "index.js",
+        "scripts": {
+            "install": "node-gyp rebuild"
+        }
+    });
+    let package_json_bytes =
+        serde_json::to_vec_pretty(&package_json).expect("serialize package json");
+    let tarball_bytes = build_package_tarball(&[
+        ("package/package.json", package_json_bytes.as_slice()),
+        ("package/index.js", b"module.exports = {};\n"),
+    ]);
+    let tarball_integrity = format!("sha512-{}", format_sha512(&tarball_bytes));
+    let (tarball_base, tarball_hits, tarball_stop, tarball_handle) =
+        start_binary_response_server(tarball_bytes, "application/octet-stream");
+    let metadata = json!({
+        "versions": {
+            "1.0.0": {
+                "dist": {
+                    "tarball": format!("{}/bootstrap-heavy-1.0.0.tgz", tarball_base),
+                    "integrity": tarball_integrity
+                }
+            }
+        }
+    });
+    let metadata = Box::leak(metadata.to_string().into_boxed_str());
+    let (registry_base, registry_hits, registry_stop, registry_handle) =
+        start_registry_metadata_server(metadata);
+    let previous_registry = std::env::var_os("KALI_REGISTRY");
+    std::env::set_var("KALI_REGISTRY", &registry_base);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("install")
+        .arg("--allow-scripts")
+        .arg("bootstrap-heavy")
+        .output()
+        .expect("run kali");
+
+    if let Some(previous_registry) = previous_registry {
+        std::env::set_var("KALI_REGISTRY", previous_registry);
+    } else {
+        std::env::remove_var("KALI_REGISTRY");
+    }
+
+    tarball_stop.store(true, Ordering::SeqCst);
+    registry_stop.store(true, Ordering::SeqCst);
+    tarball_handle.join().expect("join tarball server");
+    registry_handle.join().expect("join registry server");
+
+    assert!(
+        tarball_hits.load(Ordering::SeqCst) > 0,
+        "tarball server should be queried"
+    );
+    assert!(
+        registry_hits.load(Ordering::SeqCst) > 0,
+        "registry server should be queried"
+    );
+    assert!(!output.status.success());
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "install");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 1);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert!(!errors.is_empty(), "errors: {errors:?}");
+    assert_eq!(errors[0]["code"], "E6005");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("native or binary bootstrap lifecycle script"),
+        "json: {json}"
+    );
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("error message")
+            .contains("falls outside the pure JS/TS package contract"),
+        "json: {json}"
+    );
+}
+
+#[test]
 fn install_rejects_versioned_registry_targets() {
     let _guard = kali_registry_lock().lock().unwrap();
     let (registry_base, hits, stop, handle) = start_registry_metadata_server(

@@ -21,6 +21,7 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Group evidence by package shape, source class, API surface, command, and support rung.
 - Keep expected failures for native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint cases.
 - Keep corpus snapshots deterministic and concise.
+- The package install flow now also rejects bootstrap-heavy lifecycle-script packages with the canonical E6005 package-contract diagnostic, keeping that exclusion explicit alongside the native-addon case.
 
 ### 23.2 Node ecosystem breadth
 
