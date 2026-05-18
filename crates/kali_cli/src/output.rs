@@ -1391,6 +1391,19 @@ fn trimmed_string_matches(value: Option<&Value>, expected: &str) -> bool {
     matches!(value, Some(Value::String(value)) if value.trim() == expected)
 }
 
+fn validate_trimmed_string_field(
+    object: &Map<String, Value>,
+    key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<(), String> {
+    if !trimmed_string_matches(object.get(key), expected) {
+        return Err(format!("{context} {key} must be `{expected}`"));
+    }
+
+    Ok(())
+}
+
 fn validate_browser_runtime_supported_commands_value(
     value: Option<&Value>,
     context: &str,
@@ -1545,42 +1558,33 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
 
     let browser_runtime_contract = kali_runtime::BrowserRuntimeContract::descriptor();
 
-    if !trimmed_string_matches(object.get("hostLabel"), browser_runtime_contract.host_label) {
-        return Err(format!(
-            "doctor browserRuntimeContract hostLabel must be `{}`",
-            browser_runtime_contract.host_label
-        ));
-    }
+    validate_trimmed_string_field(
+        object,
+        "hostLabel",
+        browser_runtime_contract.host_label,
+        "doctor browserRuntimeContract",
+    )?;
 
-    if !trimmed_string_matches(
-        object.get("hostDescription"),
+    validate_trimmed_string_field(
+        object,
+        "hostDescription",
         browser_runtime_contract.host_description,
-    ) {
-        return Err(format!(
-            "doctor browserRuntimeContract hostDescription must be `{}`",
-            browser_runtime_contract.host_description
-        ));
-    }
+        "doctor browserRuntimeContract",
+    )?;
 
-    if !trimmed_string_matches(
-        object.get("diagnosticHint"),
+    validate_trimmed_string_field(
+        object,
+        "diagnosticHint",
         browser_runtime_contract.diagnostic_hint,
-    ) {
-        return Err(format!(
-            "doctor browserRuntimeContract diagnosticHint must be `{}`",
-            browser_runtime_contract.diagnostic_hint
-        ));
-    }
+        "doctor browserRuntimeContract",
+    )?;
 
-    if !trimmed_string_matches(
-        object.get("hostDescriptionNote"),
+    validate_trimmed_string_field(
+        object,
+        "hostDescriptionNote",
         browser_runtime_contract.host_description_note,
-    ) {
-        return Err(format!(
-            "doctor browserRuntimeContract hostDescriptionNote must be `{}`",
-            browser_runtime_contract.host_description_note
-        ));
-    }
+        "doctor browserRuntimeContract",
+    )?;
 
     validate_browser_runtime_supported_commands_value(
         object.get("supportedCommands"),
