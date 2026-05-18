@@ -364,9 +364,7 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
             .output()
             .is_ok();
     let browser_runtime_contract_json = browser_runtime_contract_value();
-    let browser_runtime_contract = browser_runtime_contract_json
-        .as_object()
-        .expect("browser runtime contract must be a JSON object");
+    let browser_runtime_contract_descriptor = kali_runtime::BrowserRuntimeContract::descriptor();
     let payload = json!({
         "browserHarness": {
             "envVar": BROWSER_HARNESS_COMMAND_ENV,
@@ -407,57 +405,28 @@ fn doctor_command(output: &CliOutputOptions) -> Result<(), i32> {
         println!("Browser runtime contract:");
         println!(
             "  host label: {}",
-            browser_runtime_contract
-                .get("hostLabel")
-                .and_then(Value::as_str)
-                .expect("browser runtime contract hostLabel string")
+            browser_runtime_contract_descriptor.host_label
         );
         println!(
             "  host description: {}",
-            browser_runtime_contract
-                .get("hostDescription")
-                .and_then(Value::as_str)
-                .expect("browser runtime contract hostDescription string")
+            browser_runtime_contract_descriptor.host_description
         );
         println!(
             "  host description note: {}",
-            browser_runtime_contract
-                .get("hostDescriptionNote")
-                .and_then(Value::as_str)
-                .expect("browser runtime contract hostDescriptionNote string")
+            browser_runtime_contract_descriptor.host_description_note
         );
         println!(
             "  supported commands: {}",
-            browser_runtime_contract
-                .get("supportedCommands")
-                .and_then(Value::as_array)
-                .expect("browser runtime contract supportedCommands array")
-                .iter()
-                .map(|value| {
-                    value
-                        .as_str()
-                        .expect("browser runtime contract supportedCommands item string")
-                })
-                .collect::<Vec<_>>()
+            browser_runtime_contract_descriptor
+                .supported_commands
                 .join(", ")
         );
         println!(
             "  diagnostic hint: {}",
-            browser_runtime_contract
-                .get("diagnosticHint")
-                .and_then(Value::as_str)
-                .expect("browser runtime contract diagnosticHint string")
+            browser_runtime_contract_descriptor.diagnostic_hint
         );
-        for note in browser_runtime_contract
-            .get("diagnosticNotes")
-            .and_then(Value::as_array)
-            .expect("browser runtime contract diagnosticNotes array")
-        {
-            println!(
-                "  note: {}",
-                note.as_str()
-                    .expect("browser runtime contract diagnosticNotes item string")
-            );
+        for note in kali_runtime::BrowserRuntimeContract::diagnostic_notes() {
+            println!("  note: {}", note);
         }
     }
 
