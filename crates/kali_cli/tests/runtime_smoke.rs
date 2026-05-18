@@ -155,7 +155,7 @@ fn late_process_env_mutation_source() -> &'static str {
 }
 
 fn late_object_model_source() -> &'static str {
-    "Proxy; globalThis.Proxy; globalThis[\"Proxy\"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis[\"Proxy\"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis[\"WeakMap\"](); new WeakSet(); globalThis.WeakSet; globalThis[\"WeakSet\"](); globalThis.WeakRef; globalThis[\"WeakRef\"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis[\"FinalizationRegistry\"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {});"
+    kali_common::late_object_model_source()
 }
 
 fn late_object_model_own_property_source() -> &'static str {

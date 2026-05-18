@@ -63,6 +63,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files; exact coverage belongs in tests and maturity current-state notes.
 - The package-audit preview shim now uses schema-v1 command-shape wording in its rejection diagnostic, and the CLI unit coverage now pins that exact message so the legacy flag stays aligned with the CLI and maturity matrix.
+- The shared late-object-model source for `Proxy` / `Weak*` / `FinalizationRegistry` now lives in `kali_common`, and the runtime smoke reuses it to keep that rejection corpus single-sourced.
 - The browser/runtime late `process.env` mutation fixture now reuses the shared `kali_common` source helper, keeping the bracketed Node aliases synchronized across smoke paths.
 - The alias-resolution registry also dropped one duplicate `Object.hasOwnProperty.call` spelling so builds stay warning-free.
 - The shared `Object.hasOwn` frozen-callable aliases now live in `kali_common` as a canonical helper/source pair, mirroring the `process.kill(0)` inventory pattern for future reuse.
