@@ -473,6 +473,17 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
             BrowserRuntimeContract::host_description_note(),
         ]
     );
+    assert_eq!(
+        contract,
+        serde_json::json!({
+            "hostLabel": BrowserRuntimeContract::host_label(),
+            "hostDescription": BrowserRuntimeContract::host_description(),
+            "hostDescriptionNote": BrowserRuntimeContract::host_description_note(),
+            "supportedCommands": BrowserRuntimeContract::supported_commands(),
+            "diagnosticHint": BrowserRuntimeContract::diagnostic_hint(),
+            "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
+        })
+    );
     assert!(descriptor
         .diagnostic_hint
         .contains("kali check --api browser"));
