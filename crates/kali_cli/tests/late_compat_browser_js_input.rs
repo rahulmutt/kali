@@ -53,7 +53,7 @@ fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
 }
 
 fn late_threaded_runtime_source() -> &'static str {
-    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+    kali_common::late_threaded_runtime_source()
 }
 
 fn non_literal_dynamic_import_source() -> &'static str {

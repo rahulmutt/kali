@@ -481,7 +481,7 @@ fn broader_intl_source_includes_bracketed_spellings() {
 }
 
 fn threaded_runtime_source() -> &'static str {
-    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+    kali_common::late_threaded_runtime_source()
 }
 
 #[test]

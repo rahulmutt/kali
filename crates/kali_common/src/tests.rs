@@ -40,6 +40,19 @@ fn test_bytewise_shared_memory_lock_free_probe_matches_target_atomic_support() {
 }
 
 #[test]
+fn test_late_threaded_runtime_source_lists_bracketed_spellings() {
+    let source = late_threaded_runtime_source();
+    assert!(
+        source.contains(r#"globalThis["SharedArrayBuffer"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis["Atomics"]"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_async_class_method_lowering_unavailable_message_is_stable() {
     assert_eq!(
         async_class_method_lowering_unavailable_message(),

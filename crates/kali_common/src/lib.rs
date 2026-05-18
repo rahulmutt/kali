@@ -633,6 +633,11 @@ pub fn late_process_env_mutation_source() -> &'static str {
     r#"process.env = {}; process.env.KALI_BROWSER_ENV_MUTATION = {}; globalThis.process.env = {}; globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}; process["env"] = {}; process["env"].KALI_BROWSER_ENV_MUTATION = {}; process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis.process["env"] = {}; globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; globalThis["process"].env = {}; globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"] = {}; globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}; globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}; delete process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]; delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"];"#
 }
 
+/// Canonical late-threaded-runtime source text used by the browser and runtime smoke.
+pub const fn late_threaded_runtime_source() -> &'static str {
+    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
+}
+
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
