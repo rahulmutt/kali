@@ -326,8 +326,12 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
     let expected = format!("{};", aliases.join("; "));
 
     for expected_alias in [
+        r#"Object.freeze(globalThis.Object.hasOwn)"#,
+        r#"Object.freeze((globalThis.Object.hasOwn))"#,
         r#"Object.freeze(globalThis.Object["hasOwn"])"#,
         r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis["Object"].hasOwn)"#,
+        r#"Object.freeze((globalThis["Object"].hasOwn))"#,
         r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
         r#"Object.freeze((globalThis["Object"]["hasOwn"]))"#,
     ] {

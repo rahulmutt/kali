@@ -466,8 +466,12 @@ pub fn process_kill_zero_probe_guard_source() -> String {
 /// Canonical frozen callable aliases for the supported `Object.hasOwn` helper slice.
 pub const fn object_has_own_frozen_callable_aliases() -> &'static [&'static str] {
     &[
+        r#"Object.freeze(globalThis.Object.hasOwn)"#,
+        r#"Object.freeze((globalThis.Object.hasOwn))"#,
         r#"Object.freeze(globalThis.Object["hasOwn"])"#,
         r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis["Object"].hasOwn)"#,
+        r#"Object.freeze((globalThis["Object"].hasOwn))"#,
         r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
         r#"Object.freeze((globalThis["Object"]["hasOwn"]))"#,
     ]
