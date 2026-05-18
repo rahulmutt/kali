@@ -666,7 +666,9 @@ const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
     "globalThis.process[\"exit\"]",
 ];
 
-fn late_process_control_prefix_source() -> String {
+/// Canonical late-process-control preamble source text, shared across the
+/// browser and runtime late-compat smoke.
+pub fn late_process_control_prefix_source() -> String {
     join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_PREFIX_SEGMENTS)
 }
 

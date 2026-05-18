@@ -804,6 +804,8 @@ fn check_rejects_frozen_late_object_model_revocable_calls_in_browser_api_surface
 #[test]
 fn browser_late_process_control_source_includes_bracketed_forms() {
     let source = late_process_control_source();
+    let prefix = kali_common::late_process_control_prefix_source();
+    assert!(source.starts_with(prefix.as_str()), "source: {source}");
     for expected in [
         r#"Deno.pid"#,
         r#"globalThis.Deno.pid"#,
