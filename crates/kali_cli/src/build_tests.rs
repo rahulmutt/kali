@@ -9815,30 +9815,32 @@ fn collect_library_exports_infers_default_function_expression_exports_through_fr
 #[test]
 fn collect_library_exports_infers_default_function_expression_exports_through_freeze_wrapper_across_source_graph(
 ) {
-    let dir = tempdir().expect("tempdir");
-    let helper_path = dir.path().join("helper.ts");
-    let bridge_path = dir.path().join("bridge.ts");
-    let entry_path = dir.path().join("entry.ts");
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let helper_path = dir.path().join(format!("helper.{extension}"));
+        let bridge_path = dir.path().join(format!("bridge.{extension}"));
+        let entry_path = dir.path().join(format!("entry.{extension}"));
 
-    fs::write(&helper_path, "export default Object.freeze((input) => 1);")
-        .expect("write helper source");
-    fs::write(
-        &bridge_path,
-        "export { default as bridged } from './helper.ts';",
-    )
-    .expect("write bridge source");
-    fs::write(
-        &entry_path,
-        "export { bridged as final } from './bridge.ts';",
-    )
-    .expect("write entry source");
+        fs::write(&helper_path, "export default Object.freeze((input) => 1);")
+            .expect("write helper source");
+        fs::write(
+            &bridge_path,
+            format!("export {{ default as bridged }} from './helper.{extension}';"),
+        )
+        .expect("write bridge source");
+        fs::write(
+            &entry_path,
+            format!("export {{ bridged as final }} from './bridge.{extension}';"),
+        )
+        .expect("write entry source");
 
-    let exports = collect_library_exports(&entry_path, ApiSurface::Deno, &[])
-        .expect("library exports should resolve through freeze-wrapped source graph aliases");
+        let exports = collect_library_exports(&entry_path, ApiSurface::Deno, &[])
+            .expect("library exports should resolve through freeze-wrapped source graph aliases");
 
-    assert_eq!(exports.len(), 1, "exports: {exports:?}");
-    assert_eq!(exports[0].name, "final");
-    assert_eq!(exports[0].signature, "(input) => number");
+        assert_eq!(exports.len(), 1, "exports for {extension}: {exports:?}");
+        assert_eq!(exports[0].name, "final");
+        assert_eq!(exports[0].signature, "(input) => number");
+    }
 }
 
 #[test]
