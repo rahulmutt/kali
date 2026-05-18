@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_common::math_pow_frozen_callable_source;
+use kali_common::{math_pow_frozen_callable_source, math_pow_source};
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -8,13 +8,17 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_math_pow_frozen_lines() -> String {
-    math_pow_frozen_callable_source()
+fn browser_bundle_math_pow_invocation_lines(source: String) -> String {
+    source
         .trim_end_matches(';')
         .split("; ")
         .map(|alias| format!("  console.log({alias}(2, alias));"))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn browser_bundle_math_pow_frozen_lines() -> String {
+    browser_bundle_math_pow_invocation_lines(math_pow_frozen_callable_source())
 }
 
 fn browser_bundle_math_pow_alias_source() -> String {
@@ -23,19 +27,12 @@ fn browser_bundle_math_pow_alias_source() -> String {
 function mathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
-  console.log(Math.pow(2, alias));
-  console.log(Math['pow'](2, alias));
-  console.log(globalThis.Math.pow(2, alias));
-  console.log(globalThis.Math["pow"](2, alias));
-  console.log(globalThis.Math['pow'](2, alias));
-  console.log(globalThis["Math"]["pow"](2, alias));
-  console.log(globalThis["Math"].pow(2, alias));
-  console.log(globalThis['Math'].pow(2, alias));
-  console.log(globalThis['Math']['pow'](2, alias));
+  {}
 {}
   return Math.pow(2, alias);
 }}
 "##,
+        browser_bundle_math_pow_invocation_lines(math_pow_source()),
         browser_bundle_math_pow_frozen_lines()
     )
 }
@@ -46,18 +43,12 @@ fn browser_bundle_global_this_math_pow_alias_source() -> String {
 function globalThisMathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
-  console.log(globalThis.Math.pow(2, alias));
-  console.log(globalThis.Math["pow"](2, alias));
-  console.log(Math['pow'](2, alias));
-  console.log(globalThis.Math['pow'](2, alias));
-  console.log(globalThis["Math"]["pow"](2, alias));
-  console.log(globalThis["Math"].pow(2, alias));
-  console.log(globalThis['Math'].pow(2, alias));
-  console.log(globalThis['Math']['pow'](2, alias));
+  {}
 {}
   return globalThis.Math.pow(2, alias);
 }}
 "##,
+        browser_bundle_math_pow_invocation_lines(math_pow_source()),
         browser_bundle_math_pow_frozen_lines()
     )
 }
