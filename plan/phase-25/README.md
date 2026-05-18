@@ -47,6 +47,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - The pretty-JSON doctor regression now also asserts the shared `browserRuntimeContract` fixture in both env-selected and auto-selected quiet output paths, keeping the JSON and helper-backed contract snapshots aligned.
 - The human doctor summary now also prints the browser runtime contract from the shared JSON fixture, keeping the text summary and machine payload single-sourced.
 - The browser-analysis `effects` wasm-threads rejection matrix now also spans JSX and TSX input on the explicit browser-API surface and the inherited browser-analysis path, keeping the shared source-graph evidence aligned with the browser runtime profile gate.
+- The CLI doctor human-output regression now also derives its browser-runtime contract assertions from the shared `kali_runtime::BrowserRuntimeContract` helper so the text summary stays aligned with the JSON fixture without copying the contract vocabulary inline.
 
 ## Exit gate
 

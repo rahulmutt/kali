@@ -1,4 +1,4 @@
-use kali_runtime::browser_runtime_contract_value;
+use kali_runtime::{browser_runtime_contract_value, BrowserRuntimeContract};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Command;
@@ -11,6 +11,37 @@ fn kali_bin() -> PathBuf {
 
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("parse json stdout")
+}
+
+fn assert_browser_runtime_contract_human_output(stdout: &str) {
+    let descriptor = BrowserRuntimeContract::descriptor();
+    assert!(
+        stdout.contains("Browser runtime contract:"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains(&format!("  host label: {}", descriptor.host_label)));
+    assert!(stdout.contains(&format!(
+        "  host description: {}",
+        descriptor.host_description
+    )));
+    assert!(stdout.contains(&format!(
+        "  host description note: {}",
+        descriptor.host_description_note
+    )));
+    assert!(stdout.contains(&format!(
+        "  supported commands: {}",
+        descriptor.supported_commands.join(", ")
+    )));
+    assert!(stdout.contains(&format!(
+        "  diagnostic hint: {}",
+        descriptor.diagnostic_hint
+    )));
+    for note in BrowserRuntimeContract::diagnostic_notes() {
+        assert!(
+            stdout.contains(&format!("  note: {note}")),
+            "stdout: {stdout}"
+        );
+    }
 }
 
 #[test]
@@ -113,10 +144,7 @@ fn doctor_reports_whitespace_padded_browser_harness_override_in_human_output() {
     assert!(stdout.contains("  source: env"));
     assert!(stdout.contains("  override:   node --test  "));
     assert!(stdout.contains("  command: node --test"));
-    assert!(stdout.contains("Browser runtime contract:"));
-    assert!(stdout.contains("  host label: browser-requested"));
-    assert!(stdout
-        .contains("  host description note: browser runtime host description: real browser host"));
+    assert_browser_runtime_contract_human_output(&stdout);
 }
 
 #[test]
@@ -140,24 +168,7 @@ fn doctor_reports_env_selected_browser_harness_in_human_output() {
     assert!(stdout.contains("  source: env"));
     assert!(stdout.contains("  override: node --test"));
     assert!(stdout.contains("  command: node --test"));
-    assert!(stdout.contains("Browser runtime contract:"));
-    assert!(stdout.contains("  host label: browser-requested"));
-    assert!(stdout.contains("  host description: real browser host"));
-    assert!(stdout
-        .contains("  host description note: browser runtime host description: real browser host"));
-    assert!(stdout.contains("  supported commands: run, test"));
-    assert!(stdout.contains("  diagnostic hint:"));
-    assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
-    assert!(stdout.contains(
-        "  note: browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"
-    ));
-    assert!(stdout.contains(
-        "  note: browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
-    ));
-    assert!(stdout.contains(
-        "  note: browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid"
-    ));
-    assert!(stdout.contains("  note: browser runtime host description: real browser host"));
+    assert_browser_runtime_contract_human_output(&stdout);
 }
 
 #[test]
@@ -185,24 +196,7 @@ fn doctor_reports_auto_selected_browser_harness_in_human_output() {
     );
     assert!(stdout.contains("  command:"));
     assert!(stdout.contains("  executable available:"));
-    assert!(stdout.contains("Browser runtime contract:"));
-    assert!(stdout.contains("  host label: browser-requested"));
-    assert!(stdout.contains("  host description: real browser host"));
-    assert!(stdout
-        .contains("  host description note: browser runtime host description: real browser host"));
-    assert!(stdout.contains("  supported commands: run, test"));
-    assert!(stdout.contains("  diagnostic hint:"));
-    assert!(stdout.contains("  note: supported browser runtime commands: run, test"));
-    assert!(stdout.contains(
-        "  note: browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work"
-    ));
-    assert!(stdout.contains(
-        "  note: browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness"
-    ));
-    assert!(stdout.contains(
-        "  note: browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid"
-    ));
-    assert!(stdout.contains("  note: browser runtime host description: real browser host"));
+    assert_browser_runtime_contract_human_output(&stdout);
 }
 
 #[test]
