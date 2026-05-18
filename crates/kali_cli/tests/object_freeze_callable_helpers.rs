@@ -1,17 +1,62 @@
 use std::{fs, process::Command};
 
+use kali_common::{
+    math_floor_trunc_ceil_frozen_callable_aliases, object_has_own_frozen_callable_aliases,
+};
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn frozen_callable_helpers_source() -> &'static str {
-    "const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze((globalThis[\"Object\"][\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze((globalThis.Object[\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(1.6)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(1.6));\n"
+fn object_has_own_frozen_callable_invocations_source() -> String {
+    object_has_own_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!(r#"console.log({alias}(object, "a"));"#))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
-fn frozen_callable_helpers_test_source() -> &'static str {
-    "Kali.test('freeze-wrapped callable helpers', () => { const object = { a: 1 }; console.log(Object.freeze(globalThis[\"Object\"][\"hasOwn\"])(object, \"a\")); console.log(Object.freeze(globalThis.Object[\"hasOwn\"])(object, \"a\")); console.log(Object.freeze((globalThis[\"Object\"][\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze((globalThis.Object[\"hasOwn\"]))(object, \"a\")); console.log(Object.freeze(globalThis[\"Math\"][\"floor\"])(1.6)); console.log(Object.freeze(globalThis.Math[\"floor\"])(1.6)); console.log(Object.freeze((globalThis[\"Math\"][\"floor\"]))(1.6)); console.log(Object.freeze((globalThis.Math[\"floor\"]))(1.6)); });\n"
+fn math_floor_trunc_ceil_frozen_callable_invocations_source() -> String {
+    math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!(r#"console.log({alias}(1.6));"#))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn frozen_callable_helpers_stdout() -> String {
+    let mut stdout = String::new();
+
+    for _ in object_has_own_frozen_callable_aliases() {
+        stdout.push_str("1\n");
+    }
+
+    for alias in math_floor_trunc_ceil_frozen_callable_aliases() {
+        if alias.contains("ceil") {
+            stdout.push_str("2\n");
+        } else {
+            stdout.push_str("1\n");
+        }
+    }
+
+    stdout
+}
+
+fn frozen_callable_helpers_source() -> String {
+    format!(
+        "const object = {{ a: 1 }}; {} {}",
+        object_has_own_frozen_callable_invocations_source(),
+        math_floor_trunc_ceil_frozen_callable_invocations_source(),
+    )
+}
+
+fn frozen_callable_helpers_test_source() -> String {
+    format!(
+        "Kali.test('freeze-wrapped callable helpers', () => {{ const object = {{ a: 1 }}; {} {} }});",
+        object_has_own_frozen_callable_invocations_source(),
+        math_floor_trunc_ceil_frozen_callable_invocations_source(),
+    )
 }
 
 fn assert_run_supports_frozen_callable_helpers_in_input(extension: &str, json_output: bool) {
@@ -37,16 +82,18 @@ fn assert_run_supports_frozen_callable_helpers_in_input(extension: &str, json_ou
         String::from_utf8_lossy(&output.stderr)
     );
 
+    let expected_stdout = frozen_callable_helpers_stdout();
+
     if json_output {
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json stdout");
         assert_eq!(json["schemaVersion"], 1);
         assert_eq!(json["command"], "run");
         assert_eq!(json["success"], true);
-        assert_eq!(json["stdout"], "1\n1\n1\n1\n1\n1\n1\n1\n");
+        assert_eq!(json["stdout"], expected_stdout);
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "1\n1\n1\n1\n1\n1\n1\n1\n", "stdout: {stdout}");
+        assert_eq!(stdout, expected_stdout, "stdout: {stdout}");
     }
 }
 
@@ -73,6 +120,8 @@ fn assert_test_supports_frozen_callable_helpers_in_input(extension: &str, json_o
         String::from_utf8_lossy(&output.stderr)
     );
 
+    let expected_stdout = frozen_callable_helpers_stdout();
+
     if json_output {
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("json stdout");
         assert_eq!(json["schemaVersion"], 1);
@@ -83,10 +132,7 @@ fn assert_test_supports_frozen_callable_helpers_in_input(extension: &str, json_o
         assert!(json["errors"].as_array().expect("errors array").is_empty());
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("1\n1\n1\n1\n1\n1\n1\n1\n"),
-            "stdout: {stdout}"
-        );
+        assert!(stdout.contains(&expected_stdout), "stdout: {stdout}");
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
 }
