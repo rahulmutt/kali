@@ -902,6 +902,10 @@ fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
         "source: {source}"
     );

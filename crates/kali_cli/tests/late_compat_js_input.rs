@@ -527,6 +527,7 @@ fn late_js_compatibility_source_includes_bracketed_process_env_mutation_forms() 
         r#"globalThis["process"].env"#,
         r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
+        r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#,
         r#"globalThis["process"]["env"]"#,
         r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
