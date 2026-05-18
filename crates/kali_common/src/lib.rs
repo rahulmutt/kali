@@ -348,16 +348,24 @@ pub const fn process_kill_zero_probe_wrapped_zero_aliases() -> &'static [&'stati
     ]
 }
 
-/// Canonical source text for the supported Node `process.kill(0)` receiver-freeze dot aliases.
-pub fn process_kill_zero_probe_parenthesized_receiver_freeze_source() -> String {
-    join_semicolon_terminated_segments(&[
+/// Canonical receiver-freeze dot aliases for the supported Node `process.kill(0)` zero-probe slice.
+pub const fn process_kill_zero_probe_parenthesized_receiver_freeze_aliases(
+) -> &'static [&'static str] {
+    &[
         r#"Object.freeze((process)).kill(0)"#,
         r#"Object.freeze((process)).kill(+0)"#,
         r#"Object.freeze((globalThis.process)).kill(0)"#,
         r#"Object.freeze((globalThis.process)).kill(+0)"#,
         r#"Object.freeze((globalThis["process"])).kill(0)"#,
         r#"Object.freeze((globalThis["process"])).kill(+0)"#,
-    ])
+    ]
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` receiver-freeze dot aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_source() -> String {
+    join_semicolon_terminated_segments(
+        process_kill_zero_probe_parenthesized_receiver_freeze_aliases(),
+    )
 }
 
 /// Canonical source text for the supported Node `process.kill(0)` parenthesized frozen-callable aliases.
