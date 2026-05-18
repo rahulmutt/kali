@@ -161,8 +161,8 @@ fn build_rejects_phase_three_host_apis_in_tsx_input() {
 }
 
 #[test]
-fn run_rejects_phase_three_subprocess_api_in_js_and_ts_input() {
-    for source_name in ["main.js", "main.ts"] {
+fn run_rejects_phase_three_subprocess_api_in_js_ts_jsx_and_tsx_input() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
         assert_phase_three_host_apis_rejected_for_source(
             source_name,
             phase_three_subprocess_source(),
@@ -174,8 +174,8 @@ fn run_rejects_phase_three_subprocess_api_in_js_and_ts_input() {
 }
 
 #[test]
-fn json_run_rejects_phase_three_subprocess_api_in_js_and_ts_input() {
-    for source_name in ["main.js", "main.ts"] {
+fn json_run_rejects_phase_three_subprocess_api_in_js_ts_jsx_and_tsx_input() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
         assert_phase_three_host_apis_rejected_for_source(
             source_name,
             phase_three_subprocess_source(),
@@ -187,8 +187,8 @@ fn json_run_rejects_phase_three_subprocess_api_in_js_and_ts_input() {
 }
 
 #[test]
-fn test_rejects_phase_three_network_api_in_js_and_ts_input() {
-    for source_name in ["main.js", "main.ts"] {
+fn test_rejects_phase_three_network_api_in_js_ts_jsx_and_tsx_input() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
         assert_phase_three_host_apis_rejected_for_source(
             source_name,
             phase_three_network_source(),
@@ -200,8 +200,8 @@ fn test_rejects_phase_three_network_api_in_js_and_ts_input() {
 }
 
 #[test]
-fn json_test_rejects_phase_three_network_api_in_js_and_ts_input() {
-    for source_name in ["main.js", "main.ts"] {
+fn json_test_rejects_phase_three_network_api_in_js_ts_jsx_and_tsx_input() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
         assert_phase_three_host_apis_rejected_for_source(
             source_name,
             phase_three_network_source(),
