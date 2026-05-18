@@ -467,30 +467,9 @@ fn late_js_compatibility_source_includes_frozen_process_zero_probe_alias() {
         source.contains(r#"Object.freeze(globalThis["process"]["kill"])(+0)"#),
         "source: {source}"
     );
-    assert!(
-        source.contains(r#"Object.freeze((process)).kill(0)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze((process)).kill(+0)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze((globalThis.process)).kill(0)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze((globalThis.process)).kill(+0)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze((globalThis["process"])).kill(0)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze((globalThis["process"])).kill(+0)"#),
-        "source: {source}"
-    );
+    for expected in kali_common::process_kill_zero_probe_parenthesized_receiver_freeze_aliases() {
+        assert!(source.contains(expected), "source: {source}");
+    }
 }
 
 #[test]
