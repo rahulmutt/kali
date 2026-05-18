@@ -31,6 +31,8 @@ This file records the planning baseline for the active continuation roadmap. It 
 - Library-export collection now also resolves named re-exports into `default` across the source graph, keeping the bounded export-signature path aligned with default-alias re-export chains. Freeze-wrapped callable export bindings now also resolve through the same base-library export-surface path when the underlying callable remains statically known.
 - The shared `process.kill(0)` zero-probe inventory now also covers dot-property frozen receiver spellings for `process`, `globalThis.process`, and `globalThis["process"]`, and the late-process-control source and runtime smoke pick them up through the shared helper path.
 
+- The browser late-compat TS/JSX/TSX fixtures and runtime smoke now also assert the bare `((globalThis.process["kill"]))(+0)` zero-probe alias from the shared inventory, keeping the non-JS wrapper matrix aligned with the JS/browser helper coverage.
+
 ## Live surface at a glance
 
 The checked-in repository already includes:
