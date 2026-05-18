@@ -2252,8 +2252,8 @@ fn cli_spec_examples_track_the_current_repository_surface() {
     }
 
     assert!(
-        cli_spec.contains("The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, but whitespace-only values still fail validation."),
-        "specs/12-cli.md should describe diagnosticHint trimming alongside the other browser runtime contract fields"
+        cli_spec.contains("The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden."),
+        "specs/12-cli.md should describe browser runtime contract trimming alongside the array-item rules"
     );
 }
 
