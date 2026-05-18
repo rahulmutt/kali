@@ -5147,19 +5147,34 @@ mod tests {
 
     #[test]
     fn package_audit_preview_rejects_before_target_validation() {
-        let output = CliOutputOptions {
-            format: OutputFormat::Text,
-            pretty: false,
-            verbose: false,
-            quiet: false,
-            color: ColorChoice::Auto,
-        };
+        for (output, target) in [
+            (
+                CliOutputOptions {
+                    format: OutputFormat::Text,
+                    pretty: false,
+                    verbose: false,
+                    quiet: false,
+                    color: ColorChoice::Auto,
+                },
+                Vec::<String>::new(),
+            ),
+            (
+                CliOutputOptions {
+                    format: OutputFormat::Json,
+                    pretty: true,
+                    verbose: false,
+                    quiet: false,
+                    color: ColorChoice::Auto,
+                },
+                vec![String::from("lodash"), String::from("react")],
+            ),
+        ] {
+            let exit_code =
+                package_audit_command(target, true, None, Vec::new(), false, None, &output)
+                    .expect_err("preview should fail before target validation");
 
-        let exit_code =
-            package_audit_command(Vec::new(), true, None, Vec::new(), false, None, &output)
-                .expect_err("preview should fail before target validation");
-
-        assert_eq!(exit_code, 5);
+            assert_eq!(exit_code, 5);
+        }
 
         let diagnostic = package_audit_preview_diagnostic();
         let context = diagnostic.context.as_ref().expect("diagnostic context");
