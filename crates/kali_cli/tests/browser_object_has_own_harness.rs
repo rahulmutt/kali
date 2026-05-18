@@ -3,12 +3,15 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::object_has_own_frozen_callable_condition_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_harness_object_has_own_run_source() -> &'static str {
-    r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
+fn browser_harness_object_has_own_run_source() -> String {
+    format!(
+        r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
 const hasOwn = Object.hasOwn;
 const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
@@ -21,9 +24,7 @@ if (
   !globalThis["Object"]["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
   !globalThis["Object"].hasOwn(wrapped, "a") ||
-  !Object.freeze(globalThis.Object["hasOwn"])(wrapped, "a") ||
-  !Object.freeze((globalThis.Object["hasOwn"]))(wrapped, "a") ||
-  !Object.freeze((globalThis["Object"]["hasOwn"]))(wrapped, "a") ||
+  {} ||
   !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
   !Object["hasOwnProperty"].call(wrapped, "a") ||
   !Object["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -41,15 +42,18 @@ if (
   !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
   !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
   !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
-) {
+) {{
   throw new Error('unexpected browser Object.hasOwn result');
-}
+}}
 console.log('browser object hasOwn ok');
-"#
+"#,
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+    )
 }
 
-fn browser_harness_object_has_own_test_source() -> &'static str {
-    r#"Kali.test('object hasOwn primitive literals', () => {
+fn browser_harness_object_has_own_test_source() -> String {
+    format!(
+        r#"Kali.test('object hasOwn primitive literals', () => {{
   const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
   const hasOwn = Object.hasOwn;
@@ -63,9 +67,7 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
-    !Object.freeze(globalThis.Object["hasOwn"])(wrapped, "a") ||
-    !Object.freeze((globalThis.Object["hasOwn"]))(wrapped, "a") ||
-    !Object.freeze((globalThis["Object"]["hasOwn"]))(wrapped, "a") ||
+    {} ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object["hasOwnProperty"].call(wrapped, "a") ||
     !Object["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -83,23 +85,25 @@ fn browser_harness_object_has_own_test_source() -> &'static str {
     !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
     !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
-  ) {
+  ) {{
     throw new Error('unexpected browser Object.hasOwn result');
-  }
+  }}
   console.log('browser object hasOwn ok');
-});
-"#
+}});
+"#,
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+    )
 }
 
-fn assert_browser_harness_object_has_own(
+fn assert_browser_harness_object_has_own<S: AsRef<str>>(
     command: &str,
     filename: &str,
-    source: &str,
+    source: S,
     json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut output = Command::new(kali_bin());
     output
@@ -163,7 +167,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_js_input() 
     assert_browser_harness_object_has_own(
         "run",
         "main.js",
-        browser_harness_object_has_own_run_source(),
+        &browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -173,7 +177,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input()
     assert_browser_harness_object_has_own(
         "run",
         "main.jsx",
-        browser_harness_object_has_own_run_source(),
+        &browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -183,7 +187,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_ts_input() 
     assert_browser_harness_object_has_own(
         "run",
         "main.ts",
-        browser_harness_object_has_own_run_source(),
+        &browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -193,7 +197,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input()
     assert_browser_harness_object_has_own(
         "run",
         "main.tsx",
-        browser_harness_object_has_own_run_source(),
+        &browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -203,7 +207,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_js_input()
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.js",
-        browser_harness_object_has_own_test_source(),
+        &browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -213,7 +217,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input(
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.jsx",
-        browser_harness_object_has_own_test_source(),
+        &browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -223,7 +227,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_ts_input()
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.ts",
-        browser_harness_object_has_own_test_source(),
+        &browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -233,7 +237,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input(
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.tsx",
-        browser_harness_object_has_own_test_source(),
+        &browser_harness_object_has_own_test_source(),
         false,
     );
 }

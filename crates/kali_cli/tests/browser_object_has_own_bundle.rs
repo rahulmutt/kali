@@ -3,44 +3,58 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::object_has_own_frozen_callable_condition_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_object_has_own_js_source() -> &'static str {
-    r##"// kali-tree-shake: browserObjectHasOwn
-function browserObjectHasOwn() {
-  const object = { a: 1, "b": 2 };
+fn browser_bundle_object_has_own_js_source() -> String {
+    format!(
+        r##"// kali-tree-shake: browserObjectHasOwn
+function browserObjectHasOwn() {{
+  const object = {{ a: 1, "b": 2 }};
   const alias = object;
   const hasOwn = Object.hasOwn;
   const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !Object.freeze(globalThis.Object["hasOwn"])(alias, "a") || !Object.freeze((globalThis.Object["hasOwn"]))(alias, "a") || !Object.freeze((globalThis["Object"]["hasOwn"]))(alias, "a") || !Object.freeze(globalThis["Object"]["hasOwn"])(alias, "a") || !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
+    !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
-  }
+  }}
   console.log('browser object hasOwn ok');
-}
-"##
+}}
+"##,
+        object_has_own_frozen_callable_condition_source("alias", r#""a""#)
+    )
 }
 
-fn browser_bundle_object_has_own_ts_source() -> &'static str {
-    r##"// kali-tree-shake: browserObjectHasOwn
-function browserObjectHasOwn() {
-  const object = ({ a: 1, "b": 2 } as const);
+fn browser_bundle_object_has_own_ts_source() -> String {
+    format!(
+        r##"// kali-tree-shake: browserObjectHasOwn
+function browserObjectHasOwn() {{
+  const object = ({{ a: 1, "b": 2 }} as const);
   const alias = object;
   const hasOwn = Object.hasOwn;
   const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !Object.freeze(globalThis.Object["hasOwn"])(alias, "a") || !Object.freeze((globalThis.Object["hasOwn"]))(alias, "a") || !Object.freeze((globalThis["Object"]["hasOwn"]))(alias, "a") || !Object.freeze(globalThis["Object"]["hasOwn"])(alias, "a") || !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
+    !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
-  }
+  }}
   console.log('browser object hasOwn ok');
-}
-"##
+}}
+"##,
+        object_has_own_frozen_callable_condition_source("alias", r#""a""#)
+    )
 }
 
-fn assert_browser_bundle_object_has_own(filename: &str, json_output: bool, source: &'static str) {
+fn assert_browser_bundle_object_has_own<S: AsRef<str>>(
+    filename: &str,
+    json_output: bool,
+    source: S,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -128,7 +142,7 @@ fn build_emits_browser_object_has_own_in_js_input() {
     assert_browser_bundle_object_has_own(
         "app.js",
         false,
-        browser_bundle_object_has_own_js_source(),
+        &browser_bundle_object_has_own_js_source(),
     );
 }
 
@@ -137,7 +151,7 @@ fn build_emits_browser_object_has_own_in_jsx_input() {
     assert_browser_bundle_object_has_own(
         "app.jsx",
         false,
-        browser_bundle_object_has_own_js_source(),
+        &browser_bundle_object_has_own_js_source(),
     );
 }
 
@@ -146,7 +160,7 @@ fn build_emits_browser_object_has_own_in_ts_input() {
     assert_browser_bundle_object_has_own(
         "app.ts",
         false,
-        browser_bundle_object_has_own_ts_source(),
+        &browser_bundle_object_has_own_ts_source(),
     );
 }
 
@@ -155,13 +169,17 @@ fn build_emits_browser_object_has_own_in_tsx_input() {
     assert_browser_bundle_object_has_own(
         "app.tsx",
         false,
-        browser_bundle_object_has_own_ts_source(),
+        &browser_bundle_object_has_own_ts_source(),
     );
 }
 
 #[test]
 fn json_build_emits_browser_object_has_own_in_js_input() {
-    assert_browser_bundle_object_has_own("app.js", true, browser_bundle_object_has_own_js_source());
+    assert_browser_bundle_object_has_own(
+        "app.js",
+        true,
+        &browser_bundle_object_has_own_js_source(),
+    );
 }
 
 #[test]
@@ -169,13 +187,17 @@ fn json_build_emits_browser_object_has_own_in_jsx_input() {
     assert_browser_bundle_object_has_own(
         "app.jsx",
         true,
-        browser_bundle_object_has_own_js_source(),
+        &browser_bundle_object_has_own_js_source(),
     );
 }
 
 #[test]
 fn json_build_emits_browser_object_has_own_in_ts_input() {
-    assert_browser_bundle_object_has_own("app.ts", true, browser_bundle_object_has_own_ts_source());
+    assert_browser_bundle_object_has_own(
+        "app.ts",
+        true,
+        &browser_bundle_object_has_own_ts_source(),
+    );
 }
 
 #[test]
@@ -183,6 +205,6 @@ fn json_build_emits_browser_object_has_own_in_tsx_input() {
     assert_browser_bundle_object_has_own(
         "app.tsx",
         true,
-        browser_bundle_object_has_own_ts_source(),
+        &browser_bundle_object_has_own_ts_source(),
     );
 }

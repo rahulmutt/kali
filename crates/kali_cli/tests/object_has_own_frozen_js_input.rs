@@ -3,27 +3,34 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::object_has_own_frozen_callable_condition_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn frozen_object_has_own_source() -> &'static str {
-    r#"const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
+fn frozen_object_has_own_source() -> String {
+    format!(
+        r#"const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
 const alias = object;
 const wrapped = (0, alias);
 const frozenHasOwn = Object.freeze(globalThis.Object["hasOwn"]);
 const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
 const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
 const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
-if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenParenthesizedHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !frozenParenthesizedBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || {} ||
+  !Object.prototype.hasOwnProperty.call(wrapped, "a")) {{
   throw new Error('unexpected frozen Object.hasOwn result');
-}
+}}
 console.log('frozen object hasOwn ok');
-"#
+"#,
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+    )
 }
 
-fn frozen_object_has_own_test_source() -> &'static str {
-    r#"Kali.test('frozen object hasOwn', () => {
+fn frozen_object_has_own_test_source() -> String {
+    format!(
+        r#"Kali.test('frozen object hasOwn', () => {{
   const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
   const alias = object;
   const wrapped = (0, alias);
@@ -31,17 +38,25 @@ fn frozen_object_has_own_test_source() -> &'static str {
   const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
   const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
   const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
-  if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || !frozenHasOwn(wrapped, "a") || !frozenParenthesizedHasOwn(wrapped, "a") || !frozenBracketedHasOwn(wrapped, "a") || !frozenParenthesizedBracketedHasOwn(wrapped, "a") || !Object.prototype.hasOwnProperty.call(wrapped, "a")) {
+  if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || {} ||
+    !Object.prototype.hasOwnProperty.call(wrapped, "a")) {{
     throw new Error('unexpected frozen Object.hasOwn result');
-  }
-});
-"#
+  }}
+}});
+"#,
+        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#)
+    )
 }
 
-fn assert_frozen_object_has_own(command: &str, filename: &str, source: &str, json_output: bool) {
+fn assert_frozen_object_has_own<S: AsRef<str>>(
+    command: &str,
+    filename: &str,
+    source: S,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, source).expect("write source");
+    fs::write(&source_path, source.as_ref()).expect("write source");
 
     let mut output = Command::new(kali_bin());
     output.current_dir(dir.path());
@@ -90,21 +105,21 @@ fn assert_frozen_object_has_own(command: &str, filename: &str, source: &str, jso
 #[test]
 fn check_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_frozen_object_has_own("check", filename, frozen_object_has_own_source(), false);
+        assert_frozen_object_has_own("check", filename, &frozen_object_has_own_source(), false);
     }
 }
 
 #[test]
 fn run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), false);
+        assert_frozen_object_has_own("run", filename, &frozen_object_has_own_source(), false);
     }
 }
 
 #[test]
 fn json_run_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
     for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_frozen_object_has_own("run", filename, frozen_object_has_own_source(), true);
+        assert_frozen_object_has_own("run", filename, &frozen_object_has_own_source(), true);
     }
 }
 
@@ -116,7 +131,12 @@ fn test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
         "main.test.jsx",
         "main.test.tsx",
     ] {
-        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), false);
+        assert_frozen_object_has_own(
+            "test",
+            filename,
+            &frozen_object_has_own_test_source(),
+            false,
+        );
     }
 }
 
@@ -128,6 +148,6 @@ fn json_test_accepts_frozen_object_has_own_in_js_ts_jsx_tsx_input() {
         "main.test.jsx",
         "main.test.tsx",
     ] {
-        assert_frozen_object_has_own("test", filename, frozen_object_has_own_test_source(), true);
+        assert_frozen_object_has_own("test", filename, &frozen_object_has_own_test_source(), true);
     }
 }

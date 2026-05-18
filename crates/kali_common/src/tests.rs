@@ -280,6 +280,19 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_object_has_own_frozen_callable_condition_source_lists_all_aliases_in_order() {
+    let aliases = object_has_own_frozen_callable_aliases();
+    let condition_source = object_has_own_frozen_callable_condition_source("wrapped", r#""a""#);
+    let expected = aliases
+        .iter()
+        .map(|alias| format!("!{alias}(wrapped, \"a\")"))
+        .collect::<Vec<_>>()
+        .join(" || ");
+
+    assert_eq!(condition_source, expected);
+}
+
+#[test]
 fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_floor_trunc_ceil_frozen_callable_aliases();
     let source = math_floor_trunc_ceil_frozen_callable_source();
