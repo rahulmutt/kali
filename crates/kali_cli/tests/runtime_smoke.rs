@@ -3926,6 +3926,7 @@ const aliasKeys = Reflect.ownKeys(alias);
 const globalKeys = globalThis.Reflect.ownKeys(obj);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 if (
   keys.length !== 4 ||
@@ -3953,6 +3954,11 @@ if (
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||
@@ -3985,6 +3991,7 @@ const aliasKeys = Reflect.ownKeys(alias);
 const globalKeys = globalThis.Reflect.ownKeys(obj);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 if (
   keys.length !== 4 ||
@@ -4012,6 +4019,11 @@ if (
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||

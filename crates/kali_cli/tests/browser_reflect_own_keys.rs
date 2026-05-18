@@ -15,6 +15,7 @@ const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 let syncCount = 0;
@@ -75,6 +76,11 @@ if (
   bracketedKeys[1] !== '2' ||
   bracketedKeys[2] !== 'b' ||
   bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
   singleQuotedKeys.length !== 4 ||
   singleQuotedKeys[0] !== '1' ||
   singleQuotedKeys[1] !== '2' ||
@@ -109,6 +115,7 @@ fn reflect_own_keys_test_source() -> &'static str {
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
   let syncCount = 0;
@@ -169,6 +176,11 @@ fn reflect_own_keys_test_source() -> &'static str {
     bracketedKeys[1] !== '2' ||
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
     singleQuotedKeys.length !== 4 ||
     singleQuotedKeys[0] !== '1' ||
     singleQuotedKeys[1] !== '2' ||
@@ -204,6 +216,7 @@ async function reflectOwnKeysSmoke(left, right) {
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
   let syncCount = 0;
@@ -264,6 +277,11 @@ async function reflectOwnKeysSmoke(left, right) {
     bracketedKeys[1] !== '2' ||
     bracketedKeys[2] !== 'b' ||
     bracketedKeys[3] !== 'a' ||
+  fullyBracketedKeys.length !== 4 ||
+  fullyBracketedKeys[0] !== '1' ||
+  fullyBracketedKeys[1] !== '2' ||
+  fullyBracketedKeys[2] !== 'b' ||
+  fullyBracketedKeys[3] !== 'a' ||
     singleQuotedKeys.length !== 4 ||
     singleQuotedKeys[0] !== '1' ||
     singleQuotedKeys[1] !== '2' ||
