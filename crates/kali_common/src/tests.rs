@@ -466,6 +466,23 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
+    let prefix = late_process_control_prefix_source();
+    let expected = format!("{};", LATE_PROCESS_CONTROL_PREFIX_SEGMENTS.join("; "));
+
+    assert_eq!(prefix, expected);
+    assert!(
+        prefix.starts_with("Deno.pid; globalThis.Deno.pid;"),
+        "prefix: {prefix}"
+    );
+    assert!(
+        prefix.contains("process.kill; globalThis.process.kill;"),
+        "prefix: {prefix}"
+    );
+    assert!(!prefix.contains("process.kill(0)"), "prefix: {prefix}");
+}
+
+#[test]
 fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once() {
     let source = late_process_control_source();
     let prefix = late_process_control_prefix_source();
