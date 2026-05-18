@@ -485,6 +485,19 @@ pub fn object_has_own_property_call_frozen_callable_condition_source(
         .join(" || ")
 }
 
+/// Canonical source text for the supported `Object.prototype.hasOwnProperty.call` helper.
+pub const fn object_has_own_property_call_source() -> &'static str {
+    "Object.prototype.hasOwnProperty.call"
+}
+
+/// Canonical binding source for the supported `Object.prototype.hasOwnProperty.call` helper.
+pub fn object_has_own_property_call_binding_source(binding_name: &str) -> String {
+    format!(
+        "const {binding_name} = {};",
+        object_has_own_property_call_source()
+    )
+}
+
 /// Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.
 pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'static str] {
     &[

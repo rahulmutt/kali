@@ -341,6 +341,16 @@ fn test_object_has_own_property_call_frozen_callable_condition_source_lists_all_
 }
 
 #[test]
+fn test_object_has_own_property_call_binding_source_is_canonical() {
+    let binding_source = object_has_own_property_call_binding_source("hasOwnPropertyCall");
+
+    assert_eq!(
+        binding_source,
+        "const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;"
+    );
+}
+
+#[test]
 fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_floor_trunc_ceil_frozen_callable_aliases();
     let source = math_floor_trunc_ceil_frozen_callable_source();

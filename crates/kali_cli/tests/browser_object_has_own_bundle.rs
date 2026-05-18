@@ -4,7 +4,7 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 use kali_common::{
-    object_has_own_frozen_callable_condition_source,
+    object_has_own_frozen_callable_condition_source, object_has_own_property_call_binding_source,
     object_has_own_property_call_frozen_callable_condition_source,
 };
 
@@ -18,13 +18,15 @@ fn browser_bundle_object_has_own_js_source() -> String {
         object_has_own_frozen_callable_condition_source("alias", r#""a""#),
         object_has_own_property_call_frozen_callable_condition_source("alias", r#""a""#)
     );
+    let has_own_property_call_binding_source =
+        object_has_own_property_call_binding_source("hasOwnPropertyCall");
     format!(
         r##"// kali-tree-shake: browserObjectHasOwn
 function browserObjectHasOwn() {{
   const object = {{ a: 1, "b": 2 }};
   const alias = object;
   const hasOwn = Object.hasOwn;
-  const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
+  {}
   if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
     !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
@@ -32,7 +34,7 @@ function browserObjectHasOwn() {{
   console.log('browser object hasOwn ok');
 }}
 "##,
-        frozen_callable_condition_source
+        has_own_property_call_binding_source, frozen_callable_condition_source
     )
 }
 
@@ -42,13 +44,15 @@ fn browser_bundle_object_has_own_ts_source() -> String {
         object_has_own_frozen_callable_condition_source("alias", r#""a""#),
         object_has_own_property_call_frozen_callable_condition_source("alias", r#""a""#)
     );
+    let has_own_property_call_binding_source =
+        object_has_own_property_call_binding_source("hasOwnPropertyCall");
     format!(
         r##"// kali-tree-shake: browserObjectHasOwn
 function browserObjectHasOwn() {{
   const object = ({{ a: 1, "b": 2 }} as const);
   const alias = object;
   const hasOwn = Object.hasOwn;
-  const hasOwnPropertyCall = Object.prototype.hasOwnProperty.call;
+  {}
   if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
     !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
@@ -56,7 +60,7 @@ function browserObjectHasOwn() {{
   console.log('browser object hasOwn ok');
 }}
 "##,
-        frozen_callable_condition_source
+        has_own_property_call_binding_source, frozen_callable_condition_source
     )
 }
 
