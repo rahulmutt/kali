@@ -1967,6 +1967,7 @@ impl TypeContext {
                 | "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
                 | "Object.hasOwnProperty.call"
+                | "globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"]"
                 | "globalThis.Object.hasOwnProperty.call"
                 | "Number.isFinite"
                 | "Number.isNaN"
@@ -2190,6 +2191,7 @@ impl TypeContext {
             "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
                 | "Object.hasOwnProperty.call"
+                | "globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"]"
                 | "globalThis.Object.hasOwnProperty.call"
         );
         if !is_object_has_own && !is_has_own_property_call {
@@ -3623,6 +3625,7 @@ impl TypeContext {
                 | "Object.prototype.hasOwnProperty.call"
                 | "globalThis.Object.prototype.hasOwnProperty.call"
                 | "Object.hasOwnProperty.call"
+                | "globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"]"
                 | "globalThis.Object.hasOwnProperty.call"
         ) {
             self.diagnostics.push(Diagnostic::error(

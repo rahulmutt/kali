@@ -502,6 +502,8 @@ pub const fn object_has_own_property_call_frozen_callable_aliases() -> &'static 
         r#"Object.freeze((globalThis.Object.prototype.hasOwnProperty.call))"#,
         r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty.call)"#,
         r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty["call"])"#,
+        r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty["call"]))"#,
         r#"Object.freeze(globalThis.Object.prototype["hasOwnProperty"]["call"])"#,
         r#"Object.freeze((globalThis.Object.prototype["hasOwnProperty"]["call"]))"#,
         r#"Object.freeze(globalThis["Object"]["prototype"]["hasOwnProperty"]["call"])"#,

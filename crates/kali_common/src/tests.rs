@@ -378,6 +378,8 @@ fn test_object_has_own_property_call_frozen_callable_source_lists_all_aliases_in
         r#"Object.freeze((globalThis.Object.prototype.hasOwnProperty.call))"#,
         r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty.call)"#,
         r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze(globalThis["Object"].prototype.hasOwnProperty["call"])"#,
+        r#"Object.freeze((globalThis["Object"].prototype.hasOwnProperty["call"]))"#,
         r#"Object.freeze(globalThis.Object.prototype["hasOwnProperty"]["call"])"#,
         r#"Object.freeze((globalThis.Object.prototype["hasOwnProperty"]["call"]))"#,
         r#"Object.freeze(globalThis["Object"]["prototype"]["hasOwnProperty"]["call"])"#,
