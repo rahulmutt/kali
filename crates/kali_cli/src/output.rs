@@ -2817,4 +2817,18 @@ mod tests {
             assert_eq!(err, expected);
         }
     }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_diagnostic_hint() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["diagnosticHint"] = json!("   ");
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("whitespace-only diagnosticHint should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract diagnosticHint must be `Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.`"
+        );
+    }
 }
