@@ -2258,6 +2258,28 @@ fn cli_spec_examples_track_the_current_repository_surface() {
 }
 
 #[test]
+fn browser_runtime_contract_docs_track_trimmed_validation_rules() {
+    let root = repo_root();
+    let schemas = fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas spec");
+
+    for expected in [
+        "hostLabel: const",
+        "hostDescription: non-empty, non-whitespace string",
+        "hostDescriptionNote: const",
+        "supportedCommands: string[]",
+        "diagnosticHint: non-empty, non-whitespace string",
+        "diagnosticNotes: string[]",
+        "validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail",
+        "validators compare each emitted note after trimming surrounding whitespace, but whitespace-only notes still fail",
+    ] {
+        assert!(
+            schemas.contains(expected),
+            "specs/18-schemas.md is missing browser runtime contract marker: {expected}"
+        );
+    }
+}
+
+#[test]
 fn run_test_result_provenance_docs_track_canonical_thread_topology_script_urls() {
     let root = repo_root();
     let schemas = fs::read_to_string(root.join("specs/18-schemas.md")).expect("read schemas spec");
