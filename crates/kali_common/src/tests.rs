@@ -43,6 +43,14 @@ fn test_bytewise_shared_memory_lock_free_probe_matches_target_atomic_support() {
 fn test_late_object_model_source_lists_proxy_and_weak_aliases() {
     let source = late_object_model_source();
     assert!(source.contains("Proxy.revocable"), "source: {source}");
+    assert!(
+        source.contains(r#"Object.freeze(Proxy.revocable)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis.Proxy.revocable)"#),
+        "source: {source}"
+    );
     assert!(source.contains("WeakMap"), "source: {source}");
     assert!(source.contains("WeakSet"), "source: {source}");
     assert!(source.contains("WeakRef"), "source: {source}");
