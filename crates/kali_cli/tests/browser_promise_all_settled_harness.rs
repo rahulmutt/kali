@@ -12,6 +12,8 @@ fn browser_promise_all_settled_run_source() -> &'static str {
   const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   if (
@@ -30,6 +32,16 @@ fn browser_promise_all_settled_run_source() -> &'static str {
     dottedSettled[0].value !== 1 ||
     dottedSettled[1].status !== 'rejected' ||
     dottedSettled[1].reason !== 'boom' ||
+    mixedDottedSettled.length !== 2 ||
+    mixedDottedSettled[0].status !== 'fulfilled' ||
+    mixedDottedSettled[0].value !== 1 ||
+    mixedDottedSettled[1].status !== 'rejected' ||
+    mixedDottedSettled[1].reason !== 'boom' ||
+    mixedBracketedSettled.length !== 2 ||
+    mixedBracketedSettled[0].status !== 'fulfilled' ||
+    mixedBracketedSettled[0].value !== 1 ||
+    mixedBracketedSettled[1].status !== 'rejected' ||
+    mixedBracketedSettled[1].reason !== 'boom' ||
     bracketedSettled.length !== 2 ||
     bracketedSettled[0].status !== 'fulfilled' ||
     bracketedSettled[0].value !== 1 ||
@@ -59,6 +71,8 @@ fn browser_promise_all_settled_test_source() -> &'static str {
   const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   if (
@@ -77,6 +91,16 @@ fn browser_promise_all_settled_test_source() -> &'static str {
     dottedSettled[0].value !== 1 ||
     dottedSettled[1].status !== 'rejected' ||
     dottedSettled[1].reason !== 'boom' ||
+    mixedDottedSettled.length !== 2 ||
+    mixedDottedSettled[0].status !== 'fulfilled' ||
+    mixedDottedSettled[0].value !== 1 ||
+    mixedDottedSettled[1].status !== 'rejected' ||
+    mixedDottedSettled[1].reason !== 'boom' ||
+    mixedBracketedSettled.length !== 2 ||
+    mixedBracketedSettled[0].status !== 'fulfilled' ||
+    mixedBracketedSettled[0].value !== 1 ||
+    mixedBracketedSettled[1].status !== 'rejected' ||
+    mixedBracketedSettled[1].reason !== 'boom' ||
     bracketedSettled.length !== 2 ||
     bracketedSettled[0].status !== 'fulfilled' ||
     bracketedSettled[0].value !== 1 ||
