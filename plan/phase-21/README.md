@@ -45,7 +45,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - Static `Array.from(...)` wrappers around already-supported iterable slices now also lower through the same bounded array-iteration path, including JS/TS/JSX/TSX `run` and `test` coverage, giving the iterator packet one more transparent wrapper slice without widening the unsupported protocol surface; the parenthesized frozen alias `Object.freeze((globalThis.Array.from))` now also stays on that same path.
 - The default standalone `run` / `test` rejection corpus now also mirrors that non-literal `new Set(...)` / `new Map(...)` gate on JS input, keeping the standalone iterator-source matrix aligned with the browser-config rejection coverage.
 
-- The parser now also accepts dot-member `from` property access, so direct `Array.from(...)` can flow through the supported array-iteration path alongside the existing bracketed alias smoke.
+- The parser now also accepts dot-member `from` property access, so direct `Array.from(...)` can flow through the supported array-iteration path alongside the existing bracketed alias smoke. Type-resolution and codegen smoke now also cover the frozen `Object.freeze(globalThis.Array.from)` alias, keeping the alias matrix aligned across the bounded array-iteration path.
 
 ### 21.3 Dynamic language and built-in semantics
 
