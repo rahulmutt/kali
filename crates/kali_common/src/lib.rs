@@ -611,6 +611,74 @@ pub fn math_pow_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_pow_frozen_callable_aliases())
 }
 
+/// Canonical root aliases for the supported `Set` constructor slice.
+pub const fn set_constructor_aliases() -> &'static [&'static str] {
+    &[
+        "Set",
+        "globalThis.Set",
+        r#"globalThis["Set"]"#,
+        r#"globalThis['Set']"#,
+    ]
+}
+
+/// Canonical frozen callable aliases for the supported `Set` constructor slice.
+pub const fn set_constructor_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(Set)"#,
+        r#"Object.freeze((Set))"#,
+        r#"Object.freeze(globalThis.Set)"#,
+        r#"Object.freeze((globalThis.Set))"#,
+        r#"Object.freeze(globalThis["Set"])"#,
+        r#"Object.freeze((globalThis["Set"]))"#,
+        r#"Object.freeze(globalThis['Set'])"#,
+        r#"Object.freeze((globalThis['Set']))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Set` constructor aliases.
+pub fn set_constructor_source() -> String {
+    join_semicolon_terminated_segments(set_constructor_aliases())
+}
+
+/// Canonical source text for the supported `Set` frozen callable aliases.
+pub fn set_constructor_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(set_constructor_frozen_callable_aliases())
+}
+
+/// Canonical root aliases for the supported `Map` constructor slice.
+pub const fn map_constructor_aliases() -> &'static [&'static str] {
+    &[
+        "Map",
+        "globalThis.Map",
+        r#"globalThis["Map"]"#,
+        r#"globalThis['Map']"#,
+    ]
+}
+
+/// Canonical frozen callable aliases for the supported `Map` constructor slice.
+pub const fn map_constructor_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(Map)"#,
+        r#"Object.freeze((Map))"#,
+        r#"Object.freeze(globalThis.Map)"#,
+        r#"Object.freeze((globalThis.Map))"#,
+        r#"Object.freeze(globalThis["Map"])"#,
+        r#"Object.freeze((globalThis["Map"]))"#,
+        r#"Object.freeze(globalThis['Map'])"#,
+        r#"Object.freeze((globalThis['Map']))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Map` constructor aliases.
+pub fn map_constructor_source() -> String {
+    join_semicolon_terminated_segments(map_constructor_aliases())
+}
+
+/// Canonical source text for the supported `Map` frozen callable aliases.
+pub fn map_constructor_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(map_constructor_frozen_callable_aliases())
+}
+
 /// Canonical feature-unavailable wording for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_unavailable_message() -> String {
     let aliases = process_kill_zero_probe_aliases();

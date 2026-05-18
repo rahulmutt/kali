@@ -532,6 +532,94 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_set_constructor_aliases_and_frozen_callable_source_are_canonical() {
+    let aliases = set_constructor_aliases();
+    let frozen_aliases = set_constructor_frozen_callable_aliases();
+    let source = set_constructor_source();
+    let frozen_source = set_constructor_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            "Set",
+            "globalThis.Set",
+            r#"globalThis["Set"]"#,
+            r#"globalThis['Set']"#
+        ]
+    );
+    assert_eq!(
+        source,
+        "Set; globalThis.Set; globalThis[\"Set\"]; globalThis['Set'];"
+    );
+    assert_eq!(
+        frozen_aliases,
+        &[
+            r#"Object.freeze(Set)"#,
+            r#"Object.freeze((Set))"#,
+            r#"Object.freeze(globalThis.Set)"#,
+            r#"Object.freeze((globalThis.Set))"#,
+            r#"Object.freeze(globalThis["Set"])"#,
+            r#"Object.freeze((globalThis["Set"]))"#,
+            r#"Object.freeze(globalThis['Set'])"#,
+            r#"Object.freeze((globalThis['Set']))"#,
+        ]
+    );
+    assert_eq!(
+        frozen_source,
+        concat!(
+            "Object.freeze(Set); Object.freeze((Set)); Object.freeze(globalThis.Set); ",
+            "Object.freeze((globalThis.Set)); Object.freeze(globalThis[\"Set\"]); ",
+            "Object.freeze((globalThis[\"Set\"])); Object.freeze(globalThis['Set']); ",
+            "Object.freeze((globalThis['Set']));"
+        )
+    );
+}
+
+#[test]
+fn test_map_constructor_aliases_and_frozen_callable_source_are_canonical() {
+    let aliases = map_constructor_aliases();
+    let frozen_aliases = map_constructor_frozen_callable_aliases();
+    let source = map_constructor_source();
+    let frozen_source = map_constructor_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            "Map",
+            "globalThis.Map",
+            r#"globalThis["Map"]"#,
+            r#"globalThis['Map']"#
+        ]
+    );
+    assert_eq!(
+        source,
+        "Map; globalThis.Map; globalThis[\"Map\"]; globalThis['Map'];"
+    );
+    assert_eq!(
+        frozen_aliases,
+        &[
+            r#"Object.freeze(Map)"#,
+            r#"Object.freeze((Map))"#,
+            r#"Object.freeze(globalThis.Map)"#,
+            r#"Object.freeze((globalThis.Map))"#,
+            r#"Object.freeze(globalThis["Map"])"#,
+            r#"Object.freeze((globalThis["Map"]))"#,
+            r#"Object.freeze(globalThis['Map'])"#,
+            r#"Object.freeze((globalThis['Map']))"#,
+        ]
+    );
+    assert_eq!(
+        frozen_source,
+        concat!(
+            "Object.freeze(Map); Object.freeze((Map)); Object.freeze(globalThis.Map); ",
+            "Object.freeze((globalThis.Map)); Object.freeze(globalThis[\"Map\"]); ",
+            "Object.freeze((globalThis[\"Map\"])); Object.freeze(globalThis['Map']); ",
+            "Object.freeze((globalThis['Map']));"
+        )
+    );
+}
+
+#[test]
 fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
     let prefix = late_process_control_prefix_source();
     let expected = format!("{};", LATE_PROCESS_CONTROL_PREFIX_SEGMENTS.join("; "));
