@@ -1701,6 +1701,16 @@ fn build_source_file_rejects_negative_math_pow_exponents_in_ts_input() {
 }
 
 #[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_jsx_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_tsx_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
 fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_in_js_input() {
     assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
         ApiSurface::Browser,
@@ -1713,6 +1723,22 @@ fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_
     assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_negative_math_pow_exponents_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 

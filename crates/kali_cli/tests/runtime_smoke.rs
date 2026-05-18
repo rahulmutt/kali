@@ -44281,9 +44281,21 @@ fn run_and_test_rejects_additional_unsupported_math_member_calls_in_browser_api_
 fn run_and_test_rejects_negative_math_pow_exponents_in_browser_api_surface_with_harness_js_input() {
     for (command, source_name, source) in [
         ("run", "main.js", "console.log(Math.pow(2, -1));\n"),
+        ("run", "main.jsx", "console.log(Math.pow(2, -1));\n"),
+        ("run", "main.tsx", "console.log(Math.pow(2, -1));\n"),
         (
             "test",
             "smoke.test.js",
+            "Kali.test('negative pow', () => { console.log(Math.pow(2, -1)); });\n",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('negative pow', () => { console.log(Math.pow(2, -1)); });\n",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('negative pow', () => { console.log(Math.pow(2, -1)); });\n",
         ),
     ] {
