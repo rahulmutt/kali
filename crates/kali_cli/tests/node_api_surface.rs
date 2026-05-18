@@ -3293,7 +3293,7 @@ fn node_api_surface_supports_process_kill_zero_probe_satisfies_wrappers_in_ts_an
                 .expect("write run file");
             fs::write(
                 &test_file,
-                "Kali.test('process kill satisfies', () => { if (!process.kill((0 satisfies number)) || !globalThis.process.kill((0 satisfies number)) || !globalThis.process[\"kill\"]((0 satisfies number)) || !globalThis[\"process\"][\"kill\"]((0 satisfies number)) || !process[\"kill\"]((0 satisfies number))) { throw new Error('expected zero probe'); } });\n",
+                "Kali.test('process kill satisfies', () => { if (!process.kill((0 satisfies number)) || !globalThis.process.kill((0 satisfies number)) || !globalThis.process[\"kill\"]((0 satisfies number)) || !globalThis[\"process\"].kill((0 satisfies number)) || !globalThis[\"process\"][\"kill\"]((0 satisfies number)) || !process[\"kill\"]((0 satisfies number))) { throw new Error('expected zero probe'); } });\n",
             )
             .expect("write test file");
 
@@ -3391,7 +3391,7 @@ fn node_api_surface_supports_process_kill_zero_probe_type_assertion_wrappers_in_
                 .expect("write run file");
             fs::write(
                 &test_file,
-                "Kali.test('process kill type assertion', () => { if (!process.kill((0 as number)) || !globalThis.process.kill((0 as number)) || !globalThis.process[\"kill\"]((0 as number)) || !globalThis[\"process\"][\"kill\"]((0 as number)) || !process[\"kill\"]((0 as number))) { throw new Error('expected zero probe'); } });\n",
+                "Kali.test('process kill type assertion', () => { if (!process.kill((0 as number)) || !globalThis.process.kill((0 as number)) || !globalThis.process[\"kill\"]((0 as number)) || !globalThis[\"process\"].kill((0 as number)) || !globalThis[\"process\"][\"kill\"]((0 as number)) || !process[\"kill\"]((0 as number))) { throw new Error('expected zero probe'); } });\n",
             )
             .expect("write test file");
 
