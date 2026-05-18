@@ -238,6 +238,22 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_process_kill_zero_probe_parenthesized_frozen_callable_source_lists_all_aliases_in_order() {
+    let source = process_kill_zero_probe_parenthesized_frozen_callable_source();
+    assert_eq!(
+        source,
+        concat!(
+            "Object.freeze((process.kill))(0); ",
+            "Object.freeze((process.kill))(+0); ",
+            "Object.freeze((globalThis.process.kill))(0); ",
+            "Object.freeze((globalThis.process.kill))(+0); ",
+            "Object.freeze((globalThis[\"process\"].kill))(0); ",
+            "Object.freeze((globalThis[\"process\"].kill))(+0);"
+        )
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
     let message = process_kill_zero_probe_unavailable_message();
