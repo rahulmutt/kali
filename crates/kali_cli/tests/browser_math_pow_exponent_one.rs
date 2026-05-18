@@ -1,11 +1,35 @@
 use std::{fs, process::Command};
 
-use kali_common::math_pow_frozen_callable_aliases;
+use kali_common::{math_pow_aliases, math_pow_frozen_callable_aliases};
 use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+fn browser_bundle_math_pow_invocation_lines(base: &str, argument: &str) -> String {
+    math_pow_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}({base}, {argument}));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn browser_bundle_math_pow_invocation_entries(base: &str, argument: &str) -> String {
+    math_pow_aliases()
+        .iter()
+        .map(|alias| format!("    {alias}({base}, {argument}),"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn browser_harness_math_pow_invocation_lines(base: &str, argument: &str) -> String {
+    math_pow_aliases()
+        .iter()
+        .map(|alias| format!("console.log({alias}({base}, {argument}));"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn browser_bundle_math_pow_exponent_one_source() -> String {
@@ -25,21 +49,17 @@ fn browser_bundle_math_pow_exponent_one_source() -> String {
 function mathPowExponentOneIdentity() {{
   const exponent = 1;
   const alias = exponent;
-  console.log(Math.pow(2, alias));
-  console.log(globalThis.Math.pow(2, alias));
-  console.log(globalThis["Math"]["pow"](2, alias));
-  console.log(globalThis.Math["pow"](2, alias));
+{direct_lines}
 {frozen_lines}
   return [
-    Math.pow(2, alias),
-    globalThis.Math.pow(2, alias),
-    globalThis["Math"]["pow"](2, alias),
-    globalThis.Math["pow"](2, alias),
+{direct_entries}
 {frozen_entries}
   ];
 }}
 "##,
+        direct_lines = browser_bundle_math_pow_invocation_lines("2", "alias"),
         frozen_lines = frozen_lines,
+        direct_entries = browser_bundle_math_pow_invocation_entries("2", "alias"),
         frozen_entries = frozen_entries,
     )
 }
@@ -138,9 +158,9 @@ fn browser_harness_math_pow_identity_run_source(exponent_value: &str, pow_base: 
         .join(" ");
 
     format!(
-        "const exponent = {exponent_value}; const alias = exponent; console.log(Math.pow({pow_base}, alias)); console.log(globalThis.Math.pow({pow_base}, alias)); console.log(globalThis[\"Math\"][\"pow\"]({pow_base}, alias)); console.log(globalThis.Math[\"pow\"]({pow_base}, alias)); {frozen_lines}\n",
+        "const exponent = {exponent_value}; const alias = exponent; {direct_lines} {frozen_lines}\n",
         exponent_value = exponent_value,
-        pow_base = pow_base,
+        direct_lines = browser_harness_math_pow_invocation_lines(pow_base, "alias"),
         frozen_lines = frozen_lines,
     )
 }
@@ -160,16 +180,13 @@ fn browser_harness_math_pow_identity_test_source(
         r#"Kali.test('{test_name}', () => {{
   const exponent = {exponent_value};
   const alias = exponent;
-  console.log(Math.pow({pow_base}, alias));
-  console.log(globalThis.Math.pow({pow_base}, alias));
-  console.log(globalThis["Math"]["pow"]({pow_base}, alias));
-  console.log(globalThis.Math["pow"]({pow_base}, alias));
+{direct_lines}
 {frozen_lines}
 }});
 "#,
         test_name = test_name,
         exponent_value = exponent_value,
-        pow_base = pow_base,
+        direct_lines = browser_harness_math_pow_invocation_lines(pow_base, "alias"),
         frozen_lines = frozen_lines,
     )
 }
@@ -182,39 +199,36 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> String {
     browser_harness_math_pow_identity_test_source("math pow exponent one identity", "1", "2")
 }
 
-fn browser_bundle_math_pow_base_one_identity_source() -> &'static str {
-    r##"// kali-tree-shake: mathPowBaseOneIdentity
-function mathPowBaseOneIdentity() {
+fn browser_bundle_math_pow_base_one_identity_source() -> String {
+    let frozen_lines = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}(1, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let frozen_entries = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("    {alias}(1, alias),"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        r##"// kali-tree-shake: mathPowBaseOneIdentity
+function mathPowBaseOneIdentity() {{
   const exponent = 7;
   const alias = exponent;
-  console.log(Math.pow(1, alias));
-  console.log(globalThis.Math.pow(1, alias));
-  console.log(globalThis["Math"]["pow"](1, alias));
-  console.log(globalThis.Math["pow"](1, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(1, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(1, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(1, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(1, alias));
-  console.log(Object.freeze(globalThis.Math.pow)(1, alias));
-  console.log(Object.freeze((globalThis.Math.pow))(1, alias));
-  console.log(Object.freeze(globalThis["Math"].pow)(1, alias));
-  console.log(Object.freeze((globalThis["Math"].pow))(1, alias));
+{direct_lines}
+{frozen_lines}
   return [
-    Math.pow(1, alias),
-    globalThis.Math.pow(1, alias),
-    globalThis["Math"]["pow"](1, alias),
-    globalThis.Math["pow"](1, alias),
-    Object.freeze(globalThis.Math["pow"])(1, alias),
-    Object.freeze((globalThis.Math["pow"]))(1, alias),
-    Object.freeze(globalThis["Math"]["pow"])(1, alias),
-    Object.freeze((globalThis["Math"]["pow"]))(1, alias),
-    Object.freeze(globalThis.Math.pow)(1, alias),
-    Object.freeze((globalThis.Math.pow))(1, alias),
-    Object.freeze(globalThis["Math"].pow)(1, alias),
-    Object.freeze((globalThis["Math"].pow))(1, alias),
+{direct_entries}
+{frozen_entries}
   ];
-}
-"##
+}}
+"##,
+        direct_lines = browser_bundle_math_pow_invocation_lines("1", "alias"),
+        frozen_lines = frozen_lines,
+        direct_entries = browser_bundle_math_pow_invocation_entries("1", "alias"),
+        frozen_entries = frozen_entries,
+    )
 }
 
 fn assert_browser_bundle_math_pow_base_one_identity(filename: &str, json_output: bool) {
