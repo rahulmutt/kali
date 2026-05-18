@@ -4,8 +4,9 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 use kali_common::{
-    object_has_own_frozen_callable_condition_source,
+    object_has_own_frozen_callable_condition_source, object_has_own_frozen_callable_source,
     object_has_own_property_call_frozen_callable_condition_source,
+    object_has_own_property_call_frozen_callable_source,
 };
 
 fn kali_bin() -> String {
@@ -18,21 +19,24 @@ fn frozen_object_has_own_source() -> String {
         object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
         object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
     );
+    let frozen_callable_source = format!(
+        "{} {}",
+        object_has_own_frozen_callable_source(),
+        object_has_own_property_call_frozen_callable_source()
+    );
     format!(
         r#"const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
 const alias = object;
 const wrapped = (0, alias);
-const frozenHasOwn = Object.freeze(globalThis.Object["hasOwn"]);
-const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
-const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
-const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
+const hasOwn = Object.hasOwn;
+{}
 if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || {} ||
   !Object.prototype.hasOwnProperty.call(wrapped, "a")) {{
   throw new Error('unexpected frozen Object.hasOwn result');
 }}
 console.log('frozen object hasOwn ok');
 "#,
-        frozen_callable_condition_source
+        frozen_callable_source, frozen_callable_condition_source
     )
 }
 
@@ -42,22 +46,25 @@ fn frozen_object_has_own_test_source() -> String {
         object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
         object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
     );
+    let frozen_callable_source = format!(
+        "{} {}",
+        object_has_own_frozen_callable_source(),
+        object_has_own_property_call_frozen_callable_source()
+    );
     format!(
         r#"Kali.test('frozen object hasOwn', () => {{
   const object = Object.freeze(Object.fromEntries([["a", 1], ["b", 2]]));
   const alias = object;
   const wrapped = (0, alias);
-  const frozenHasOwn = Object.freeze(globalThis.Object["hasOwn"]);
-  const frozenParenthesizedHasOwn = Object.freeze((globalThis.Object["hasOwn"]));
-  const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
-  const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"]["hasOwn"]));
+  const hasOwn = Object.hasOwn;
+  {}
   if (!Object.hasOwn(wrapped, "a") || !Object["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"]["hasOwn"](wrapped, "a") || !globalThis.Object["hasOwn"](wrapped, "a") || !globalThis["Object"].hasOwn(wrapped, "a") || {} ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a")) {{
     throw new Error('unexpected frozen Object.hasOwn result');
   }}
 }});
 "#,
-        frozen_callable_condition_source
+        frozen_callable_source, frozen_callable_condition_source
     )
 }
 

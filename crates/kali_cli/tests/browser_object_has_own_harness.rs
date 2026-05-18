@@ -4,8 +4,10 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 use kali_common::{
-    object_has_own_frozen_callable_condition_source, object_has_own_property_call_binding_source,
+    object_has_own_frozen_callable_condition_source, object_has_own_frozen_callable_source,
+    object_has_own_property_call_binding_source,
     object_has_own_property_call_frozen_callable_condition_source,
+    object_has_own_property_call_frozen_callable_source,
 };
 
 fn kali_bin() -> String {
@@ -20,10 +22,16 @@ fn browser_harness_object_has_own_run_source() -> String {
     );
     let has_own_property_call_binding_source =
         object_has_own_property_call_binding_source("hasOwnPropertyCall");
+    let frozen_callable_source = format!(
+        "{} {}",
+        object_has_own_frozen_callable_source(),
+        object_has_own_property_call_frozen_callable_source()
+    );
     format!(
         r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
 const hasOwn = Object.hasOwn;
+{}
 {}
 const wrapped = (0, alias);
 if (
@@ -56,7 +64,9 @@ if (
 }}
 console.log('browser object hasOwn ok');
 "#,
-        has_own_property_call_binding_source, frozen_callable_condition_source
+        has_own_property_call_binding_source,
+        frozen_callable_source,
+        frozen_callable_condition_source
     )
 }
 
@@ -68,11 +78,17 @@ fn browser_harness_object_has_own_test_source() -> String {
     );
     let has_own_property_call_binding_source =
         object_has_own_property_call_binding_source("hasOwnPropertyCall");
+    let frozen_callable_source = format!(
+        "{} {}",
+        object_has_own_frozen_callable_source(),
+        object_has_own_property_call_frozen_callable_source()
+    );
     format!(
         r#"Kali.test('object hasOwn primitive literals', () => {{
   const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
   const hasOwn = Object.hasOwn;
+  {}
   {}
   const wrapped = (0, alias);
   if (
@@ -106,7 +122,9 @@ fn browser_harness_object_has_own_test_source() -> String {
   console.log('browser object hasOwn ok');
 }});
 "#,
-        has_own_property_call_binding_source, frozen_callable_condition_source
+        has_own_property_call_binding_source,
+        frozen_callable_source,
+        frozen_callable_condition_source
     )
 }
 
