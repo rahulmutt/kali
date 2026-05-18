@@ -907,6 +907,8 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         r#"Object.freeze((process)["kill"])(+0)"#,
         r#"Object.freeze((process["kill"]))(0)"#,
         r#"Object.freeze((process["kill"]))(+0)"#,
+        r#"Object.freeze((process).kill)(0)"#,
+        r#"Object.freeze((process).kill)(+0)"#,
         r#"Object.freeze(process.kill)(0)"#,
         r#"Object.freeze((process.kill))(0)"#,
         r#"Object.freeze((process.kill))(+0)"#,
