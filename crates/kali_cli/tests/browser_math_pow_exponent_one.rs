@@ -1,5 +1,6 @@
 use std::{fs, process::Command};
 
+use kali_common::math_pow_frozen_callable_aliases;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -7,39 +8,40 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_math_pow_exponent_one_source() -> &'static str {
-    r##"// kali-tree-shake: mathPowExponentOneIdentity
-function mathPowExponentOneIdentity() {
+fn browser_bundle_math_pow_exponent_one_source() -> String {
+    let frozen_lines = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("  console.log({alias}(2, alias));"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let frozen_entries = math_pow_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("    {alias}(2, alias),"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        r##"// kali-tree-shake: mathPowExponentOneIdentity
+function mathPowExponentOneIdentity() {{
   const exponent = 1;
   const alias = exponent;
   console.log(Math.pow(2, alias));
   console.log(globalThis.Math.pow(2, alias));
   console.log(globalThis["Math"]["pow"](2, alias));
   console.log(globalThis.Math["pow"](2, alias));
-  console.log(Object.freeze(globalThis.Math["pow"])(2, alias));
-  console.log(Object.freeze((globalThis.Math["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis["Math"]["pow"])(2, alias));
-  console.log(Object.freeze((globalThis["Math"]["pow"]))(2, alias));
-  console.log(Object.freeze(globalThis.Math.pow)(2, alias));
-  console.log(Object.freeze((globalThis.Math.pow))(2, alias));
-  console.log(Object.freeze(globalThis["Math"].pow)(2, alias));
-  console.log(Object.freeze((globalThis["Math"].pow))(2, alias));
+{frozen_lines}
   return [
     Math.pow(2, alias),
     globalThis.Math.pow(2, alias),
     globalThis["Math"]["pow"](2, alias),
     globalThis.Math["pow"](2, alias),
-    Object.freeze(globalThis.Math["pow"])(2, alias),
-    Object.freeze((globalThis.Math["pow"]))(2, alias),
-    Object.freeze(globalThis["Math"]["pow"])(2, alias),
-    Object.freeze((globalThis["Math"]["pow"]))(2, alias),
-    Object.freeze(globalThis.Math.pow)(2, alias),
-    Object.freeze((globalThis.Math.pow))(2, alias),
-    Object.freeze(globalThis["Math"].pow)(2, alias),
-    Object.freeze((globalThis["Math"].pow))(2, alias),
+{frozen_entries}
   ];
-}
-"##
+}}
+"##,
+        frozen_lines = frozen_lines,
+        frozen_entries = frozen_entries,
+    )
 }
 
 fn assert_browser_bundle_math_pow_exponent_one_identity(filename: &str, json_output: bool) {
@@ -118,10 +120,14 @@ await mod.mathPowExponentOneIdentity();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n2\n"),
-        "stdout: {stdout}"
+    let expected_stdout = format!(
+        "{}\n",
+        std::iter::repeat("2")
+            .take(4 + math_pow_frozen_callable_aliases().len())
+            .collect::<Vec<_>>()
+            .join("\n")
     );
+    assert!(stdout.contains(&expected_stdout), "stdout: {stdout}");
 }
 
 fn browser_harness_math_pow_exponent_one_identity_run_source() -> &'static str {
