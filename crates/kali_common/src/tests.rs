@@ -274,6 +274,8 @@ fn test_process_kill_zero_probe_sequence_call_target_bindings_source_is_canonica
         source,
         concat!(
             "const sequenceKill = (process.kill, process.kill); ",
+            "const bracketedRootSequenceKill = (process[\"kill\"], process[\"kill\"]); ",
+            "const dotRootSequenceKill = (globalThis.process.kill, globalThis.process.kill); ",
             "const bracketedSequenceKill = (globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"]); ",
             "const dotBracketSequenceKill = (globalThis.process[\"kill\"], globalThis.process[\"kill\"]); ",
             "const fullyBracketedSequenceKill = (globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"]);"
