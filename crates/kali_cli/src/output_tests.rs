@@ -1,5 +1,6 @@
 use kali_common::{FileId, Span};
 use kali_error::{_error_codes::e5, Diagnostic};
+use kali_runtime::browser_runtime_contract_value;
 use serde_json::json;
 use std::path::Path;
 
@@ -3855,6 +3856,32 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_array_
 
 #[test]
 fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_fields() {
+    let mut browser_runtime_contract = browser_runtime_contract_value();
+    let contract = browser_runtime_contract
+        .as_object_mut()
+        .expect("browser runtime contract object");
+    contract.insert("hostLabel".to_string(), json!(" browser-requested "));
+    contract.insert("hostDescription".to_string(), json!(" real browser host "));
+    contract.insert(
+        "hostDescriptionNote".to_string(),
+        json!(" browser runtime host description: real browser host "),
+    );
+    contract.insert("supportedCommands".to_string(), json!([" run ", " test "]));
+    contract.insert(
+        "diagnosticHint".to_string(),
+        json!(" Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. "),
+    );
+    contract.insert(
+        "diagnosticNotes".to_string(),
+        json!([
+            " supported browser runtime commands: run, test ",
+            " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
+            " browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ",
+            " browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid ",
+            " browser runtime host description: real browser host ",
+        ]),
+    );
+
     let value = json!({
         "browserHarness": {
             "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
@@ -3865,20 +3892,7 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_fields
             "args": ["--test"],
             "executableAvailable": true,
         },
-        "browserRuntimeContract": {
-            "hostLabel": " browser-requested ",
-            "hostDescription": " real browser host ",
-            "hostDescriptionNote": " browser runtime host description: real browser host ",
-            "supportedCommands": [" run ", " test "],
-            "diagnosticHint": " Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ",
-            "diagnosticNotes": [
-                " supported browser runtime commands: run, test ",
-                " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
-                " browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ",
-                " browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid ",
-                " browser runtime host description: real browser host "
-            ]
-        }
+        "browserRuntimeContract": browser_runtime_contract,
     });
 
     validate_doctor_payload_value(&value)
