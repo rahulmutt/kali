@@ -7953,9 +7953,6 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
 
 #[test]
 fn test_resolution_rejects_generator_class_expression_lowering() {
-    let dir = tempfile::tempdir().unwrap();
-    let source_path = dir.path().join("main.js");
-
     let cases = vec![
         (
             Statement::VariableDeclaration(VariableDeclaration {
@@ -7997,28 +7994,30 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
         ),
     ];
 
-    for (statement, expected_message) in cases {
-        let mut ctx = TypeContext::with_base_path(&source_path);
-        let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement]);
-        assert_eq!(
-            result.diagnostics.len(),
-            1,
-            "unexpected diagnostics: {:?}",
-            result.diagnostics
-        );
-        assert_eq!(
-            result.diagnostics[0].code,
-            Some(e5::FEATURE_UNAVAILABLE as u32)
-        );
-        assert!(result.diagnostics[0].message.contains(expected_message));
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+
+        for (statement, expected_message) in cases.iter() {
+            let mut ctx = TypeContext::with_base_path(&source_path);
+            let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement.clone()]);
+            assert_eq!(
+                result.diagnostics.len(),
+                1,
+                "unexpected diagnostics for {extension}: {:?}",
+                result.diagnostics
+            );
+            assert_eq!(
+                result.diagnostics[0].code,
+                Some(e5::FEATURE_UNAVAILABLE as u32)
+            );
+            assert!(result.diagnostics[0].message.contains(expected_message));
+        }
     }
 }
 
 #[test]
 fn test_resolution_supports_async_class_method_lowering() {
-    let dir = tempfile::tempdir().unwrap();
-    let source_path = dir.path().join("main.ts");
-
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
         name: "Example".to_string(),
         body: Box::new(ClassBody {
@@ -8036,13 +8035,18 @@ fn test_resolution_supports_async_class_method_lowering() {
         }),
     })];
 
-    let mut ctx = TypeContext::with_base_path(&source_path);
-    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
