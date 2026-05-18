@@ -32516,6 +32516,39 @@ fn build_rejects_library_sources_without_static_exports_in_js_input() {
 }
 
 #[test]
+fn build_rejects_library_sources_without_static_exports_in_capi_and_component_inputs() {
+    for selector in ["--capi", "--component"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("math.js");
+        fs::write(&source_path, "const value = 42; value;").expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("build")
+            .arg(selector)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success(), "selector: {selector}");
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("E5511"),
+            "selector: {selector}\nstderr: {stderr}"
+        );
+        assert!(
+            stderr.contains("no statically known export surface"),
+            "selector: {selector}\nstderr: {stderr}"
+        );
+        assert!(!dir.path().join("math.capi.wasm").exists());
+        assert!(!dir.path().join("math.capi.meta.json").exists());
+        assert!(!dir.path().join("math.component.wasm").exists());
+        assert!(!dir.path().join("math.component.meta.json").exists());
+    }
+}
+
+#[test]
 fn build_emits_conservative_unknown_signature_for_mixed_exported_function_binding_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("math.js");
@@ -33080,6 +33113,48 @@ fn json_build_rejects_library_sources_without_static_exports_in_js_input() {
     );
     assert!(!dir.path().join("math.lib.wasm").exists());
     assert!(!dir.path().join("math.lib.meta.json").exists());
+}
+
+#[test]
+fn json_build_rejects_library_sources_without_static_exports_in_capi_and_component_inputs() {
+    for selector in ["--capi", "--component"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join("math.js");
+        fs::write(&source_path, "const value = 42; value;").expect("write source");
+
+        let output = Command::new(kali_bin())
+            .current_dir(dir.path())
+            .arg("--output")
+            .arg("json")
+            .arg("build")
+            .arg(selector)
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(!output.status.success(), "selector: {selector}");
+        assert_eq!(output.status.code(), Some(1));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "build");
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            errors.iter().any(|error| error["code"] == "E5511"),
+            "selector: {selector}\nerrors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("no statically known export surface")),
+            "selector: {selector}\nerrors: {errors:?}"
+        );
+        assert!(!dir.path().join("math.capi.wasm").exists());
+        assert!(!dir.path().join("math.capi.meta.json").exists());
+        assert!(!dir.path().join("math.component.wasm").exists());
+        assert!(!dir.path().join("math.component.meta.json").exists());
+    }
 }
 
 #[test]
