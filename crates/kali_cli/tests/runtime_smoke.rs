@@ -48227,6 +48227,16 @@ fn run_rejects_class_generator_and_async_generator_method_lowering_in_js_input()
 }
 
 #[test]
+fn run_rejects_class_generator_and_async_generator_method_lowering_in_ts_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("run", false, "ts", source);
+    }
+}
+
+#[test]
 fn run_rejects_class_generator_and_async_generator_method_lowering_in_jsx_input() {
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
@@ -48257,12 +48267,32 @@ fn json_run_rejects_class_generator_and_async_generator_method_lowering_in_js_in
 }
 
 #[test]
+fn json_run_rejects_class_generator_and_async_generator_method_lowering_in_ts_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("run", true, "ts", source);
+    }
+}
+
+#[test]
 fn test_rejects_class_generator_and_async_generator_method_lowering_in_js_input() {
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
         "class Example { async *main() { yield 1; } }\nnew Example();",
     ] {
         assert_class_generator_method_lowering_rejection("test", false, "js", source);
+    }
+}
+
+#[test]
+fn test_rejects_class_generator_and_async_generator_method_lowering_in_ts_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("test", false, "ts", source);
     }
 }
 
@@ -48293,6 +48323,16 @@ fn json_test_rejects_class_generator_and_async_generator_method_lowering_in_js_i
         "class Example { async *main() { yield 1; } }\nnew Example();",
     ] {
         assert_class_generator_method_lowering_rejection("test", true, "js", source);
+    }
+}
+
+#[test]
+fn json_test_rejects_class_generator_and_async_generator_method_lowering_in_ts_input() {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection("test", true, "ts", source);
     }
 }
 
