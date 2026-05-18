@@ -7,64 +7,12 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn number_predicates_source() -> &'static str {
-    r#"const alias = 1;
-const finite = Number.isFinite;
-const safeInteger = Number.isSafeInteger;
-console.log(Number.isFinite(alias));
-console.log(Number.isInteger(alias));
-console.log(Number.isSafeInteger(alias));
-console.log(Number.isInteger(1.5));
-console.log(Number.isFinite("hello"));
-console.log(Number.isSafeInteger(1.5));
-console.log(globalThis["Number"]["isNaN"](NaN));
-console.log(globalThis.Number.isNaN(1));
-console.log(globalThis["Number"].isNaN(1));
-console.log(globalThis["Number"]["isFinite"](alias));
-console.log(globalThis["Number"]["isInteger"](alias));
-console.log(globalThis["Number"]["isSafeInteger"](alias));
-console.log(globalThis.Number["isNaN"](1));
-console.log(globalThis["Number"].isFinite(alias));
-console.log(globalThis.Number["isInteger"](alias));
-console.log(globalThis["Number"].isSafeInteger(alias));
-console.log(Number["isFinite"](alias));
-console.log(Number["isInteger"](alias));
-console.log(Number["isSafeInteger"](alias));
-console.log(Number["isNaN"](1));
-console.log(finite(alias));
-console.log(safeInteger(alias));
-"#
+fn number_predicates_source() -> String {
+    kali_common::number_predicates_runtime_source()
 }
 
-fn number_predicates_test_source() -> &'static str {
-    r#"Kali.test('number predicates', () => {
-  const alias = 1;
-  const finite = Number.isFinite;
-  const safeInteger = Number.isSafeInteger;
-  console.log(Number.isFinite(alias));
-  console.log(Number.isInteger(alias));
-  console.log(Number.isSafeInteger(alias));
-  console.log(Number.isInteger(1.5));
-  console.log(Number.isFinite("hello"));
-  console.log(Number.isSafeInteger(1.5));
-  console.log(globalThis["Number"]["isNaN"](NaN));
-  console.log(globalThis.Number.isNaN(1));
-  console.log(globalThis["Number"].isNaN(1));
-  console.log(globalThis["Number"]["isFinite"](alias));
-  console.log(globalThis["Number"]["isInteger"](alias));
-  console.log(globalThis["Number"]["isSafeInteger"](alias));
-  console.log(globalThis.Number["isNaN"](1));
-  console.log(globalThis["Number"].isFinite(alias));
-  console.log(globalThis.Number["isInteger"](alias));
-  console.log(globalThis["Number"].isSafeInteger(alias));
-  console.log(Number["isFinite"](alias));
-  console.log(Number["isInteger"](alias));
-  console.log(Number["isSafeInteger"](alias));
-  console.log(Number["isNaN"](1));
-  console.log(finite(alias));
-  console.log(safeInteger(alias));
-});
-"#
+fn number_predicates_test_source() -> String {
+    kali_common::number_predicates_test_source()
 }
 
 fn assert_run_supports_number_predicates_in_js_input(json_output: bool) {

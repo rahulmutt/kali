@@ -528,6 +528,61 @@ fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order(
 }
 
 #[test]
+fn test_number_predicates_source_helpers_are_canonical() {
+    assert_eq!(
+        number_predicates_preamble_source("1"),
+        "const alias = 1; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+    );
+    assert_eq!(
+        number_predicates_preamble_source("1 as const"),
+        "const alias = 1 as const; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+    );
+    assert_eq!(
+        number_predicates_console_log_body_source(),
+        concat!(
+            "console.log(Number.isFinite(alias)); ",
+            "console.log(Number.isInteger(alias)); ",
+            "console.log(Number.isSafeInteger(alias)); ",
+            "console.log(Number.isInteger(1.5)); ",
+            "console.log(Number.isFinite(\"hello\")); ",
+            "console.log(Number.isSafeInteger(1.5)); ",
+            "console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); ",
+            "console.log(globalThis.Number.isNaN(1)); ",
+            "console.log(globalThis[\"Number\"].isNaN(1)); ",
+            "console.log(globalThis[\"Number\"][\"isFinite\"](alias)); ",
+            "console.log(globalThis[\"Number\"][\"isInteger\"](alias)); ",
+            "console.log(globalThis[\"Number\"][\"isSafeInteger\"](alias)); ",
+            "console.log(globalThis.Number[\"isNaN\"](1)); ",
+            "console.log(globalThis[\"Number\"].isFinite(alias)); ",
+            "console.log(globalThis.Number[\"isInteger\"](alias)); ",
+            "console.log(globalThis[\"Number\"].isSafeInteger(alias)); ",
+            "console.log(Number[\"isFinite\"](alias)); ",
+            "console.log(Number[\"isInteger\"](alias)); ",
+            "console.log(Number[\"isSafeInteger\"](alias)); ",
+            "console.log(Number[\"isNaN\"](1)); ",
+            "console.log(finite(alias)); ",
+            "console.log(safeInteger(alias));"
+        )
+    );
+    assert_eq!(
+        number_predicates_runtime_source(),
+        format!(
+            "{} {}",
+            number_predicates_preamble_source("1"),
+            number_predicates_console_log_body_source()
+        )
+    );
+    assert_eq!(
+        number_predicates_test_source(),
+        format!(
+            "Kali.test('number predicates', () => {{ {} {} }});",
+            number_predicates_preamble_source("1"),
+            number_predicates_console_log_body_source()
+        )
+    );
+}
+
+#[test]
 fn test_math_floor_trunc_ceil_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = math_floor_trunc_ceil_frozen_callable_aliases();
     let source = math_floor_trunc_ceil_frozen_callable_source();

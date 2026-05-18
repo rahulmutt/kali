@@ -629,6 +629,59 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
     format!("{source};")
 }
 
+/// Canonical source text for the supported Number predicate slice.
+pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
+    format!(
+        "const alias = {alias_literal}; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+    )
+}
+
+/// Canonical console-log body for the supported Number predicate slice.
+pub fn number_predicates_console_log_body_source() -> String {
+    join_semicolon_terminated_segments(&[
+        r#"console.log(Number.isFinite(alias))"#,
+        r#"console.log(Number.isInteger(alias))"#,
+        r#"console.log(Number.isSafeInteger(alias))"#,
+        r#"console.log(Number.isInteger(1.5))"#,
+        r#"console.log(Number.isFinite("hello"))"#,
+        r#"console.log(Number.isSafeInteger(1.5))"#,
+        r#"console.log(globalThis["Number"]["isNaN"](NaN))"#,
+        r#"console.log(globalThis.Number.isNaN(1))"#,
+        r#"console.log(globalThis["Number"].isNaN(1))"#,
+        r#"console.log(globalThis["Number"]["isFinite"](alias))"#,
+        r#"console.log(globalThis["Number"]["isInteger"](alias))"#,
+        r#"console.log(globalThis["Number"]["isSafeInteger"](alias))"#,
+        r#"console.log(globalThis.Number["isNaN"](1))"#,
+        r#"console.log(globalThis["Number"].isFinite(alias))"#,
+        r#"console.log(globalThis.Number["isInteger"](alias))"#,
+        r#"console.log(globalThis["Number"].isSafeInteger(alias))"#,
+        r#"console.log(Number["isFinite"](alias))"#,
+        r#"console.log(Number["isInteger"](alias))"#,
+        r#"console.log(Number["isSafeInteger"](alias))"#,
+        r#"console.log(Number["isNaN"](1))"#,
+        r#"console.log(finite(alias))"#,
+        r#"console.log(safeInteger(alias))"#,
+    ])
+}
+
+/// Canonical runtime source text for the supported Number predicate slice.
+pub fn number_predicates_runtime_source() -> String {
+    format!(
+        "{} {}",
+        number_predicates_preamble_source("1"),
+        number_predicates_console_log_body_source()
+    )
+}
+
+/// Canonical `Kali.test` source text for the supported Number predicate slice.
+pub fn number_predicates_test_source() -> String {
+    format!(
+        "Kali.test('number predicates', () => {{ {} {} }});",
+        number_predicates_preamble_source("1"),
+        number_predicates_console_log_body_source()
+    )
+}
+
 /// Canonical source text for the supported `Object.prototype.hasOwnProperty.call` helper.
 pub const fn object_has_own_property_call_source() -> &'static str {
     "Object.prototype.hasOwnProperty.call"
