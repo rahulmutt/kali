@@ -1009,6 +1009,12 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
 
+            if self.is_frozen_array_from_call(node) {
+                let argument = node.children.get(1).copied()?;
+                id = argument;
+                continue;
+            }
+
             if self.is_array_from_call(node) {
                 let argument = node.children.get(1).copied()?;
                 id = argument;
@@ -3091,6 +3097,54 @@ impl<'a> FunctionEmitter<'a> {
                 | Some(r#"globalThis["Array"]"#)
                 | Some(r#"globalThis['Array']"#)
         )
+    }
+
+    fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(resolved_callee) = self.resolve_literal_aggregate(callee) else {
+            return false;
+        };
+
+        self.is_array_from_callable_node(self.node(resolved_callee))
+    }
+
+    fn is_array_from_callable_node(&self, node: &LirNode) -> bool {
+        match node.text.as_deref() {
+            Some(text)
+                if text == "Array.from"
+                    || text == "globalThis.Array.from"
+                    || text == r#"globalThis["Array"].from"#
+                    || text == r#"globalThis["Array"]["from"]"#
+                    || text == r#"globalThis['Array'].from"#
+                    || text == r#"globalThis['Array']['from']"#
+                    || text == r#"Array["from"]"#
+                    || text == r#"Array['from']"#
+                    || text == r#"globalThis.Array["from"]"#
+                    || text == r#"globalThis.Array['from']"# =>
+            {
+                true
+            }
+            Some("from") => {
+                let Some(object) = node.children.first().copied() else {
+                    return false;
+                };
+
+                matches!(
+                    self.node(object).text.as_deref(),
+                    Some("Array")
+                        | Some("globalThis.Array")
+                        | Some(r#"globalThis["Array"]"#)
+                        | Some(r#"globalThis['Array']"#)
+                )
+            }
+            _ => false,
+        }
     }
 
     fn resolve_static_object_identity_value(

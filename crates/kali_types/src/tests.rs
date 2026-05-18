@@ -9138,6 +9138,14 @@ fn test_resolution_supports_for_of_array_from_iteration_in_js_input() {
 }
 
 #[test]
+fn test_resolution_supports_frozen_for_of_array_from_iteration_in_js_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.js",
+        "const values = [1, 2]; for (const value of Object.freeze(Array.from)(values)) { console.log(value); }",
+    );
+}
+
+#[test]
 fn test_resolution_recognizes_array_from_callable_name_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
