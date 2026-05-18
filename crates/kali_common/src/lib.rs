@@ -417,9 +417,15 @@ pub fn process_kill_zero_probe_type_assertion_source() -> String {
 }
 
 /// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
+///
+/// This source composes the dedicated direct and wrapped zero-probe source helpers so the
+/// inventory stays single-sourced.
 pub fn process_kill_zero_probe_alias_inventory_source() -> String {
-    let aliases = process_kill_zero_probe_aliases();
-    join_semicolon_terminated_segments(aliases.as_slice())
+    format!(
+        "{} {}",
+        process_kill_zero_probe_direct_source().trim_end(),
+        process_kill_zero_probe_wrapped_source().trim_end()
+    )
 }
 
 /// Canonical zero-probe source text for the supported Node `process.kill(0)` slice.
