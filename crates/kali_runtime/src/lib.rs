@@ -503,11 +503,9 @@ impl RuntimeCtx {
         self.process_id
     }
 
-    fn reject_unavailable_threaded_requests(
-        &self,
-        normalized_runtime_profiles: &[String],
-    ) -> Option<Diagnostic> {
-        let has_threaded_profile = normalized_runtime_profiles
+    fn reject_unavailable_threaded_requests(&self) -> Option<Diagnostic> {
+        let has_threaded_profile = self
+            .canonical_runtime_profiles()
             .iter()
             .any(|profile| profile == "wasm-threads");
 
@@ -537,9 +535,7 @@ impl RuntimeCtx {
         run_registered_tests: bool,
     ) -> Result<RuntimeOutcome, Vec<Diagnostic>> {
         let normalized_runtime_profiles = self.canonical_runtime_profiles();
-        if let Some(diagnostic) =
-            self.reject_unavailable_threaded_requests(&normalized_runtime_profiles)
-        {
+        if let Some(diagnostic) = self.reject_unavailable_threaded_requests() {
             return Err(vec![diagnostic]);
         }
 
@@ -4394,13 +4390,15 @@ impl KaliHostState {
         was_live
     }
 
+    fn has_threaded_runtime_profile(&self) -> bool {
+        self.runtime_profiles
+            .iter()
+            .any(|profile| profile.trim() == "wasm-threads")
+    }
+
     #[allow(dead_code)]
     fn begin_thread(&mut self) -> wasmtime::Result<()> {
-        if !self
-            .runtime_profiles
-            .iter()
-            .any(|profile| profile == "wasm-threads")
-        {
+        if !self.has_threaded_runtime_profile() {
             let diagnostic = Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "threaded runtime profile is unavailable without an explicit `--wasm-threads` opt-in",

@@ -4156,6 +4156,18 @@ fn runtime_host_state_tracks_thread_budget_bookkeeping() {
 }
 
 #[test]
+fn runtime_host_state_accepts_trimmed_threaded_runtime_profile() {
+    let mut state = KaliHostState {
+        runtime_profiles: vec![" wasm-threads ".to_string()],
+        max_threads: Some(1),
+        ..Default::default()
+    };
+
+    assert!(state.begin_thread().is_ok());
+    assert_eq!(state.active_threads, 1);
+}
+
+#[test]
 fn runtime_host_state_spawns_and_releases_thread_instances() {
     let mut state = KaliHostState {
         runtime_profiles: vec!["wasm-threads".to_string()],
