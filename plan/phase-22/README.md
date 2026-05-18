@@ -45,7 +45,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - The Node API-surface positive regression now also covers the `Object.freeze(...)`-wrapped zero-probe aliases on the explicit and inherited Node surfaces.
 - The browser late-compat TSX zero-probe inventory now also asserts the parenthesized freeze-wrapper aliases around `globalThis.process["kill"]` so it stays aligned with the shared inventory helper, and the shared zero-probe matrix now also includes the parenthesized callable-freeze `Object.freeze((process["kill"]))(0/+0)` spelling in the same Node/browser alias family.
 - The Node API-surface process-control regression now also covers the bracketed `process["cwd"]` / `process["chdir"]` / `process["exit"]` spellings and their `globalThis.process[...]` / `globalThis["process"][...]` aliases on the documented Node surface in JS, JSX, and TSX input, including the explicit `globalThis["process"]["cwd"]` / `globalThis["process"]["chdir"]` / `globalThis["process"]["exit"]` spellings in the current corpus, and the shared zero-probe helper tests now pin those bracketed process-control aliases as part of the canonical late-process-control prefix.
-- The inherited Node API-surface late-module rejection matrix now also pins `node:worker_threads` on the same canonical `E5506` path as the explicit Node surface.
+- The explicit and inherited Node API-surface late-module rejection matrices now also pin `node:worker_threads` on the same canonical `E5506` path across `.js`, `.jsx`, and `.tsx` input as the explicit Node surface.
 
 ### 22.4 Late object/runtime APIs
 
