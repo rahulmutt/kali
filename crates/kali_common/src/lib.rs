@@ -714,6 +714,7 @@ pub const fn math_pow_frozen_callable_direct_aliases() -> &'static [&'static str
         r#"Object.freeze(globalThis.Math.pow)"#,
         r#"Object.freeze(globalThis['Math'].pow)"#,
         r#"Object.freeze(globalThis["Math"].pow)"#,
+        r#"Object.freeze(Math.pow)"#,
         r#"Object.freeze(Math['pow'])"#,
         r#"Object.freeze(Math["pow"])"#,
     ]
@@ -729,6 +730,7 @@ pub const fn math_pow_frozen_callable_parenthesized_aliases() -> &'static [&'sta
         r#"Object.freeze((globalThis.Math.pow))"#,
         r#"Object.freeze((globalThis['Math'].pow))"#,
         r#"Object.freeze((globalThis["Math"].pow))"#,
+        r#"Object.freeze((Math.pow))"#,
         r#"Object.freeze((Math['pow']))"#,
         r#"Object.freeze((Math["pow"]))"#,
     ]
