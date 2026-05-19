@@ -1350,7 +1350,11 @@ fn test_map_constructor_aliases_and_frozen_callable_source_are_canonical() {
 #[test]
 fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
     let prefix = late_process_control_prefix_source();
-    let expected = format!("{};", LATE_PROCESS_CONTROL_PREFIX_SEGMENTS.join("; "));
+    let expected = format!(
+        "{}; {}",
+        format!("{};", LATE_PROCESS_CONTROL_PREFIX_SEGMENTS.join("; ")).trim_end_matches(';'),
+        late_process_control_exit_source().trim_end()
+    );
 
     assert_eq!(prefix, expected);
     assert!(
@@ -1370,6 +1374,21 @@ fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
         "prefix: {prefix}"
     );
     assert!(!prefix.contains("process.kill(0)"), "prefix: {prefix}");
+}
+
+#[test]
+fn test_late_process_control_exit_source_lists_all_aliases_in_order() {
+    let source = late_process_control_exit_source();
+    let expected = concat!(
+        "process.exit; ",
+        "globalThis.process.exit; ",
+        "globalThis[\"process\"].exit; ",
+        "globalThis[\"process\"][\"exit\"]; ",
+        "process[\"exit\"]; ",
+        "globalThis.process[\"exit\"];"
+    );
+
+    assert_eq!(source, expected);
 }
 
 #[test]

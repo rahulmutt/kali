@@ -1298,6 +1298,9 @@ const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
     "const zero = 0",
     "const zeroAlias = zero",
     "process.kill(zeroAlias)",
+];
+
+const LATE_PROCESS_CONTROL_EXIT_SEGMENTS: &[&str] = &[
     "process.exit",
     "globalThis.process.exit",
     "globalThis[\"process\"].exit",
@@ -1306,10 +1309,21 @@ const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
     "globalThis.process[\"exit\"]",
 ];
 
+/// Canonical late-process-control exit source text, shared across the
+/// browser and runtime late-compat smoke.
+pub fn late_process_control_exit_source() -> String {
+    join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_EXIT_SEGMENTS)
+}
+
 /// Canonical late-process-control preamble source text, shared across the
 /// browser and runtime late-compat smoke.
 pub fn late_process_control_prefix_source() -> String {
-    join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_PREFIX_SEGMENTS)
+    format!(
+        "{}; {}",
+        join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_PREFIX_SEGMENTS)
+            .trim_end_matches(';'),
+        late_process_control_exit_source().trim_end()
+    )
 }
 
 /// Canonical late-process-control source text that embeds the supported Node zero-probe slice.
