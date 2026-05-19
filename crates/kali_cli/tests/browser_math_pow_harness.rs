@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_common::{math_pow_frozen_callable_source, math_pow_invocation_lines, math_pow_source};
+use kali_common::{math_pow_alias_inventory_source, math_pow_invocation_lines};
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -8,15 +8,10 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_harness_math_pow_frozen_lines() -> String {
-    math_pow_invocation_lines(&math_pow_frozen_callable_source(), "")
-}
-
 fn browser_harness_math_pow_run_source() -> String {
     format!(
-        "const exponent = 3; const alias = exponent; {}\n{}\n",
-        math_pow_invocation_lines(&math_pow_source(), ""),
-        browser_harness_math_pow_frozen_lines()
+        "const exponent = 3; const alias = exponent; {}\n",
+        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "")
     )
 }
 
@@ -26,11 +21,9 @@ fn browser_harness_math_pow_test_source() -> String {
   const exponent = 3;
   const alias = exponent;
   {}
-  {}
 }});
 "#,
-        math_pow_invocation_lines(&math_pow_source(), ""),
-        browser_harness_math_pow_frozen_lines()
+        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "")
     )
 }
 

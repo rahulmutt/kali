@@ -38,6 +38,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 - The Node API-surface zero-probe smoke now also explicitly carries the parenthesized receiver-freeze dot and bracket aliases through the shared helper-backed matrix, keeping that static alias family aligned with the rest of the Node corpus.
 - The canonical `process.kill(0)` alias-inventory source now literally composes the dedicated direct and wrapped helper strings, matching the shared single-source inventory note.
 - Runtime smoke now also pins the `+0` siblings for the unparenthesized receiver-freeze aliases `Object.freeze(globalThis.process)["kill"]` / `Object.freeze(globalThis["process"])["kill"]`, plus the doubly parenthesized bracketed `((globalThis["process"]["kill"]))(+0)` alias, so the zero-probe wrapper corpus stays aligned with the shared helper inventory.
+- The browser `Math.pow` harness and bundle smoke now share a single `math_pow_alias_inventory_source()` helper for the direct and frozen callable aliases, reducing duplicated source assembly while keeping the existing coverage matrix intact.
 - The spec-owned availability and current-state nuance remain in [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - The explicit and inherited Node API-surface late-module rejection matrices now also pin `node:worker_threads` on the same canonical `E5506` path across `.js`, `.jsx`, and `.tsx` input as the explicit Node surface.
 - The proof-backed boundary remains owned by [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).

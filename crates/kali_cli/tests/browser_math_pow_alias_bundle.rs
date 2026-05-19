@@ -1,15 +1,11 @@
 use std::{fs, process::Command};
 
-use kali_common::{math_pow_frozen_callable_source, math_pow_invocation_lines, math_pow_source};
+use kali_common::{math_pow_alias_inventory_source, math_pow_invocation_lines};
 use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
-
-fn browser_bundle_math_pow_frozen_lines() -> String {
-    math_pow_invocation_lines(&math_pow_frozen_callable_source(), "  ")
 }
 
 fn browser_bundle_math_pow_alias_source() -> String {
@@ -19,12 +15,10 @@ function mathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
   {}
-{}
   return Math.pow(2, alias);
 }}
 "##,
-        math_pow_invocation_lines(&math_pow_source(), "  "),
-        browser_bundle_math_pow_frozen_lines()
+        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "  ")
     )
 }
 
@@ -35,12 +29,10 @@ function globalThisMathPowAliasChain() {{
   const exponent = 3;
   const alias = exponent;
   {}
-{}
   return globalThis.Math.pow(2, alias);
 }}
 "##,
-        math_pow_invocation_lines(&math_pow_source(), "  "),
-        browser_bundle_math_pow_frozen_lines()
+        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "  ")
     )
 }
 

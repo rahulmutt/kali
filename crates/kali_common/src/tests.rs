@@ -737,6 +737,29 @@ fn test_math_pow_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_pow_alias_inventory_source_reuses_the_shared_helper_sources_once() {
+    let source = math_pow_alias_inventory_source();
+    assert_eq!(
+        source,
+        format!(
+            "{} {}",
+            math_pow_source().trim_end(),
+            math_pow_frozen_callable_source().trim_end()
+        )
+    );
+    assert_eq!(
+        source.matches(&math_pow_source()).count(),
+        1,
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(&math_pow_frozen_callable_source()).count(),
+        1,
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_math_pow_bracketed_global_this_alias_chain_source_is_canonical() {
     assert_eq!(
         math_pow_bracketed_global_this_alias_chain_source(),
