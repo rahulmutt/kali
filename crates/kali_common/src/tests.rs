@@ -1298,6 +1298,10 @@ fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
         "prefix: {prefix}"
     );
     assert!(
+        prefix.contains(r#"globalThis["process"].exit"#),
+        "prefix: {prefix}"
+    );
+    assert!(
         !prefix.contains("Object.freeze((process)).kill(0)"),
         "prefix: {prefix}"
     );
