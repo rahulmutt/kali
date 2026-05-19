@@ -363,8 +363,10 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 #[test]
 fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_order() {
     let targets = process_kill_zero_probe_call_target_aliases();
+    let inventory_source = process_kill_zero_probe_call_target_inventory_source();
     let satisfies_source = process_kill_zero_probe_satisfies_source();
     let type_assertion_source = process_kill_zero_probe_type_assertion_source();
+    let expected_inventory = format!("{};", targets.join("; "));
     let expected_satisfies = format!(
         "{};",
         targets
@@ -391,6 +393,7 @@ fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_o
     }
 
     assert_eq!(targets.len(), unique_targets.len());
+    assert_eq!(inventory_source, expected_inventory);
     assert_eq!(satisfies_source, expected_satisfies);
     assert_eq!(type_assertion_source, expected_type_assertion);
 }

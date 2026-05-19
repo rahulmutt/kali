@@ -486,6 +486,11 @@ pub const fn process_kill_zero_probe_call_target_aliases() -> &'static [&'static
     ]
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` TS-wrapped call-target aliases.
+pub fn process_kill_zero_probe_call_target_inventory_source() -> String {
+    join_semicolon_terminated_segments(process_kill_zero_probe_call_target_aliases())
+}
+
 fn join_wrapped_zero_probe_call_targets(argument_source: &str) -> String {
     let mut source = process_kill_zero_probe_call_target_aliases()
         .iter()

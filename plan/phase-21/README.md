@@ -120,6 +120,7 @@ Close remaining language gaps by either implementing faithful semantics with evi
 - The late-process-control prefix now also carries the parenthesized bracketed `globalThis["process"]` receiver-freeze aliases, keeping that wrapper family explicit in the same zero-probe smoke path.
 
 - The sequence-callable-target binding helper now also carries the fully bracketed `globalThis["process"]["kill"]` binding pair and the bracketed-dot `globalThis["process"].kill` pair, keeping the Node surface alias matrix aligned with the shared helper source.
+- The TS-wrapped call-target alias inventory now also has a dedicated source helper and unit coverage in `kali_common`, keeping the direct call-target matrix single-sourced alongside the zero-probe inventory.
 - Browser build preflight now also rejects `delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]` on the browser JS surface, keeping the mutable-env alias matrix aligned with the existing assignment rejection path.
 
 ## Exit gate
