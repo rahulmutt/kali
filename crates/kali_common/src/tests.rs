@@ -624,6 +624,18 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_i
 }
 
 #[test]
+fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_does_not_include_late_process_control_prefix(
+) {
+    let inventory_source = process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source();
+    let prefix_source = late_process_control_prefix_source();
+
+    assert!(
+        !inventory_source.contains(&prefix_source),
+        "inventory: {inventory_source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source_lists_all_aliases_in_order(
 ) {
     let aliases = process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases();
