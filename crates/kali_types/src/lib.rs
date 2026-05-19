@@ -1649,6 +1649,9 @@ impl TypeContext {
                 .expressions
                 .last()
                 .is_some_and(|expression| self.resolve_static_object_model_target(expression)),
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_object_model_target(&expr.argument)
+            }
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 properties.iter().all(|property| {
                     matches!(property.kind, ObjectPropertyKind::Init)

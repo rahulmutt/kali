@@ -8740,6 +8740,8 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_ex
     console.log(Object.keys(await { a: 1 }));
     console.log(Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 })));
     console.log(globalThis['Reflect']['ownKeys'](await Object.freeze({ c: 3, a: 1 })));
+    console.log(Object.hasOwn(await Object.freeze({ d: 4 }), 'd'));
+    console.log(Object.prototype.hasOwnProperty.call(await Object.freeze({ e: 5 }), 'e'));
 }
 main();
 "#;

@@ -13,6 +13,7 @@ function browserObjectHasOwnFromEntries() {
   const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
   const wrapped = (0, alias);
+  const awaited = wrapped;
   if (
     !Object.hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
@@ -20,7 +21,9 @@ function browserObjectHasOwnFromEntries() {
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
+    !Object.hasOwn(awaited, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+    !Object.prototype.hasOwnProperty.call(awaited, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -194,28 +197,34 @@ fn assert_browser_check_object_has_own_from_entries_with_source(
 }
 
 fn browser_harness_object_has_own_from_entries_run_source() -> &'static str {
-    r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
-const alias = object;
-const wrapped = (0, alias);
-if (
-  !Object.hasOwn(wrapped, "a") ||
-  !Object["hasOwn"](wrapped, "a") ||
-  !globalThis.Object["hasOwn"](wrapped, "a") ||
-  !globalThis["Object"]["hasOwn"](wrapped, "a") ||
-  !globalThis.Object["hasOwn"](wrapped, "a") ||
-  !globalThis["Object"].hasOwn(wrapped, "a") ||
-  !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
-  !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
-  !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
-  !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
-  !globalThis["Object"].prototype.hasOwnProperty.call(wrapped, "a") ||
-  !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
-  !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
-  !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
-) {
-  throw new Error('unexpected browser Object.hasOwn result');
+    r#"function browserObjectHasOwnFromEntries() {
+  const object = Object.fromEntries([["a", 1], ["b", 2]]);
+  const alias = object;
+  const wrapped = (0, alias);
+  const awaited = wrapped;
+  if (
+    !Object.hasOwn(wrapped, "a") ||
+    !Object["hasOwn"](wrapped, "a") ||
+    !globalThis.Object["hasOwn"](wrapped, "a") ||
+    !globalThis["Object"]["hasOwn"](wrapped, "a") ||
+    !globalThis.Object["hasOwn"](wrapped, "a") ||
+    !globalThis["Object"].hasOwn(wrapped, "a") ||
+    !Object.hasOwn(awaited, "a") ||
+    !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+    !Object.prototype.hasOwnProperty.call(awaited, "a") ||
+    !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"].prototype.hasOwnProperty.call(wrapped, "a") ||
+    !globalThis.Object["prototype"].hasOwnProperty.call(wrapped, "a") ||
+    !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
+    !globalThis["Object"]["prototype"].hasOwnProperty["call"](wrapped, "a")
+  ) {
+    throw new Error('unexpected browser Object.hasOwn result');
+  }
+  console.log('browser object hasOwn fromEntries ok');
 }
-console.log('browser object hasOwn fromEntries ok');
+browserObjectHasOwnFromEntries();
 "#
 }
 
@@ -224,6 +233,7 @@ fn browser_harness_object_has_own_from_entries_test_source() -> &'static str {
   const object = Object.fromEntries([["a", 1], ["b", 2]]);
   const alias = object;
   const wrapped = (0, alias);
+  const awaited = wrapped;
   if (
     !Object.hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
@@ -231,7 +241,9 @@ fn browser_harness_object_has_own_from_entries_test_source() -> &'static str {
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
+    !Object.hasOwn(awaited, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
+    !Object.prototype.hasOwnProperty.call(awaited, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
