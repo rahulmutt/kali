@@ -948,13 +948,19 @@ pub fn math_pow_alias_inventory_source() -> String {
     )
 }
 
+/// Canonical browser alias inventory for the supported `Math.pow` helper slice.
+pub fn math_pow_browser_alias_inventory_aliases() -> Vec<&'static str> {
+    let frozen_aliases = math_pow_frozen_callable_aliases();
+    ordered_unique_union(&[
+        math_pow_aliases(),
+        frozen_aliases.as_slice(),
+        math_pow_bracketed_frozen_callable_aliases(),
+    ])
+}
+
 /// Canonical browser source text for the supported `Math.pow` alias inventory.
 pub fn math_pow_browser_alias_inventory_source() -> String {
-    format!(
-        "{} {}",
-        math_pow_alias_inventory_source().trim_end(),
-        math_pow_bracketed_frozen_callable_source().trim_end()
-    )
+    join_semicolon_terminated_segments(&math_pow_browser_alias_inventory_aliases())
 }
 
 /// Canonical browser-bundle source text for the supported bracketed `globalThis["Math"].pow` alias chain.
