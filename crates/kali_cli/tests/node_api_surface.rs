@@ -9,7 +9,7 @@ use kali_common::{
     process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source,
     process_kill_zero_probe_parenthesized_receiver_freeze_source,
     process_kill_zero_probe_satisfies_source,
-    process_kill_zero_probe_sequence_call_target_bindings_source,
+    process_kill_zero_probe_sequence_call_target_bindings_source, process_kill_zero_probe_source,
     process_kill_zero_probe_type_assertion_source,
 };
 
@@ -32,6 +32,21 @@ fn assert_node_api_succeeds(name: &str, mut command: Command, expected_stdout: &
 
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
+}
+
+fn process_kill_zero_probe_run_source() -> String {
+    format!(
+        "{} {}\n",
+        process_kill_zero_probe_console_log_source(),
+        process_kill_zero_probe_source(),
+    )
+}
+
+fn process_kill_zero_probe_test_source() -> String {
+    format!(
+        "Kali.test('process kill', () => {{ if ({}) {{ throw new Error('expected zero probe'); }} }});\n",
+        process_kill_zero_probe_guard_source()
+    )
 }
 
 #[test]
@@ -2926,16 +2941,8 @@ fn node_api_surface_supports_process_kill_zero_probe_in_js_ts_jsx_and_tsx_input_
             let dir = tempdir().expect("tempdir");
             let run_file = dir.path().join(format!("main.{extension}"));
             let test_file = dir.path().join(format!("main.test.{extension}"));
-            fs::write(
-                &run_file,
-                "console.log(process.kill((0))); console.log(process.kill(+0)); globalThis.process.kill((0)); globalThis.process.kill(+0); globalThis.process[\"kill\"]((0)); globalThis.process[\"kill\"](+0); globalThis.process[\"kill\"](0); globalThis[\"process\"][\"kill\"](0); globalThis[\"process\"].kill(+0); globalThis[\"process\"].kill(0); globalThis[\"process\"].kill((0)); globalThis.process[\"kill\"](0); globalThis[\"process\"][\"kill\"](0); globalThis[\"process\"][\"kill\"]((0)); globalThis[\"process\"][\"kill\"](+0); process[\"kill\"](+0); process[\"kill\"](0); globalThis[\"process\"][\"kill\"](0); ((process)).kill(0); ((globalThis.process)).kill(0); ((process.kill))(0); ((process[\"kill\"]))(0); ((globalThis.process.kill))(0); ((globalThis.process[\"kill\"]))(0); ((globalThis[\"process\"].kill))(0); ((globalThis[\"process\"][\"kill\"]))(0); ((globalThis[\"process\"][\"kill\"]))(+0); Object.freeze((process)).kill(0); Object.freeze((process)).kill(+0); Object.freeze((globalThis.process)).kill(0); Object.freeze((globalThis.process)).kill(+0); Object.freeze((globalThis[\"process\"])).kill(0); Object.freeze((globalThis[\"process\"])).kill(+0);\n",
-            )
-            .expect("write run file");
-            fs::write(
-                &test_file,
-                "Kali.test('process kill', () => { if (!process.kill((0)) || !process.kill(+0) || !globalThis.process.kill((0)) || !globalThis.process.kill(+0) || !globalThis.process[\"kill\"]((0)) || !globalThis.process[\"kill\"](+0) || !globalThis.process[\"kill\"](0) || !globalThis[\"process\"].kill(+0) || !globalThis[\"process\"].kill(0) || !globalThis[\"process\"].kill((0)) || !globalThis.process[\"kill\"](0) || !globalThis[\"process\"][\"kill\"]((0)) || !globalThis[\"process\"][\"kill\"](+0) || !process[\"kill\"](+0) || !process[\"kill\"](0) || !globalThis[\"process\"][\"kill\"](0) || !((process)).kill(0) || !((globalThis.process)).kill(0) || !((process.kill))(0) || !((process[\"kill\"]))(0) || !((globalThis.process.kill))(0) || !((globalThis.process[\"kill\"]))(0) || !((globalThis[\"process\"].kill))(0) || !((globalThis[\"process\"][\"kill\"]))(0) || !((globalThis[\"process\"][\"kill\"]))(+0) || !Object.freeze((process)).kill(0) || !Object.freeze((process)).kill(+0) || !Object.freeze((globalThis.process)).kill(0) || !Object.freeze((globalThis.process)).kill(+0) || !Object.freeze((globalThis[\"process\"])).kill(0) || !Object.freeze((globalThis[\"process\"])).kill(+0)) { throw new Error('expected zero probe'); } });\n",
-            )
-            .expect("write test file");
+            fs::write(&run_file, process_kill_zero_probe_run_source()).expect("write run file");
+            fs::write(&test_file, process_kill_zero_probe_test_source()).expect("write test file");
 
             if inherited {
                 fs::write(
