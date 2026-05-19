@@ -11,6 +11,7 @@ fn assert_browser_harness_unsupported_math_rejection(
     command: &str,
     filename: &str,
     source: &str,
+    bundle: bool,
     json_output: bool,
 ) {
     let dir = tempdir().expect("tempdir");
@@ -23,10 +24,11 @@ fn assert_browser_harness_unsupported_math_rejection(
     if json_output {
         cli.arg("--output").arg("json");
     }
-    cli.arg(command)
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path);
+    cli.arg(command);
+    if bundle {
+        cli.arg("--bundle");
+    }
+    cli.arg("--api").arg("browser").arg(&source_path);
 
     let output = cli.output().expect("run kali");
     assert!(
@@ -100,11 +102,13 @@ fn run_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness
             &format!("main.{extension}"),
             browser_harness_run_source(),
             false,
+            false,
         );
         assert_browser_harness_unsupported_math_rejection(
             "run",
             &format!("main.{extension}"),
             browser_harness_run_source(),
+            false,
             true,
         );
     }
@@ -119,11 +123,13 @@ fn run_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harne
             &format!("main.{extension}"),
             browser_harness_run_atan2_source(),
             false,
+            false,
         );
         assert_browser_harness_unsupported_math_rejection(
             "run",
             &format!("main.{extension}"),
             browser_harness_run_atan2_source(),
+            false,
             true,
         );
     }
@@ -138,11 +144,13 @@ fn test_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harnes
             &format!("smoke.test.{extension}"),
             browser_harness_test_source(),
             false,
+            false,
         );
         assert_browser_harness_unsupported_math_rejection(
             "test",
             &format!("smoke.test.{extension}"),
             browser_harness_test_source(),
+            false,
             true,
         );
     }
@@ -157,11 +165,55 @@ fn test_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harn
             &format!("smoke.test.{extension}"),
             browser_harness_test_atan2_source(),
             false,
+            false,
         );
         assert_browser_harness_unsupported_math_rejection(
             "test",
             &format!("smoke.test.{extension}"),
             browser_harness_test_atan2_source(),
+            false,
+            true,
+        );
+    }
+}
+
+#[test]
+fn build_rejects_unsupported_math_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        assert_browser_harness_unsupported_math_rejection(
+            "build",
+            &format!("main.{extension}"),
+            browser_harness_run_source(),
+            true,
+            false,
+        );
+        assert_browser_harness_unsupported_math_rejection(
+            "build",
+            &format!("main.{extension}"),
+            browser_harness_run_source(),
+            true,
+            true,
+        );
+    }
+}
+
+#[test]
+fn build_rejects_broader_math_atan2_member_calls_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+) {
+    for extension in ["jsx", "tsx"] {
+        assert_browser_harness_unsupported_math_rejection(
+            "build",
+            &format!("main.{extension}"),
+            browser_harness_run_atan2_source(),
+            true,
+            false,
+        );
+        assert_browser_harness_unsupported_math_rejection(
+            "build",
+            &format!("main.{extension}"),
+            browser_harness_run_atan2_source(),
+            true,
             true,
         );
     }
