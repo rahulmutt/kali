@@ -1153,7 +1153,9 @@ const LATE_PROCESS_ENV_MUTATION_SEGMENTS: &[&str] = &[
     r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
     r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
     r#"delete process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+    r#"delete process.env["KALI_BROWSER_ENV_MUTATION"]"#,
     r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+    r#"delete globalThis.process.env["KALI_BROWSER_ENV_MUTATION"]"#,
     r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
     r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
 ];
