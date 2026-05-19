@@ -2039,7 +2039,8 @@ fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_
 }
 
 #[test]
-fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
+fn test_late_process_env_mutation_source_lists_bracketed_process_aliases_and_mixed_delete_aliases()
+{
     let aliases = late_process_env_mutation_aliases();
     let source = late_process_env_mutation_source();
     let expected = format!("{};", aliases.join("; "));
@@ -2057,6 +2058,7 @@ fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
             r#"globalThis.process["env"] = {}"#,
             r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
             r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+            r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
             r#"globalThis["process"].env = {}"#,
             r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}"#,
             r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#,
@@ -2082,6 +2084,10 @@ fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
     );
     assert!(
         source.contains(r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
         "source: {source}"
     );
 }

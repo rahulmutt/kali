@@ -7840,7 +7840,10 @@ fn build_source_file_rejects_bracketed_process_env_mutation_in_browser_api_surfa
                     || diagnostic.message.contains(r#"process["env"]"#)
                     || diagnostic
                         .message
-                        .contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#))
+                        .contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#))
         }),
         "unexpected diagnostics: {error:?}"
     );
@@ -7880,7 +7883,50 @@ fn build_source_file_rejects_deleted_bracketed_process_env_mutation_in_browser_a
                     || diagnostic.message.contains(r#"process["env"]"#)
                     || diagnostic
                         .message
-                        .contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#))
+                        .contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#))
+        }),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn build_source_file_rejects_deleted_mixed_bracketed_process_env_mutation_in_browser_api_surface_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+    )
+    .expect("write source");
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Browser,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("deleted mixed bracketed process env mutation should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("environment mutation API 'process.env'")
+                && (diagnostic.message.contains("process.env")
+                    || diagnostic.message.contains(r#"process["env"]"#)
+                    || diagnostic
+                        .message
+                        .contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#))
         }),
         "unexpected diagnostics: {error:?}"
     );
