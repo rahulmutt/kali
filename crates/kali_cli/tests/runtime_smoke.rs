@@ -62622,6 +62622,49 @@ fn package_effects_command_emits_native_json_payload() {
 }
 
 #[test]
+fn package_effects_command_pretty_prints_native_json_payload() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/purepkg");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "purepkg",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("--pretty")
+        .arg("package-effects")
+        .arg("purepkg")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("{\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("\n  \"schemaVersion\": 1"),
+        "stdout: {stdout}"
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "purepkg");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["package"]["registry"], "npm");
+    assert_eq!(json["report"]["entryPoints"], json!(["purepkg"]));
+}
+
+#[test]
 fn package_effects_command_reports_inherited_browser_and_threaded_context_in_json_payload() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/browser-threaded-purepkg");
