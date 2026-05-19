@@ -68,6 +68,7 @@ kali effects --output json main.ts
 kali package-effects <package>
 kali package-effects --output json lodash
 kali package-effects --pretty lodash # pretty-print the package-effect report JSON
+kali package-effects --pretty --output json lodash # pretty-print the command envelope + package-effect payload
 kali package-audit <package>
 kali package-audit --output json lodash
 kali package-audit --pretty --output json lodash # pretty-print the envelope-only JSON result
