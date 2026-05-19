@@ -7957,8 +7957,15 @@ fn test_resolution_rejects_class_method_generator_lowering() {
                 name: "main".to_string(),
                 params: vec![],
                 body: Some(Box::new(BlockStatement {
-                    body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
-                        argument: Some(Expression::Literal(LiteralValue::Number(1.0))),
+                    body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                        expression: Box::new(Expression::YieldExpression(Box::new(
+                            YieldExpression {
+                                delegate: true,
+                                argument: Some(Expression::ArrayExpression(
+                                    kali_ast::ArrayExpression { elements: vec![] },
+                                )),
+                            },
+                        ))),
                     })],
                 })),
                 is_async: false,
@@ -7996,8 +8003,15 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
                 name: "main".to_string(),
                 params: vec![],
                 body: Some(Box::new(BlockStatement {
-                    body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
-                        argument: Some(Expression::Literal(LiteralValue::Number(1.0))),
+                    body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                        expression: Box::new(Expression::YieldExpression(Box::new(
+                            YieldExpression {
+                                delegate: true,
+                                argument: Some(Expression::ArrayExpression(
+                                    kali_ast::ArrayExpression { elements: vec![] },
+                                )),
+                            },
+                        ))),
                     })],
                 })),
                 is_async: true,
@@ -8036,7 +8050,22 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                             methods: vec![MethodDefinition {
                                 name: "main".to_string(),
                                 params: vec![],
-                                body: Some(Box::new(BlockStatement { body: vec![] })),
+                                body: Some(Box::new(BlockStatement {
+                                    body: vec![Statement::ExpressionStatement(
+                                        ExpressionStatement {
+                                            expression: Box::new(Expression::YieldExpression(
+                                                Box::new(YieldExpression {
+                                                    delegate: true,
+                                                    argument: Some(Expression::ArrayExpression(
+                                                        kali_ast::ArrayExpression {
+                                                            elements: vec![],
+                                                        },
+                                                    )),
+                                                }),
+                                            )),
+                                        },
+                                    )],
+                                })),
                                 is_async: false,
                                 generator: true,
                             }],
@@ -8055,7 +8084,18 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                         methods: vec![MethodDefinition {
                             name: "main".to_string(),
                             params: vec![],
-                            body: Some(Box::new(BlockStatement { body: vec![] })),
+                            body: Some(Box::new(BlockStatement {
+                                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                                    expression: Box::new(Expression::YieldExpression(Box::new(
+                                        YieldExpression {
+                                            delegate: true,
+                                            argument: Some(Expression::ArrayExpression(
+                                                kali_ast::ArrayExpression { elements: vec![] },
+                                            )),
+                                        },
+                                    ))),
+                                })],
+                            })),
                             is_async: true,
                             generator: true,
                         }],
