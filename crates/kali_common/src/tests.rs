@@ -248,6 +248,19 @@ fn test_array_from_alias_inventory_source_reuses_the_shared_helper_sources_once(
 }
 
 #[test]
+fn test_array_from_loop_lines_renders_all_aliases_in_order() {
+    let source = array_from_loop_lines(
+        "Array.from; globalThis.Array.from",
+        "for (const value of ",
+        "  ",
+    );
+    assert_eq!(
+        source,
+        "  for (const value of Array.from(values)) {\n    console.log(value);\n  }\n  for (const value of globalThis.Array.from(values)) {\n    console.log(value);\n  }"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();

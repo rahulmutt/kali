@@ -3934,6 +3934,7 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -4005,6 +4006,7 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||

@@ -1184,6 +1184,20 @@ pub fn array_from_alias_inventory_source() -> String {
     )
 }
 
+/// Canonical `for`/`for await` loop lines for the supported `Array.from` helper slice.
+pub fn array_from_loop_lines(source: &str, loop_header: &str, indentation: &str) -> String {
+    source
+        .trim_end_matches(';')
+        .split("; ")
+        .map(|alias| {
+            format!(
+                "{indentation}{loop_header}{alias}(values)) {{\n{indentation}  console.log(value);\n{indentation}}}"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Canonical root aliases for the supported `Set` constructor slice.
 pub const fn set_constructor_aliases() -> &'static [&'static str] {
     &[

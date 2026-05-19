@@ -1,24 +1,11 @@
 use std::{fs, process::Command};
 
-use kali_common::array_from_alias_inventory_source;
+use kali_common::{array_from_alias_inventory_source, array_from_loop_lines};
 use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
-}
-
-fn array_from_loop_lines(source: &str, loop_header: &str, indentation: &str) -> String {
-    source
-        .trim_end_matches(';')
-        .split("; ")
-        .map(|alias| {
-            format!(
-                "{indentation}{loop_header}{alias}(values) {{\n{indentation}  console.log(value);\n{indentation}}}"
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn assert_for_of_array_iteration_spread(

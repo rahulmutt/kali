@@ -19,6 +19,7 @@ const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
 let syncCount = 0;
 for (const key of globalThis.Reflect.ownKeys(obj)) {
   syncCount += 1;
@@ -125,6 +126,7 @@ fn reflect_own_keys_test_source() -> &'static str {
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
   let syncCount = 0;
   for (const key of globalThis.Reflect.ownKeys(obj)) {
     syncCount += 1;
@@ -227,6 +229,7 @@ async function reflectOwnKeysSmoke(left, right) {
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
   let syncCount = 0;
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
