@@ -58,6 +58,25 @@ fn test_late_object_model_source_lists_proxy_and_weak_aliases() {
 }
 
 #[test]
+fn test_late_object_model_own_property_source_lists_shared_helper_family() {
+    let source = late_object_model_own_property_source();
+    assert!(
+        source.contains("Object.hasOwn(globalThis, \"a\")"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object["hasOwnProperty"].call(globalThis, "a")"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(
+            r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#
+        ),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_late_threaded_runtime_source_lists_bracketed_spellings() {
     let source = late_threaded_runtime_source();
     assert!(

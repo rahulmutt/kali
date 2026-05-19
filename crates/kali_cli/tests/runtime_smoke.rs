@@ -24,6 +24,7 @@ use tar::Builder;
 use wasmparser::{Operator, Parser, Payload};
 
 use kali_common::{
+    late_object_model_own_property_source as kali_common_late_object_model_own_property_source,
     math_floor_trunc_ceil_frozen_callable_aliases, math_pow_browser_alias_inventory_aliases,
     math_pow_invocation_lines_for_aliases,
 };
@@ -175,7 +176,7 @@ fn late_object_model_source() -> &'static str {
 }
 
 fn late_object_model_own_property_source() -> &'static str {
-    "Object.hasOwn(globalThis, \"a\"); globalThis.Object.hasOwn(globalThis, \"a\"); globalThis.Object[\"hasOwn\"](globalThis, \"a\"); globalThis[\"Object\"].hasOwn(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwn\"](globalThis, \"a\"); Object[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis.Object[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"][\"hasOwnProperty\"].call(globalThis, \"a\"); Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis.Object.prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis.Object[\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); globalThis.Object.prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"].prototype.hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis[\"Object\"].prototype[\"hasOwnProperty\"].call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty.call(globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"][\"hasOwnProperty\"][\"call\"](globalThis, \"a\"); globalThis[\"Object\"][\"prototype\"].hasOwnProperty[\"call\"](globalThis, \"a\"); globalThis.Object[\"prototype\"].hasOwnProperty[\"call\"](globalThis, \"a\");"
+    kali_common_late_object_model_own_property_source()
 }
 
 fn broader_intl_source() -> &'static str {
