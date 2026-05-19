@@ -361,6 +361,33 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 }
 
 #[test]
+fn test_process_kill_zero_probe_call_target_aliases_list_all_supported_targets_in_order() {
+    let targets = process_kill_zero_probe_call_target_aliases();
+
+    assert_eq!(
+        targets,
+        &[
+            r#"process.kill"#,
+            r#"globalThis.process.kill"#,
+            r#"process["kill"]"#,
+            r#"globalThis.process["kill"]"#,
+            r#"globalThis["process"].kill"#,
+            r#"globalThis["process"]["kill"]"#,
+        ]
+    );
+
+    let mut unique_targets = std::collections::HashSet::new();
+    for target in targets.iter().copied() {
+        assert!(
+            unique_targets.insert(target),
+            "duplicate call-target alias in typed zero-probe inventory: {target}"
+        );
+    }
+
+    assert_eq!(targets.len(), unique_targets.len());
+}
+
+#[test]
 fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_order() {
     let targets = process_kill_zero_probe_call_target_aliases();
     let inventory_source = process_kill_zero_probe_call_target_inventory_source();
