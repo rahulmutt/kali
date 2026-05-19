@@ -481,7 +481,7 @@ fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
     join_semicolon_terminated_segments(aliases)
 }
 
-fn join_const_binding_lines(bindings: &[(&str, &str)]) -> String {
+fn join_const_binding_lines(bindings: &[(&'static str, &'static str)]) -> String {
     let lines = bindings
         .iter()
         .map(|(name, alias)| format!("const {name} = {alias}"))
@@ -576,9 +576,10 @@ pub fn process_kill_zero_probe_source() -> String {
     process_kill_zero_probe_alias_inventory_source()
 }
 
-/// Canonical source text for the supported Node zero-probe sequence-callable-target bindings.
-pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String {
-    join_const_binding_lines(&[
+/// Canonical binding inventory for the supported Node zero-probe sequence-callable-target bindings.
+pub const fn process_kill_zero_probe_sequence_call_target_binding_lines(
+) -> &'static [(&'static str, &'static str)] {
+    &[
         ("sequenceKill", "(process.kill, process.kill)"),
         (
             "bracketedRootSequenceKill",
@@ -600,19 +601,30 @@ pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String 
             "bracketedDotSequenceKill",
             "(globalThis[\"process\"].kill, globalThis[\"process\"].kill)",
         ),
-    ])
+    ]
 }
 
-/// Canonical source text for the supported Node `process.kill(0)` direct call-target bindings.
-pub fn process_kill_zero_probe_call_target_bindings_source() -> String {
-    join_const_binding_lines(&[
+/// Canonical source text for the supported Node zero-probe sequence-callable-target bindings.
+pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String {
+    join_const_binding_lines(process_kill_zero_probe_sequence_call_target_binding_lines())
+}
+
+/// Canonical binding inventory for the supported Node `process.kill(0)` direct call-target bindings.
+pub const fn process_kill_zero_probe_call_target_binding_lines(
+) -> &'static [(&'static str, &'static str)] {
+    &[
         ("kill", "process.kill"),
         ("bracketedRootKill", "process[\"kill\"]"),
         ("dotRootKill", "globalThis.process.kill"),
         ("bracketedDotKill", "globalThis[\"process\"].kill"),
         ("dotBracketKill", "globalThis.process[\"kill\"]"),
         ("fullyBracketedKill", "globalThis[\"process\"][\"kill\"]"),
-    ])
+    ]
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` direct call-target bindings.
+pub fn process_kill_zero_probe_call_target_bindings_source() -> String {
+    join_const_binding_lines(process_kill_zero_probe_call_target_binding_lines())
 }
 
 /// Canonical `console.log(...)` source text for the supported Node `process.kill(0)` slice.

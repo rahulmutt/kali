@@ -796,11 +796,20 @@ fn test_process_kill_zero_probe_call_target_aliases_are_in_canonical_order() {
 }
 
 #[test]
-fn test_process_kill_zero_probe_direct_call_target_bindings_source_is_canonical() {
-    let source = process_kill_zero_probe_call_target_bindings_source();
-
+fn test_process_kill_zero_probe_direct_call_target_binding_lines_are_canonical() {
     assert_eq!(
-        source,
+        process_kill_zero_probe_call_target_binding_lines(),
+        &[
+            ("kill", "process.kill"),
+            ("bracketedRootKill", "process[\"kill\"]"),
+            ("dotRootKill", "globalThis.process.kill"),
+            ("bracketedDotKill", "globalThis[\"process\"].kill"),
+            ("dotBracketKill", "globalThis.process[\"kill\"]"),
+            ("fullyBracketedKill", "globalThis[\"process\"][\"kill\"]"),
+        ]
+    );
+    assert_eq!(
+        process_kill_zero_probe_call_target_bindings_source(),
         concat!(
             "const kill = process.kill; ",
             "const bracketedRootKill = process[\"kill\"]; ",
@@ -813,11 +822,35 @@ fn test_process_kill_zero_probe_direct_call_target_bindings_source_is_canonical(
 }
 
 #[test]
-fn test_process_kill_zero_probe_sequence_call_target_bindings_source_is_canonical() {
-    let source = process_kill_zero_probe_sequence_call_target_bindings_source();
-
+fn test_process_kill_zero_probe_sequence_call_target_binding_lines_are_canonical() {
     assert_eq!(
-        source,
+        process_kill_zero_probe_sequence_call_target_binding_lines(),
+        &[
+            ("sequenceKill", "(process.kill, process.kill)"),
+            (
+                "bracketedRootSequenceKill",
+                "(process[\"kill\"], process[\"kill\"])",
+            ),
+            (
+                "dotRootSequenceKill",
+                "(globalThis.process.kill, globalThis.process.kill)",
+            ),
+            (
+                "bracketedSequenceKill",
+                "(globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"])",
+            ),
+            (
+                "dotBracketSequenceKill",
+                "(globalThis.process[\"kill\"], globalThis.process[\"kill\"])",
+            ),
+            (
+                "bracketedDotSequenceKill",
+                "(globalThis[\"process\"].kill, globalThis[\"process\"].kill)",
+            ),
+        ]
+    );
+    assert_eq!(
+        process_kill_zero_probe_sequence_call_target_bindings_source(),
         concat!(
             "const sequenceKill = (process.kill, process.kill); ",
             "const bracketedRootSequenceKill = (process[\"kill\"], process[\"kill\"]); ",
