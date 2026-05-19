@@ -18,6 +18,8 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
+const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
+const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
 const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
 const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
@@ -91,6 +93,16 @@ if (
   singleQuotedKeys[1] !== '2' ||
   singleQuotedKeys[2] !== 'b' ||
   singleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys.length !== 4 ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[0] !== '1' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
+  parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
   frozenSingleQuotedKeys.length !== 4 ||
   frozenMixedBracketedKeys.length !== 4 ||
   frozenBracketedKeys.length !== 4 ||
