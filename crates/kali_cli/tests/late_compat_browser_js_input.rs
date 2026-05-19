@@ -35,8 +35,29 @@ fn late_network_source() -> &'static str {
     "Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis.Deno[\"connect\"]('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis.Deno[\"listen\"]('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis.Deno[\"serve\"]('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
 }
 
-fn late_object_model_source() -> &'static str {
-    r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis.Intl.DateTimeFormat; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.PluralRules; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; globalThis.Intl.RelativeTimeFormat; globalThis["Intl"].RelativeTimeFormat; globalThis.Intl.Collator; globalThis["Intl"].Collator; globalThis.Intl.DisplayNames; globalThis["Intl"].DisplayNames; globalThis.Intl.Segmenter; globalThis["Intl"].Segmenter; globalThis.Intl.Locale; globalThis["Intl"].Locale; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["NumberFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.hasOwn({}, "a"); globalThis.Object.hasOwn({}, "a"); globalThis.Object["hasOwn"]({}, "a"); globalThis["Object"]["hasOwn"]({}, "a"); Object["hasOwnProperty"].call({}, "a"); globalThis.Object["hasOwnProperty"].call({}, "a"); globalThis["Object"]["hasOwnProperty"].call({}, "a"); Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty.call({}, "a"); globalThis.Object.prototype.hasOwnProperty["call"]({}, "a"); globalThis.Object["prototype"].hasOwnProperty.call({}, "a"); globalThis.Object["prototype"]["hasOwnProperty"]["call"]({}, "a"); globalThis.Object.prototype["hasOwnProperty"].call({}, "a"); globalThis["Object"].prototype.hasOwnProperty.call({}, "a"); globalThis["Object"].prototype.hasOwnProperty["call"]({}, "a"); globalThis["Object"].prototype["hasOwnProperty"].call({}, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call({}, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"]({}, "a"); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; globalThis["WeakMap"](); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis["WeakSet"](); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis["FinalizationRegistry"](() => {});"#
+fn late_object_model_source() -> String {
+    format!(
+        "{} {} {}",
+        kali_common::broader_intl_source(),
+        kali_common::late_object_model_source(),
+        kali_common::late_compat_object_has_own_source("{}", r#""a""#)
+    )
+}
+
+#[test]
+fn browser_late_object_model_source_is_composed_from_shared_helpers() {
+    let source = late_object_model_source();
+    let intl_source = kali_common::broader_intl_source();
+    let object_model_source = kali_common::late_object_model_source();
+    let object_model_source: &str = object_model_source.as_ref();
+    let has_own_source = kali_common::late_compat_object_has_own_source("{}", r#""a""#);
+    let has_own_source: &str = has_own_source.as_ref();
+
+    assert!(source.starts_with(intl_source), "source: {source}");
+    assert!(source.contains(object_model_source), "source: {source}");
+    assert!(source.contains(has_own_source), "source: {source}");
+    assert_eq!(source.matches(object_model_source).count(), 1, "source: {source}");
+    assert_eq!(source.matches(has_own_source).count(), 1, "source: {source}");
 }
 
 fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
