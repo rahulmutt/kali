@@ -1035,6 +1035,12 @@ impl TypeContext {
             Expression::Identifier(name) => self.resolve_identifier(name),
             Expression::Literal(_) => {}
             Expression::BinaryExpression(expr) => {
+                if expr.operator == "%" {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "remainder operator '%' is unavailable in the current phase; use a supported arithmetic operator or the later compatibility path".to_string(),
+                    ));
+                }
                 self.resolve_expression(&expr.left);
                 self.resolve_expression(&expr.right);
             }

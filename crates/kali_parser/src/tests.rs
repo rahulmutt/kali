@@ -497,6 +497,23 @@ fn test_parse_exponentiation_expression() {
 }
 
 #[test]
+fn test_parse_modulo_expression_reports_feature_unavailable() {
+    let tokens = lex("const value = 3n % 2n;");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic.message.contains("remainder operator '%'")
+        }),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+}
+
+#[test]
 fn test_parse_compound_assignment_expression() {
     let tokens = lex("value += 1; value **= 2; value %= 3; value &&= 4; value ||= 5;");
     let mut parser = Parser::new(FileId::new(0), tokens);

@@ -482,6 +482,7 @@ impl Lexer {
             '*' if self.nth(1) == Some('=') => (TokenType::StarEq, "*=".to_string(), 2),
             '/' if self.nth(1) == Some('=') => (TokenType::SlashEq, "/=".to_string(), 2),
             '%' if self.nth(1) == Some('=') => (TokenType::PercentEq, "%=".to_string(), 2),
+            '%' => (TokenType::Percent, "%".to_string(), 1),
             '=' if self.nth(1) == Some('>') => (TokenType::Arrow, "=>".to_string(), 2),
             '+' => (TokenType::Plus, "+".to_string(), 1),
             '-' => (TokenType::Minus, "-".to_string(), 1),

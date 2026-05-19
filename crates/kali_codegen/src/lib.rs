@@ -1335,6 +1335,17 @@ impl<'a> FunctionEmitter<'a> {
                     shape: ValueShape::Scalar,
                 }
             }
+            "%" => {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "remainder operator '%' is unavailable in the current phase; use a supported arithmetic operator or the later compatibility path".to_string(),
+                ));
+                function.instruction(&Instruction::Unreachable);
+                EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                }
+            }
             "==" | "===" => {
                 function.instruction(&Instruction::I64Eq);
                 function.instruction(&Instruction::I64ExtendI32U);

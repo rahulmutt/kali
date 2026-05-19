@@ -26036,6 +26036,78 @@ fn assert_run_supports_bigint_binary_semantics(
     assert_eq!(stdout.trim(), expected_stdout, "stdout: {stdout}");
 }
 
+fn assert_test_supports_bigint_binary_semantics(
+    extension: &str,
+    expression: &str,
+    expected_stdout: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("smoke.test.{extension}"));
+    fs::write(&source_path, format!("console.log({expression});\n")).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains(expected_stdout) && stdout.contains("ok 1"),
+        "stdout: {stdout}"
+    );
+}
+
+fn assert_browser_bundle_supports_bigint_binary_semantics(
+    extension: &str,
+    expression: &str,
+    expected_value_source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("app.{extension}"));
+    fs::write(
+        &source_path,
+        format!(
+            "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {{\n  const result = {expression};\n  if (result !== {expected_value_source}) {{\n    throw new Error('unexpected bigint');\n  }}\n  return 0n;\n}}\n"
+        ),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
+    assert_eq!(metadata["apiSurface"], "browser");
+
+    assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
 #[test]
 fn run_supports_bigint_subtraction_semantics() {
     assert_run_supports_bigint_binary_semantics("ts", "3n - 2n", "1");
@@ -26054,6 +26126,68 @@ fn run_supports_bigint_division_semantics() {
 #[test]
 fn run_supports_bigint_division_semantics_in_js_input() {
     assert_run_supports_bigint_binary_semantics("js", "3n / 2n", "1");
+}
+
+#[test]
+fn run_rejects_bigint_remainder_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_rejects_bigint_remainder_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn run_supports_bigint_exponentiation_semantics() {
+    assert_run_supports_bigint_binary_semantics("ts", "2n ** 3n", "8");
+}
+
+#[test]
+fn run_supports_bigint_exponentiation_semantics_in_js_input() {
+    assert_run_supports_bigint_binary_semantics("js", "2n ** 3n", "8");
 }
 
 #[test]
@@ -28786,6 +28920,37 @@ fn test_supports_bigint_multiplication_semantics_in_js_input() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("2\nok 1"), "stdout: {stdout}");
+}
+
+#[test]
+fn test_rejects_bigint_remainder_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_supports_bigint_exponentiation_semantics_in_js_input() {
+    assert_test_supports_bigint_binary_semantics("js", "2n ** 3n", "8");
 }
 
 #[test]
@@ -36415,6 +36580,82 @@ fn build_emits_browser_bundle_bigint_multiplication_semantics_in_js_input() {
     assert_eq!(metadata["apiSurface"], "browser");
 
     assert_browser_bundle_executes(&bundle_dir, "bigintSmoke");
+}
+
+#[test]
+fn build_rejects_browser_bundle_bigint_remainder_semantics() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.ts");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  return 3n % 2n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn build_rejects_browser_bundle_bigint_remainder_semantics_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("app.js");
+    fs::write(
+        &source_path,
+        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  return 3n % 2n;\n}\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        !output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn build_emits_browser_bundle_bigint_exponentiation_semantics() {
+    assert_browser_bundle_supports_bigint_binary_semantics("ts", "2n ** 3n", "8n");
+}
+
+#[test]
+fn build_emits_browser_bundle_bigint_exponentiation_semantics_in_js_input() {
+    assert_browser_bundle_supports_bigint_binary_semantics("js", "2n ** 3n", "8n");
 }
 
 #[test]

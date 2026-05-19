@@ -1351,6 +1351,14 @@ impl Parser {
                 } else {
                     prec + 1
                 };
+                if matches!(op_kind, TokenType::Percent) {
+                    self.diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        "remainder operator '%' is unavailable in the current phase; use a supported arithmetic operator or the later compatibility path".to_string(),
+                    ));
+                    let _ = self.parse_binary_expression(right_prec);
+                    break;
+                }
                 left = Expression::BinaryExpression(Box::new(BinaryExpression {
                     left,
                     operator: op_str.to_string(),
