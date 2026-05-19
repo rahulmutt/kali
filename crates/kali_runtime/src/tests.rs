@@ -4294,6 +4294,34 @@ fn runtime_host_state_spawns_and_releases_thread_instances() {
     assert!(state.release_thread_instance(first));
     assert_eq!(state.active_threads, 0);
     assert!(!state.release_thread_instance(first));
+
+    let third = state
+        .spawn_thread_instance("https://e.co/v.js")
+        .expect("third thread instance after re-spawn");
+    assert_eq!(third, 2);
+    assert_eq!(state.active_threads, 1);
+    assert_eq!(
+        state.thread_topology.instance_ids(),
+        vec![first, second, third]
+    );
+    assert_eq!(state.thread_topology.total_instances(), 3);
+
+    let snapshot_after_respawn = state.thread_topology_snapshot();
+    assert_eq!(snapshot_after_respawn.total_instances, 3);
+    assert_eq!(snapshot_after_respawn.terminated_instances, 2);
+    assert_eq!(snapshot_after_respawn.live_instances.len(), 1);
+    assert_eq!(snapshot_after_respawn.live_instances[0].instance_id, third);
+    assert_eq!(
+        snapshot_after_respawn.live_instances[0].script_url,
+        "https://e.co/v.js"
+    );
+    assert!(snapshot_after_respawn.live_instances[0]
+        .posted_messages
+        .is_empty());
+    assert!(snapshot_after_respawn.live_instances[0]
+        .posted_shared_buffers
+        .is_empty());
+    assert!(!snapshot_after_respawn.live_instances[0].was_terminated);
 }
 
 #[test]
