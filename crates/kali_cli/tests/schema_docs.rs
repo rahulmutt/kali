@@ -2421,6 +2421,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
 
     let expected_benchmark_names: BTreeSet<String> = [
         "folded-arithmetic",
+        "folded-arithmetic-js",
         "math-trunc-builtin",
         "math-trunc-builtin-js",
         "math-imul-builtin",
@@ -2484,6 +2485,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     .collect();
     let expected_benchmark_sources: BTreeSet<String> = [
         "math-benchmark-v1.ts",
+        "math-benchmark-v1-js.js",
         "math-trunc-benchmark-v1.ts",
         "math-trunc-benchmark-v1-js.js",
         "math-imul-benchmark-v1.ts",

@@ -1,0 +1,7 @@
+{
+  "benchmark": "folded-arithmetic-js",
+  "version": 1,
+  "sourceFile": "math-benchmark-v1-js.js",
+  "sourceSha256": "sha256-6992122473f3ac21d1cd69849551afabb42c861adc3d4a399f961a95e9cac4a6",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
