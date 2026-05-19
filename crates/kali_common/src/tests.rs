@@ -1001,6 +1001,29 @@ fn test_math_pow_bracketed_global_this_alias_chain_source_is_canonical() {
 }
 
 #[test]
+fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapper_aliases() {
+    let body = promise_all_settled_browser_body_source();
+
+    assert!(
+        body.contains("const frozenBracketedSettled = await Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis[\"Promise\"][\"allSettled\"]))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("parenthesizedFrozenBracketedSettled.length !== 2"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("throw new Error('unexpected Promise.allSettled semantics');"),
+        "body: {body}"
+    );
+    assert!(body.contains("  }\n"), "body: {body}");
+}
+
+#[test]
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let direct_aliases = math_pow_frozen_callable_direct_aliases();
     let parenthesized_aliases = math_pow_frozen_callable_parenthesized_aliases();

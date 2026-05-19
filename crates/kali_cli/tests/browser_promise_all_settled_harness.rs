@@ -3,121 +3,24 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::promise_all_settled_browser_body_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_promise_all_settled_run_source() -> &'static str {
-    r#"async function browserPromiseAllSettled() {
-  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
-  if (
-    settled.length !== 2 ||
-    settled[0].status !== 'fulfilled' ||
-    settled[0].value !== 1 ||
-    settled[1].status !== 'rejected' ||
-    settled[1].reason !== 'boom' ||
-    mixedSettled.length !== 2 ||
-    mixedSettled[0].status !== 'fulfilled' ||
-    mixedSettled[0].value !== 1 ||
-    mixedSettled[1].status !== 'rejected' ||
-    mixedSettled[1].reason !== 'boom' ||
-    dottedSettled.length !== 2 ||
-    dottedSettled[0].status !== 'fulfilled' ||
-    dottedSettled[0].value !== 1 ||
-    dottedSettled[1].status !== 'rejected' ||
-    dottedSettled[1].reason !== 'boom' ||
-    mixedDottedSettled.length !== 2 ||
-    mixedDottedSettled[0].status !== 'fulfilled' ||
-    mixedDottedSettled[0].value !== 1 ||
-    mixedDottedSettled[1].status !== 'rejected' ||
-    mixedDottedSettled[1].reason !== 'boom' ||
-    mixedBracketedSettled.length !== 2 ||
-    mixedBracketedSettled[0].status !== 'fulfilled' ||
-    mixedBracketedSettled[0].value !== 1 ||
-    mixedBracketedSettled[1].status !== 'rejected' ||
-    mixedBracketedSettled[1].reason !== 'boom' ||
-    bracketedSettled.length !== 2 ||
-    bracketedSettled[0].status !== 'fulfilled' ||
-    bracketedSettled[0].value !== 1 ||
-    bracketedSettled[1].status !== 'rejected' ||
-    bracketedSettled[1].reason !== 'boom' ||
-    frozenBracketedSettled.length !== 2 ||
-    frozenBracketedSettled[0].status !== 'fulfilled' ||
-    frozenBracketedSettled[0].value !== 1 ||
-    frozenBracketedSettled[1].status !== 'rejected' ||
-    frozenBracketedSettled[1].reason !== 'boom'
-  ) {
-    throw new Error('unexpected Promise.allSettled semantics');
-  }
+fn browser_promise_all_settled_run_source() -> String {
+    format!(
+        "async function browserPromiseAllSettled() {{\n{}\n}}\n\nasync function main() {{\n  await browserPromiseAllSettled();\n  console.log('browser promise allSettled ok');\n}}\n\nmain();\n",
+        promise_all_settled_browser_body_source()
+    )
 }
 
-async function main() {
-  await browserPromiseAllSettled();
-  console.log('browser promise allSettled ok');
-}
-
-main();
-"#
-}
-
-fn browser_promise_all_settled_test_source() -> &'static str {
-    r#"async function browserPromiseAllSettled() {
-  const settled = await Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedSettled = await Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const dottedSettled = await globalThis.Promise.allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedDottedSettled = await globalThis.Promise["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const mixedBracketedSettled = await globalThis["Promise"].allSettled([Promise.resolve(1), Promise.reject('boom')]);
-  const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
-  const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
-  if (
-    settled.length !== 2 ||
-    settled[0].status !== 'fulfilled' ||
-    settled[0].value !== 1 ||
-    settled[1].status !== 'rejected' ||
-    settled[1].reason !== 'boom' ||
-    mixedSettled.length !== 2 ||
-    mixedSettled[0].status !== 'fulfilled' ||
-    mixedSettled[0].value !== 1 ||
-    mixedSettled[1].status !== 'rejected' ||
-    mixedSettled[1].reason !== 'boom' ||
-    dottedSettled.length !== 2 ||
-    dottedSettled[0].status !== 'fulfilled' ||
-    dottedSettled[0].value !== 1 ||
-    dottedSettled[1].status !== 'rejected' ||
-    dottedSettled[1].reason !== 'boom' ||
-    mixedDottedSettled.length !== 2 ||
-    mixedDottedSettled[0].status !== 'fulfilled' ||
-    mixedDottedSettled[0].value !== 1 ||
-    mixedDottedSettled[1].status !== 'rejected' ||
-    mixedDottedSettled[1].reason !== 'boom' ||
-    mixedBracketedSettled.length !== 2 ||
-    mixedBracketedSettled[0].status !== 'fulfilled' ||
-    mixedBracketedSettled[0].value !== 1 ||
-    mixedBracketedSettled[1].status !== 'rejected' ||
-    mixedBracketedSettled[1].reason !== 'boom' ||
-    bracketedSettled.length !== 2 ||
-    bracketedSettled[0].status !== 'fulfilled' ||
-    bracketedSettled[0].value !== 1 ||
-    bracketedSettled[1].status !== 'rejected' ||
-    bracketedSettled[1].reason !== 'boom' ||
-    frozenBracketedSettled.length !== 2 ||
-    frozenBracketedSettled[0].status !== 'fulfilled' ||
-    frozenBracketedSettled[0].value !== 1 ||
-    frozenBracketedSettled[1].status !== 'rejected' ||
-    frozenBracketedSettled[1].reason !== 'boom'
-  ) {
-    throw new Error('unexpected Promise.allSettled semantics');
-  }
-}
-
-Kali.test('browser promise allSettled', () => browserPromiseAllSettled());
-"#
+fn browser_promise_all_settled_test_source() -> String {
+    format!(
+        "async function browserPromiseAllSettled() {{\n{}\n}}\n\nKali.test('browser promise allSettled', () => browserPromiseAllSettled());\n",
+        promise_all_settled_browser_body_source()
+    )
 }
 fn assert_browser_requested_promise_all_settled(command: &str, filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
