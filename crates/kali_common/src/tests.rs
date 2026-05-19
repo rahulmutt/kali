@@ -600,6 +600,37 @@ fn test_object_has_own_frozen_callable_condition_source_lists_all_aliases_in_ord
 }
 
 #[test]
+fn test_object_has_own_combined_frozen_callable_condition_source_reuses_both_helpers_once() {
+    let source = object_has_own_combined_frozen_callable_condition_source("wrapped", r#""a""#);
+    assert_eq!(
+        source,
+        format!(
+            "{} || {}",
+            object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
+            object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
+        )
+    );
+    assert_eq!(
+        source
+            .matches(&object_has_own_frozen_callable_condition_source(
+                "wrapped", r#""a""#
+            ))
+            .count(),
+        1,
+        "source: {source}"
+    );
+    assert_eq!(
+        source
+            .matches(
+                &object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
+            )
+            .count(),
+        1,
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_object_has_own_property_call_frozen_callable_source_lists_all_aliases_in_order() {
     let aliases = object_has_own_property_call_frozen_callable_aliases();
     let source = object_has_own_property_call_frozen_callable_source();

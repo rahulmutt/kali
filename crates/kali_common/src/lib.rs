@@ -653,6 +653,18 @@ pub fn object_has_own_property_call_frozen_callable_condition_source(
         .join(" || ")
 }
 
+/// Canonical combined boolean-check source for the supported `Object.hasOwn` helper slice.
+pub fn object_has_own_combined_frozen_callable_condition_source(
+    receiver_source: &str,
+    key_source: &str,
+) -> String {
+    format!(
+        "{} || {}",
+        object_has_own_frozen_callable_condition_source(receiver_source, key_source),
+        object_has_own_property_call_frozen_callable_condition_source(receiver_source, key_source)
+    )
+}
+
 /// Canonical source text for the supported late-compat `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` slice.
 pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str) -> String {
     let source = [

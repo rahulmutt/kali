@@ -4,9 +4,8 @@ use serde_json::Value;
 use tempfile::tempdir;
 
 use kali_common::{
-    object_has_own_frozen_callable_condition_source, object_has_own_frozen_callable_source,
-    object_has_own_property_call_binding_source,
-    object_has_own_property_call_frozen_callable_condition_source,
+    object_has_own_combined_frozen_callable_condition_source,
+    object_has_own_frozen_callable_source, object_has_own_property_call_binding_source,
     object_has_own_property_call_frozen_callable_source,
 };
 
@@ -15,11 +14,8 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_object_has_own_run_source() -> String {
-    let frozen_callable_condition_source = format!(
-        "{} || {}",
-        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
-        object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
-    );
+    let frozen_callable_condition_source =
+        object_has_own_combined_frozen_callable_condition_source("wrapped", r#""a""#);
     let has_own_property_call_binding_source =
         object_has_own_property_call_binding_source("hasOwnPropertyCall");
     let frozen_callable_source = format!(
@@ -71,11 +67,8 @@ console.log('browser object hasOwn ok');
 }
 
 fn browser_harness_object_has_own_test_source() -> String {
-    let frozen_callable_condition_source = format!(
-        "{} || {}",
-        object_has_own_frozen_callable_condition_source("wrapped", r#""a""#),
-        object_has_own_property_call_frozen_callable_condition_source("wrapped", r#""a""#)
-    );
+    let frozen_callable_condition_source =
+        object_has_own_combined_frozen_callable_condition_source("wrapped", r#""a""#);
     let has_own_property_call_binding_source =
         object_has_own_property_call_binding_source("hasOwnPropertyCall");
     let frozen_callable_source = format!(
