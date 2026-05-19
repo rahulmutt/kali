@@ -1823,9 +1823,9 @@ fn validate_run_and_test_payload_value_rejects_whitespace_thread_topology_script
     ] {
         let err =
             validator(&payload).expect_err("whitespace thread topology scriptUrl should fail");
-        assert!(err.contains("scriptUrl"), "{kind} error: {err}");
-        assert!(
-            err.contains("non-empty, non-whitespace string"),
+        assert_eq!(
+            err,
+            "threadTopology liveInstances[0] scriptUrl must be a non-empty, non-whitespace string",
             "{kind} error: {err}"
         );
     }
@@ -1936,8 +1936,11 @@ fn validate_run_and_test_payload_value_rejects_non_url_thread_topology_script_ur
         ),
     ] {
         let err = validator(&payload).expect_err("non-URL thread topology scriptUrl should fail");
-        assert!(err.contains("scriptUrl"), "{kind} error: {err}");
-        assert!(err.contains("valid absolute URL"), "{kind} error: {err}");
+        assert_eq!(
+            err,
+            "threadTopology liveInstances[0] scriptUrl must be a valid absolute URL, got worker.js",
+            "{kind} error: {err}"
+        );
     }
 }
 
