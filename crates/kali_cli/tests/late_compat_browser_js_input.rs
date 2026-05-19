@@ -1061,6 +1061,8 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         "source: {source}"
     );
     let zero_probe_source = kali_common::process_kill_zero_probe_alias_inventory_source();
+    let parenthesized_receiver_freeze_source =
+        kali_common::process_kill_zero_probe_parenthesized_receiver_freeze_source();
     assert!(
         source.contains(zero_probe_source.as_str()),
         "source: {source}"
@@ -1069,6 +1071,15 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         source.matches(zero_probe_source.as_str()).count(),
         1,
         "browser JS late-compat source should embed the shared zero-probe inventory exactly once"
+    );
+    assert!(
+        source.contains(parenthesized_receiver_freeze_source.as_str()),
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(parenthesized_receiver_freeze_source.as_str()).count(),
+        1,
+        "browser JS late-compat source should embed the shared parenthesized receiver-freeze source exactly once"
     );
 }
 
