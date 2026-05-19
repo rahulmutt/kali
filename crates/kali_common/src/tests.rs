@@ -565,19 +565,19 @@ fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order(
 fn test_number_predicates_source_helpers_are_canonical() {
     assert_eq!(
         number_predicates_preamble_source("1"),
-        "const alias = 1; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+        "const alias = 1; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger;"
     );
     assert_eq!(
         number_predicates_preamble_source("1 as const"),
-        "const alias = 1 as const; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+        "const alias = 1 as const; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger;"
     );
     assert_eq!(
         number_predicates_console_log_body_source(),
         concat!(
             "console.log(Number.isFinite(alias)); ",
-            "console.log(Number.isInteger(alias)); ",
+            "console.log(integer(alias)); ",
             "console.log(Number.isSafeInteger(alias)); ",
-            "console.log(Number.isInteger(1.5)); ",
+            "console.log(integer(1.5)); ",
             "console.log(Number.isFinite(\"hello\")); ",
             "console.log(Number.isSafeInteger(1.5)); ",
             "console.log(globalThis[\"Number\"][\"isNaN\"](NaN)); ",
@@ -595,6 +595,7 @@ fn test_number_predicates_source_helpers_are_canonical() {
             "console.log(Number[\"isSafeInteger\"](alias)); ",
             "console.log(Number[\"isNaN\"](1)); ",
             "console.log(finite(alias)); ",
+            "console.log(integer(alias)); ",
             "console.log(safeInteger(alias));"
         )
     );

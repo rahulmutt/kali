@@ -12,13 +12,14 @@ fn browser_bundle_number_predicates_js_source() -> &'static str {
 async function browserNumberPredicates() {
   const alias = 1;
   const finite = Number.isFinite;
+  const integer = Number.isInteger;
   const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
     Number.isSafeInteger(await alias) !== true ||
-    Number.isInteger(alias) !== true ||
+    integer(alias) !== true ||
     Number.isSafeInteger(alias) !== true ||
-    Number.isInteger(1.5) !== false ||
+    integer(1.5) !== false ||
     Number.isFinite("hello") !== false ||
     Number.isSafeInteger(1.5) !== false ||
     globalThis["Number"]["isNaN"](NaN) !== true ||
@@ -50,13 +51,14 @@ fn browser_bundle_number_predicates_ts_source() -> &'static str {
 async function browserNumberPredicates() {
   const alias = 1 as const;
   const finite = Number.isFinite;
+  const integer = Number.isInteger;
   const safeInteger = Number.isSafeInteger;
   if (
     Number.isFinite(alias) !== true ||
     Number.isSafeInteger(await alias) !== true ||
-    Number.isInteger(alias) !== true ||
+    integer(alias) !== true ||
     Number.isSafeInteger(alias) !== true ||
-    Number.isInteger(1.5) !== false ||
+    integer(1.5) !== false ||
     Number.isFinite("hello") !== false ||
     Number.isSafeInteger(1.5) !== false ||
     globalThis["Number"]["isNaN"](NaN) !== true ||

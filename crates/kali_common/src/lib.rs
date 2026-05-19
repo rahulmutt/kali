@@ -640,7 +640,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
 /// Canonical source text for the supported Number predicate slice.
 pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
     format!(
-        "const alias = {alias_literal}; const finite = Number.isFinite; const safeInteger = Number.isSafeInteger;"
+        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger;"
     )
 }
 
@@ -648,9 +648,9 @@ pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
 pub fn number_predicates_console_log_body_source() -> String {
     join_semicolon_terminated_segments(&[
         r#"console.log(Number.isFinite(alias))"#,
-        r#"console.log(Number.isInteger(alias))"#,
+        r#"console.log(integer(alias))"#,
         r#"console.log(Number.isSafeInteger(alias))"#,
-        r#"console.log(Number.isInteger(1.5))"#,
+        r#"console.log(integer(1.5))"#,
         r#"console.log(Number.isFinite("hello"))"#,
         r#"console.log(Number.isSafeInteger(1.5))"#,
         r#"console.log(globalThis["Number"]["isNaN"](NaN))"#,
@@ -668,6 +668,7 @@ pub fn number_predicates_console_log_body_source() -> String {
         r#"console.log(Number["isSafeInteger"](alias))"#,
         r#"console.log(Number["isNaN"](1))"#,
         r#"console.log(finite(alias))"#,
+        r#"console.log(integer(alias))"#,
         r#"console.log(safeInteger(alias))"#,
     ])
 }
