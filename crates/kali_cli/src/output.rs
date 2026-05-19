@@ -1584,33 +1584,17 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
 
     let browser_runtime_contract = kali_runtime::BrowserRuntimeContract::descriptor();
 
-    validate_trimmed_string_field(
-        object,
-        "hostLabel",
-        browser_runtime_contract.host_label,
-        "doctor browserRuntimeContract",
-    )?;
-
-    validate_trimmed_string_field(
-        object,
-        "hostDescription",
-        browser_runtime_contract.host_description,
-        "doctor browserRuntimeContract",
-    )?;
-
-    validate_trimmed_string_field(
-        object,
-        "diagnosticHint",
-        browser_runtime_contract.diagnostic_hint,
-        "doctor browserRuntimeContract",
-    )?;
-
-    validate_trimmed_string_field(
-        object,
-        "hostDescriptionNote",
-        browser_runtime_contract.host_description_note,
-        "doctor browserRuntimeContract",
-    )?;
+    for (key, expected) in [
+        ("hostLabel", browser_runtime_contract.host_label),
+        ("hostDescription", browser_runtime_contract.host_description),
+        (
+            "hostDescriptionNote",
+            browser_runtime_contract.host_description_note,
+        ),
+        ("diagnosticHint", browser_runtime_contract.diagnostic_hint),
+    ] {
+        validate_trimmed_string_field(object, key, expected, "doctor browserRuntimeContract")?;
+    }
 
     validate_browser_runtime_supported_commands_value(
         object.get("supportedCommands"),
