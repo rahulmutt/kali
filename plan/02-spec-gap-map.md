@@ -50,7 +50,7 @@ Remaining goals:
 - Treat `--profile` as a deterministic build-only additive input; do not create a hidden fourth build mode. The current repository snapshot now also rejects empty and whitespace-only profile files with the canonical `E5509` parse path in both human and JSON `build` output.
 - Promote performance wording only when benchmark evidence names workload, build mode, baseline, and reproducibility constraints.
 - Keep optimization inventories as concise evidence snapshots.
-- The benchmark fixture set now also includes a dedicated `math-pow-builtin` slice so `Math.pow` optimization evidence stays visible alongside the existing math builtin benchmarks.
+- The benchmark fixture set now also includes dedicated `math-pow-builtin` and `math-pow-builtin-js` slices so `Math.pow` optimization evidence stays visible alongside the existing math builtin benchmarks.
 
 ## Verification and contracts
 

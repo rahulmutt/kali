@@ -1,0 +1,11 @@
+{
+  "benchmark": "math-pow-builtin-js",
+  "version": 1,
+  "sourceFile": "math-pow-benchmark-v1-js.js",
+  "sourceSha256": "sha256-62723734cededee64dc4e80c9e1670241bf5171254a727b1ab5960356396eac7",
+  "buildModes": [
+    "--fast",
+    "--release",
+    "--release-advanced"
+  ]
+}
