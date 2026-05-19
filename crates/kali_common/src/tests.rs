@@ -1867,6 +1867,27 @@ fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero
         source.contains(r#"Object.freeze(globalThis['process']['kill'])(+0)"#),
         "source: {source}"
     );
+    assert!(source.contains(r#"process['exit'](0)"#), "source: {source}");
+    assert!(
+        source.contains(r#"process['exit'](+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(process['exit'])(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(process['exit'])(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((process['exit']))(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((process['exit']))(+0)"#),
+        "source: {source}"
+    );
     assert!(
         source.contains(r#"globalThis['process'].exit(0)"#),
         "source: {source}"
