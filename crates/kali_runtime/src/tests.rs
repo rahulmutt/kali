@@ -2351,9 +2351,7 @@ fn browser_requested_runtime_summary_keeps_thread_topology_from_summary_file() {
     let outcome = browser_runtime_execute_checked(
         Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"alpha\"],\"tests\":[\"browser merge\"],\"testsFailed\":2,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\"https://example.com/thread.js\",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n");'"#),
         &wasm,
-        &[
-            "alpha".to_string(),
-        ],
+        &["alpha".to_string()],
         tempdir.path(),
         false,
     )
@@ -2382,6 +2380,63 @@ fn browser_requested_runtime_summary_keeps_thread_topology_from_summary_file() {
             "liveInstances": [{
                 "instanceId": 0,
                 "scriptUrl": "https://example.com/thread.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false
+            }]
+        })
+    );
+    assert!(
+        outcome.stdout.contains("\"testsFailed\":1"),
+        "stdout: {}",
+        outcome.stdout
+    );
+    assert_eq!(outcome.tests_run(), 1);
+}
+
+#[test]
+fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_is_invalid(
+) {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (func (export "_start")))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(
+        Some(r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[\"browser merge\"],\"testsFailed\":2,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\" https://example.com/thread.js \",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\"https://example.com/stdout-thread.js\",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n");'"#),
+        &wasm,
+        &["stdout".to_string()],
+        tempdir.path(),
+        false,
+    )
+    .expect("execute browser requested runtime harness");
+
+    assert_eq!(outcome.command[0], "node");
+    assert_eq!(outcome.status.code(), Some(0));
+    assert_eq!(outcome.tests_failed, 2);
+    assert_eq!(outcome.reported_args, vec!["summary".to_string()]);
+    assert_eq!(outcome.registered_tests, vec!["browser merge".to_string()]);
+    assert_eq!(outcome.host_contract, RuntimeHostContract::BrowserRequested);
+    assert_eq!(outcome.runtime_backend, RuntimeBackend::BrowserHarness);
+    assert_eq!(outcome.thread_topology.total_instances, 1);
+    assert_eq!(outcome.thread_topology.terminated_instances, 0);
+    assert_eq!(outcome.thread_topology.live_instances.len(), 1);
+    assert_eq!(outcome.thread_topology.live_instances[0].instance_id, 0);
+    assert_eq!(
+        outcome.thread_topology.live_instances[0].script_url,
+        "https://example.com/stdout-thread.js"
+    );
+    assert_eq!(
+        outcome.thread_topology.snapshot_value(),
+        serde_json::json!({
+            "totalInstances": 1,
+            "terminatedInstances": 0,
+            "liveInstances": [{
+                "instanceId": 0,
+                "scriptUrl": "https://example.com/stdout-thread.js",
                 "postedMessages": [],
                 "postedSharedBuffers": [],
                 "wasTerminated": false
