@@ -31,6 +31,8 @@ fn assert_browser_wasm_threads_acceptance_for_command(
     command: &str,
     source_name: &str,
     max_threads: &str,
+    with_browser_api_surface_manifest: bool,
+    with_explicit_browser_api_surface: bool,
 ) {
     for json_output in [false, true] {
         let dir = tempdir().expect("tempdir");
@@ -44,7 +46,9 @@ fn assert_browser_wasm_threads_acceptance_for_command(
             "console.log('browser wasm threads ok');\n"
         };
         fs::write(&source_path, source).expect("write source");
-        write_browser_api_surface_manifest(&dir);
+        if with_browser_api_surface_manifest {
+            write_browser_api_surface_manifest(&dir);
+        }
 
         let mut cli = Command::new(kali_bin());
         cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
@@ -52,8 +56,11 @@ fn assert_browser_wasm_threads_acceptance_for_command(
         if json_output {
             cli.arg("--output").arg("json");
         }
+        let mut cli = cli.arg(command);
+        if with_explicit_browser_api_surface {
+            cli = cli.arg("--api").arg("browser").arg("--wasm-threads");
+        }
         let output = cli
-            .arg(command)
             .arg("--max-threads")
             .arg(max_threads)
             .arg("--max-spawned-processes")
@@ -105,35 +112,35 @@ fn assert_browser_wasm_threads_acceptance_for_command(
 #[test]
 fn run_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured(
 ) {
-    assert_browser_wasm_threads_acceptance_for_command("run", "main.js", "1");
+    assert_browser_wasm_threads_acceptance_for_command("run", "main.js", "1", true, false);
 }
 
 #[test]
 fn run_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured(
 ) {
     for source_name in ["main.ts", "main.jsx", "main.tsx"] {
-        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "1");
+        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "1", true, false);
     }
 }
 
 #[test]
 fn test_supports_inherited_browser_api_surface_with_wasm_threads_in_js_input_when_browser_harness_is_configured(
 ) {
-    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js", "1");
+    assert_browser_wasm_threads_acceptance_for_command("test", "smoke.test.js", "1", true, false);
 }
 
 #[test]
 fn test_supports_inherited_browser_api_surface_with_wasm_threads_in_ts_jsx_and_tsx_inputs_when_browser_harness_is_configured(
 ) {
     for source_name in ["smoke.test.ts", "smoke.test.jsx", "smoke.test.tsx"] {
-        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "1");
+        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "1", true, false);
     }
 }
 
 #[test]
 fn run_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_inputs() {
     for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
-        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "0");
+        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "0", true, false);
     }
 }
 
@@ -145,6 +152,25 @@ fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_js_ts_js
         "smoke.test.jsx",
         "smoke.test.tsx",
     ] {
-        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "0");
+        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "0", true, false);
+    }
+}
+
+#[test]
+fn run_supports_explicit_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_wasm_threads_acceptance_for_command("run", source_name, "1", false, true);
+    }
+}
+
+#[test]
+fn test_supports_explicit_browser_api_surface_with_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_wasm_threads_acceptance_for_command("test", source_name, "1", false, true);
     }
 }
