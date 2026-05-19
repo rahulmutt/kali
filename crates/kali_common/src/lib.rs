@@ -656,6 +656,18 @@ pub fn object_has_own_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(object_has_own_frozen_callable_aliases())
 }
 
+/// Canonical frozen callable aliases for the supported `Reflect.ownKeys` helper slice.
+pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
+    let statements = [
+        format!("const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)({object_source})"),
+        format!(r#"const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])({object_source})"#),
+        format!(r#"const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])({object_source})"#),
+        format!(r#"const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))({object_source})"#),
+        format!("const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))({object_source})"),
+    ];
+    join_semicolon_terminated_segments(&statements.iter().map(String::as_str).collect::<Vec<_>>())
+}
+
 /// Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases.
 pub fn object_has_own_frozen_callable_condition_source(
     receiver_source: &str,

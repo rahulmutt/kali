@@ -3,12 +3,16 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::reflect_own_keys_frozen_callable_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn reflect_own_keys_source() -> &'static str {
-    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+fn reflect_own_keys_source() -> String {
+    let frozen_callable_lines = reflect_own_keys_frozen_callable_source("obj");
+    format!(
+        r#"const obj = {{ "b": 1, "2": 2, "a": 3, "1": 4 }};
 const frozenObj = Object.freeze(obj);
 const keys = globalThis.Reflect.ownKeys(obj);
 const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
@@ -20,43 +24,39 @@ const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
 const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
-const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
-const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
-const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
-const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
-const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+{frozen_callable_lines}
 let syncCount = 0;
-for (const key of globalThis.Reflect.ownKeys(obj)) {
+for (const key of globalThis.Reflect.ownKeys(obj)) {{
   syncCount += 1;
-}
+}}
 let frozenSyncCount = 0;
-for (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+for (const key of globalThis.Reflect.ownKeys(frozenObj)) {{
   frozenSyncCount += 1;
-}
+}}
 let sequenceCount = 0;
-for (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+for (const key of (0, globalThis.Reflect.ownKeys(obj))) {{
   sequenceCount += 1;
-}
+}}
 let frozenSequenceCount = 0;
-for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+for (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {{
   frozenSequenceCount += 1;
-}
+}}
 let asyncCount = 0;
-for await (const key of globalThis.Reflect.ownKeys(obj)) {
+for await (const key of globalThis.Reflect.ownKeys(obj)) {{
   asyncCount += 1;
-}
+}}
 let frozenAsyncCount = 0;
-for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {
+for await (const key of globalThis.Reflect.ownKeys(frozenObj)) {{
   frozenAsyncCount += 1;
-}
+}}
 let asyncSequenceCount = 0;
-for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {
+for await (const key of (0, globalThis.Reflect.ownKeys(obj))) {{
   asyncSequenceCount += 1;
-}
+}}
 let frozenAsyncSequenceCount = 0;
-for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
+for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {{
   frozenAsyncSequenceCount += 1;
-}
+}}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -103,15 +103,15 @@ if (
   parenthesizedFrozenSingleQuotedFrozenKeys[1] !== '2' ||
   parenthesizedFrozenSingleQuotedFrozenKeys[2] !== 'b' ||
   parenthesizedFrozenSingleQuotedFrozenKeys[3] !== 'a' ||
-  frozenSingleQuotedKeys.length !== 4 ||
+  frozenKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
   frozenMixedBracketedKeys.length !== 4 ||
   frozenBracketedKeys.length !== 4 ||
   parenthesizedFrozenBracketedKeys.length !== 4 ||
-  frozenSingleQuotedKeys[0] !== '1' ||
-  frozenSingleQuotedKeys[1] !== '2' ||
-  frozenSingleQuotedKeys[2] !== 'b' ||
-  frozenSingleQuotedKeys[3] !== 'a' ||
-  frozenCallableKeys.length !== 4 ||
+  frozenKeys[0] !== '1' ||
+  frozenKeys[1] !== '2' ||
+  frozenKeys[2] !== 'b' ||
+  frozenKeys[3] !== 'a' ||
   frozenCallableKeys[0] !== '1' ||
   frozenCallableKeys[1] !== '2' ||
   frozenCallableKeys[2] !== 'b' ||
@@ -124,11 +124,12 @@ if (
   frozenAsyncCount !== 4 ||
   asyncSequenceCount !== 4 ||
   frozenAsyncSequenceCount !== 4
-) {
+) {{
   throw new Error('unexpected Reflect.ownKeys ordering');
-}
+}}
 console.log('reflect ownKeys ok');
 "#
+    )
 }
 
 fn reflect_own_keys_test_source() -> &'static str {
@@ -349,7 +350,7 @@ fn assert_browser_requested_reflect_own_keys(command: &str, filename: &str) {
     let source = if command == "test" {
         reflect_own_keys_test_source()
     } else {
-        reflect_own_keys_source()
+        &reflect_own_keys_source()
     };
     fs::write(&source_path, source).expect("write source");
 
@@ -384,7 +385,7 @@ fn assert_json_browser_requested_reflect_own_keys(command: &str, filename: &str)
     let source = if command == "test" {
         reflect_own_keys_test_source()
     } else {
-        reflect_own_keys_source()
+        &reflect_own_keys_source()
     };
     fs::write(&source_path, source).expect("write source");
 
@@ -443,7 +444,7 @@ fn assert_inherited_browser_api_surface_reflect_own_keys(
     let source = if command == "test" {
         reflect_own_keys_test_source()
     } else {
-        reflect_own_keys_source()
+        &reflect_own_keys_source()
     };
     fs::write(&source_path, source).expect("write source");
     fs::write(

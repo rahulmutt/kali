@@ -610,6 +610,20 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases_
 }
 
 #[test]
+fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
+    let source = reflect_own_keys_frozen_callable_source("obj");
+    let expected = concat!(
+        "const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); ",
+        "const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect[\"ownKeys\"])(obj); ",
+        "const frozenBracketedKeys = Object.freeze(globalThis[\"Reflect\"][\"ownKeys\"])(obj); ",
+        "const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis[\"Reflect\"][\"ownKeys\"]))(obj); ",
+        "const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);"
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
     let message = process_kill_zero_probe_unavailable_message();

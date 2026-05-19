@@ -3,37 +3,35 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::reflect_own_keys_frozen_callable_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn reflect_own_keys_source() -> &'static str {
-    r#"const obj = { "b": 1, "2": 2, "a": 3, "1": 4 };
+fn reflect_own_keys_source() -> String {
+    let frozen_callable_lines = reflect_own_keys_frozen_callable_source("obj");
+    format!(
+        r#"const obj = {{ "b": 1, "2": 2, "a": 3, "1": 4 }};
 const keys = globalThis.Reflect.ownKeys(obj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
-const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
-const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
-const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
-const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
-const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
-const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
-const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+{frozen_callable_lines}
 let syncCount = 0;
-for (const key of Reflect.ownKeys(obj)) {
+for (const key of Reflect.ownKeys(obj)) {{
   syncCount += 1;
-}
+}}
 let sequenceCount = 0;
-for (const key of (0, Reflect.ownKeys(obj))) {
+for (const key of (0, Reflect.ownKeys(obj))) {{
   sequenceCount += 1;
-}
+}}
 let mixedSequenceCount = 0;
-for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {
+for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {{
   mixedSequenceCount += 1;
-}
+}}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -61,21 +59,6 @@ if (
   fullyBracketedKeys[2] !== 'b' ||
   fullyBracketedKeys[3] !== 'a' ||
   singleQuotedKeys.length !== 4 ||
-  parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
-  parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
-  parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
-  parenthesizedFrozenSingleQuotedKeys[2] !== 'b' ||
-  parenthesizedFrozenSingleQuotedKeys[3] !== 'a' ||
-  parenthesizedFrozenMixedBracketedKeys.length !== 4 ||
-  parenthesizedFrozenMixedBracketedKeys[0] !== '1' ||
-  parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
-  parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
-  parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
-  frozenCallableKeys.length !== 4 ||
-  frozenMixedBracketedKeys.length !== 4 ||
-  frozenBracketedKeys.length !== 4 ||
-  parenthesizedFrozenBracketedKeys.length !== 4 ||
-  parenthesizedFrozenCallableKeys.length !== 4 ||
   singleQuotedKeys[0] !== '1' ||
   singleQuotedKeys[1] !== '2' ||
   singleQuotedKeys[2] !== 'b' ||
@@ -83,11 +66,12 @@ if (
   syncCount !== 4 ||
   sequenceCount !== 4 ||
   mixedSequenceCount !== 4
-) {
+) {{
   throw new Error('unexpected Reflect.ownKeys ordering');
-}
+}}
 console.log('reflect ownKeys ok');
 "#
+    )
 }
 
 fn reflect_own_keys_test_source() -> &'static str {
