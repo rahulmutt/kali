@@ -507,6 +507,26 @@ fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() 
         summary_note: BrowserRuntimeContract::summary_note(),
         contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
     };
+    let invalid_description = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: " real browser host",
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: &["run", "test"],
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+    let invalid_description_note = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: " browser runtime host description: real browser host ",
+        supported_commands: BrowserRuntimeContract::supported_commands(),
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
     let invalid_command = BrowserRuntimeContractDescriptor {
         host_label: BrowserRuntimeContract::host_label(),
         host_description: BrowserRuntimeContract::host_description(),
@@ -530,6 +550,12 @@ fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() 
 
     assert!(!browser_runtime_contract_descriptor_is_canonical(
         &invalid_label
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_description
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_description_note
     ));
     assert!(!browser_runtime_contract_descriptor_is_canonical(
         &invalid_command
