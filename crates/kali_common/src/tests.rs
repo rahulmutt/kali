@@ -1661,10 +1661,23 @@ fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero
 ) {
     let source = late_process_control_single_quoted_process_source();
     let zero_probe_source = late_process_control_source();
+    let single_quoted_process_source =
+        join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS);
 
     assert!(source.starts_with(&zero_probe_source), "source: {source}");
     assert_eq!(
         source.matches(&zero_probe_source).count(),
+        1,
+        "source: {source}"
+    );
+    assert!(
+        source.contains(single_quoted_process_source.as_str()),
+        "source: {source}"
+    );
+    assert_eq!(
+        source
+            .matches(single_quoted_process_source.as_str())
+            .count(),
         1,
         "source: {source}"
     );

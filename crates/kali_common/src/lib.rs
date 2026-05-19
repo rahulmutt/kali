@@ -1403,12 +1403,20 @@ pub fn late_process_control_source() -> String {
     )
 }
 
+const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
+    r#"globalThis['process'].kill(0)"#,
+    r#"globalThis['process']['kill'](+0)"#,
+    r#"Object.freeze(globalThis['process'].kill)(0)"#,
+    r#"Object.freeze(globalThis['process']['kill'])(+0)"#,
+];
+
 /// Canonical late-process-control source text for the browser JS single-quoted process root aliases.
 pub fn late_process_control_single_quoted_process_source() -> String {
     format!(
         "{} {}",
         late_process_control_source(),
-        r#"globalThis['process'].kill(0); globalThis['process']['kill'](+0); Object.freeze(globalThis['process'].kill)(0); Object.freeze(globalThis['process']['kill'])(+0);"#
+        join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS)
+            .trim_end()
     )
 }
 
