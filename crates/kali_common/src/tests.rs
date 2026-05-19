@@ -1022,6 +1022,22 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
         source.contains(r#"Object.freeze((process).kill)(+0)"#),
         "source: {source}"
     );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"]["kill"]))(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"])["kill"])(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["process"])["kill"])(+0)"#),
+        "source: {source}"
+    );
     let parenthesized_receiver_freeze_aliases =
         process_kill_zero_probe_parenthesized_receiver_freeze_aliases();
     assert_eq!(
