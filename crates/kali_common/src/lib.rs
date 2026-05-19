@@ -1430,9 +1430,14 @@ const LATE_PROCESS_ENV_MUTATION_SEGMENTS: &[&str] = &[
     r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
 ];
 
+/// Canonical late-process-environment-mutation alias inventory used by the browser and runtime smoke.
+pub fn late_process_env_mutation_aliases() -> &'static [&'static str] {
+    LATE_PROCESS_ENV_MUTATION_SEGMENTS
+}
+
 /// Canonical late-process-environment-mutation source text used by the browser and runtime smoke.
 pub fn late_process_env_mutation_source() -> String {
-    join_semicolon_terminated_segments(LATE_PROCESS_ENV_MUTATION_SEGMENTS)
+    join_semicolon_terminated_segments(late_process_env_mutation_aliases())
 }
 
 /// Canonical broader `Intl` source text used by the browser and runtime smoke.

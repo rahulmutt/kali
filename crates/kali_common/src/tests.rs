@@ -1675,44 +1675,40 @@ fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_
 
 #[test]
 fn test_late_process_env_mutation_source_lists_bracketed_process_aliases() {
+    let aliases = late_process_env_mutation_aliases();
     let source = late_process_env_mutation_source();
-    let expected = format!("{};", LATE_PROCESS_ENV_MUTATION_SEGMENTS.join("; "));
+    let expected = format!("{};", aliases.join("; "));
 
+    assert_eq!(
+        aliases,
+        &[
+            r#"process.env = {}"#,
+            r#"process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"globalThis.process.env = {}"#,
+            r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"process["env"] = {}"#,
+            r#"process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+            r#"globalThis.process["env"] = {}"#,
+            r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+            r#"globalThis["process"].env = {}"#,
+            r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+            r#"globalThis["process"]["env"] = {}"#,
+            r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
+            r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+            r#"delete process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+            r#"delete process.env["KALI_BROWSER_ENV_MUTATION"]"#,
+            r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+            r#"delete globalThis.process.env["KALI_BROWSER_ENV_MUTATION"]"#,
+            r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
+            r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
+        ]
+    );
     assert_eq!(source, expected);
     assert!(
-        source.contains(r#"process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
         source.contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete process.env["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis.process.env["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
         "source: {source}"
     );
     assert!(
