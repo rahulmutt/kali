@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-imul-builtin-js",
+  "version": 1,
+  "sourceFile": "math-imul-benchmark-v1-js.js",
+  "sourceSha256": "sha256-f5ac4cbba6a94a764b5ba4e4ff579d8a428ed2ccf30867539703bdd071996384",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
