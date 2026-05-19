@@ -600,10 +600,6 @@ pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String 
             "bracketedDotSequenceKill",
             "(globalThis[\"process\"].kill, globalThis[\"process\"].kill)",
         ),
-        (
-            "fullyBracketedSequenceKill",
-            "(globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"])",
-        ),
     ])
 }
 
