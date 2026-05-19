@@ -3665,6 +3665,10 @@ fn parse_thread_runtime_instance_snapshot_value(
     if trimmed_script_url.is_empty() || trimmed_script_url != script_url {
         return None;
     }
+    let parsed_script_url = url::Url::parse(trimmed_script_url).ok()?;
+    if parsed_script_url.as_str() != script_url {
+        return None;
+    }
 
     let posted_messages = object.get("postedMessages")?.as_array()?.clone();
     let posted_shared_buffers = object
