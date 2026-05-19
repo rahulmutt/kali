@@ -37,6 +37,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 - Decide whether harness-assisted `run --api browser` / `test --api browser` graduates to stable standalone browser runtime support.
 - Before promotion, specify host ownership, summary JSON behavior, sandbox limitations, diagnostics, and failure modes.
 - Keep browser-targeted `check` / `build --bundle`, harness execution, and post-deployment browser behavior separate.
+- Current browser-runtime rejection coverage now also includes JSX/TSX `run --api browser --sandbox` and inherited browser-surface `test --sandbox` no-harness regressions, matching the existing JS/TS guardrails.
 
 ### 22.3 Late host APIs and resources
 

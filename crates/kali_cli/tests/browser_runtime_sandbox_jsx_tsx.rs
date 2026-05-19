@@ -163,6 +163,87 @@ fn assert_browser_runtime_rejection_inherited(
     }
 }
 
+fn assert_browser_runtime_rejection_without_browser_harness(
+    command: &str,
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, source).expect("write source");
+    write_valid_policy(&policy_path);
+
+    let mut output = Command::new(kali_bin());
+    output
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .current_dir(dir.path());
+    if json_output {
+        output.arg("--output").arg("json");
+    }
+    let output = output
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_browser_runtime_rejection_json(&json, "cli");
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_browser_runtime_rejection_text(&stderr);
+    }
+}
+
+fn assert_browser_runtime_rejection_inherited_without_browser_harness(
+    command: &str,
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    let policy_path = dir.path().join("kali.policy.json");
+    fs::write(&source_path, source).expect("write source");
+    write_browser_api_surface_manifest(&dir);
+    write_valid_policy(&policy_path);
+
+    let mut output = Command::new(kali_bin());
+    output
+        .env_remove(kali_runtime::BROWSER_HARNESS_COMMAND_ENV)
+        .current_dir(dir.path());
+    if json_output {
+        output.arg("--output").arg("json");
+    }
+    let output = output
+        .arg(command)
+        .arg("--sandbox")
+        .arg(&policy_path)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_browser_runtime_rejection_json(&json, "config");
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_browser_runtime_rejection_text(&stderr);
+    }
+}
+
 #[test]
 fn run_rejects_browser_api_surface_with_sandbox_in_jsx_input_when_browser_harness_is_configured() {
     assert_browser_runtime_rejection("run", "main.jsx", "console.log('browser run');", false);
@@ -189,6 +270,47 @@ fn test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_bro
 fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_when_browser_harness_is_configured(
 ) {
     assert_browser_runtime_rejection_inherited(
+        "test",
+        "smoke.test.tsx",
+        "Kali.test('browser', () => {});",
+        true,
+    );
+}
+
+#[test]
+fn run_rejects_browser_api_surface_with_sandbox_in_jsx_input_without_browser_harness() {
+    assert_browser_runtime_rejection_without_browser_harness(
+        "run",
+        "main.jsx",
+        "console.log('browser run');",
+        false,
+    );
+}
+
+#[test]
+fn json_run_rejects_browser_api_surface_with_sandbox_in_jsx_input_without_browser_harness() {
+    assert_browser_runtime_rejection_without_browser_harness(
+        "run",
+        "main.jsx",
+        "console.log('browser run');",
+        true,
+    );
+}
+
+#[test]
+fn test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness() {
+    assert_browser_runtime_rejection_inherited_without_browser_harness(
+        "test",
+        "smoke.test.tsx",
+        "Kali.test('browser', () => {});",
+        false,
+    );
+}
+
+#[test]
+fn json_test_rejects_inherited_browser_api_surface_with_sandbox_in_tsx_input_without_browser_harness(
+) {
+    assert_browser_runtime_rejection_inherited_without_browser_harness(
         "test",
         "smoke.test.tsx",
         "Kali.test('browser', () => {});",
