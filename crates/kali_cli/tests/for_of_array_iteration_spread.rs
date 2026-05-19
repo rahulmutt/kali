@@ -1,10 +1,24 @@
 use std::{fs, process::Command};
 
+use kali_common::array_from_frozen_callable_source;
 use serde_json::Value;
 use tempfile::tempdir;
 
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
+}
+
+fn array_from_frozen_loop_lines(loop_header: &str, indentation: &str) -> String {
+    array_from_frozen_callable_source()
+        .trim_end_matches(';')
+        .split("; ")
+        .map(|alias| {
+            format!(
+                "{indentation}{loop_header}{alias}(values) {{\n{indentation}  console.log(value);\n{indentation}}}"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn assert_for_of_array_iteration_spread(
@@ -36,83 +50,49 @@ fn assert_for_of_array_iteration_spread(
 }
 
 fn browser_harness_array_from_source(command: &str) -> String {
-    let body = r#"const values = [1, 2];
-for (const value of Array.from(values)) {
+    let frozen_for_of = array_from_frozen_loop_lines("for (const value of ", "");
+    let frozen_for_await = array_from_frozen_loop_lines("for await (const value of ", "");
+    let body = format!(
+        r#"const values = [1, 2];
+for (const value of Array.from(values)) {{
   console.log(value);
-}
-for (const value of globalThis.Array.from(values)) {
+}}
+for (const value of globalThis.Array.from(values)) {{
   console.log(value);
-}
-for (const value of globalThis["Array"].from(values)) {
+}}
+for (const value of globalThis["Array"].from(values)) {{
   console.log(value);
-}
-for (const value of globalThis["Array"]["from"](values)) {
+}}
+for (const value of globalThis["Array"]["from"](values)) {{
   console.log(value);
-}
-for (const value of Object.freeze(Array.from)(values)) {
+}}
+{frozen_for_of}
+for await (const value of Array.from(values)) {{
   console.log(value);
-}
-for (const value of Object.freeze((Array.from))(values)) {
+}}
+for await (const value of globalThis.Array.from(values)) {{
   console.log(value);
-}
-for (const value of Object.freeze(globalThis.Array.from)(values)) {
+}}
+for await (const value of globalThis["Array"].from(values)) {{
   console.log(value);
-}
-for (const value of Object.freeze((globalThis.Array.from))(values)) {
+}}
+for await (const value of globalThis["Array"]["from"](values)) {{
   console.log(value);
-}
-for (const value of Object.freeze(globalThis["Array"].from)(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze((globalThis["Array"].from))(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze(globalThis["Array"]["from"])(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze((globalThis["Array"]["from"]))(values)) {
-  console.log(value);
-}
-for await (const value of Array.from(values)) {
-  console.log(value);
-}
-for await (const value of globalThis.Array.from(values)) {
-  console.log(value);
-}
-for await (const value of globalThis["Array"].from(values)) {
-  console.log(value);
-}
-for await (const value of globalThis["Array"]["from"](values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze(Array.from)(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze((Array.from))(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze((globalThis.Array.from))(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze(globalThis["Array"].from)(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze((globalThis["Array"].from))(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze(globalThis["Array"]["from"])(values)) {
-  console.log(value);
-}
-for await (const value of Object.freeze((globalThis["Array"]["from"]))(values)) {
-  console.log(value);
-}
-"#;
+}}
+{frozen_for_await}
+"#
+    );
 
     match command {
         "test" => format!(
-            "Kali.test('browser Array.from wrappers', () => {{\n  async function browserArrayFromWrappers() {{\n{body}  }}\n  return browserArrayFromWrappers();\n}});\n"
+            "Kali.test('browser Array.from wrappers', () => {{
+  async function browserArrayFromWrappers() {{
+{body}  }}
+  return browserArrayFromWrappers();
+}});
+"
         ),
-        _ => body.to_string(),
+        _ => body,
     }
 }
 

@@ -159,6 +159,38 @@ fn test_array_from_aliases_list_all_supported_aliases_in_order() {
 }
 
 #[test]
+fn test_array_from_frozen_callable_aliases_list_all_supported_aliases_in_order() {
+    let aliases = array_from_frozen_callable_aliases();
+    let source = array_from_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze(Array.from)"#,
+            r#"Object.freeze((Array.from))"#,
+            r#"Object.freeze(globalThis.Array.from)"#,
+            r#"Object.freeze((globalThis.Array.from))"#,
+            r#"Object.freeze(globalThis["Array"].from)"#,
+            r#"Object.freeze((globalThis["Array"].from))"#,
+            r#"Object.freeze(globalThis["Array"]["from"])"#,
+            r#"Object.freeze((globalThis["Array"]["from"]))"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Array.from frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();

@@ -950,6 +950,25 @@ pub fn array_from_source() -> String {
     join_semicolon_terminated_segments(array_from_aliases())
 }
 
+/// Canonical frozen callable aliases for the supported `Array.from` helper slice.
+pub const fn array_from_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(Array.from)"#,
+        r#"Object.freeze((Array.from))"#,
+        r#"Object.freeze(globalThis.Array.from)"#,
+        r#"Object.freeze((globalThis.Array.from))"#,
+        r#"Object.freeze(globalThis["Array"].from)"#,
+        r#"Object.freeze((globalThis["Array"].from))"#,
+        r#"Object.freeze(globalThis["Array"]["from"])"#,
+        r#"Object.freeze((globalThis["Array"]["from"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Array.from` frozen callable aliases.
+pub fn array_from_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(array_from_frozen_callable_aliases())
+}
+
 /// Canonical root aliases for the supported `Set` constructor slice.
 pub const fn set_constructor_aliases() -> &'static [&'static str] {
     &[
