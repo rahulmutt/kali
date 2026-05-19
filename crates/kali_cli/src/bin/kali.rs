@@ -5037,9 +5037,10 @@ fn single_diagnostic_to_values(
 #[cfg(test)]
 mod tests {
     use super::{
-        command_allows_pretty_without_json, emit_native_json_payload, manifest_compat_features,
-        manifest_runtime_profiles, package_audit_command, package_audit_preview_diagnostic,
-        sort_package_audit_findings, CliOutputOptions,
+        analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
+        manifest_compat_features, manifest_runtime_profiles, package_audit_command,
+        package_audit_preview_diagnostic, package_effects_report, sort_package_audit_findings,
+        CliOutputOptions,
     };
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
@@ -5179,6 +5180,48 @@ mod tests {
             result.is_err(),
             "invalid effects payload should panic before emission"
         );
+    }
+
+    #[test]
+    fn package_effects_report_carries_inherited_browser_threaded_context() {
+        let context = analysis_context_for_api(
+            kali_cli::ApiSurface::Browser,
+            vec!["wasm-threads".to_string(), "wasm-threads".to_string()],
+            Vec::new(),
+        );
+        let report = kali_sandbox::EffectReport {
+            schema_version: 1,
+            analysis_context: context.clone(),
+            entry_points: vec!["widget".to_string()],
+            effects: Vec::new(),
+            dynamic_effects: false,
+            dynamic_reasons: Vec::new(),
+        };
+        let payload = package_effects_report(
+            kali_sandbox::PackageCoordinate {
+                name: "widget".to_string(),
+                version: "1.2.3".to_string(),
+                registry: "npm".to_string(),
+            },
+            report,
+        );
+        let payload = serde_json::to_value(payload).expect("serialize package-effects payload");
+
+        super::validate_package_effects_payload_value(&payload)
+            .expect("browser-threaded package-effects payload should validate");
+        assert_eq!(
+            payload["report"]["analysisContext"]["apiSurface"],
+            json!("browser")
+        );
+        assert_eq!(
+            payload["report"]["analysisContext"]["runtimeProfiles"],
+            json!(["wasm-threads"])
+        );
+        assert_eq!(
+            payload["report"]["analysisContext"]["compatFeatures"],
+            json!([])
+        );
+        assert_eq!(context.api_surface, "browser");
     }
 
     #[test]
