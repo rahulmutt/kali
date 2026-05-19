@@ -2274,6 +2274,7 @@ fn browser_runtime_contract_docs_track_trimmed_validation_rules() {
             [
                 "hostLabel: const",
                 "hostDescription: non-empty, non-whitespace string",
+                "`hostDescription: non-empty, non-whitespace string` — short human-readable description of the intended browser host; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail. This matches the CLI validator's trim-on-compare rule for the browser runtime contract.",
                 "hostDescriptionNote: const",
                 "supportedCommands: string[]",
                 "diagnosticHint: non-empty, non-whitespace string",
