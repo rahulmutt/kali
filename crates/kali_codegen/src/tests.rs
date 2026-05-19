@@ -3572,6 +3572,51 @@ fn supported_for_of_array_iteration_accepts_bracketed_global_this_array_from_cal
 }
 
 #[test]
+fn supported_for_of_array_iteration_accepts_single_quoted_global_this_array_from_calls() {
+    let program = parse_and_lower_lir(
+        "for (const item of globalThis['Array']['from']([1, 2])) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_of_array_iteration_accepts_single_quoted_array_from_calls() {
+    let program =
+        parse_and_lower_lir("for (const item of Array['from']([1, 2])) { console.log(item); }");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_of_array_iteration_accepts_frozen_array_from_calls() {
     let program = parse_and_lower_lir(
         "const values = [1, 2]; for (const item of Object.freeze(Array.from)(values)) { console.log(item); }",
@@ -3621,6 +3666,52 @@ fn supported_for_of_array_iteration_accepts_frozen_bracketed_global_this_array_f
 fn supported_for_of_array_iteration_accepts_frozen_global_this_array_from_calls() {
     let program = parse_and_lower_lir(
         "const values = [1, 2]; for (const item of Object.freeze(globalThis.Array.from)(values)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_of_array_iteration_accepts_frozen_single_quoted_global_this_array_from_calls() {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for (const item of Object.freeze(globalThis['Array']['from'])(values)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_of_array_iteration_accepts_frozen_single_quoted_array_from_calls() {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for (const item of Object.freeze(Array['from'])(values)) { console.log(item); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
