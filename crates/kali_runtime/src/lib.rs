@@ -3345,7 +3345,18 @@ function readGuestString(ptr, len) {{
 
 function recordThreadInstance(scriptUrlValue) {{
   const trimmedScriptUrl = scriptUrlValue.trim();
-  const parsedScriptUrl = new URL(trimmedScriptUrl);
+  if (trimmedScriptUrl.length === 0 || trimmedScriptUrl !== scriptUrlValue) {{
+    throw new Error('browser runtime thread_spawn scriptUrl must be a canonical absolute URL');
+  }}
+  let parsedScriptUrl;
+  try {{
+    parsedScriptUrl = new URL(trimmedScriptUrl);
+  }} catch {{
+    throw new Error('browser runtime thread_spawn scriptUrl must be a canonical absolute URL');
+  }}
+  if (parsedScriptUrl.href !== trimmedScriptUrl) {{
+    throw new Error('browser runtime thread_spawn scriptUrl must be a canonical absolute URL');
+  }}
   const instanceId = nextThreadInstanceId++;
   threadTopology.liveInstances.push({{
     instanceId,

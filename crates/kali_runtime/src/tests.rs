@@ -2444,6 +2444,36 @@ fn browser_requested_runtime_reports_thread_topology_from_thread_spawn() {
 }
 
 #[test]
+fn browser_requested_runtime_rejects_whitespace_thread_spawn_script_url() {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let wasm = compile_wat(
+        r#"
+            (module
+                (import "kali:rt" "thread_spawn" (func $thread_spawn (param i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 0) " https://e.co/padded.js ")
+                (func (export "_start")
+                    i32.const 0
+                    i32.const 24
+                    call $thread_spawn
+                    drop))
+        "#,
+    );
+
+    let outcome = browser_runtime_execute_checked(Some("node"), &wasm, &[], tempdir.path(), false)
+        .expect("execute browser requested runtime harness with invalid thread spawn url");
+
+    assert_ne!(outcome.status.code(), Some(0));
+    assert!(
+        outcome
+            .stderr
+            .contains("browser runtime thread_spawn scriptUrl must be a canonical absolute URL"),
+        "stderr: {}",
+        outcome.stderr
+    );
+}
+
+#[test]
 fn browser_requested_runtime_summary_merges_stdout_tests_failed_when_summary_file_has_invalid_type()
 {
     let tempdir = tempfile::tempdir().expect("tempdir");
