@@ -23,7 +23,7 @@ use kali_common::{
     generator_class_method_lowering_unavailable_message,
     generator_function_lowering_unavailable_message,
     generator_function_lowering_unavailable_message_for_flavors,
-    template::resolve_interpolated_template_literal,
+    process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
 };
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
@@ -3310,10 +3310,20 @@ impl TypeContext {
                 "pid" | "cwd" | "chdir" | "exit" | "kill"
             )
         {
-            Some(format!(
-                "globalThis[\"process\"].{}, globalThis.process[\"{}\"], globalThis[\"process\"][\"{}\"]",
-                expr.property, expr.property, expr.property
-            ))
+            let mut aliases = vec![
+                format!("globalThis[\"process\"].{}", expr.property),
+                format!("globalThis.process[\"{}\"]", expr.property),
+                format!("globalThis[\"process\"][\"{}\"]", expr.property),
+            ];
+            if expr.property == "kill" {
+                aliases.extend(
+                    process_kill_zero_probe_wrapped_zero_aliases()
+                        .iter()
+                        .copied()
+                        .map(String::from),
+                );
+            }
+            Some(aliases.join(", "))
         } else {
             None
         };

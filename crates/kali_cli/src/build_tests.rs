@@ -7988,11 +7988,17 @@ fn assert_build_source_file_rejects_process_kill_zero_probe_in_input(
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
     for expected in [
         "process.kill",
-        "globalThis.process.kill",
-        r#"globalThis["process"].kill"#,
-        r#"globalThis.process["kill"]"#,
-        r#"globalThis["process"]["kill"]"#,
+        "process.kill((0))",
         r#"process["kill"]"#,
+        r#"process["kill"]((0))"#,
+        "globalThis.process.kill",
+        "globalThis.process.kill((0))",
+        r#"globalThis.process["kill"]"#,
+        r#"globalThis.process["kill"]((0))"#,
+        r#"globalThis["process"].kill"#,
+        r#"globalThis["process"].kill((0))"#,
+        r#"globalThis["process"]["kill"]"#,
+        r#"globalThis["process"]["kill"]((0))"#,
     ] {
         assert!(
             error
