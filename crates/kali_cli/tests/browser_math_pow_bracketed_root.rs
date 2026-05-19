@@ -346,6 +346,16 @@ fn build_emits_bracketed_global_this_math_pow_member_chain_in_ts_input() {
 }
 
 #[test]
+fn build_emits_bracketed_global_this_math_pow_member_chain_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_pow_member("app.jsx", false);
+}
+
+#[test]
+fn build_emits_bracketed_global_this_math_pow_member_chain_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_pow_member("app.tsx", false);
+}
+
+#[test]
 fn json_build_emits_bracketed_global_this_math_pow_member_chain_in_js_input() {
     assert_browser_bundle_bracketed_global_this_math_pow_member("app.js", true);
 }
@@ -356,7 +366,17 @@ fn json_build_emits_bracketed_global_this_math_pow_member_chain_in_ts_input() {
 }
 
 #[test]
-fn run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_and_ts_input(
+fn json_build_emits_bracketed_global_this_math_pow_member_chain_in_jsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_pow_member("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_bracketed_global_this_math_pow_member_chain_in_tsx_input() {
+    assert_browser_bundle_bracketed_global_this_math_pow_member("app.tsx", true);
+}
+
+#[test]
+fn run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     for (command, source_name, source, expected_stdout) in [
         (
@@ -380,6 +400,30 @@ fn run_and_test_supports_bracketed_global_this_math_pow_member_chain_when_browse
         (
             "test",
             "smoke.test.ts",
+            "Kali.test('bracketed pow member alias', () => { const exponent = 3; const alias = exponent; console.log(globalThis[\"Math\"][\"pow\"](2, alias)); });\n",
+            "8\nok 1",
+        ),
+        (
+            "run",
+            "main.jsx",
+            "const exponent = 3; const alias = exponent; console.log(globalThis[\"Math\"][\"pow\"](2, alias));\n",
+            "8",
+        ),
+        (
+            "test",
+            "smoke.test.jsx",
+            "Kali.test('bracketed pow member alias', () => { const exponent = 3; const alias = exponent; console.log(globalThis[\"Math\"][\"pow\"](2, alias)); });\n",
+            "8\nok 1",
+        ),
+        (
+            "run",
+            "main.tsx",
+            "const exponent = 3; const alias = exponent; console.log(globalThis[\"Math\"][\"pow\"](2, alias));\n",
+            "8",
+        ),
+        (
+            "test",
+            "smoke.test.tsx",
             "Kali.test('bracketed pow member alias', () => { const exponent = 3; const alias = exponent; console.log(globalThis[\"Math\"][\"pow\"](2, alias)); });\n",
             "8\nok 1",
         ),
