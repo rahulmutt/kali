@@ -1186,6 +1186,15 @@ fn test_math_pow_browser_alias_inventory_source_is_canonical() {
 }
 
 #[test]
+fn test_math_pow_browser_alias_inventory_source_reuses_the_canonical_math_pow_alias_inventory() {
+    let source = math_pow_browser_alias_inventory_source();
+    let canonical = math_pow_alias_inventory_source();
+
+    assert_eq!(source, canonical);
+    assert_eq!(source.matches(&canonical).count(), 1, "source: {source}");
+}
+
+#[test]
 fn test_math_pow_bracketed_global_this_alias_chain_source_is_canonical() {
     assert_eq!(
         math_pow_bracketed_global_this_alias_chain_source(),
