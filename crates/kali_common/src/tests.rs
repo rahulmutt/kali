@@ -1657,6 +1657,36 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
 }
 
 #[test]
+fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero_probe_inventory_once(
+) {
+    let source = late_process_control_single_quoted_process_source();
+    let zero_probe_source = late_process_control_source();
+
+    assert!(source.starts_with(&zero_probe_source), "source: {source}");
+    assert_eq!(
+        source.matches(&zero_probe_source).count(),
+        1,
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['process'].kill(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['process']['kill'](+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process'].kill)(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process']['kill'])(+0)"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_in_order() {
     let aliases = process_kill_zero_probe_parenthesized_receiver_aliases();
     let source = process_kill_zero_probe_parenthesized_receiver_source();

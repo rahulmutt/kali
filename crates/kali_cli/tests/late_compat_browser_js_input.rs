@@ -12,11 +12,7 @@ fn late_process_control_source() -> String {
 }
 
 fn late_process_control_single_quoted_process_source() -> String {
-    format!(
-        "{} {}",
-        late_process_control_source(),
-        r#"globalThis['process'].kill(0); globalThis['process']['kill'](+0); Object.freeze(globalThis['process'].kill)(0); Object.freeze(globalThis['process']['kill'])(+0);"#
-    )
+    kali_common::late_process_control_single_quoted_process_source()
 }
 
 fn late_env_materialization_source() -> &'static str {

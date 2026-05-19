@@ -1403,6 +1403,15 @@ pub fn late_process_control_source() -> String {
     )
 }
 
+/// Canonical late-process-control source text for the browser JS single-quoted process root aliases.
+pub fn late_process_control_single_quoted_process_source() -> String {
+    format!(
+        "{} {}",
+        late_process_control_source(),
+        r#"globalThis['process'].kill(0); globalThis['process']['kill'](+0); Object.freeze(globalThis['process'].kill)(0); Object.freeze(globalThis['process']['kill'])(+0);"#
+    )
+}
+
 const LATE_PROCESS_ENV_MUTATION_SEGMENTS: &[&str] = &[
     r#"process.env = {}"#,
     r#"process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
