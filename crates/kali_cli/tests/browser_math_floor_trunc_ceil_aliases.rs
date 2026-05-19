@@ -106,17 +106,10 @@ fn assert_browser_harness_math_floor_trunc_ceil(
 }
 
 #[test]
-fn browser_harness_math_floor_trunc_ceil_source_includes_dot_root_freeze_aliases() {
+fn browser_harness_math_floor_trunc_ceil_source_includes_full_frozen_callable_inventory() {
     let source = browser_harness_math_floor_trunc_ceil_run_source();
 
-    for expected in [
-        r#"Object.freeze(globalThis.Math.floor)"#,
-        r#"Object.freeze(globalThis.Math.trunc)"#,
-        r#"Object.freeze(globalThis.Math.ceil)"#,
-        r#"Object.freeze(globalThis["Math"].floor)"#,
-        r#"Object.freeze(globalThis["Math"].trunc)"#,
-        r#"Object.freeze(globalThis["Math"].ceil)"#,
-    ] {
+    for expected in kali_common::math_floor_trunc_ceil_frozen_callable_aliases() {
         assert!(
             source.contains(expected),
             "missing {expected} in source: {source}"
