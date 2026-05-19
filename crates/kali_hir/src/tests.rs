@@ -254,6 +254,62 @@ fn test_lower_statements_records_function_flavor_metadata_for_class_expressions(
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata_for_default_export_class_expressions() {
+    let statements = parse(
+        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } });",
+    );
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let class_expr = result
+        .nodes
+        .iter()
+        .find(|node| {
+            node.kind == HirNodeKind::ClassExpr && node.text.as_deref() == Some("DefaultExample")
+        })
+        .expect("named default-export class expression node");
+    assert_eq!(class_expr.kind, HirNodeKind::ClassExpr);
+
+    let outer = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("outer")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("async generator default-export class expression method node");
+    let inner = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("inner")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("generator default-export class expression method node");
+    let plain = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("plain")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("plain default-export class expression method node");
+
+    assert_eq!(
+        result.function_flavor(outer),
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+    assert_eq!(
+        result.function_flavor(inner),
+        Some(FunctionFlavor::Generator)
+    );
+    assert_eq!(result.function_flavor(plain), Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_lower_statements_records_export_all_nodes() {
     let statements = parse("export * from './helper.ts';");
     let mut lowerer = HirLowerer::new();

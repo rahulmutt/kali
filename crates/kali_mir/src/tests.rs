@@ -156,6 +156,41 @@ fn test_mir_lowering_preserves_function_flavor_metadata_for_class_expressions() 
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_flavor_metadata_for_default_export_class_expressions() {
+    let hir = parse_and_lower_hir(
+        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } });",
+    );
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let class_expr = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("DefaultExample"))
+        .expect("named default-export class expression node");
+    assert_eq!(class_expr.function_flavor, None);
+
+    let outer = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer default-export class expression method node");
+    let inner = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner default-export class expression method node");
+    let plain = mir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("plain"))
+        .expect("plain default-export class expression method node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.function_flavor, Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_call_expressions_lower_to_call_nodes() {
     let hir = parse_and_lower_hir("foo(bar, 1);");
     let mir = MirLowerer::new().lower_hir_result(&hir);

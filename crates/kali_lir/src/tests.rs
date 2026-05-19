@@ -128,6 +128,41 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_class_expressions() 
 }
 
 #[test]
+fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_class_expressions() {
+    let mir = parse_and_lower(
+        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } });",
+    );
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let class_expr = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("DefaultExample"))
+        .expect("named default-export class expression node");
+    assert_eq!(class_expr.function_flavor, None);
+
+    let outer = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("outer"))
+        .expect("outer default-export lir class expression node");
+    let inner = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("inner"))
+        .expect("inner default-export lir class expression node");
+    let plain = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("plain"))
+        .expect("plain default-export lir class expression node");
+
+    assert_eq!(outer.function_flavor, Some(FunctionFlavor::AsyncGenerator));
+    assert_eq!(inner.function_flavor, Some(FunctionFlavor::Generator));
+    assert_eq!(plain.function_flavor, Some(FunctionFlavor::Sync));
+}
+
+#[test]
 fn test_lir_validation_rejects_out_of_bounds_children() {
     let lir = LirProgram {
         root: LirNodeId::new(0),
