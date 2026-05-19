@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-round-builtin",
+  "version": 1,
+  "sourceFile": "math-round-benchmark-v1.ts",
+  "sourceSha256": "sha256-6ac5ba8631f826b5de1facb36d4b4a68ed439e321b3952745b4c4a6dc3052c6b",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
