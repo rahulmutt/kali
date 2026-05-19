@@ -106,6 +106,25 @@ fn assert_browser_harness_math_floor_trunc_ceil(
 }
 
 #[test]
+fn browser_harness_math_floor_trunc_ceil_source_includes_dot_root_freeze_aliases() {
+    let source = browser_harness_math_floor_trunc_ceil_run_source();
+
+    for expected in [
+        r#"Object.freeze(globalThis.Math.floor)"#,
+        r#"Object.freeze(globalThis.Math.trunc)"#,
+        r#"Object.freeze(globalThis.Math.ceil)"#,
+        r#"Object.freeze(globalThis["Math"].floor)"#,
+        r#"Object.freeze(globalThis["Math"].trunc)"#,
+        r#"Object.freeze(globalThis["Math"].ceil)"#,
+    ] {
+        assert!(
+            source.contains(expected),
+            "missing {expected} in source: {source}"
+        );
+    }
+}
+
+#[test]
 fn run_supports_math_floor_trunc_ceil_alias_chain_when_browser_harness_is_configured_in_ts_input() {
     assert_browser_harness_math_floor_trunc_ceil(
         "run",
