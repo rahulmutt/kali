@@ -3093,6 +3093,7 @@ impl<'a> FunctionEmitter<'a> {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
+        let object = self.resolve_literal_aggregate(object).unwrap_or(object);
 
         matches!(
             callee_node.text.as_deref(),

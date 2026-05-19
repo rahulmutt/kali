@@ -9342,6 +9342,14 @@ fn test_resolution_supports_frozen_global_this_array_from_iteration_in_js_input(
 }
 
 #[test]
+fn test_resolution_supports_frozen_bracketed_global_this_array_from_iteration_in_js_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.js",
+        "const values = [1, 2]; for (const value of Object.freeze((globalThis[\"Array\"]))[\"from\"](values)) { console.log(value); }",
+    );
+}
+
+#[test]
 fn test_resolution_supports_parenthesized_frozen_array_from_iteration_in_js_input() {
     assert_resolution_accepts_frozen_iterator_protocol_edge(
         "main.js",
