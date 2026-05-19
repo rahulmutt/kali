@@ -2168,6 +2168,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali package-effects --output json lodash",
         "kali package-audit <package>",
         "kali package-audit --output json lodash",
+        "kali package-audit --pretty --output json lodash",
     ] {
         assert!(
             readme.contains(expected),
@@ -2229,6 +2230,7 @@ fn cli_spec_examples_track_the_current_repository_surface() {
         "### `kali package-audit <package>`",
         "kali package-audit lodash",
         "kali package-audit --output json lodash",
+        "kali package-audit --pretty --output json lodash",
         "kali run --api browser main.ts",
         "kali test --api browser",
         "kali build --bundle --api browser main.ts",
