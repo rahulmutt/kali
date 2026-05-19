@@ -5183,6 +5183,24 @@ mod tests {
     }
 
     #[test]
+    fn native_json_payload_emission_accepts_package_audit_null_payload() {
+        let output = CliOutputOptions {
+            format: OutputFormat::Json,
+            pretty: true,
+            verbose: false,
+            quiet: true,
+            color: ColorChoice::Auto,
+        };
+
+        let result = emit_native_json_payload("package-audit", &serde_json::Value::Null, &output);
+
+        assert!(
+            result.is_ok(),
+            "package-audit native JSON payload should validate and emit successfully"
+        );
+    }
+
+    #[test]
     fn package_effects_report_carries_inherited_browser_threaded_context() {
         let context = analysis_context_for_api(
             kali_cli::ApiSurface::Browser,
