@@ -481,6 +481,15 @@ fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
     join_semicolon_terminated_segments(aliases)
 }
 
+fn join_const_binding_lines(bindings: &[(&str, &str)]) -> String {
+    let lines = bindings
+        .iter()
+        .map(|(name, alias)| format!("const {name} = {alias}"))
+        .collect::<Vec<_>>();
+    let line_refs = lines.iter().map(String::as_str).collect::<Vec<_>>();
+    join_semicolon_terminated_segments(&line_refs)
+}
+
 fn ordered_unique_union(slices: &[&[&'static str]]) -> Vec<&'static str> {
     let total_len = slices.iter().map(|slice| slice.len()).sum();
     let mut aliases = Vec::with_capacity(total_len);
@@ -569,26 +578,44 @@ pub fn process_kill_zero_probe_source() -> String {
 
 /// Canonical source text for the supported Node zero-probe sequence-callable-target bindings.
 pub fn process_kill_zero_probe_sequence_call_target_bindings_source() -> String {
-    join_semicolon_terminated_segments(&[
-        r#"const sequenceKill = (process.kill, process.kill)"#,
-        r#"const bracketedRootSequenceKill = (process["kill"], process["kill"])"#,
-        r#"const dotRootSequenceKill = (globalThis.process.kill, globalThis.process.kill)"#,
-        r#"const bracketedSequenceKill = (globalThis["process"]["kill"], globalThis["process"]["kill"])"#,
-        r#"const dotBracketSequenceKill = (globalThis.process["kill"], globalThis.process["kill"])"#,
-        r#"const bracketedDotSequenceKill = (globalThis["process"].kill, globalThis["process"].kill)"#,
-        r#"const fullyBracketedSequenceKill = (globalThis["process"]["kill"], globalThis["process"]["kill"])"#,
+    join_const_binding_lines(&[
+        ("sequenceKill", "(process.kill, process.kill)"),
+        (
+            "bracketedRootSequenceKill",
+            "(process[\"kill\"], process[\"kill\"])",
+        ),
+        (
+            "dotRootSequenceKill",
+            "(globalThis.process.kill, globalThis.process.kill)",
+        ),
+        (
+            "bracketedSequenceKill",
+            "(globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"])",
+        ),
+        (
+            "dotBracketSequenceKill",
+            "(globalThis.process[\"kill\"], globalThis.process[\"kill\"])",
+        ),
+        (
+            "bracketedDotSequenceKill",
+            "(globalThis[\"process\"].kill, globalThis[\"process\"].kill)",
+        ),
+        (
+            "fullyBracketedSequenceKill",
+            "(globalThis[\"process\"][\"kill\"], globalThis[\"process\"][\"kill\"])",
+        ),
     ])
 }
 
 /// Canonical source text for the supported Node `process.kill(0)` direct call-target bindings.
 pub fn process_kill_zero_probe_call_target_bindings_source() -> String {
-    join_semicolon_terminated_segments(&[
-        r#"const kill = process.kill"#,
-        r#"const bracketedRootKill = process["kill"]"#,
-        r#"const dotRootKill = globalThis.process.kill"#,
-        r#"const bracketedDotKill = globalThis["process"].kill"#,
-        r#"const dotBracketKill = globalThis.process["kill"]"#,
-        r#"const fullyBracketedKill = globalThis["process"]["kill"]"#,
+    join_const_binding_lines(&[
+        ("kill", "process.kill"),
+        ("bracketedRootKill", "process[\"kill\"]"),
+        ("dotRootKill", "globalThis.process.kill"),
+        ("bracketedDotKill", "globalThis[\"process\"].kill"),
+        ("dotBracketKill", "globalThis.process[\"kill\"]"),
+        ("fullyBracketedKill", "globalThis[\"process\"][\"kill\"]"),
     ])
 }
 
