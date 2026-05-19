@@ -777,6 +777,9 @@ fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order(
         r#"Object.hasOwn(globalThis, "a")"#,
         r#"globalThis.Object.hasOwn(globalThis, "a")"#,
         r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+        r#"globalThis['Object'].hasOwnProperty.call(globalThis, "a")"#,
+        r#"globalThis['Object']['prototype']['hasOwnProperty']['call'](globalThis, "a")"#,
+        r#"globalThis['Object']["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
         r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
     ] {
         assert!(source.contains(expected), "missing alias: {expected}");
