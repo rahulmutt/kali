@@ -811,6 +811,50 @@ pub fn number_predicates_runtime_source() -> String {
     )
 }
 
+/// Canonical browser-bundle source text for the supported Number predicate slice.
+pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
+    format!(
+        concat!(
+            "// kali-tree-shake: browserNumberPredicates\n",
+            "async function browserNumberPredicates() {{\n",
+            "  const alias = {};\n",
+            "  const finite = Number.isFinite;\n",
+            "  const integer = Number.isInteger;\n",
+            "  const safeInteger = Number.isSafeInteger;\n",
+            "  if (\n",
+            "    Number.isFinite(alias) !== true ||\n",
+            "    Number.isSafeInteger(await alias) !== true ||\n",
+            "    integer(alias) !== true ||\n",
+            "    Number.isSafeInteger(alias) !== true ||\n",
+            "    integer(1.5) !== false ||\n",
+            "    Number.isFinite(\"hello\") !== false ||\n",
+            "    Number.isSafeInteger(1.5) !== false ||\n",
+            "    globalThis[\"Number\"][\"isNaN\"](NaN) !== true ||\n",
+            "    globalThis.Number.isNaN(1) !== false ||\n",
+            "    globalThis[\"Number\"].isNaN(1) !== false ||\n",
+            "    globalThis[\"Number\"][\"isFinite\"](alias) !== true ||\n",
+            "    globalThis[\"Number\"][\"isInteger\"](alias) !== true ||\n",
+            "    globalThis[\"Number\"][\"isSafeInteger\"](alias) !== true ||\n",
+            "    globalThis.Number[\"isNaN\"](1) !== false ||\n",
+            "    globalThis[\"Number\"].isFinite(alias) !== true ||\n",
+            "    globalThis.Number[\"isInteger\"](alias) !== true ||\n",
+            "    globalThis[\"Number\"].isSafeInteger(alias) !== true ||\n",
+            "    Number[\"isFinite\"](alias) !== true ||\n",
+            "    Number[\"isInteger\"](alias) !== true ||\n",
+            "    Number[\"isSafeInteger\"](alias) !== true ||\n",
+            "    Number[\"isNaN\"](1) !== false ||\n",
+            "    safeInteger(alias) !== true ||\n",
+            "    finite(alias) !== true\n",
+            "  ) {{\n",
+            "    throw new Error('unexpected browser Number predicate result');\n",
+            "  }}\n",
+            "  console.log('browser number predicates ok');\n",
+            "}}\n"
+        ),
+        alias_literal
+    )
+}
+
 /// Canonical `Kali.test` source text for the supported Number predicate slice.
 pub fn number_predicates_test_source() -> String {
     format!(

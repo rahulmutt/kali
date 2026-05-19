@@ -7,89 +7,15 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_number_predicates_js_source() -> &'static str {
-    r##"// kali-tree-shake: browserNumberPredicates
-async function browserNumberPredicates() {
-  const alias = 1;
-  const finite = Number.isFinite;
-  const integer = Number.isInteger;
-  const safeInteger = Number.isSafeInteger;
-  if (
-    Number.isFinite(alias) !== true ||
-    Number.isSafeInteger(await alias) !== true ||
-    integer(alias) !== true ||
-    Number.isSafeInteger(alias) !== true ||
-    integer(1.5) !== false ||
-    Number.isFinite("hello") !== false ||
-    Number.isSafeInteger(1.5) !== false ||
-    globalThis["Number"]["isNaN"](NaN) !== true ||
-    globalThis.Number.isNaN(1) !== false ||
-    globalThis["Number"].isNaN(1) !== false ||
-    globalThis["Number"]["isFinite"](alias) !== true ||
-    globalThis["Number"]["isInteger"](alias) !== true ||
-    globalThis["Number"]["isSafeInteger"](alias) !== true ||
-    globalThis.Number["isNaN"](1) !== false ||
-    globalThis["Number"].isFinite(alias) !== true ||
-    globalThis.Number["isInteger"](alias) !== true ||
-    globalThis["Number"].isSafeInteger(alias) !== true ||
-    Number["isFinite"](alias) !== true ||
-    Number["isInteger"](alias) !== true ||
-    Number["isSafeInteger"](alias) !== true ||
-    Number["isNaN"](1) !== false ||
-    safeInteger(alias) !== true ||
-    finite(alias) !== true
-  ) {
-    throw new Error('unexpected browser Number predicate result');
-  }
-  console.log('browser number predicates ok');
-}
-"##
+fn browser_bundle_number_predicates_js_source() -> String {
+    kali_common::number_predicates_browser_bundle_source("1")
 }
 
-fn browser_bundle_number_predicates_ts_source() -> &'static str {
-    r##"// kali-tree-shake: browserNumberPredicates
-async function browserNumberPredicates() {
-  const alias = 1 as const;
-  const finite = Number.isFinite;
-  const integer = Number.isInteger;
-  const safeInteger = Number.isSafeInteger;
-  if (
-    Number.isFinite(alias) !== true ||
-    Number.isSafeInteger(await alias) !== true ||
-    integer(alias) !== true ||
-    Number.isSafeInteger(alias) !== true ||
-    integer(1.5) !== false ||
-    Number.isFinite("hello") !== false ||
-    Number.isSafeInteger(1.5) !== false ||
-    globalThis["Number"]["isNaN"](NaN) !== true ||
-    globalThis.Number.isNaN(1) !== false ||
-    globalThis["Number"].isNaN(1) !== false ||
-    globalThis["Number"]["isFinite"](alias) !== true ||
-    globalThis["Number"]["isInteger"](alias) !== true ||
-    globalThis["Number"]["isSafeInteger"](alias) !== true ||
-    globalThis.Number["isNaN"](1) !== false ||
-    globalThis["Number"].isFinite(alias) !== true ||
-    globalThis.Number["isInteger"](alias) !== true ||
-    globalThis["Number"].isSafeInteger(alias) !== true ||
-    Number["isFinite"](alias) !== true ||
-    Number["isInteger"](alias) !== true ||
-    Number["isSafeInteger"](alias) !== true ||
-    Number["isNaN"](1) !== false ||
-    safeInteger(alias) !== true ||
-    finite(alias) !== true
-  ) {
-    throw new Error('unexpected browser Number predicate result');
-  }
-  console.log('browser number predicates ok');
-}
-"##
+fn browser_bundle_number_predicates_ts_source() -> String {
+    kali_common::number_predicates_browser_bundle_source("1 as const")
 }
 
-fn assert_browser_bundle_number_predicates(
-    filename: &str,
-    json_output: bool,
-    source: &'static str,
-) {
+fn assert_browser_bundle_number_predicates(filename: &str, json_output: bool, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(&source_path, source).expect("write source");
@@ -180,7 +106,7 @@ fn build_emits_browser_number_predicates_in_js_input() {
     assert_browser_bundle_number_predicates(
         "app.js",
         false,
-        browser_bundle_number_predicates_js_source(),
+        &browser_bundle_number_predicates_js_source(),
     );
 }
 
@@ -189,7 +115,7 @@ fn build_emits_browser_number_predicates_in_ts_input() {
     assert_browser_bundle_number_predicates(
         "app.ts",
         false,
-        browser_bundle_number_predicates_ts_source(),
+        &browser_bundle_number_predicates_ts_source(),
     );
 }
 
@@ -198,7 +124,7 @@ fn build_emits_browser_number_predicates_in_jsx_input() {
     assert_browser_bundle_number_predicates(
         "app.jsx",
         false,
-        browser_bundle_number_predicates_js_source(),
+        &browser_bundle_number_predicates_js_source(),
     );
 }
 
@@ -207,7 +133,7 @@ fn build_emits_browser_number_predicates_in_tsx_input() {
     assert_browser_bundle_number_predicates(
         "app.tsx",
         false,
-        browser_bundle_number_predicates_ts_source(),
+        &browser_bundle_number_predicates_ts_source(),
     );
 }
 
@@ -216,7 +142,7 @@ fn json_build_emits_browser_number_predicates_in_js_input() {
     assert_browser_bundle_number_predicates(
         "app.js",
         true,
-        browser_bundle_number_predicates_js_source(),
+        &browser_bundle_number_predicates_js_source(),
     );
 }
 
@@ -225,7 +151,7 @@ fn json_build_emits_browser_number_predicates_in_ts_input() {
     assert_browser_bundle_number_predicates(
         "app.ts",
         true,
-        browser_bundle_number_predicates_ts_source(),
+        &browser_bundle_number_predicates_ts_source(),
     );
 }
 
@@ -234,7 +160,7 @@ fn json_build_emits_browser_number_predicates_in_jsx_input() {
     assert_browser_bundle_number_predicates(
         "app.jsx",
         true,
-        browser_bundle_number_predicates_js_source(),
+        &browser_bundle_number_predicates_js_source(),
     );
 }
 
@@ -243,6 +169,6 @@ fn json_build_emits_browser_number_predicates_in_tsx_input() {
     assert_browser_bundle_number_predicates(
         "app.tsx",
         true,
-        browser_bundle_number_predicates_ts_source(),
+        &browser_bundle_number_predicates_ts_source(),
     );
 }

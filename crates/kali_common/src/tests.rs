@@ -939,6 +939,17 @@ fn test_number_predicates_source_helpers_are_canonical() {
             number_predicates_console_log_body_source()
         )
     );
+    assert!(
+        number_predicates_browser_bundle_source("1").starts_with(
+            "// kali-tree-shake: browserNumberPredicates\nasync function browserNumberPredicates() {\n  const alias = 1;"
+        )
+    );
+    assert!(
+        number_predicates_browser_bundle_source("1 as const").contains("const alias = 1 as const;")
+    );
+    assert!(number_predicates_browser_bundle_source("1")
+        .contains("Number.isSafeInteger(await alias) !== true"));
+    assert!(number_predicates_browser_bundle_source("1").ends_with("}\n"));
 }
 
 #[test]
