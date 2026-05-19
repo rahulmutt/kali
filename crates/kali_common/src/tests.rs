@@ -233,6 +233,10 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         process_kill_zero_probe_parenthesized_receiver_freeze_source();
     let parenthesized_receiver_freeze_bracket_aliases =
         process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases();
+    let parenthesized_receiver_freeze_bracket_inventory_aliases =
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_aliases();
+    let parenthesized_receiver_freeze_bracket_inventory_source =
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_source();
     let parenthesized_receiver_freeze_bracket_source =
         process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source();
     let aliases = process_kill_zero_probe_aliases();
@@ -354,6 +358,10 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
         ]
     );
     assert_eq!(
+        parenthesized_receiver_freeze_bracket_aliases,
+        parenthesized_receiver_freeze_bracket_inventory_aliases
+    );
+    assert_eq!(
         parenthesized_receiver_freeze_bracket_source,
         concat!(
             "Object.freeze((process)[\"kill\"])(0); ",
@@ -363,6 +371,10 @@ fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
             "Object.freeze((globalThis[\"process\"])[\"kill\"])(0); ",
             "Object.freeze((globalThis[\"process\"])[\"kill\"])(+0);"
         )
+    );
+    assert_eq!(
+        parenthesized_receiver_freeze_bracket_inventory_source,
+        parenthesized_receiver_freeze_bracket_source
     );
 }
 
@@ -430,7 +442,7 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_c
     let expected = format!(
         "{} {}",
         process_kill_zero_probe_parenthesized_receiver_freeze_source().trim_end(),
-        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source().trim_end()
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_source().trim_end()
     );
 
     assert_eq!(source, expected);

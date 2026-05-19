@@ -422,19 +422,32 @@ pub const fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_alias
     ]
 }
 
+/// Canonical alias inventory for the supported Node `process.kill(0)` parenthesized receiver-freeze bracket aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_aliases(
+) -> Vec<&'static str> {
+    ordered_unique_union(&[process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases()])
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` parenthesized receiver-freeze bracket aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_source() -> String {
+    join_semicolon_terminated_segments(
+        &process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_aliases(),
+    )
+}
+
 /// Canonical source text for the supported Node `process.kill(0)` parenthesized receiver-freeze bracket aliases.
 pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source() -> String {
-    join_semicolon_terminated_segments(
-        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases(),
-    )
+    process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_source()
 }
 
 /// Canonical alias inventory for the supported Node `process.kill(0)` parenthesized receiver-freeze slice.
 pub fn process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases() -> Vec<&'static str>
 {
+    let bracket_aliases =
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_aliases();
     ordered_unique_union(&[
         process_kill_zero_probe_parenthesized_receiver_freeze_aliases(),
-        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases(),
+        bracket_aliases.as_slice(),
     ])
 }
 
