@@ -2676,3 +2676,24 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
         );
     }
 }
+
+#[test]
+fn active_plan_tracks_current_state_and_gap_map_benchmark_inventory_updates() {
+    let root = repo_root();
+    for (doc, expected) in [
+        (
+            "plan/00-current-state.md",
+            "the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`",
+        ),
+        (
+            "plan/02-spec-gap-map.md",
+            "math-round-builtin` / `math-round-builtin-js` so `Math.round` stays visible in both source classes",
+        ),
+    ] {
+        let contents = fs::read_to_string(root.join(doc)).expect("read plan doc");
+        assert!(
+            contents.contains(expected),
+            "{doc} should mention the round benchmark inventory update"
+        );
+    }
+}
