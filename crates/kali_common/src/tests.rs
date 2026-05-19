@@ -595,6 +595,35 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_c
 }
 
 #[test]
+fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_is_prefix_free_and_single_sourced(
+) {
+    let inventory_source = process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source();
+    let prefix_source = late_process_control_prefix_source();
+    let direct_source = process_kill_zero_probe_parenthesized_receiver_freeze_source();
+    let bracket_source =
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_inventory_source();
+
+    assert_eq!(
+        inventory_source,
+        format!("{} {}", direct_source.trim_end(), bracket_source.trim_end())
+    );
+    assert!(
+        !inventory_source.contains(&prefix_source),
+        "inventory: {inventory_source}"
+    );
+    assert_eq!(
+        inventory_source.matches(direct_source.trim_end()).count(),
+        1,
+        "inventory: {inventory_source}"
+    );
+    assert_eq!(
+        inventory_source.matches(bracket_source.trim_end()).count(),
+        1,
+        "inventory: {inventory_source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source_lists_all_aliases_in_order(
 ) {
     let aliases = process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases();
