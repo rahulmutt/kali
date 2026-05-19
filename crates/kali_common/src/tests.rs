@@ -710,6 +710,22 @@ fn test_math_pow_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_pow_bracketed_global_this_alias_chain_source_is_canonical() {
+    assert_eq!(
+        math_pow_bracketed_global_this_alias_chain_source(),
+        concat!(
+            "// kali-tree-shake: bracketedGlobalThisMathPowAliasChain\n",
+            "function bracketedGlobalThisMathPowAliasChain() {\n",
+            "  const exponent = 3;\n",
+            "  const alias = exponent;\n",
+            "  console.log(globalThis[\"Math\"].pow(2, alias));\n",
+            "  return globalThis[\"Math\"].pow(2, alias);\n",
+            "}\n",
+        )
+    );
+}
+
+#[test]
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let direct_aliases = math_pow_frozen_callable_direct_aliases();
     let parenthesized_aliases = math_pow_frozen_callable_parenthesized_aliases();

@@ -56,8 +56,16 @@ fn browser_late_object_model_source_is_composed_from_shared_helpers() {
     assert!(source.starts_with(intl_source), "source: {source}");
     assert!(source.contains(object_model_source), "source: {source}");
     assert!(source.contains(has_own_source), "source: {source}");
-    assert_eq!(source.matches(object_model_source).count(), 1, "source: {source}");
-    assert_eq!(source.matches(has_own_source).count(), 1, "source: {source}");
+    assert_eq!(
+        source.matches(object_model_source).count(),
+        1,
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(has_own_source).count(),
+        1,
+        "source: {source}"
+    );
 }
 
 fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {

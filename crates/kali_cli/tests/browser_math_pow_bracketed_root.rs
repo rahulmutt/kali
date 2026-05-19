@@ -7,23 +7,12 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_bracketed_global_this_math_pow_source() -> &'static str {
-    r##"// kali-tree-shake: bracketedGlobalThisMathPowAliasChain
-function bracketedGlobalThisMathPowAliasChain() {
-  const exponent = 3;
-  const alias = exponent;
-  console.log(globalThis["Math"].pow(2, alias));
-  return globalThis["Math"].pow(2, alias);
-}
-"##
-}
-
 fn assert_browser_bundle_bracketed_global_this_math_pow(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(
         &source_path,
-        browser_bundle_bracketed_global_this_math_pow_source(),
+        kali_common::math_pow_bracketed_global_this_alias_chain_source(),
     )
     .expect("write source");
 
