@@ -3934,6 +3934,9 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
+const frozenMixedBracketedCallableKeys = Object.freeze(globalThis.Reflect["ownKeys"])(alias);
+const frozenBracketedCallableKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(alias);
+const parenthesizedFrozenBracketedCallableKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(alias);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
@@ -3967,6 +3970,9 @@ if (
   fullyBracketedKeys[2] !== 'b' ||
   fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
+  frozenMixedBracketedCallableKeys.length !== 4 ||
+  frozenBracketedCallableKeys.length !== 4 ||
+  parenthesizedFrozenBracketedCallableKeys.length !== 4 ||
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||
   frozenBracketedKeys[2] !== 'b' ||
@@ -4006,6 +4012,9 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(alias);
+const frozenMixedBracketedCallableKeys = Object.freeze(globalThis.Reflect["ownKeys"])(alias);
+const frozenBracketedCallableKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(alias);
+const parenthesizedFrozenBracketedCallableKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(alias);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
@@ -4039,6 +4048,9 @@ if (
   fullyBracketedKeys[2] !== 'b' ||
   fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
+  frozenMixedBracketedCallableKeys.length !== 4 ||
+  frozenBracketedCallableKeys.length !== 4 ||
+  parenthesizedFrozenBracketedCallableKeys.length !== 4 ||
   frozenBracketedKeys[0] !== '1' ||
   frozenBracketedKeys[1] !== '2' ||
   frozenBracketedKeys[2] !== 'b' ||

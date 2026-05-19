@@ -15,6 +15,11 @@ const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
 let syncCount = 0;
 for (const key of Reflect.ownKeys(obj)) {
   syncCount += 1;
@@ -54,6 +59,11 @@ if (
   fullyBracketedKeys[2] !== 'b' ||
   fullyBracketedKeys[3] !== 'a' ||
   singleQuotedKeys.length !== 4 ||
+  frozenCallableKeys.length !== 4 ||
+  frozenMixedBracketedKeys.length !== 4 ||
+  frozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenBracketedKeys.length !== 4 ||
+  parenthesizedFrozenCallableKeys.length !== 4 ||
   singleQuotedKeys[0] !== '1' ||
   singleQuotedKeys[1] !== '2' ||
   singleQuotedKeys[2] !== 'b' ||
@@ -77,6 +87,11 @@ fn reflect_own_keys_test_source() -> &'static str {
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+  const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+  const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
+  const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
+  const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
+  const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
   let syncCount = 0;
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
@@ -116,6 +131,11 @@ fn reflect_own_keys_test_source() -> &'static str {
     fullyBracketedKeys[2] !== 'b' ||
     fullyBracketedKeys[3] !== 'a' ||
     singleQuotedKeys.length !== 4 ||
+    frozenCallableKeys.length !== 4 ||
+    frozenMixedBracketedKeys.length !== 4 ||
+    frozenBracketedKeys.length !== 4 ||
+    parenthesizedFrozenBracketedKeys.length !== 4 ||
+    parenthesizedFrozenCallableKeys.length !== 4 ||
     singleQuotedKeys[0] !== '1' ||
     singleQuotedKeys[1] !== '2' ||
     singleQuotedKeys[2] !== 'b' ||
