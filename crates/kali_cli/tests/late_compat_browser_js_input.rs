@@ -11,6 +11,14 @@ fn late_process_control_source() -> String {
     kali_common::late_process_control_source()
 }
 
+fn late_process_control_single_quoted_process_source() -> String {
+    format!(
+        "{} {}",
+        late_process_control_source(),
+        r#"globalThis['process'].kill(0); globalThis['process']['kill'](+0); Object.freeze(globalThis['process'].kill)(0); Object.freeze(globalThis['process']['kill'])(+0);"#
+    )
+}
+
 fn late_env_materialization_source() -> &'static str {
     kali_common::late_env_materialization_source()
 }
@@ -177,6 +185,52 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
             "missing {expected} in stderr: {stderr}"
         );
     }
+}
+
+#[test]
+fn browser_late_process_control_source_includes_single_quoted_process_root_forms() {
+    let source = late_process_control_single_quoted_process_source();
+    assert!(
+        source.contains(r#"globalThis['process'].kill(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['process']['kill'](+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process'].kill)(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process']['kill'])(+0)"#),
+        "source: {source}"
+    );
+}
+
+#[test]
+fn check_rejects_single_quoted_process_root_aliases_in_browser_api_surface_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        late_process_control_single_quoted_process_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_process_control_rejection(&stderr);
 }
 
 fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
