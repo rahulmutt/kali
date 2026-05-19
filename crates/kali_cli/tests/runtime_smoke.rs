@@ -48810,14 +48810,66 @@ fn check_rejects_class_generator_and_async_generator_method_lowering_in_browser_
 }
 
 #[test]
-fn json_build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_js_input(
+fn build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_js_input(
 ) {
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
         "class Example { async *main() { yield 1; } }\nnew Example();",
     ] {
         assert_class_generator_method_lowering_rejection_in_browser_context(
-            "build", true, true, "js", source,
+            "build", false, true, "js", source,
+        );
+    }
+}
+
+#[test]
+fn build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_jsx_input(
+) {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection_in_browser_context(
+            "build", false, true, "jsx", source,
+        );
+    }
+}
+
+#[test]
+fn build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_tsx_input(
+) {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection_in_browser_context(
+            "build", false, true, "tsx", source,
+        );
+    }
+}
+
+#[test]
+fn json_build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_jsx_input(
+) {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection_in_browser_context(
+            "build", true, true, "jsx", source,
+        );
+    }
+}
+
+#[test]
+fn json_build_rejects_class_generator_and_async_generator_method_lowering_in_browser_analysis_context_in_tsx_input(
+) {
+    for source in [
+        "class Example { *main() { yield 1; } }\nnew Example();",
+        "class Example { async *main() { yield 1; } }\nnew Example();",
+    ] {
+        assert_class_generator_method_lowering_rejection_in_browser_context(
+            "build", true, true, "tsx", source,
         );
     }
 }
