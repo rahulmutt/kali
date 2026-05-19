@@ -906,6 +906,10 @@ fn test_object_has_own_property_call_frozen_callable_source_lists_all_aliases_in
         r#"Object.freeze((Object["prototype"].hasOwnProperty.call))"#,
         r#"Object.freeze(Object["prototype"]["hasOwnProperty"]["call"])"#,
         r#"Object.freeze((Object["prototype"]["hasOwnProperty"]["call"]))"#,
+        r#"Object.freeze(Object.prototype.hasOwnProperty["call"])"#,
+        r#"Object.freeze((Object.prototype.hasOwnProperty["call"]))"#,
+        r#"Object.freeze(Object["prototype"].hasOwnProperty["call"])"#,
+        r#"Object.freeze((Object["prototype"].hasOwnProperty["call"]))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
@@ -957,6 +961,12 @@ fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order(
         r#"Object.hasOwn(globalThis, "a")"#,
         r#"globalThis.Object.hasOwn(globalThis, "a")"#,
         r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+        r#"Object.prototype.hasOwnProperty["call"](globalThis, "a")"#,
+        r#"Object["prototype"].hasOwnProperty.call(globalThis, "a")"#,
+        r#"Object["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
+        r#"Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+        r#"Object.prototype["hasOwnProperty"].call(globalThis, "a")"#,
+        r#"globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
         r#"globalThis['Object'].hasOwnProperty.call(globalThis, "a")"#,
         r#"globalThis['Object']['prototype']['hasOwnProperty']['call'](globalThis, "a")"#,
         r#"globalThis['Object']["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
