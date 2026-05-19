@@ -112,6 +112,29 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
             }),
         })),
     ));
+    let default_export_class_decl = Statement::ExportDefault(
+        ExportDefaultDeclaration::ClassDeclaration(ClassDeclaration {
+            name: "DefaultDeclExample".to_string(),
+            body: Box::new(ClassBody {
+                methods: vec![
+                    MethodDefinition {
+                        name: "outer".to_string(),
+                        params: vec![],
+                        body: Some(Box::new(BlockStatement { body: vec![] })),
+                        is_async: true,
+                        generator: true,
+                    },
+                    MethodDefinition {
+                        name: "inner".to_string(),
+                        params: vec![],
+                        body: Some(Box::new(BlockStatement { body: vec![] })),
+                        is_async: false,
+                        generator: true,
+                    },
+                ],
+            }),
+        }),
+    );
 
     let round_tripped_function: FunctionDeclaration =
         serde_json::from_str(&serde_json::to_string(&function).unwrap()).unwrap();
@@ -123,10 +146,16 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         serde_json::from_str(&serde_json::to_string(&class_decl).unwrap()).unwrap();
     let round_tripped_default_export_class: Statement =
         serde_json::from_str(&serde_json::to_string(&default_export_class).unwrap()).unwrap();
+    let round_tripped_default_export_class_decl: Statement =
+        serde_json::from_str(&serde_json::to_string(&default_export_class_decl).unwrap()).unwrap();
 
     assert_eq!(round_tripped_function, function);
     assert_eq!(round_tripped_function_expr, function_expr);
     assert_eq!(round_tripped_class, class);
     assert_eq!(round_tripped_class_decl, class_decl);
     assert_eq!(round_tripped_default_export_class, default_export_class);
+    assert_eq!(
+        round_tripped_default_export_class_decl,
+        default_export_class_decl
+    );
 }
