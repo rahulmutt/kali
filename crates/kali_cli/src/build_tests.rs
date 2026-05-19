@@ -1585,14 +1585,20 @@ fn build_source_file_supports_promise_all_settled_across_input_classes() {
     }
 }
 
-fn unsupported_math_member_call_source_variants(method: &str) -> [String; 6] {
-    [
+fn unsupported_math_member_call_source_variants(method: &str) -> Vec<String> {
+    vec![
         format!("console.log(Math.{method}(1.6));\n"),
         format!("console.log(Math[\"{method}\"](1.6));\n"),
+        format!("console.log(Math['{method}'](1.6));\n"),
         format!("console.log(globalThis.Math.{method}(1.6));\n"),
         format!("console.log(globalThis.Math[\"{method}\"](1.6));\n"),
-        format!("console.log(globalThis[\"Math\"][\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis.Math['{method}'](1.6));\n"),
         format!("console.log(globalThis[\"Math\"].{method}(1.6));\n"),
+        format!("console.log(globalThis[\"Math\"][\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis[\"Math\"]['{method}'](1.6));\n"),
+        format!("console.log(globalThis['Math'].{method}(1.6));\n"),
+        format!("console.log(globalThis['Math'][\"{method}\"](1.6));\n"),
+        format!("console.log(globalThis['Math']['{method}'](1.6));\n"),
     ]
 }
 
@@ -1653,6 +1659,38 @@ fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surfac
     assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_jsx_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_tsx_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_rejects_unsupported_math_member_calls_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
