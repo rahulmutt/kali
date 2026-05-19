@@ -668,6 +668,7 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
             r#"Object.freeze(globalThis.Reflect.ownKeys)"#,
             r#"Object.freeze(globalThis.Reflect["ownKeys"])"#,
             r#"Object.freeze(globalThis["Reflect"]["ownKeys"])"#,
+            r#"Object.freeze((globalThis.Reflect["ownKeys"]))"#,
             r#"Object.freeze((globalThis["Reflect"]["ownKeys"]))"#,
             r#"Object.freeze((globalThis.Reflect.ownKeys))"#,
         ]
@@ -691,6 +692,7 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
         "const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); ",
         "const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect[\"ownKeys\"])(obj); ",
         "const frozenBracketedKeys = Object.freeze(globalThis[\"Reflect\"][\"ownKeys\"])(obj); ",
+        "const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect[\"ownKeys\"]))(obj); ",
         "const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis[\"Reflect\"][\"ownKeys\"]))(obj); ",
         "const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);"
     );
