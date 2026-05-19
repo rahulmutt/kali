@@ -2,6 +2,8 @@
 
 This map lists active implementation goals implied by the specs after the current repository baseline. It is not an availability matrix; use [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md) for public support status.
 
+Keep this map high-level: exact coverage belongs in tests and maturity/current-state notes.
+
 ## Language semantics and frontend depth
 
 Owners: `specs/02-lexer-parser.md`, `specs/03-ast.md`, `specs/04-type-system.md`, `specs/05-ir.md`, `specs/10-runtime.md`, `specs/16-testing.md`.
