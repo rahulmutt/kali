@@ -1085,6 +1085,7 @@ fn browser_late_process_env_mutation_source_includes_bracketed_forms() {
         r#"process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"delete process.env["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"delete globalThis.process.env["KALI_BROWSER_ENV_MUTATION"]"#,
+        r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"globalThis.process.env"#,
         r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION"#,
         r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
