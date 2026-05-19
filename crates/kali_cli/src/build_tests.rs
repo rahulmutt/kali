@@ -1,5 +1,8 @@
 use super::*;
-use kali_common::{map_constructor_iteration_source, set_constructor_iteration_source};
+use kali_common::{
+    map_constructor_iteration_source, math_pow_browser_alias_inventory_aliases,
+    math_pow_invocation_lines_for_aliases, set_constructor_iteration_source,
+};
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -2910,6 +2913,18 @@ fn assert_build_source_file_supports_fully_bracketed_global_this_math_pow_positi
         .expect("generated wasm should validate");
 }
 
+fn math_pow_browser_alias_inventory_build_source() -> String {
+    format!(
+        "const exponent = 3; const alias = exponent;\n{}\n",
+        math_pow_invocation_lines_for_aliases(
+            math_pow_browser_alias_inventory_aliases().as_slice(),
+            "2",
+            "alias",
+            "",
+        )
+    )
+}
+
 fn assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_literals_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -3803,6 +3818,36 @@ fn build_source_file_supports_fully_bracketed_global_this_math_pow_positive_inte
         ApiSurface::Browser,
         "tsx",
     );
+}
+
+#[test]
+fn build_source_file_supports_math_pow_frozen_callable_alias_inventory_in_browser_api_surface_in_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(
+            &source_path,
+            math_pow_browser_alias_inventory_build_source(),
+        )
+        .expect("write source");
+
+        let output = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            ApiSurface::Browser,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect("math.pow frozen callable alias inventory build should succeed");
+
+        Validator::new()
+            .validate_all(&output.wasm_bytes)
+            .expect("generated wasm should validate");
+    }
 }
 
 fn assert_build_source_file_supports_math_expm1_and_log1p_const_alias_chain_in_input(
