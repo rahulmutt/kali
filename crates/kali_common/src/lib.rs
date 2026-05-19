@@ -1416,10 +1416,15 @@ const LATE_PROCESS_CONTROL_EXIT_SEGMENTS: &[&str] = &[
     "globalThis.process[\"exit\"]",
 ];
 
+/// Canonical exit alias inventory for the shared late-process-control slice.
+pub const fn late_process_control_exit_aliases() -> &'static [&'static str] {
+    LATE_PROCESS_CONTROL_EXIT_SEGMENTS
+}
+
 /// Canonical late-process-control exit source text, shared across the
 /// browser and runtime late-compat smoke.
 pub fn late_process_control_exit_source() -> String {
-    join_semicolon_terminated_segments(LATE_PROCESS_CONTROL_EXIT_SEGMENTS)
+    join_semicolon_terminated_segments(late_process_control_exit_aliases())
 }
 
 /// Canonical late-process-control preamble source text, shared across the

@@ -1570,6 +1570,21 @@ fn test_late_process_control_prefix_source_lists_all_prefix_aliases_in_order() {
 }
 
 #[test]
+fn test_late_process_control_exit_aliases_are_canonical() {
+    assert_eq!(
+        late_process_control_exit_aliases(),
+        &[
+            "process.exit",
+            "globalThis.process.exit",
+            r#"globalThis["process"].exit"#,
+            r#"globalThis["process"]["exit"]"#,
+            "process[\"exit\"]",
+            "globalThis.process[\"exit\"]",
+        ]
+    );
+}
+
+#[test]
 fn test_late_process_control_exit_source_lists_all_aliases_in_order() {
     let source = late_process_control_exit_source();
     let expected = concat!(
