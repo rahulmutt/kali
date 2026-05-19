@@ -1405,8 +1405,12 @@ pub fn late_process_control_source() -> String {
 
 const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
     r#"globalThis['process'].kill(0)"#,
+    r#"globalThis['process'].kill(+0)"#,
+    r#"globalThis['process']['kill'](0)"#,
     r#"globalThis['process']['kill'](+0)"#,
     r#"Object.freeze(globalThis['process'].kill)(0)"#,
+    r#"Object.freeze(globalThis['process'].kill)(+0)"#,
+    r#"Object.freeze(globalThis['process']['kill'])(0)"#,
     r#"Object.freeze(globalThis['process']['kill'])(+0)"#,
     r#"globalThis['process'].exit(0)"#,
     r#"globalThis['process'].exit(+0)"#,

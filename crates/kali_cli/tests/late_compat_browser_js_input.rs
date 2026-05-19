@@ -191,11 +191,27 @@ fn browser_late_process_control_source_includes_single_quoted_process_root_forms
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['process'].kill(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['process']['kill'](0)"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis['process']['kill'](+0)"#),
         "source: {source}"
     );
     assert!(
         source.contains(r#"Object.freeze(globalThis['process'].kill)(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process'].kill)(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['process']['kill'])(0)"#),
         "source: {source}"
     );
     assert!(
