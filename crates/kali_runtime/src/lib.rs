@@ -189,9 +189,34 @@ pub struct BrowserRuntimeContractDescriptor {
     pub contract_scope_note: &'static str,
 }
 
+fn browser_runtime_contract_descriptor_is_canonical(
+    descriptor: &BrowserRuntimeContractDescriptor,
+) -> bool {
+    let trimmed = |value: &str| !value.trim().is_empty() && value.trim() == value;
+    let unique = |values: &[&str]| {
+        let mut seen = BTreeSet::new();
+        !values.is_empty()
+            && values
+                .iter()
+                .copied()
+                .all(|value| trimmed(value) && seen.insert(value))
+    };
+
+    trimmed(descriptor.host_label)
+        && trimmed(descriptor.host_description)
+        && trimmed(descriptor.host_description_note)
+        && trimmed(descriptor.diagnostic_hint)
+        && unique(descriptor.supported_commands)
+        && unique(BrowserRuntimeContract::diagnostic_notes())
+}
+
 /// Canonical JSON fixture for the later standalone browser runtime contract.
 pub fn browser_runtime_contract_value() -> serde_json::Value {
     let descriptor = BrowserRuntimeContract::descriptor();
+    assert!(
+        browser_runtime_contract_descriptor_is_canonical(&descriptor),
+        "browser runtime contract descriptor must stay canonical"
+    );
 
     serde_json::json!({
         "hostLabel": descriptor.host_label,

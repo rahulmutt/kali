@@ -398,6 +398,9 @@ exit 0'"#,
 fn browser_runtime_contract_documents_the_future_execution_surface() {
     let descriptor = BrowserRuntimeContract::descriptor();
 
+    assert!(browser_runtime_contract_descriptor_is_canonical(
+        &descriptor
+    ));
     assert_eq!(descriptor.host_label, "browser-requested");
     assert_eq!(descriptor.host_description, "real browser host");
     assert_eq!(
@@ -490,6 +493,53 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
     assert!(descriptor
         .diagnostic_hint
         .contains("kali build --bundle --api browser"));
+}
+
+#[test]
+fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() {
+    let invalid_label = BrowserRuntimeContractDescriptor {
+        host_label: " browser-requested",
+        host_description: "real browser host",
+        host_description_note: "browser runtime host description: real browser host",
+        supported_commands: &["run", "test"],
+        supported_commands_note: "supported browser runtime commands: run, test",
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+    let invalid_command = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: &["run", "run"],
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+    let invalid_hint = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: BrowserRuntimeContract::supported_commands(),
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: " ",
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_label
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_command
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_hint
+    ));
+    assert!(browser_runtime_contract_descriptor_is_canonical(
+        &BrowserRuntimeContract::descriptor()
+    ));
 }
 
 #[test]
