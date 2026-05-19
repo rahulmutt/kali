@@ -35,6 +35,10 @@ fn late_process_control_source() -> String {
     kali_common::late_process_control_source()
 }
 
+fn late_network_source() -> &'static str {
+    kali_common::late_network_source()
+}
+
 fn assert_browser_late_process_control_rejection(stderr: &str) {
     assert!(stderr.contains("E3100"), "stderr: {stderr}");
     assert!(
@@ -62,6 +66,49 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
         "expected at least one E3100 error: {errors:?}"
     );
     for expected in ["process.kill", "undefined identifier 'process'"] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
+}
+
+fn assert_browser_late_network_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_network_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
         assert!(
             errors.iter().any(|error| error["message"]
                 .as_str()
@@ -635,6 +682,120 @@ fn build_rejects_late_process_control_members_in_browser_bundle_tsx_input() {
             assert_browser_late_process_control_rejection(&stderr);
         }
     }
+}
+
+#[test]
+fn run_rejects_late_network_members_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_network_rejection(&stderr);
+}
+
+#[test]
+fn run_rejects_late_network_members_in_tsx_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(&source_path, late_network_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_network_rejection_json(errors);
+}
+
+#[test]
+fn test_rejects_late_network_members_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.tsx");
+    fs::write(
+        &source_path,
+        format!(
+            "Kali.test('late browser tsx network', () => {{ {} }});\n",
+            late_network_source()
+        ),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_browser_late_network_rejection(&stderr);
+}
+
+#[test]
+fn test_rejects_late_network_members_in_tsx_input_in_json() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.tsx");
+    fs::write(
+        &source_path,
+        format!(
+            "Kali.test('late browser tsx network', () => {{ {} }});\n",
+            late_network_source()
+        ),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_browser_late_network_rejection_json(errors);
 }
 
 fn assert_browser_late_tsx_compatibility_rejection_json(errors: &[Value]) {

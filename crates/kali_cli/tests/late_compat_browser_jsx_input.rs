@@ -31,6 +31,10 @@ fn late_process_control_source() -> String {
     kali_common::late_process_control_source()
 }
 
+fn late_network_source() -> &'static str {
+    kali_common::late_network_source()
+}
+
 #[test]
 fn browser_late_process_control_source_includes_zero_probe_invocation_forms() {
     let source = late_process_control_source();
@@ -169,6 +173,49 @@ fn assert_browser_late_process_control_rejection_json(errors: &[Value]) {
             .contains("undefined identifier 'process'")),
         "missing process identifier gate in {errors:?}"
     );
+}
+
+fn assert_browser_late_network_rejection(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
+        assert!(
+            stderr.contains(expected),
+            "missing {expected} in stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_late_network_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    for expected in [
+        "socket/listener networking API",
+        "Deno.connect",
+        "globalThis.Deno.connect",
+        "Deno.listen",
+        "globalThis.Deno.listen",
+        "Deno.serve",
+        "globalThis.Deno.serve",
+    ] {
+        assert!(
+            errors.iter().any(|error| error["message"]
+                .as_str()
+                .expect("error message")
+                .contains(expected)),
+            "missing {expected} in {errors:?}"
+        );
+    }
 }
 
 fn late_object_model_source() -> &'static str {
@@ -363,6 +410,73 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
         source.contains(r#"Object.freeze((globalThis["Proxy"]["revocable"]))"#),
         "source: {source}"
     );
+}
+
+#[test]
+fn browser_late_network_source_includes_bracketed_forms() {
+    let source = late_network_source();
+    for expected in [
+        r#"Deno.connect('127.0.0.1', 1)"#,
+        r#"globalThis.Deno.connect('127.0.0.1', 1)"#,
+        r#"globalThis.Deno["connect"]('127.0.0.1', 1)"#,
+        r#"globalThis["Deno"].connect('127.0.0.1', 1)"#,
+        r#"globalThis["Deno"]["connect"]('127.0.0.1', 1)"#,
+        r#"Deno.listen('127.0.0.1', 0)"#,
+        r#"globalThis.Deno.listen('127.0.0.1', 0)"#,
+        r#"globalThis.Deno["listen"]('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"].listen('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"]["listen"]('127.0.0.1', 0)"#,
+        r#"Deno.serve('127.0.0.1', 0)"#,
+        r#"globalThis.Deno.serve('127.0.0.1', 0)"#,
+        r#"globalThis.Deno["serve"]('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"].serve('127.0.0.1', 0)"#,
+        r#"globalThis["Deno"]["serve"]('127.0.0.1', 0)"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn run_and_test_reject_late_network_members_in_browser_api_surface_jsx_input() {
+    for (command, source_name) in [("run", "main.jsx"), ("test", "smoke.test.jsx")] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, late_network_source()).expect("write source");
+
+            let mut cli = Command::new(kali_bin());
+            cli.current_dir(dir.path())
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node");
+            if output_json {
+                cli.arg("--output").arg("json");
+            }
+            let output = cli
+                .arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg("--max-threads")
+                .arg("0")
+                .arg("--max-spawned-processes")
+                .arg("0")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_browser_late_network_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_browser_late_network_rejection(&stderr);
+            }
+        }
+    }
 }
 
 #[test]
