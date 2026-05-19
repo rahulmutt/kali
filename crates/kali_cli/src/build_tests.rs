@@ -1,4 +1,5 @@
 use super::*;
+use kali_common::{map_constructor_iteration_source, set_constructor_iteration_source};
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -4013,12 +4014,7 @@ fn assert_check_source_file_supports_set_constructor_iteration_in_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new (Object.freeze((Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis.Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis[\"Set\"])))([1, 2, 1])) { console.log(value); }
-",
-    )
-    .expect("write source");
+    fs::write(&source_path, set_constructor_iteration_source()).expect("write source");
 
     check_source_file(&source_path, api_surface, &[], false, false)
         .expect("set constructor iteration should type-check");
@@ -4030,12 +4026,7 @@ fn assert_build_source_file_supports_set_constructor_iteration_in_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "for (const value of new Set([1, 2, 1])) { console.log(value); } for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); } for (const value of new (Object.freeze((Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis.Set)))([1, 2, 1])) { console.log(value); } for (const value of new (Object.freeze((globalThis[\"Set\"])))([1, 2, 1])) { console.log(value); }
-",
-    )
-    .expect("write source");
+    fs::write(&source_path, set_constructor_iteration_source()).expect("write source");
 
     let output = build_source_file(
         &source_path,
@@ -4060,12 +4051,7 @@ fn assert_check_source_file_supports_map_constructor_iteration_in_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis.Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis[\"Map\"])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }
-",
-    )
-    .expect("write source");
+    fs::write(&source_path, map_constructor_iteration_source()).expect("write source");
 
     check_source_file(&source_path, api_surface, &[], false, false)
         .expect("map constructor iteration should type-check");
@@ -4077,12 +4063,7 @@ fn assert_build_source_file_supports_map_constructor_iteration_in_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis.Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } for (const entry of new (Object.freeze((globalThis[\"Map\"])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }
-",
-    )
-    .expect("write source");
+    fs::write(&source_path, map_constructor_iteration_source()).expect("write source");
 
     let output = build_source_file(
         &source_path,
