@@ -7737,7 +7737,7 @@ fn check_discovers_fixture_tree_from_cwd() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Checked 54 file(s)"), "stdout: {stdout}");
+    assert!(stdout.contains("Checked 55 file(s)"), "stdout: {stdout}");
 }
 
 #[test]
@@ -51486,6 +51486,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("math-clz32-benchmark-v1", "math-clz32-builtin"),
         ("math-ceil-benchmark-v1", "math-ceil-builtin"),
         ("math-abs-sign-benchmark-v1", "math-abs-sign-builtin"),
+        ("math-abs-sign-benchmark-v1-js", "math-abs-sign-builtin-js"),
         ("math-max-min-benchmark-v1", "math-max-min-builtin"),
         ("math-max-min-benchmark-v1-js", "math-max-min-builtin-js"),
         ("math-pow-benchmark-v1", "math-pow-builtin"),
