@@ -9441,6 +9441,14 @@ fn test_resolution_recognizes_bracketed_global_this_array_from_callable_name_in_
 }
 
 #[test]
+fn test_resolution_supports_for_await_array_from_iteration_in_js_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.js",
+        "for await (const value of Array.from([1, 2])) { console.log(value); }",
+    );
+}
+
+#[test]
 fn test_resolution_supports_for_await_array_from_iteration_in_ts_input() {
     assert_resolution_accepts_frozen_iterator_protocol_edge(
         "main.ts",
