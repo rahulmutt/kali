@@ -42,6 +42,9 @@ export async function browserArrayFromWrappers() {
   for (const value of Object.freeze(Array.from)(values)) {
     console.log(value);
   }
+  for (const value of Object.freeze((Array.from))(values)) {
+    console.log(value);
+  }
   for (const value of Object.freeze(globalThis.Array.from)(values)) {
     console.log(value);
   }
@@ -55,6 +58,9 @@ export async function browserArrayFromWrappers() {
     console.log(value);
   }
   for await (const value of Object.freeze(Array.from)(values)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((Array.from))(values)) {
     console.log(value);
   }
   for await (const value of Object.freeze((globalThis.Array.from))(values)) {
