@@ -448,6 +448,20 @@ fn join_zero_probe_aliases(aliases: &[&'static str]) -> String {
     join_semicolon_terminated_segments(aliases)
 }
 
+fn ordered_unique_union(slices: &[&[&'static str]]) -> Vec<&'static str> {
+    let total_len = slices.iter().map(|slice| slice.len()).sum();
+    let mut aliases = Vec::with_capacity(total_len);
+    let mut seen = std::collections::HashSet::with_capacity(total_len);
+
+    for alias in slices.iter().flat_map(|slice| slice.iter().copied()) {
+        if seen.insert(alias) {
+            aliases.push(alias);
+        }
+    }
+
+    aliases
+}
+
 /// Canonical direct zero-probe source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_direct_source() -> String {
     join_zero_probe_aliases(process_kill_zero_probe_direct_zero_aliases())
@@ -460,18 +474,10 @@ pub fn process_kill_zero_probe_wrapped_source() -> String {
 
 /// Canonical full alias inventory for the supported Node `process.kill(0)` zero-probe slice.
 pub fn process_kill_zero_probe_aliases() -> Vec<&'static str> {
-    let direct = process_kill_zero_probe_direct_zero_aliases();
-    let wrapped = process_kill_zero_probe_wrapped_zero_aliases();
-    let mut aliases = Vec::with_capacity(direct.len() + wrapped.len());
-    let mut seen = std::collections::HashSet::with_capacity(direct.len() + wrapped.len());
-
-    for alias in direct.iter().chain(wrapped.iter()).copied() {
-        if seen.insert(alias) {
-            aliases.push(alias);
-        }
-    }
-
-    aliases
+    ordered_unique_union(&[
+        process_kill_zero_probe_direct_zero_aliases(),
+        process_kill_zero_probe_wrapped_zero_aliases(),
+    ])
 }
 
 /// Canonical call-target aliases for TS-wrapped supported Node `process.kill(0)` slices.
@@ -911,18 +917,10 @@ pub fn math_pow_bracketed_frozen_callable_source() -> String {
 
 /// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
 pub fn math_pow_frozen_callable_aliases() -> Vec<&'static str> {
-    let direct = math_pow_frozen_callable_direct_aliases();
-    let parenthesized = math_pow_frozen_callable_parenthesized_aliases();
-    let mut aliases = Vec::with_capacity(direct.len() + parenthesized.len());
-    let mut seen = std::collections::HashSet::with_capacity(direct.len() + parenthesized.len());
-
-    for alias in direct.iter().chain(parenthesized.iter()).copied() {
-        if seen.insert(alias) {
-            aliases.push(alias);
-        }
-    }
-
-    aliases
+    ordered_unique_union(&[
+        math_pow_frozen_callable_direct_aliases(),
+        math_pow_frozen_callable_parenthesized_aliases(),
+    ])
 }
 
 /// Canonical source text for the supported `Math.pow` frozen callable aliases.
