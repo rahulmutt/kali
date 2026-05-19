@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_common::{math_pow_alias_inventory_source, math_pow_invocation_lines};
+use kali_common::{math_pow_browser_alias_inventory_source, math_pow_invocation_lines};
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -18,7 +18,7 @@ function mathPowAliasChain() {{
   return Math.pow(2, alias);
 }}
 "##,
-        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "  ")
+        math_pow_invocation_lines(&math_pow_browser_alias_inventory_source(), "  ")
     )
 }
 
@@ -32,7 +32,7 @@ function globalThisMathPowAliasChain() {{
   return globalThis.Math.pow(2, alias);
 }}
 "##,
-        math_pow_invocation_lines(&math_pow_alias_inventory_source(), "  ")
+        math_pow_invocation_lines(&math_pow_browser_alias_inventory_source(), "  ")
     )
 }
 
