@@ -71,6 +71,7 @@ kali package-effects --pretty lodash # pretty-print the package-effect report JS
 kali package-effects --pretty --output json lodash # pretty-print the command envelope + package-effect payload
 kali package-audit <package>
 kali package-audit --output json lodash
+kali package-audit --pretty lodash # invalid usage (E5508): --pretty requires --output json for schema-v1 package-audit
 kali package-audit --pretty --output json lodash # pretty-print the envelope-only JSON result
 ```
 

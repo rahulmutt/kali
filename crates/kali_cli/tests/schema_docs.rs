@@ -2172,6 +2172,7 @@ fn readme_command_reference_tracks_the_current_cli_surface() {
         "kali package-effects --pretty --output json lodash",
         "kali package-audit <package>",
         "kali package-audit --output json lodash",
+        "kali package-audit --pretty lodash",
         "kali package-audit --pretty --output json lodash",
     ] {
         assert!(
