@@ -11,10 +11,6 @@ fn late_process_control_source() -> String {
     kali_common::late_process_control_source()
 }
 
-fn late_process_control_single_quoted_process_source() -> String {
-    kali_common::late_process_control_single_quoted_process_source()
-}
-
 fn late_env_materialization_source() -> &'static str {
     kali_common::late_env_materialization_source()
 }
@@ -185,7 +181,7 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
 
 #[test]
 fn browser_late_process_control_source_includes_single_quoted_process_root_forms() {
-    let source = late_process_control_single_quoted_process_source();
+    let source = kali_common::late_process_control_single_quoted_process_source();
     assert!(
         source.contains(r#"globalThis['process'].kill(0)"#),
         "source: {source}"
@@ -242,7 +238,7 @@ fn check_rejects_single_quoted_process_root_aliases_in_browser_api_surface_js_in
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        late_process_control_single_quoted_process_source(),
+        kali_common::late_process_control_single_quoted_process_source(),
     )
     .expect("write source");
 
