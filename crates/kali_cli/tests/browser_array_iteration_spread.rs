@@ -1,6 +1,6 @@
 use std::{fs, process::Command};
 
-use kali_common::array_from_frozen_callable_source;
+use kali_common::array_from_alias_inventory_source;
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -8,8 +8,8 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn array_from_frozen_loop_lines(loop_header: &str, indentation: &str) -> String {
-    array_from_frozen_callable_source()
+fn array_from_loop_lines(source: &str, loop_header: &str, indentation: &str) -> String {
+    source
         .trim_end_matches(';')
         .split("; ")
         .map(|alias| {
@@ -44,39 +44,17 @@ export async function forAwaitArrayIterationSpreadWrapper() {
 }
 
 fn browser_bundle_array_from_source() -> String {
-    let frozen_for_of = array_from_frozen_loop_lines("for (const value of ", "  ");
-    let frozen_for_await = array_from_frozen_loop_lines("for await (const value of ", "  ");
+    let array_from_source = array_from_alias_inventory_source();
+    let frozen_for_of = array_from_loop_lines(&array_from_source, "for (const value of ", "  ");
+    let frozen_for_await =
+        array_from_loop_lines(&array_from_source, "for await (const value of ", "  ");
     [
         r##"// kali-tree-shake: browserArrayFromWrappers
 export async function browserArrayFromWrappers() {
   const values = [1, 2];
-  for (const value of Array.from(values)) {
-    console.log(value);
-  }
-  for (const value of globalThis.Array.from(values)) {
-    console.log(value);
-  }
-  for (const value of globalThis["Array"].from(values)) {
-    console.log(value);
-  }
-  for (const value of globalThis["Array"]["from"](values)) {
-    console.log(value);
-  }
 "##,
         &frozen_for_of,
         r##"
-  for await (const value of Array.from(values)) {
-    console.log(value);
-  }
-  for await (const value of globalThis.Array.from(values)) {
-    console.log(value);
-  }
-  for await (const value of globalThis["Array"].from(values)) {
-    console.log(value);
-  }
-  for await (const value of globalThis["Array"]["from"](values)) {
-    console.log(value);
-  }
 "##,
         &frozen_for_await,
         r##"}

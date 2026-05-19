@@ -11198,27 +11198,19 @@ fn json_run_supports_object_enumeration_semantics_when_browser_api_surface_is_in
     assert_eq!(json["stderr"], "");
 }
 
-fn browser_runtime_array_from_source() -> &'static str {
-    r#"const values = [1, 2];
-for (const value of Array.from(values)) {
-  console.log(value);
-}
-for (const value of globalThis.Array.from(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze(Array.from)(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze((Array.from))(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze(globalThis.Array.from)(values)) {
-  console.log(value);
-}
-for (const value of Object.freeze((globalThis.Array.from))(values)) {
-  console.log(value);
-}
-"#
+fn browser_runtime_array_from_source() -> String {
+    let source = kali_common::array_from_alias_inventory_source();
+    format!(
+        "const values = [1, 2];\n{}\n",
+        source
+            .trim_end_matches(';')
+            .split("; ")
+            .map(|alias| format!(
+                "for (const value of {alias}(values)) {{\n  console.log(value);\n}}"
+            ))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
 }
 
 #[test]

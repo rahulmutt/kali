@@ -191,6 +191,29 @@ fn test_array_from_frozen_callable_aliases_list_all_supported_aliases_in_order()
 }
 
 #[test]
+fn test_array_from_alias_inventory_source_reuses_the_shared_helper_sources_once() {
+    let source = array_from_alias_inventory_source();
+    assert_eq!(
+        source,
+        format!(
+            "{} {}",
+            array_from_source().trim_end(),
+            array_from_frozen_callable_source().trim_end()
+        )
+    );
+    assert_eq!(
+        source.matches(&array_from_source()).count(),
+        1,
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(&array_from_frozen_callable_source()).count(),
+        1,
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();

@@ -990,6 +990,15 @@ pub fn array_from_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(array_from_frozen_callable_aliases())
 }
 
+/// Canonical source text for the supported `Array.from` alias inventory.
+pub fn array_from_alias_inventory_source() -> String {
+    format!(
+        "{} {}",
+        array_from_source().trim_end(),
+        array_from_frozen_callable_source().trim_end()
+    )
+}
+
 /// Canonical root aliases for the supported `Set` constructor slice.
 pub const fn set_constructor_aliases() -> &'static [&'static str] {
     &[
