@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-pow-builtin",
+  "version": 1,
+  "sourceFile": "math-pow-benchmark-v1.ts",
+  "sourceSha256": "sha256-a3f73e973e0a89e8bf9257383c65a2aaceb73db26c20480619eaed1131d4705e",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}

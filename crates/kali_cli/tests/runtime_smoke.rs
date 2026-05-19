@@ -51117,6 +51117,7 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
         ("math-abs-sign-benchmark-v1", "math-abs-sign-builtin"),
         ("math-max-min-benchmark-v1", "math-max-min-builtin"),
         ("math-max-min-benchmark-v1-js", "math-max-min-builtin-js"),
+        ("math-pow-benchmark-v1", "math-pow-builtin"),
         (
             "division-by-one-benchmark-v1",
             "division-by-one-elimination",
