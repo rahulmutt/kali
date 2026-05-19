@@ -728,16 +728,7 @@ impl TypeContext {
     fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
         matches!(
             self.resolve_static_callable_name(&call.callee).as_deref(),
-            Some("Array.from")
-                | Some("globalThis.Array.from")
-                | Some(r#"globalThis["Array"].from"#)
-                | Some(r#"globalThis["Array"]["from"]"#)
-                | Some(r#"globalThis['Array'].from"#)
-                | Some(r#"globalThis['Array']['from']"#)
-                | Some(r#"Array["from"]"#)
-                | Some(r#"Array['from']"#)
-                | Some(r#"globalThis.Array["from"]"#)
-                | Some(r#"globalThis.Array['from']"#)
+            Some(name) if kali_common::array_from_aliases().contains(&name)
         )
     }
 

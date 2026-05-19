@@ -3127,20 +3127,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn is_array_from_callable_node(&self, node: &LirNode) -> bool {
         match node.text.as_deref() {
-            Some(text)
-                if text == "Array.from"
-                    || text == "globalThis.Array.from"
-                    || text == r#"globalThis["Array"].from"#
-                    || text == r#"globalThis["Array"]["from"]"#
-                    || text == r#"globalThis['Array'].from"#
-                    || text == r#"globalThis['Array']['from']"#
-                    || text == r#"Array["from"]"#
-                    || text == r#"Array['from']"#
-                    || text == r#"globalThis.Array["from"]"#
-                    || text == r#"globalThis.Array['from']"# =>
-            {
-                true
-            }
+            Some(text) if kali_common::array_from_aliases().contains(&text) => true,
             Some("from") => {
                 let Some(object) = node.children.first().copied() else {
                     return false;

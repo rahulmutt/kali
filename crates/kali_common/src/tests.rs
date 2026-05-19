@@ -125,6 +125,40 @@ fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() 
 }
 
 #[test]
+fn test_array_from_aliases_list_all_supported_aliases_in_order() {
+    let aliases = array_from_aliases();
+    let source = array_from_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            "Array.from",
+            "globalThis.Array.from",
+            r#"globalThis["Array"].from"#,
+            r#"globalThis["Array"]["from"]"#,
+            r#"globalThis['Array'].from"#,
+            r#"globalThis['Array']['from']"#,
+            r#"Array["from"]"#,
+            r#"Array['from']"#,
+            r#"globalThis.Array["from"]"#,
+            r#"globalThis.Array['from']"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Array.from inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_process_kill_zero_probe_source_lists_all_aliases_in_order() {
     let direct = process_kill_zero_probe_direct_zero_aliases();
     let wrapped = process_kill_zero_probe_wrapped_zero_aliases();

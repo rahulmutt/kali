@@ -929,6 +929,27 @@ pub fn math_pow_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(&aliases)
 }
 
+/// Canonical aliases for the supported `Array.from` helper slice.
+pub const fn array_from_aliases() -> &'static [&'static str] {
+    &[
+        "Array.from",
+        "globalThis.Array.from",
+        r#"globalThis["Array"].from"#,
+        r#"globalThis["Array"]["from"]"#,
+        r#"globalThis['Array'].from"#,
+        r#"globalThis['Array']['from']"#,
+        r#"Array["from"]"#,
+        r#"Array['from']"#,
+        r#"globalThis.Array["from"]"#,
+        r#"globalThis.Array['from']"#,
+    ]
+}
+
+/// Canonical source text for the supported `Array.from` helper aliases.
+pub fn array_from_source() -> String {
+    join_semicolon_terminated_segments(array_from_aliases())
+}
+
 /// Canonical root aliases for the supported `Set` constructor slice.
 pub const fn set_constructor_aliases() -> &'static [&'static str] {
     &[
