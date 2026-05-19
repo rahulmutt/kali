@@ -46528,6 +46528,60 @@ fn run_supports_bracketed_promise_all_settled_in_browser_api_surface_with_harnes
 }
 
 #[test]
+fn run_supports_frozen_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "console.log(Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"][\"allSettled\"]))([1, 2]));\n",
+    )
+    .expect("write source");
+
+    for command in ["run", "test"] {
+        for output_json in [false, true] {
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command).arg("--api").arg("browser");
+            if command == "test" {
+                let test_source = dir.path().join("smoke.test.js");
+                fs::write(
+                    &test_source,
+                    "Kali.test('browser promise allSettled', () => { return Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]); });\n",
+                )
+                .expect("write test source");
+                output.arg(&test_source);
+            } else {
+                output.arg(&source_path);
+            }
+            let output = output.output().expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(output.status.code(), Some(0));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert!(json["errors"].as_array().expect("errors array").is_empty());
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(!stderr.contains("E5506"), "stderr: {stderr}");
+            }
+        }
+    }
+}
+
+#[test]
 fn run_rejects_bracketed_promise_all_settled_in_inherited_browser_api_surface_with_harness_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
