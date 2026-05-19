@@ -321,6 +321,19 @@ fn test_process_kill_zero_probe_parenthesized_frozen_callable_source_lists_all_a
 }
 
 #[test]
+fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_composes_both_helpers(
+) {
+    let source = process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source();
+    let expected = format!(
+        "{} {}",
+        process_kill_zero_probe_parenthesized_receiver_freeze_source().trim_end(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source().trim_end()
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
     let message = process_kill_zero_probe_unavailable_message();

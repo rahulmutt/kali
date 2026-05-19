@@ -412,6 +412,15 @@ pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source() ->
     )
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` parenthesized receiver-freeze aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source() -> String {
+    format!(
+        "{} {}",
+        process_kill_zero_probe_parenthesized_receiver_freeze_source().trim_end(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source().trim_end()
+    )
+}
+
 fn join_semicolon_terminated_segments(segments: &[&str]) -> String {
     let mut source = segments.join("; ");
     source.push(';');
