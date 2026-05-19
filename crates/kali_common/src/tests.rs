@@ -593,6 +593,32 @@ fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_o
 }
 
 #[test]
+fn test_process_kill_zero_probe_call_target_aliases_are_in_canonical_order() {
+    assert_eq!(
+        process_kill_zero_probe_call_target_aliases(),
+        &[
+            r#"process.kill"#,
+            r#"globalThis.process.kill"#,
+            r#"process["kill"]"#,
+            r#"globalThis.process["kill"]"#,
+            r#"globalThis["process"].kill"#,
+            r#"globalThis["process"]["kill"]"#,
+        ]
+    );
+    assert_eq!(
+        process_kill_zero_probe_call_target_inventory_source(),
+        concat!(
+            r#"process.kill; "#,
+            r#"globalThis.process.kill; "#,
+            r#"process["kill"]; "#,
+            r#"globalThis.process["kill"]; "#,
+            r#"globalThis["process"].kill; "#,
+            r#"globalThis["process"]["kill"];"#
+        )
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_direct_call_target_bindings_source_is_canonical() {
     let source = process_kill_zero_probe_call_target_bindings_source();
 
