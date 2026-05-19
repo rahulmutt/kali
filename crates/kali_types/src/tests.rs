@@ -4249,6 +4249,75 @@ fn test_resolution_reports_permission_escalation_members_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_bracketed_permission_escalation_members_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let bracketed_request = Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+        object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: "Deno".to_string(),
+            })),
+            property: "permissions".to_string(),
+        })),
+        property: "request".to_string(),
+    }));
+    let bracketed_revoke = Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+        object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+            object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: "Deno".to_string(),
+            })),
+            property: "permissions".to_string(),
+        })),
+        property: "revoke".to_string(),
+    }));
+
+    let bracketed_request_member = match &bracketed_request {
+        Expression::MemberExpression(member) => member.as_ref(),
+        _ => unreachable!(),
+    };
+    assert_eq!(
+        TypeContext::member_access_name(bracketed_request_member).as_deref(),
+        Some("globalThis.Deno.permissions.request")
+    );
+    assert_eq!(
+        TypeContext::member_access_name_bracketed(bracketed_request_member).as_deref(),
+        Some(r#"globalThis["Deno"]["permissions"]["request"]"#)
+    );
+
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(bracketed_request),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(bracketed_revoke),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    for expected in [
+        "globalThis.Deno.permissions.request",
+        r#"globalThis["Deno"]["permissions"]["request"]"#,
+        "globalThis.Deno.permissions.revoke",
+        r#"globalThis["Deno"]["permissions"]["revoke"]"#,
+    ] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.message.contains(expected)),
+            "missing {expected} in {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_member_access_bracketed_name_for_permission_escalation() {
     let expr = kali_ast::MemberExpression {
         object: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
