@@ -5144,6 +5144,16 @@ mod tests {
                 },
                 vec![String::from("lodash"), String::from("react")],
             ),
+            (
+                CliOutputOptions {
+                    format: OutputFormat::Json,
+                    pretty: true,
+                    verbose: false,
+                    quiet: false,
+                    color: ColorChoice::Auto,
+                },
+                vec![String::from("lodash")],
+            ),
         ] {
             let exit_code =
                 package_audit_command(target, true, None, Vec::new(), false, None, &output)
