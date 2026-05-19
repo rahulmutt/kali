@@ -12,16 +12,18 @@ fn kali_bin() -> String {
 }
 
 fn browser_bundle_math_pow_exponent_one_source() -> String {
-    let frozen_lines = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("  console.log({alias}(2, alias));"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let frozen_entries = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("    {alias}(2, alias),"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let frozen_lines = math_pow_invocation_lines_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        "2",
+        "alias",
+        "  ",
+    );
+    let frozen_entries = math_pow_invocation_entries_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        "2",
+        "alias",
+        "    ",
+    );
 
     format!(
         r##"// kali-tree-shake: mathPowExponentOneIdentity
@@ -132,11 +134,12 @@ await mod.mathPowExponentOneIdentity();
 }
 
 fn browser_harness_math_pow_identity_run_source(exponent_value: &str, pow_base: &str) -> String {
-    let frozen_lines = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("console.log({alias}({pow_base}, alias));"))
-        .collect::<Vec<_>>()
-        .join(" ");
+    let frozen_lines = math_pow_invocation_lines_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        pow_base,
+        "alias",
+        "",
+    );
 
     format!(
         "const exponent = {exponent_value}; const alias = exponent; {direct_lines} {frozen_lines}\n",
@@ -151,11 +154,12 @@ fn browser_harness_math_pow_identity_test_source(
     exponent_value: &str,
     pow_base: &str,
 ) -> String {
-    let frozen_lines = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("  console.log({alias}({pow_base}, alias));"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let frozen_lines = math_pow_invocation_lines_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        pow_base,
+        "alias",
+        "  ",
+    );
 
     format!(
         r#"Kali.test('{test_name}', () => {{
@@ -182,16 +186,18 @@ fn browser_harness_math_pow_exponent_one_identity_test_source() -> String {
 }
 
 fn browser_bundle_math_pow_base_one_identity_source() -> String {
-    let frozen_lines = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("  console.log({alias}(1, alias));"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let frozen_entries = math_pow_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("    {alias}(1, alias),"))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let frozen_lines = math_pow_invocation_lines_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        "1",
+        "alias",
+        "  ",
+    );
+    let frozen_entries = math_pow_invocation_entries_for_aliases(
+        &math_pow_frozen_callable_aliases(),
+        "1",
+        "alias",
+        "    ",
+    );
 
     format!(
         r##"// kali-tree-shake: mathPowBaseOneIdentity
