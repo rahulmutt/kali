@@ -2644,6 +2644,7 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
         "PGO input hardening",
         "Benchmark promotion",
         "fast`, `release`, and `release-advanced`",
+        "math-pow-builtin-js",
     ] {
         assert!(
             phase.contains(expected),
