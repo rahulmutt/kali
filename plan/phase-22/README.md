@@ -53,7 +53,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 ### 22.4 Late object/runtime APIs
 
-- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints. Frozen `Proxy.revocable` aliases now also reject through the same canonical `E5506` path in runtime, browser, and Node smoke, including the Node API-surface frozen-alias regression coverage, and the shared late-object-model helper source now carries that frozen alias slice in `kali_common`. Browser-harness/browser-bundle `Math.pow` smoke now also covers parenthesized freeze-wrapper spellings around `globalThis.Math["pow"]` and `globalThis["Math"]["pow"]` on the supported alias-chain slice.
+- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints. Frozen `Proxy.revocable` aliases now also reject through the same canonical `E5506` path in runtime, browser, and Node smoke, including the Node API-surface frozen-alias regression coverage, and the shared late-object-model helper source now carries that frozen alias slice in `kali_common`. Browser-harness/browser-bundle `Math.pow` smoke now also covers parenthesized freeze-wrapper spellings around `globalThis.Math["pow"]` and `globalThis["Math"]["pow"]` on the supported alias-chain slice, and browser-requested run/test browser-harness smoke now also covers the bracketed frozen-wrapper aliases around those same `Math.pow` call targets in JS, TS, JSX, and TSX input with JSON-output coverage.
 - Promote only with conformance, sandbox/resource, effect-report, and JSON-output evidence.
 
 ## Exit gate
