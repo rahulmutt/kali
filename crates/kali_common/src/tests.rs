@@ -838,6 +838,36 @@ fn test_process_kill_zero_probe_typed_wrapper_sources_list_all_call_targets_in_o
 }
 
 #[test]
+fn test_process_kill_zero_probe_wrapped_call_target_source_reuses_the_shared_inventory() {
+    let targets = process_kill_zero_probe_call_target_aliases();
+    let expected_satisfies = format!(
+        "{};",
+        targets
+            .iter()
+            .map(|alias| format!("{alias}((0 satisfies number))"))
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+    let expected_type_assertion = format!(
+        "{};",
+        targets
+            .iter()
+            .map(|alias| format!("{alias}((0 as number))"))
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+
+    assert_eq!(
+        process_kill_zero_probe_wrapped_call_target_source("((0 satisfies number))"),
+        expected_satisfies
+    );
+    assert_eq!(
+        process_kill_zero_probe_wrapped_call_target_source("((0 as number))"),
+        expected_type_assertion
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_call_target_aliases_are_in_canonical_order() {
     assert_eq!(
         process_kill_zero_probe_call_target_aliases(),

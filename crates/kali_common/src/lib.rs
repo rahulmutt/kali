@@ -539,7 +539,8 @@ pub fn process_kill_zero_probe_call_target_inventory_source() -> String {
     join_semicolon_terminated_segments(process_kill_zero_probe_call_target_aliases())
 }
 
-fn join_wrapped_zero_probe_call_targets(argument_source: &str) -> String {
+/// Canonical source text for the supported Node `process.kill(0)` zero-probe call-target inventory wrapped in a typed expression.
+pub fn process_kill_zero_probe_wrapped_call_target_source(argument_source: &str) -> String {
     let mut source = process_kill_zero_probe_call_target_aliases()
         .iter()
         .map(|alias| format!("{alias}{argument_source}"))
@@ -551,12 +552,12 @@ fn join_wrapped_zero_probe_call_targets(argument_source: &str) -> String {
 
 /// Canonical source text for the supported Node `process.kill(0)` zero-probe slices wrapped in a TS `satisfies` expression.
 pub fn process_kill_zero_probe_satisfies_source() -> String {
-    join_wrapped_zero_probe_call_targets("((0 satisfies number))")
+    process_kill_zero_probe_wrapped_call_target_source("((0 satisfies number))")
 }
 
 /// Canonical source text for the supported Node `process.kill(0)` zero-probe slices wrapped in a TS type assertion.
 pub fn process_kill_zero_probe_type_assertion_source() -> String {
-    join_wrapped_zero_probe_call_targets("((0 as number))")
+    process_kill_zero_probe_wrapped_call_target_source("((0 as number))")
 }
 
 /// Canonical source text for the full supported Node `process.kill(0)` alias inventory.
