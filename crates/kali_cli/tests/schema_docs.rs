@@ -2422,9 +2422,11 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     let expected_benchmark_names: BTreeSet<String> = [
         "folded-arithmetic",
         "math-trunc-builtin",
+        "math-trunc-builtin-js",
         "math-imul-builtin",
         "math-clz32-builtin",
         "math-ceil-builtin",
+        "math-ceil-builtin-js",
         "math-abs-sign-builtin",
         "math-abs-sign-builtin-js",
         "math-max-min-builtin",
@@ -2479,9 +2481,11 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
     let expected_benchmark_sources: BTreeSet<String> = [
         "math-benchmark-v1.ts",
         "math-trunc-benchmark-v1.ts",
+        "math-trunc-benchmark-v1-js.js",
         "math-imul-benchmark-v1.ts",
         "math-clz32-benchmark-v1.ts",
         "math-ceil-benchmark-v1.ts",
+        "math-ceil-benchmark-v1-js.js",
         "math-abs-sign-benchmark-v1.ts",
         "math-abs-sign-benchmark-v1-js.js",
         "math-max-min-benchmark-v1.ts",
@@ -2653,6 +2657,8 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
         "Benchmark promotion",
         "fast`, `release`, and `release-advanced`",
         "math-pow-builtin-js",
+        "math-trunc-builtin-js",
+        "math-ceil-builtin-js",
     ] {
         assert!(
             phase.contains(expected),

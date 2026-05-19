@@ -17,7 +17,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 ### 24.1 Optimization inventory upkeep
 
 - Keep a concise current-evidence inventory of real `fast`, `release`, and `release-advanced` behavior.
-- The benchmark fixture set now also tracks `math-pow-builtin-js` alongside `math-pow-builtin` so `Math.pow` evidence stays visible in both TS and JS workload forms, and `math-abs-sign-builtin-js` now mirrors the `Math.abs` / `Math.sign` slice into the JS workload form too.
+- The benchmark fixture set now also tracks `math-pow-builtin-js` alongside `math-pow-builtin` so `Math.pow` evidence stays visible in both TS and JS workload forms, `math-abs-sign-builtin-js` now mirrors the `Math.abs` / `Math.sign` slice into the JS workload form too, and the new `math-trunc-builtin-js` / `math-ceil-builtin-js` fixtures now mirror the `Math.trunc` / `Math.ceil` slices into JS as well.
 - Update the inventory only when tests prove a mode's behavior.
 - Preserve deterministic artifacts and schema-v1 output contracts.
 
