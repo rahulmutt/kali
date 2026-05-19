@@ -4058,7 +4058,7 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_labels
         },
         "browserRuntimeContract": {
             "hostLabel": " browser-requested ",
-            "hostDescription": "real browser host",
+            "hostDescription": " real browser host ",
             "hostDescriptionNote": " browser runtime host description: real browser host ",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
