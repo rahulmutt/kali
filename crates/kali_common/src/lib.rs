@@ -1011,6 +1011,19 @@ pub fn math_pow_browser_alias_inventory_source() -> String {
     join_semicolon_terminated_segments(&math_pow_browser_alias_inventory_aliases())
 }
 
+/// Canonical browser-source invocation text for the supported `Math.pow` browser alias inventory.
+pub fn math_pow_browser_alias_inventory_invocation_source() -> String {
+    format!(
+        "const exponent = 3; const alias = exponent;\n{}\n",
+        math_pow_invocation_lines_for_aliases(
+            math_pow_browser_alias_inventory_aliases().as_slice(),
+            "2",
+            "alias",
+            "",
+        )
+    )
+}
+
 /// Canonical browser-bundle source text for the supported bracketed `globalThis["Math"].pow` alias chain.
 pub const fn math_pow_bracketed_global_this_alias_chain_source() -> &'static str {
     r##"// kali-tree-shake: bracketedGlobalThisMathPowAliasChain

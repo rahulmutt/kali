@@ -26,7 +26,7 @@ use wasmparser::{Operator, Parser, Payload};
 use kali_common::{
     late_object_model_own_property_source as kali_common_late_object_model_own_property_source,
     math_floor_trunc_ceil_frozen_callable_aliases, math_pow_browser_alias_inventory_aliases,
-    math_pow_invocation_lines_for_aliases,
+    math_pow_browser_alias_inventory_invocation_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use kali_runtime::split_command_spec;
@@ -80,18 +80,6 @@ try {
 }
 console.log(1);
 "#
-}
-
-fn math_pow_browser_alias_inventory_invocation_source() -> String {
-    format!(
-        "const exponent = 3; const alias = exponent;\n{}\n",
-        math_pow_invocation_lines_for_aliases(
-            math_pow_browser_alias_inventory_aliases().as_slice(),
-            "2",
-            "alias",
-            "",
-        )
-    )
 }
 
 fn browser_runtime_queue_microtask_source() -> &'static str {
