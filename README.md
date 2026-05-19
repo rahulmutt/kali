@@ -34,9 +34,11 @@ kali fmt
 kali lint
 kali check [files...]
 kali check --api browser main.ts # browser-targeted analysis lane
+kali check --api browser --sandbox kali.policy.json main.ts # browser-targeted analysis lane with static sandbox validation
 kali build <file>
 kali build --validate-ir <file>  # run internal HIR/MIR/LIR validators
 kali build --bundle --api browser <file> # browser-targeted build lane
+kali build --bundle --api browser --sandbox kali.policy.json main.ts # browser-targeted build lane with static sandbox validation
 kali build --bundle --format cjs <file> # browser-targeted CommonJS browser bundle wrapper
 kali build --lib <file>         # base library artifact for exact-version consumers
 kali run <file> [-- args...]
