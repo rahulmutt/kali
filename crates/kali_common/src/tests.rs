@@ -437,6 +437,42 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source_c
 }
 
 #[test]
+fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases_list_all_aliases_in_order(
+) {
+    let aliases = process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases();
+    let source = process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze((process)).kill(0)"#,
+            r#"Object.freeze((process)).kill(+0)"#,
+            r#"Object.freeze((globalThis.process)).kill(0)"#,
+            r#"Object.freeze((globalThis.process)).kill(+0)"#,
+            r#"Object.freeze((globalThis["process"])).kill(0)"#,
+            r#"Object.freeze((globalThis["process"])).kill(+0)"#,
+            r#"Object.freeze((process)["kill"])(0)"#,
+            r#"Object.freeze((process)["kill"])(+0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(+0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(+0)"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in parenthesized receiver-freeze inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
+}
+
+#[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
     let message = process_kill_zero_probe_unavailable_message();

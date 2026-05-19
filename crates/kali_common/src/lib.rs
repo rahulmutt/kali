@@ -429,12 +429,19 @@ pub fn process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source() ->
     )
 }
 
+/// Canonical alias inventory for the supported Node `process.kill(0)` parenthesized receiver-freeze slice.
+pub fn process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases() -> Vec<&'static str>
+{
+    ordered_unique_union(&[
+        process_kill_zero_probe_parenthesized_receiver_freeze_aliases(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases(),
+    ])
+}
+
 /// Canonical source text for the supported Node `process.kill(0)` parenthesized receiver-freeze aliases.
 pub fn process_kill_zero_probe_parenthesized_receiver_freeze_inventory_source() -> String {
-    format!(
-        "{} {}",
-        process_kill_zero_probe_parenthesized_receiver_freeze_source().trim_end(),
-        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source().trim_end()
+    join_semicolon_terminated_segments(
+        &process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases(),
     )
 }
 
