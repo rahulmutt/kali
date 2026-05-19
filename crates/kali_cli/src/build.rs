@@ -2876,10 +2876,17 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
         ));
     }
 
-    fn push_generator_class_method_diagnostic(diagnostics: &mut Vec<Diagnostic>, is_async: bool) {
+    fn push_generator_class_method_diagnostic(
+        diagnostics: &mut Vec<Diagnostic>,
+        has_generator: bool,
+        has_async_generator: bool,
+    ) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            kali_common::generator_class_method_lowering_unavailable_message(is_async),
+            kali_common::generator_class_method_lowering_unavailable_message_for_flavors(
+                has_generator,
+                has_async_generator,
+            ),
         ));
     }
 
@@ -2889,30 +2896,30 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
             .any(|method| method.is_async && !method.generator)
     }
 
-    fn class_body_has_generator_method(body: &kali_ast::ClassBody) -> bool {
-        body.methods.iter().any(|method| method.generator)
-    }
-
-    fn class_body_has_async_generator_method(body: &kali_ast::ClassBody) -> bool {
-        body.methods
+    fn class_body_has_generator_flavors(body: &kali_ast::ClassBody) -> (bool, bool) {
+        let has_generator = body.methods.iter().any(|method| method.generator);
+        let has_async_generator = body
+            .methods
             .iter()
-            .any(|method| method.is_async && method.generator)
+            .any(|method| method.is_async && method.generator);
+        (has_generator, has_async_generator)
     }
 
     fn collect_expression(expression: &Expression, diagnostics: &mut Vec<Diagnostic>) {
         match expression {
-            Expression::ClassExpression(class)
-                if class_body_has_async_generator_method(&class.body) =>
-            {
-                push_generator_class_method_diagnostic(diagnostics, true);
+            Expression::ClassExpression(class) => {
+                let (has_generator, has_async_generator) =
+                    class_body_has_generator_flavors(&class.body);
+                if has_generator || has_async_generator {
+                    push_generator_class_method_diagnostic(
+                        diagnostics,
+                        has_generator,
+                        has_async_generator,
+                    );
+                } else if class_body_has_async_method(&class.body) {
+                    push_async_class_method_diagnostic(diagnostics);
+                }
             }
-            Expression::ClassExpression(class) if class_body_has_generator_method(&class.body) => {
-                push_generator_class_method_diagnostic(diagnostics, false);
-            }
-            Expression::ClassExpression(class) if class_body_has_async_method(&class.body) => {
-                push_async_class_method_diagnostic(diagnostics);
-            }
-            Expression::ClassExpression(_) => {}
             Expression::ParenthesizedExpression(parenthesized) => {
                 collect_expression(&parenthesized.expression, diagnostics);
             }
@@ -3119,31 +3126,32 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
 
     fn collect_statement(statement: &Statement, diagnostics: &mut Vec<Diagnostic>) {
         match statement {
-            Statement::ClassDeclaration(class)
-                if class_body_has_async_generator_method(&class.body) =>
-            {
-                push_generator_class_method_diagnostic(diagnostics, true);
-            }
-            Statement::ClassDeclaration(class) if class_body_has_generator_method(&class.body) => {
-                push_generator_class_method_diagnostic(diagnostics, false);
-            }
-            Statement::ClassDeclaration(class) if class_body_has_async_method(&class.body) => {
-                push_async_class_method_diagnostic(diagnostics);
-            }
-            Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
-                ClassDeclaration { body, .. },
-            )) if class_body_has_async_generator_method(body) => {
-                push_generator_class_method_diagnostic(diagnostics, true);
+            Statement::ClassDeclaration(class) => {
+                let (has_generator, has_async_generator) =
+                    class_body_has_generator_flavors(&class.body);
+                if has_generator || has_async_generator {
+                    push_generator_class_method_diagnostic(
+                        diagnostics,
+                        has_generator,
+                        has_async_generator,
+                    );
+                } else if class_body_has_async_method(&class.body) {
+                    push_async_class_method_diagnostic(diagnostics);
+                }
             }
             Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
                 ClassDeclaration { body, .. },
-            )) if class_body_has_generator_method(body) => {
-                push_generator_class_method_diagnostic(diagnostics, false);
-            }
-            Statement::ExportDefault(ExportDefaultDeclaration::ClassDeclaration(
-                ClassDeclaration { body, .. },
-            )) if class_body_has_async_method(body) => {
-                push_async_class_method_diagnostic(diagnostics);
+            )) => {
+                let (has_generator, has_async_generator) = class_body_has_generator_flavors(body);
+                if has_generator || has_async_generator {
+                    push_generator_class_method_diagnostic(
+                        diagnostics,
+                        has_generator,
+                        has_async_generator,
+                    );
+                } else if class_body_has_async_method(body) {
+                    push_async_class_method_diagnostic(diagnostics);
+                }
             }
             Statement::ExpressionStatement(expression) => {
                 collect_expression(&expression.expression, diagnostics);

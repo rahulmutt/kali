@@ -226,6 +226,19 @@ pub const fn generator_class_method_lowering_unavailable_message(is_async: bool)
     }
 }
 
+/// Canonical feature-unavailable wording for mixed generator/async-generator class-method lowering slices.
+pub const fn generator_class_method_lowering_unavailable_message_for_flavors(
+    has_generator: bool,
+    has_async_generator: bool,
+) -> &'static str {
+    match (has_generator, has_async_generator) {
+        (true, true) => "generator and async-generator class method lowering is unavailable in the direct runtime path; use a plain or async method, or the later compatibility path",
+        (true, false) => generator_class_method_lowering_unavailable_message(false),
+        (false, true) => generator_class_method_lowering_unavailable_message(true),
+        (false, false) => generator_class_method_lowering_unavailable_message(false),
+    }
+}
+
 /// Canonical feature-unavailable wording for the supported generator-function lowering slice.
 pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> &'static str {
     if is_async {
