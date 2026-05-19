@@ -1,0 +1,7 @@
+{
+  "benchmark": "math-floor-builtin",
+  "version": 1,
+  "sourceFile": "math-floor-benchmark-v1.ts",
+  "sourceSha256": "sha256-4ba171e32b22b5046d197e22006eb35824e62ca5ad02ec87bf90bc6ec634270b",
+  "buildModes": ["--fast", "--release", "--release-advanced"]
+}
