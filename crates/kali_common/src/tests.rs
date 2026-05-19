@@ -288,22 +288,36 @@ fn test_process_kill_zero_probe_alias_inventory_source_is_prefix_free_and_single
 
 #[test]
 fn test_process_kill_zero_probe_parenthesized_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_parenthesized_frozen_callable_aliases();
     let source = process_kill_zero_probe_parenthesized_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
     assert_eq!(
-        source,
-        concat!(
-            "Object.freeze((process.kill))(0); ",
-            "Object.freeze((process.kill))(+0); ",
-            "Object.freeze((globalThis.process.kill))(0); ",
-            "Object.freeze((globalThis.process.kill))(+0); ",
-            "Object.freeze((process[\"kill\"]))(0); ",
-            "Object.freeze((process[\"kill\"]))(+0); ",
-            "Object.freeze((globalThis.process[\"kill\"]))(0); ",
-            "Object.freeze((globalThis.process[\"kill\"]))(+0); ",
-            "Object.freeze((globalThis[\"process\"].kill))(0); ",
-            "Object.freeze((globalThis[\"process\"].kill))(+0);"
-        )
+        aliases,
+        &[
+            r#"Object.freeze((process.kill))(0)"#,
+            r#"Object.freeze((process.kill))(+0)"#,
+            r#"Object.freeze((globalThis.process.kill))(0)"#,
+            r#"Object.freeze((globalThis.process.kill))(+0)"#,
+            r#"Object.freeze((process["kill"]))(0)"#,
+            r#"Object.freeze((process["kill"]))(+0)"#,
+            r#"Object.freeze((globalThis.process["kill"]))(0)"#,
+            r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
+            r#"Object.freeze((globalThis["process"].kill))(0)"#,
+            r#"Object.freeze((globalThis["process"].kill))(+0)"#,
+        ]
     );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in parenthesized frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
 }
 
 #[test]
