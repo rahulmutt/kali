@@ -2445,6 +2445,52 @@ fn browser_requested_runtime_summary_keeps_thread_topology_from_summary_file() {
 }
 
 #[test]
+fn browser_requested_runtime_summary_merges_thread_topology_from_stdout_when_summary_file_is_missing_it(
+) {
+    let tempdir = tempfile::tempdir().expect("tempdir");
+    let summary_path = tempdir.path().join("browser-runtime-summary.json");
+    fs::write(
+        &summary_path,
+        r#"{"args":["alpha"],"tests":["browser merge"],"testsFailed":2,"hostContract":"browser-requested","runtimeBackend":"browser-harness"}"#,
+    )
+    .expect("write summary file without threadTopology");
+
+    let outcome = BrowserHarnessOutcome {
+        command: vec!["node".to_string()],
+        status: browser_exit_status(0),
+        stdout: r#"{"args":["stdout"],"tests":["browser merge"],"testsFailed":1,"hostContract":"browser-requested","runtimeBackend":"browser-harness","threadTopology":{"totalInstances":1,"terminatedInstances":0,"liveInstances":[{"instanceId":0,"scriptUrl":"https://example.com/stdout-thread.js","postedMessages":[],"postedSharedBuffers":[],"wasTerminated":false}]}}"#.to_string(),
+        stderr: String::new(),
+    };
+
+    let summary = super::browser_runtime_summary_for_outcome(&summary_path, &outcome);
+    assert_eq!(summary.args, vec!["alpha".to_string()]);
+    assert_eq!(summary.tests, vec!["browser merge".to_string()]);
+    assert_eq!(summary.tests_failed, Some(2));
+    assert_eq!(
+        summary.host_contract,
+        Some(RuntimeHostContract::BrowserRequested)
+    );
+    assert_eq!(
+        summary.runtime_backend,
+        Some(RuntimeBackend::BrowserHarness)
+    );
+    assert_eq!(
+        summary.thread_topology.unwrap().snapshot_value(),
+        serde_json::json!({
+            "totalInstances": 1,
+            "terminatedInstances": 0,
+            "liveInstances": [{
+                "instanceId": 0,
+                "scriptUrl": "https://example.com/stdout-thread.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false
+            }]
+        })
+    );
+}
+
+#[test]
 fn browser_requested_runtime_summary_falls_back_to_stdout_when_summary_file_thread_topology_is_invalid(
 ) {
     let tempdir = tempfile::tempdir().expect("tempdir");
