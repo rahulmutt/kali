@@ -6434,6 +6434,23 @@ fn runtime_entrypoint_rejects_generator_class_expressions_wrapped_in_type_assert
 }
 
 #[test]
+fn runtime_entrypoint_rejects_generator_class_expressions_wrapped_in_satisfies_in_ts_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "ts",
+        "const Example = ((class NamedExample { *main() { yield 1; } })) satisfies unknown;\nExample;\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_wrapped_in_as_in_ts_input(
+) {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "ts",
+        "export default ((class NamedExample { async *main() { yield 1; } })) as unknown;\n",
+    );
+}
+
+#[test]
 fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_wrapped_in_satisfies_in_ts_input(
 ) {
     assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
