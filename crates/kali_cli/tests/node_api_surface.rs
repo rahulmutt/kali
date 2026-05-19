@@ -3069,7 +3069,7 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
                 receiver_freeze_source.as_str(),
                 " ",
                 receiver_freeze_bracket_source.as_str(),
-                " console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
+                " console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(bracketedDotSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
             ]
             .concat();
             fs::write(&run_file, run_source).expect("write run file");
@@ -3082,7 +3082,7 @@ fn node_api_surface_supports_process_kill_zero_probe_through_static_zero_aliases
                 receiver_freeze_source.as_str(),
                 " ",
                 receiver_freeze_bracket_source.as_str(),
-                " Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !dotRootKill(+zero) || !globalThis[\"process\"][\"kill\"](zero) || !process[\"kill\"](zero) || !kill(0) || !bracketedDotKill(+0) || !dotBracketKill(0) || !fullyBracketedKill(0) || !sequenceKill(0) || !bracketedRootSequenceKill(0) || !dotRootSequenceKill(0) || !bracketedSequenceKill(0) || !dotBracketSequenceKill(0) || !((globalThis[\"process\"][\"kill\"]))(+0)) { throw new Error('expected zero probe'); } });\n",
+                " Kali.test('process kill alias', () => { if (!process.kill(zeroAlias) || !dotRootKill(+zero) || !globalThis[\"process\"][\"kill\"](zero) || !process[\"kill\"](zero) || !kill(0) || !bracketedDotKill(+0) || !dotBracketKill(0) || !fullyBracketedKill(0) || !sequenceKill(0) || !bracketedRootSequenceKill(0) || !dotRootSequenceKill(0) || !bracketedSequenceKill(0) || !dotBracketSequenceKill(0) || !bracketedDotSequenceKill(0) || !((globalThis[\"process\"][\"kill\"]))(+0)) { throw new Error('expected zero probe'); } });\n",
             ]
             .concat();
             fs::write(&test_file, test_source).expect("write test file");
