@@ -11197,6 +11197,131 @@ fn json_run_supports_object_enumeration_semantics_when_browser_api_surface_is_in
     assert_eq!(json["stderr"], "");
 }
 
+fn browser_runtime_array_from_source() -> &'static str {
+    r#"const values = [1, 2];
+for (const value of Array.from(values)) {
+  console.log(value);
+}
+for (const value of globalThis.Array.from(values)) {
+  console.log(value);
+}
+for (const value of Object.freeze(Array.from)(values)) {
+  console.log(value);
+}
+for (const value of Object.freeze((Array.from))(values)) {
+  console.log(value);
+}
+for (const value of Object.freeze(globalThis.Array.from)(values)) {
+  console.log(value);
+}
+for (const value of Object.freeze((globalThis.Array.from))(values)) {
+  console.log(value);
+}
+"#
+}
+
+#[test]
+fn json_run_supports_array_from_iteration_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(&source_path, browser_runtime_array_from_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "run");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["exitCode"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1\n2\n1\n2\n1\n2\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
+fn json_test_supports_array_from_iteration_semantics_when_browser_api_surface_is_inherited_in_js_input_when_a_browser_harness_command_is_configured(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.js");
+    fs::write(&source_path, browser_runtime_array_from_source()).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+    assert_eq!(json["payload"]["total"], 1);
+    assert_eq!(json["payload"]["passed"], 1);
+    assert_eq!(json["payload"]["failed"], 0);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert!(
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("1\n2\n1\n2\n1\n2\n"),
+        "json: {json}"
+    );
+    assert_eq!(json["stderr"], "");
+}
+
 fn assert_json_run_supports_reflect_own_keys_direct_iteration_when_browser_api_surface_is_inherited_in_input_when_a_browser_harness_command_is_configured(
     extension: &str,
 ) {
