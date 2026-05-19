@@ -1490,8 +1490,12 @@ const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
     r#"globalThis['process']['exit'](+0)"#,
     r#"Object.freeze(globalThis['process'].exit)(0)"#,
     r#"Object.freeze(globalThis['process'].exit)(+0)"#,
+    r#"Object.freeze((globalThis['process'].exit))(0)"#,
+    r#"Object.freeze((globalThis['process'].exit))(+0)"#,
     r#"Object.freeze(globalThis['process']['exit'])(0)"#,
     r#"Object.freeze(globalThis['process']['exit'])(+0)"#,
+    r#"Object.freeze((globalThis['process']['exit']))(0)"#,
+    r#"Object.freeze((globalThis['process']['exit']))(+0)"#,
 ];
 
 /// Canonical late-process-control source text for the browser JS single-quoted process root and exit aliases.
