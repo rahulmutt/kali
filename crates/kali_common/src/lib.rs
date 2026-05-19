@@ -382,6 +382,8 @@ pub const fn process_kill_zero_probe_parenthesized_frozen_callable_aliases(
         r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
         r#"Object.freeze((globalThis["process"].kill))(0)"#,
         r#"Object.freeze((globalThis["process"].kill))(+0)"#,
+        r#"Object.freeze((globalThis["process"]["kill"]))(0)"#,
+        r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
     ]
 }
 

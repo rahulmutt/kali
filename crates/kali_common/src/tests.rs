@@ -305,6 +305,8 @@ fn test_process_kill_zero_probe_parenthesized_frozen_callable_source_lists_all_a
             r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
             r#"Object.freeze((globalThis["process"].kill))(0)"#,
             r#"Object.freeze((globalThis["process"].kill))(+0)"#,
+            r#"Object.freeze((globalThis["process"]["kill"]))(0)"#,
+            r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
         ]
     );
 
