@@ -640,6 +640,32 @@ fn test_process_kill_zero_probe_parenthesized_receiver_freeze_inventory_aliases_
 }
 
 #[test]
+fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
+    let aliases = reflect_own_keys_frozen_callable_aliases();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze(globalThis.Reflect.ownKeys)"#,
+            r#"Object.freeze(globalThis.Reflect["ownKeys"])"#,
+            r#"Object.freeze(globalThis["Reflect"]["ownKeys"])"#,
+            r#"Object.freeze((globalThis["Reflect"]["ownKeys"]))"#,
+            r#"Object.freeze((globalThis.Reflect.ownKeys))"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Reflect.ownKeys frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+}
+
+#[test]
 fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
     let source = reflect_own_keys_frozen_callable_source("obj");
     let expected = concat!(

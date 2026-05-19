@@ -657,6 +657,17 @@ pub fn object_has_own_frozen_callable_source() -> String {
 }
 
 /// Canonical frozen callable aliases for the supported `Reflect.ownKeys` helper slice.
+pub const fn reflect_own_keys_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Reflect.ownKeys)"#,
+        r#"Object.freeze(globalThis.Reflect["ownKeys"])"#,
+        r#"Object.freeze(globalThis["Reflect"]["ownKeys"])"#,
+        r#"Object.freeze((globalThis["Reflect"]["ownKeys"]))"#,
+        r#"Object.freeze((globalThis.Reflect.ownKeys))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Reflect.ownKeys` frozen callable aliases.
 pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
     let statements = [
         format!("const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)({object_source})"),
