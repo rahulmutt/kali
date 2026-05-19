@@ -3,29 +3,31 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::browser_template_literal_string_iteration_body_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
+fn indent_source(source: &str, indentation: &str) -> String {
+    source
+        .lines()
+        .map(|line| format!("{indentation}{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn browser_template_literal_string_iteration_source(command: &str) -> String {
-    let body = r#"const prefix = "he";
-const suffix = "llo";
-const syncChars = [];
-for (const item of `${prefix}${suffix}`) {
-  syncChars.push(item);
-}
-const asyncChars = [];
-for await (const item of `${prefix}${suffix}`) {
-  asyncChars.push(item);
-}
-if (syncChars.join("") !== "hello" || asyncChars.join("") !== "hello") {
-  throw new Error('unexpected template literal iteration semantics');
-}
-"#;
+    let body = indent_source(
+        browser_template_literal_string_iteration_body_source(),
+        "  ",
+    );
 
     match command {
-        "test" => format!("Kali.test('browser template literal iteration', () => {{\n{body}}});\n"),
-        _ => format!("{body}console.log('browser template literal iteration ok');\n"),
+        "test" => {
+            format!("Kali.test('browser template literal iteration', () => {{\n{body}\n}});\n")
+        }
+        _ => format!("{body}\nconsole.log('browser template literal iteration ok');\n"),
     }
 }
 

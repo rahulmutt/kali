@@ -3,29 +3,34 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::browser_template_literal_string_iteration_body_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn browser_bundle_template_literal_string_iteration_source() -> &'static str {
-    r##"// kali-tree-shake: browserTemplateLiteralStringIteration
-export async function browserTemplateLiteralStringIteration() {
-  const prefix = "he";
-  const suffix = "llo";
-  const syncChars = [];
-  for (const item of `${prefix}${suffix}`) {
-    syncChars.push(item);
-  }
-  const asyncChars = [];
-  for await (const item of `${prefix}${suffix}`) {
-    asyncChars.push(item);
-  }
-  if (syncChars.join("") !== "hello" || asyncChars.join("") !== "hello") {
-    throw new Error('unexpected template literal iteration semantics');
-  }
-  console.log('browser template literal iteration ok');
+fn indent_source(source: &str, indentation: &str) -> String {
+    source
+        .lines()
+        .map(|line| format!("{indentation}{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
+
+fn browser_bundle_template_literal_string_iteration_source() -> String {
+    let body = indent_source(
+        browser_template_literal_string_iteration_body_source(),
+        "  ",
+    );
+
+    format!(
+        r##"// kali-tree-shake: browserTemplateLiteralStringIteration
+export async function browserTemplateLiteralStringIteration() {{
+{body}
+  console.log('browser template literal iteration ok');
+}}
 "##
+    )
 }
 
 fn assert_browser_bundle_template_literal_string_iteration(filename: &str, json_output: bool) {

@@ -3,17 +3,18 @@ use std::{fs, process::Command};
 use serde_json::Value;
 use tempfile::tempdir;
 
+use kali_common::template_literal_string_iteration_body_source;
+
 fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
 fn template_literal_iteration_source(command: &str) -> String {
-    let body = r#"for (const ch of `hello`) { console.log(ch); }
-"#;
+    let body = template_literal_string_iteration_body_source();
 
     match command {
-        "test" => format!("Kali.test('template literal iteration', () => {{\n{body}}});\n"),
-        _ => body.to_string(),
+        "test" => format!("Kali.test('template literal iteration', () => {{\n{body}\n}});\n"),
+        _ => format!("{body}\n"),
     }
 }
 
