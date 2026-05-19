@@ -20,7 +20,7 @@ use kali_ast::{
     WhileStatement, WithStatement,
 };
 use kali_common::{
-    generator_class_method_lowering_unavailable_message,
+    generator_class_method_lowering_unavailable_message_for_flavors,
     generator_function_lowering_unavailable_message,
     generator_function_lowering_unavailable_message_for_flavors,
     process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
@@ -3832,12 +3832,14 @@ impl TypeContext {
 
     fn resolve_class_body(&mut self, body: &ClassBody) {
         self.push_scope(ScopeType::Class);
+        let mut has_generator = false;
+        let mut has_async_generator = false;
         for method in &body.methods {
             if method.generator {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    generator_class_method_lowering_unavailable_message(method.is_async),
-                ));
+                has_generator = true;
+                if method.is_async {
+                    has_async_generator = true;
+                }
                 continue;
             }
             self.bind_current_scope(method.name.clone());
@@ -3847,6 +3849,15 @@ impl TypeContext {
                 self.resolve_block_body(body);
             }
             self.pop_scope();
+        }
+        if has_generator || has_async_generator {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                generator_class_method_lowering_unavailable_message_for_flavors(
+                    has_generator,
+                    has_async_generator,
+                ),
+            ));
         }
         self.pop_scope();
     }
