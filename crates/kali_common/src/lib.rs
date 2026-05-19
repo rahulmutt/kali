@@ -1450,6 +1450,26 @@ pub const fn late_threaded_runtime_source() -> &'static str {
     "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
 }
 
+/// Canonical late permission-escalation source text used by the browser and runtime smoke.
+pub const fn late_permission_escalation_source() -> &'static str {
+    "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].permissions.request(); globalThis[\"Deno\"].permissions.revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis.Deno[\"permissions\"][\"request\"](); globalThis.Deno[\"permissions\"][\"revoke\"]();"
+}
+
+/// Canonical late environment-materialization source text used by the browser and runtime smoke.
+pub const fn late_env_materialization_source() -> &'static str {
+    "Deno.env.toObject(); globalThis.Deno.env.toObject(); Deno.env[\"toObject\"](); Deno[\"env\"][\"toObject\"](); Deno[\"env\"].toObject(); globalThis.Deno.env[\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis.Deno[\"env\"].toObject(); globalThis[\"Deno\"].env.toObject(); globalThis[\"Deno\"].env[\"toObject\"](); globalThis[\"Deno\"][\"env\"].toObject(); globalThis[\"Deno\"][\"env\"][\"toObject\"](); globalThis.Deno[\"env\"][\"toObject\"](); globalThis[\"Deno\"].env.toObject();"
+}
+
+/// Canonical late subprocess source text used by the browser and runtime smoke.
+pub const fn late_subprocess_source() -> &'static str {
+    "new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis.Deno[\"Command\"]('sh').spawn(); new globalThis[\"Deno\"].Command('sh').spawn(); new globalThis[\"Deno\"][\"Command\"]('sh').spawn();"
+}
+
+/// Canonical late network source text used by the browser and runtime smoke.
+pub const fn late_network_source() -> &'static str {
+    "Deno.connect('127.0.0.1', 1); globalThis.Deno.connect('127.0.0.1', 1); globalThis.Deno[\"connect\"]('127.0.0.1', 1); globalThis[\"Deno\"].connect('127.0.0.1', 1); globalThis[\"Deno\"][\"connect\"]('127.0.0.1', 1); Deno.listen('127.0.0.1', 0); globalThis.Deno.listen('127.0.0.1', 0); globalThis.Deno[\"listen\"]('127.0.0.1', 0); globalThis[\"Deno\"].listen('127.0.0.1', 0); globalThis[\"Deno\"][\"listen\"]('127.0.0.1', 0); Deno.serve('127.0.0.1', 0); globalThis.Deno.serve('127.0.0.1', 0); globalThis.Deno[\"serve\"]('127.0.0.1', 0); globalThis[\"Deno\"].serve('127.0.0.1', 0); globalThis[\"Deno\"][\"serve\"]('127.0.0.1', 0);"
+}
+
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
