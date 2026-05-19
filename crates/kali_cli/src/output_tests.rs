@@ -1,6 +1,6 @@
 use kali_common::{FileId, Span};
 use kali_error::{_error_codes::e5, Diagnostic};
-use kali_runtime::browser_runtime_contract_value;
+use kali_runtime::{browser_runtime_contract_value, BrowserRuntimeContract};
 use serde_json::json;
 use std::path::Path;
 
@@ -3414,6 +3414,54 @@ fn validate_doctor_payload_value_rejects_duplicate_diagnostic_notes() {
         validate_doctor_payload_value(&value).expect_err("duplicate diagnostic notes should fail");
     assert!(err.contains("duplicate item"), "unexpected error: {err}");
     assert!(err.contains("diagnosticNotes"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_doctor_payload_value_rejects_out_of_order_diagnostic_notes() {
+    let expected_notes = BrowserRuntimeContract::diagnostic_notes();
+    let expected_notes_message = format!(
+        "[{}]",
+        expected_notes
+            .iter()
+            .map(|note| format!("`{note}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    let value = json!({
+        "browserHarness": {
+            "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            "source": "auto",
+            "override": null,
+            "command": ["node", "--test"],
+            "executable": "node",
+            "args": ["--test"],
+            "executableAvailable": true,
+        },
+        "browserRuntimeContract": {
+            "hostLabel": "browser-requested",
+            "hostDescription": "real browser host",
+            "hostDescriptionNote": "browser runtime host description: real browser host",
+            "supportedCommands": ["run", "test"],
+            "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "diagnosticNotes": [
+                "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "supported browser runtime commands: run, test",
+                "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                "browser runtime host description: real browser host"
+            ]
+        }
+    });
+
+    let err = validate_doctor_payload_value(&value)
+        .expect_err("out-of-order diagnostic notes should fail");
+    assert!(err.contains("diagnosticNotes"), "unexpected error: {err}");
+    assert!(err.contains("exactly"), "unexpected error: {err}");
+    assert!(
+        err.contains(&expected_notes_message),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
