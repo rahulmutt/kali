@@ -2817,6 +2817,20 @@ mod tests {
     }
 
     #[test]
+    fn browser_runtime_contract_rejects_wrong_diagnostic_hint() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["diagnosticHint"] = json!("Use the browser-targeted command set.");
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("wrong diagnosticHint should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract diagnosticHint must be `Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.`"
+        );
+    }
+
+    #[test]
     fn browser_runtime_contract_rejects_wrong_host_description_note() {
         let mut contract = browser_runtime_contract_fixture();
         contract["hostDescriptionNote"] = json!("browser runtime host description: browser host");
