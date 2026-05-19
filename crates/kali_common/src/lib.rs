@@ -1482,9 +1482,38 @@ pub const fn late_threaded_runtime_source() -> &'static str {
     "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
 }
 
+const LATE_PERMISSION_ESCALATION_SEGMENTS: &[&str] = &[
+    "Deno.permissions.request()",
+    "Deno.permissions.revoke()",
+    r#"Deno.permissions["request"]()"#,
+    r#"Deno.permissions["revoke"]()"#,
+    "globalThis.Deno.permissions.request()",
+    "globalThis.Deno.permissions.revoke()",
+    r#"globalThis.Deno.permissions["request"]()"#,
+    r#"globalThis.Deno.permissions["revoke"]()"#,
+    r#"globalThis["Deno"].permissions["request"]()"#,
+    r#"globalThis["Deno"].permissions["revoke"]()"#,
+    r#"globalThis["Deno"].permissions.request()"#,
+    r#"globalThis["Deno"].permissions.revoke()"#,
+    r#"globalThis["Deno"].permissions["request"]()"#,
+    r#"globalThis["Deno"]["permissions"]["request"]()"#,
+    r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+    r#"globalThis["Deno"]["permissions"].request()"#,
+    r#"globalThis["Deno"]["permissions"].revoke()"#,
+    r#"globalThis["Deno"].permissions["request"]()"#,
+    r#"globalThis["Deno"].permissions["revoke"]()"#,
+    r#"globalThis.Deno["permissions"]["request"]()"#,
+    r#"globalThis.Deno["permissions"]["revoke"]()"#,
+];
+
+/// Canonical late permission-escalation alias inventory used by the browser and runtime smoke.
+pub fn late_permission_escalation_aliases() -> &'static [&'static str] {
+    LATE_PERMISSION_ESCALATION_SEGMENTS
+}
+
 /// Canonical late permission-escalation source text used by the browser and runtime smoke.
-pub const fn late_permission_escalation_source() -> &'static str {
-    "Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions[\"request\"](); Deno.permissions[\"revoke\"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions[\"request\"](); globalThis.Deno.permissions[\"revoke\"](); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis[\"Deno\"].permissions.request(); globalThis[\"Deno\"].permissions.revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"request\"](); globalThis[\"Deno\"][\"permissions\"][\"revoke\"](); globalThis[\"Deno\"][\"permissions\"].request(); globalThis[\"Deno\"][\"permissions\"].revoke(); globalThis[\"Deno\"].permissions[\"request\"](); globalThis[\"Deno\"].permissions[\"revoke\"](); globalThis.Deno[\"permissions\"][\"request\"](); globalThis.Deno[\"permissions\"][\"revoke\"]();"
+pub fn late_permission_escalation_source() -> String {
+    join_semicolon_terminated_segments(late_permission_escalation_aliases())
 }
 
 /// Canonical late environment-materialization source text used by the browser and runtime smoke.

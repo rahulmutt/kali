@@ -73,6 +73,32 @@ fn test_late_threaded_runtime_source_lists_bracketed_spellings() {
 #[test]
 fn test_late_permission_escalation_source_lists_request_and_revoke_aliases() {
     assert_eq!(
+        late_permission_escalation_aliases(),
+        &[
+            "Deno.permissions.request()",
+            "Deno.permissions.revoke()",
+            r#"Deno.permissions["request"]()"#,
+            r#"Deno.permissions["revoke"]()"#,
+            "globalThis.Deno.permissions.request()",
+            "globalThis.Deno.permissions.revoke()",
+            r#"globalThis.Deno.permissions["request"]()"#,
+            r#"globalThis.Deno.permissions["revoke"]()"#,
+            r#"globalThis["Deno"].permissions["request"]()"#,
+            r#"globalThis["Deno"].permissions["revoke"]()"#,
+            r#"globalThis["Deno"].permissions.request()"#,
+            r#"globalThis["Deno"].permissions.revoke()"#,
+            r#"globalThis["Deno"].permissions["request"]()"#,
+            r#"globalThis["Deno"]["permissions"]["request"]()"#,
+            r#"globalThis["Deno"]["permissions"]["revoke"]()"#,
+            r#"globalThis["Deno"]["permissions"].request()"#,
+            r#"globalThis["Deno"]["permissions"].revoke()"#,
+            r#"globalThis["Deno"].permissions["request"]()"#,
+            r#"globalThis["Deno"].permissions["revoke"]()"#,
+            r#"globalThis.Deno["permissions"]["request"]()"#,
+            r#"globalThis.Deno["permissions"]["revoke"]()"#,
+        ]
+    );
+    assert_eq!(
         late_permission_escalation_source(),
         r#"Deno.permissions.request(); Deno.permissions.revoke(); Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions.request(); globalThis.Deno.permissions.revoke(); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke(); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis.Deno["permissions"]["request"](); globalThis.Deno["permissions"]["revoke"]();"#
     );
