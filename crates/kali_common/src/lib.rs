@@ -368,6 +368,21 @@ pub fn process_kill_zero_probe_parenthesized_receiver_freeze_source() -> String 
     )
 }
 
+/// Canonical transparent parenthesized receiver aliases for the supported Node `process.kill(0)` slice.
+pub const fn process_kill_zero_probe_parenthesized_receiver_aliases() -> &'static [&'static str] {
+    &[
+        r#"((process)).kill(0)"#,
+        r#"((process)).kill(+0)"#,
+        r#"((globalThis.process)).kill(0)"#,
+        r#"((globalThis.process)).kill(+0)"#,
+    ]
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` transparent parenthesized receiver aliases.
+pub fn process_kill_zero_probe_parenthesized_receiver_source() -> String {
+    join_semicolon_terminated_segments(process_kill_zero_probe_parenthesized_receiver_aliases())
+}
+
 /// Canonical parenthesized frozen-callable aliases for the supported Node `process.kill(0)` slice.
 pub const fn process_kill_zero_probe_parenthesized_frozen_callable_aliases(
 ) -> &'static [&'static str] {
@@ -1056,11 +1071,13 @@ pub fn late_process_control_prefix_source() -> String {
 /// Canonical late-process-control source text that embeds the supported Node zero-probe slice.
 pub fn late_process_control_source() -> String {
     let process_kill_zero_probe_source = process_kill_zero_probe_alias_inventory_source();
+    let parenthesized_receiver_source = process_kill_zero_probe_parenthesized_receiver_source();
     let parenthesized_receiver_freeze_source =
         process_kill_zero_probe_parenthesized_receiver_freeze_source();
     format!(
-        "{} {} {}",
+        "{} {} {} {}",
         late_process_control_prefix_source(),
+        parenthesized_receiver_source.trim_end(),
         parenthesized_receiver_freeze_source.trim_end(),
         process_kill_zero_probe_source.trim_end()
     )

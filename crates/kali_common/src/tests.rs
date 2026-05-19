@@ -1010,6 +1010,26 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
         1,
         "late process control source should embed the zero-probe inventory exactly once"
     );
+    let parenthesized_receiver_aliases = process_kill_zero_probe_parenthesized_receiver_aliases();
+    assert_eq!(
+        parenthesized_receiver_aliases,
+        &[
+            r#"((process)).kill(0)"#,
+            r#"((process)).kill(+0)"#,
+            r#"((globalThis.process)).kill(0)"#,
+            r#"((globalThis.process)).kill(+0)"#,
+        ]
+    );
+    let parenthesized_receiver_source = process_kill_zero_probe_parenthesized_receiver_source();
+    assert!(
+        source.contains(parenthesized_receiver_source.trim_end()),
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(parenthesized_receiver_source.trim_end()).count(),
+        1,
+        "late process control source should embed the transparent parenthesized receiver aliases exactly once"
+    );
     assert!(
         source.contains("process.kill(zeroAlias)"),
         "source: {source}"
@@ -1132,6 +1152,24 @@ fn test_late_process_control_source_reuses_the_shared_zero_probe_inventory_once(
         prefix.ends_with("globalThis.process[\"exit\"];"),
         "prefix should preserve the process-control preamble: {prefix}"
     );
+}
+
+#[test]
+fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_parenthesized_receiver_aliases();
+    let source = process_kill_zero_probe_parenthesized_receiver_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"((process)).kill(0)"#,
+            r#"((process)).kill(+0)"#,
+            r#"((globalThis.process)).kill(0)"#,
+            r#"((globalThis.process)).kill(+0)"#,
+        ]
+    );
+    assert_eq!(source, expected);
 }
 
 #[test]
