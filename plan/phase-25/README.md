@@ -33,7 +33,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 
 ### 25.4 Schema and CLI contract hardening
 
-- Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
+- Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries. The public `run` / `test` JSON smoke now also pins the explicit browser API surface's empty `threadTopology` snapshot path, keeping the emitted payload contract aligned with the browser-runtime JSON envelope.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.

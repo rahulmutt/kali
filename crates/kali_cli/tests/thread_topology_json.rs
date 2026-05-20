@@ -18,6 +18,41 @@ fn assert_empty_thread_topology(value: &Value) {
     assert_eq!(value["liveInstances"], serde_json::json!([]));
 }
 
+fn assert_empty_thread_topology_when_browser_api_is_explicit(
+    command: &str,
+    source_name: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("temp dir");
+    let source_path = dir.path().join(source_name);
+    fs::write(&source_path, source).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("--output")
+        .arg("json")
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json = parse_json_stdout(&output);
+    let payload = &json["payload"];
+    assert_eq!(payload["hostContract"], "browser-requested");
+    assert_eq!(payload["runtimeBackend"], "browser-harness");
+    assert_empty_thread_topology(&payload["threadTopology"]);
+}
+
 #[test]
 fn json_run_payload_includes_an_empty_thread_topology_snapshot() {
     let dir = tempdir().expect("temp dir");
@@ -76,4 +111,22 @@ fn json_test_payload_includes_an_empty_thread_topology_snapshot() {
     assert_eq!(payload["hostContract"], "kali-hosted");
     assert_eq!(payload["runtimeBackend"], "wasmtime");
     assert_empty_thread_topology(&payload["threadTopology"]);
+}
+
+#[test]
+fn json_run_payload_includes_an_empty_thread_topology_snapshot_on_the_browser_api_surface() {
+    assert_empty_thread_topology_when_browser_api_is_explicit(
+        "run",
+        "browser-run-thread-topology.ts",
+        "console.log('browser run thread topology');\n",
+    );
+}
+
+#[test]
+fn json_test_payload_includes_an_empty_thread_topology_snapshot_on_the_browser_api_surface() {
+    assert_empty_thread_topology_when_browser_api_is_explicit(
+        "test",
+        "browser-test-thread-topology.test.ts",
+        "Kali.test('browser thread topology', () => { console.log('browser test thread topology'); });\n",
+    );
 }
