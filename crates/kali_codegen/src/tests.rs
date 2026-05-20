@@ -2258,6 +2258,30 @@ fn unsupported_async_generator_function_lowering_reports_feature_unavailable() {
 }
 
 #[test]
+fn unsupported_async_generator_default_export_function_lowering_reports_feature_unavailable() {
+    let program =
+        parse_and_lower_lir("export default async function* main() { yield 1; }\nmain();");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("async-generator function lowering")
+        }),
+        "expected an unavailable async-generator default-export diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn unsupported_generator_class_method_lowering_reports_feature_unavailable() {
     let program = parse_and_lower_lir("class Example { *main() { yield* []; } }\nnew Example();");
     let mut ctx = CodegenCtx::new(TargetConfig {

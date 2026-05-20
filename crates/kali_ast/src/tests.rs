@@ -135,6 +135,15 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
             }),
         }),
     );
+    let default_export_async_generator = Statement::ExportDefault(
+        ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
+            name: "DefaultAsyncGenerator".to_string(),
+            params: vec![],
+            body: Box::new(BlockStatement { body: vec![] }),
+            is_async: true,
+            generator: true,
+        }),
+    );
 
     let round_tripped_function: FunctionDeclaration =
         serde_json::from_str(&serde_json::to_string(&function).unwrap()).unwrap();
@@ -148,6 +157,9 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         serde_json::from_str(&serde_json::to_string(&default_export_class).unwrap()).unwrap();
     let round_tripped_default_export_class_decl: Statement =
         serde_json::from_str(&serde_json::to_string(&default_export_class_decl).unwrap()).unwrap();
+    let round_tripped_default_export_async_generator: Statement =
+        serde_json::from_str(&serde_json::to_string(&default_export_async_generator).unwrap())
+            .unwrap();
 
     assert_eq!(round_tripped_function, function);
     assert_eq!(round_tripped_function_expr, function_expr);
@@ -157,5 +169,9 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
     assert_eq!(
         round_tripped_default_export_class_decl,
         default_export_class_decl
+    );
+    assert_eq!(
+        round_tripped_default_export_async_generator,
+        default_export_async_generator
     );
 }

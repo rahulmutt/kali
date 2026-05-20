@@ -151,6 +151,29 @@ fn test_lower_statements_records_function_flavor_metadata_for_function_expressio
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata_for_default_export_async_generator_function_declaration(
+) {
+    let statements = parse("export default async function* main() { yield 1; }");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let default_export = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(_, node)| {
+            node.kind == HirNodeKind::FunctionDecl && node.text.as_deref() == Some("main")
+        })
+        .map(|(index, _)| HirNodeId::new(index as u32))
+        .expect("default-export async generator function node");
+
+    assert_eq!(
+        result.function_flavor(default_export),
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+}
+
+#[test]
 fn test_lower_statements_records_function_flavor_metadata_for_class_methods() {
     let statements = parse(
         "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",

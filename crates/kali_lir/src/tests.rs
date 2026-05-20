@@ -65,6 +65,24 @@ fn test_lir_lowering_preserves_function_flavor_metadata() {
 }
 
 #[test]
+fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_async_generator_function_declaration(
+) {
+    let mir = parse_and_lower("export default async function* main() { yield 1; }");
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let default_export = lir
+        .nodes
+        .iter()
+        .find(|node| node.text.as_deref() == Some("main"))
+        .expect("default-export async generator lir node");
+
+    assert_eq!(
+        default_export.function_flavor,
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+}
+
+#[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_class_methods() {
     let mir = parse_and_lower(
         "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",
