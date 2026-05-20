@@ -2473,6 +2473,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "const-array-element-access",
         "const-object-property-access",
         "folded-arithmetic-variant",
+        "folded-arithmetic-variant-js",
         "string-concatenation",
         "array-literal-arguments",
         "template-literal-concatenation",
@@ -2540,6 +2541,7 @@ fn benchmark_fixture_metadata_schema_tracks_current_fixture_contract() {
         "const-array-element-access-benchmark-v1.ts",
         "const-object-property-access-benchmark-v1.ts",
         "math-variant-benchmark-v1.ts",
+        "math-variant-benchmark-v1-js.js",
         "string-concatenation-benchmark-v1.ts",
         "array-literal-arguments-benchmark-v1.js",
         "template-literal-concatenation-benchmark-v1.ts",
@@ -2675,6 +2677,7 @@ fn active_plan_tracks_optimization_phase_without_inventory_journal() {
         "math-pow-builtin-js",
         "math-trunc-builtin-js",
         "math-ceil-builtin-js",
+        "folded-arithmetic-variant-js",
     ] {
         assert!(
             phase.contains(expected),
@@ -2692,14 +2695,18 @@ fn active_plan_tracks_current_state_and_gap_map_benchmark_inventory_updates() {
             "the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`",
         ),
         (
+            "plan/00-current-state.md",
+            "folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`)",
+        ),
+        (
             "plan/02-spec-gap-map.md",
-            "math-round-builtin` / `math-round-builtin-js` so `Math.round` stays visible in both source classes",
+            "folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`)",
         ),
     ] {
         let contents = fs::read_to_string(root.join(doc)).expect("read plan doc");
         assert!(
             contents.contains(expected),
-            "{doc} should mention the round benchmark inventory update"
+            "{doc} should mention the benchmark inventory update"
         );
     }
 }
