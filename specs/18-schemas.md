@@ -135,7 +135,7 @@ Required fields:
 ### `BrowserRuntimeContractDoctor`
 
 Required fields:
-- `hostLabel: const` `"browser-requested"` — canonical label for the browser-requested host contract used in diagnostics; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
+- `hostLabel: const` `"browser-requested"` — canonical label for the browser-requested host contract used in diagnostics; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail. This matches the CLI validator's trim-on-compare rule for the browser runtime contract.
 - `hostDescription: non-empty, non-whitespace string` — short human-readable description of the intended browser host; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail. This matches the CLI validator's trim-on-compare rule for the browser runtime contract.
 - `hostDescriptionNote: const` `"browser runtime host description: real browser host"` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
 - `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, the current contract serializes it as `[`run`, `test`]`, and the published schema encodes that fixed tuple shape with ordered prefix items; validators compare each emitted item after trimming surrounding whitespace, but whitespace-only items still fail
