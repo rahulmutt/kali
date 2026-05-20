@@ -15,7 +15,7 @@ The checked-in repository already includes:
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
 - Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.
-- The supported numeric-fallthrough path now also keeps await-wrapped `Math.atan2` numeric literals cheap in build smoke, matching the existing transparent wrapper handling on related static-literal slices.
+- The supported numeric-fallthrough path now also keeps await-wrapped `Math.atan2` numeric literals cheap in build smoke, matching the existing transparent wrapper handling on related static-literal slices, and browser-harness/browser-bundle smoke now also covers the same await-wrapped `Math.atan2` zero slice across JS, TS, JSX, and TSX input.
 - The benchmark inventory notes now record that the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, and that the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`).
 - Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, deterministic metadata, and sidecar manifests.
 - Runtime/reporting lanes: `run`, `test`, `test --coverage`, source-graph effects, package effects, package audit, deterministic JSON envelopes, and schema-v1 payload validation.

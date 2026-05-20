@@ -33,6 +33,118 @@ fn browser_harness_global_this_math_atan2_test_source() -> &'static str {
 "#
 }
 
+fn browser_bundle_global_this_math_atan2_await_wrapped_source() -> &'static str {
+    r##"// kali-tree-shake: globalThisMathAtan2AwaitWrappedZeroSlice
+async function globalThisMathAtan2AwaitWrappedZeroSlice() {
+  console.log(globalThis.Math.atan2(await 0, await 1));
+  console.log(globalThis.Math["atan2"](await 0, await 1));
+  return [globalThis.Math.atan2(await 0, await 1), globalThis.Math["atan2"](await 0, await 1)];
+}
+"##
+}
+
+fn browser_harness_global_this_math_atan2_await_wrapped_run_source() -> &'static str {
+    "async function main() {\n  console.log(globalThis.Math.atan2(await 0, await 1));\n  console.log(globalThis.Math[\"atan2\"](await 0, await 1));\n}\n\nmain();\n"
+}
+
+fn browser_harness_global_this_math_atan2_await_wrapped_test_source() -> &'static str {
+    r#"Kali.test('globalThis math atan2 await-wrapped zero slice', () => {
+  async function main() {
+    console.log(globalThis.Math.atan2(await 0, await 1));
+    console.log(globalThis.Math["atan2"](await 0, await 1));
+  }
+  return main();
+});
+"#
+}
+
+fn assert_browser_bundle_global_this_math_atan2_await_wrapped(filename: &str, json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        browser_bundle_global_this_math_atan2_await_wrapped_source(),
+    )
+    .expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("build")
+        .arg("--bundle")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["success"], true);
+        assert_eq!(envelope["exitCode"], 0);
+        let payload = envelope["payload"].as_object().expect("payload object");
+        assert_eq!(payload["artifactKind"], "bundle");
+        assert_eq!(payload["bundleFormat"], "esm");
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
+    }
+
+    let bundle_dir = dir.path().join("app");
+    let metadata: Value = serde_json::from_str(
+        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
+    )
+    .expect("parse metadata json");
+    assert_eq!(metadata["apiSurface"], "browser");
+    assert_eq!(metadata["artifactKind"], "bundle");
+
+    let harness_path = bundle_dir
+        .parent()
+        .expect("bundle root parent")
+        .join("browser-bundle-smoke.mjs");
+    let harness = kali_runtime::browser_bundle_harness_script(
+        "app",
+        false,
+        r#"const mod = await import(bundleJs.href);
+await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
+"#,
+    );
+    fs::write(&harness_path, harness).expect("write browser bundle harness");
+
+    let mut harness_command = kali_runtime::browser_harness_command_parts_for(
+        std::env::var("KALI_BROWSER_BUNDLE_HARNESS_COMMAND")
+            .ok()
+            .as_deref(),
+    );
+    let harness_executable = harness_command.remove(0);
+    let output = Command::new(&harness_executable)
+        .current_dir(&bundle_dir)
+        .args(&harness_command)
+        .arg(&harness_path)
+        .output()
+        .expect("run browser bundle harness");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\n"), "stdout: {stdout}");
+}
+
 fn assert_browser_bundle_global_this_math_atan2(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -371,4 +483,118 @@ fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_confi
         browser_harness_global_this_math_atan2_test_source(),
         true,
     );
+}
+
+#[test]
+fn build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2_await_wrapped(filename, false);
+    }
+}
+
+#[test]
+fn json_build_emits_global_this_math_atan2_await_wrapped_zero_slice_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2_await_wrapped(filename, true);
+    }
+}
+
+#[test]
+fn run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input(
+) {
+    for (filename, source) in [
+        (
+            "main.js",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.ts",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.jsx",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.tsx",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("run", filename, source, false);
+    }
+}
+
+#[test]
+fn test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_js_like_input(
+) {
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, false);
+    }
+}
+
+#[test]
+fn run_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input(
+) {
+    for (filename, source) in [
+        (
+            "main.js",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.ts",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.jsx",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+        (
+            "main.tsx",
+            browser_harness_global_this_math_atan2_await_wrapped_run_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("run", filename, source, true);
+    }
+}
+
+#[test]
+fn test_supports_global_this_math_atan2_await_wrapped_zero_slice_when_browser_harness_is_configured_in_json_js_like_input(
+) {
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_await_wrapped_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, true);
+    }
 }
