@@ -1494,10 +1494,10 @@ const LATE_PROCESS_CONTROL_PREFIX_SEGMENTS: &[&str] = &[
 const LATE_PROCESS_CONTROL_EXIT_SEGMENTS: &[&str] = &[
     "process.exit",
     "globalThis.process.exit",
+    "globalThis.process[\"exit\"]",
     "globalThis[\"process\"].exit",
     "globalThis[\"process\"][\"exit\"]",
     "process[\"exit\"]",
-    "globalThis.process[\"exit\"]",
 ];
 
 /// Canonical exit alias inventory for the shared late-process-control slice.
