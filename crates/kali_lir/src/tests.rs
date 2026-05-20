@@ -67,7 +67,7 @@ fn test_lir_lowering_preserves_function_flavor_metadata() {
 #[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_class_methods() {
     let mir = parse_and_lower(
-        "class Example { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+        "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let lir = LirLowerer::new().lower_program(&mir);
 
@@ -95,7 +95,7 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_class_methods() {
 #[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_class_expressions() {
     let mir = parse_and_lower(
-        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } };",
+        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } };",
     );
     let lir = LirLowerer::new().lower_program(&mir);
 
@@ -130,7 +130,7 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_class_expressions() 
 #[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_class_expressions() {
     let mir = parse_and_lower(
-        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } });",
+        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } });",
     );
     let lir = LirLowerer::new().lower_program(&mir);
 
@@ -165,7 +165,7 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_class
 #[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_class_declarations() {
     let mir = parse_and_lower(
-        "export default class DefaultDeclExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } }",
+        "export default class DefaultDeclExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let lir = LirLowerer::new().lower_program(&mir);
 

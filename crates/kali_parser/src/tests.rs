@@ -1856,6 +1856,50 @@ fn test_parse_generator_class_method_preserves_generator_flag() {
 }
 
 #[test]
+fn test_parse_generator_class_method_delegating_yield_expression() {
+    let tokens = lex("class Example { *main() { yield* other(); } }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ClassDeclaration(class_decl) => {
+            assert_eq!(class_decl.body.methods.len(), 1);
+            let method = &class_decl.body.methods[0];
+            assert!(method.generator, "expected generator flag to be preserved");
+            let body = method.body.as_ref().expect("method body");
+            assert_eq!(body.body.len(), 1);
+            match &body.body[0] {
+                Statement::ExpressionStatement(expr_stmt) => match expr_stmt.expression.as_ref() {
+                    Expression::YieldExpression(yield_expr) => {
+                        assert!(
+                            yield_expr.delegate,
+                            "expected yield* delegation to be preserved"
+                        );
+                        let argument = yield_expr.argument.as_ref().expect("yield argument");
+                        match argument {
+                            Expression::CallExpression(call_expr) => {
+                                assert_eq!(call_expr.args.len(), 0)
+                            }
+                            other => panic!("unexpected yield* argument: {other:?}"),
+                        }
+                    }
+                    other => panic!("Expected YieldExpression, got {other:?}"),
+                },
+                other => panic!("Expected ExpressionStatement, got {other:?}"),
+            }
+        }
+        other => panic!("Expected ClassDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_async_generator_class_method_preserves_generator_flags() {
     assert_parse_class_method_modifiers_are_preserved(
         "class Example { async *main() { yield 1; } }",

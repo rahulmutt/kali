@@ -153,7 +153,7 @@ fn test_lower_statements_records_function_flavor_metadata_for_function_expressio
 #[test]
 fn test_lower_statements_records_function_flavor_metadata_for_class_methods() {
     let statements = parse(
-        "class Example { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+        "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_statements(&statements);
@@ -200,7 +200,7 @@ fn test_lower_statements_records_function_flavor_metadata_for_class_methods() {
 #[test]
 fn test_lower_statements_records_function_flavor_metadata_for_class_expressions() {
     let statements = parse(
-        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } };",
+        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } };",
     );
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_statements(&statements);
@@ -256,7 +256,7 @@ fn test_lower_statements_records_function_flavor_metadata_for_class_expressions(
 #[test]
 fn test_lower_statements_records_function_flavor_metadata_for_default_export_class_expressions() {
     let statements = parse(
-        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } });",
+        "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } });",
     );
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_statements(&statements);
@@ -312,7 +312,7 @@ fn test_lower_statements_records_function_flavor_metadata_for_default_export_cla
 #[test]
 fn test_lower_statements_records_function_flavor_metadata_for_default_export_class_declarations() {
     let statements = parse(
-        "export default class DefaultDeclExample { async *outer() { yield* other(); } *inner() { yield 2; } plain() { return 0; } }",
+        "export default class DefaultDeclExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let mut lowerer = HirLowerer::new();
     let result = lowerer.lower_statements(&statements);
