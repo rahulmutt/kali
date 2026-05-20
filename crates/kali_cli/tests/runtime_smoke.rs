@@ -31483,7 +31483,7 @@ fn run_supports_math_round_builtin_semantics_through_const_alias_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Object.freeze(globalThis.Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze(Math.round)(alias));\n",
     )
     .expect("write source");
 
@@ -31510,7 +31510,7 @@ fn json_run_supports_math_round_builtin_semantics_through_const_alias_in_js_inpu
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Object.freeze(globalThis.Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze(Math.round)(alias));\n",
     )
     .expect("write source");
 
