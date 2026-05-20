@@ -18,6 +18,7 @@ Remaining goals:
 - Grow bounded TypeScript/JavaScript inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
 - Transparent sequence wrappers around static object-helper targets are now covered in the checker and browser/standalone smoke lanes; broader generator/iterator semantics remain open.
 - Keep conformance dashboards concise: snapshots of supported/gated behavior, not implementation journals.
+- Continue applying transparent wrapper handling to cheap numeric-literal Math slices where it stays deterministic; the frozen numeric-literal wrapper slice now joins the existing supported `Math.round` path.
 
 ## Runtime, host, and platform expansion
 

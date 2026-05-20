@@ -11,9 +11,11 @@ fn browser_bundle_global_this_math_round_source() -> &'static str {
     r##"// kali-tree-shake: globalThisMathRoundIdentity
 function globalThisMathRoundIdentity() {
   const value = 1.6;
+  const frozenValue = Object.freeze(value);
   console.log(globalThis.Math.round(value));
   console.log(globalThis.Math["round"](value));
   console.log(globalThis["Math"]["round"](value));
+  console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
   console.log(Object.freeze(Math.round)(value));
@@ -21,6 +23,7 @@ function globalThisMathRoundIdentity() {
     globalThis.Math.round(value),
     globalThis.Math["round"](value),
     globalThis["Math"]["round"](value),
+    Math.round(frozenValue),
     Object.freeze(globalThis["Math"]["round"])(value),
     Object.freeze(globalThis.Math.round)(value),
     Object.freeze(Math.round)(value),
@@ -30,15 +33,17 @@ function globalThisMathRoundIdentity() {
 }
 
 fn browser_harness_global_this_math_round_run_source() -> &'static str {
-    "const value = 1.6; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
+    "const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
 }
 
 fn browser_harness_global_this_math_round_test_source() -> &'static str {
     r#"Kali.test('globalThis.Math round identity', () => {
   const value = 1.6;
+  const frozenValue = Object.freeze(value);
   console.log(globalThis.Math.round(value));
   console.log(globalThis.Math["round"](value));
   console.log(globalThis["Math"]["round"](value));
+  console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
   console.log(Object.freeze(Math.round)(value));

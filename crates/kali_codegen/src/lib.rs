@@ -4094,6 +4094,10 @@ impl<'a> FunctionEmitter<'a> {
                 None => Some("0".to_string()),
             },
             LirNodeKind::Call => {
+                if self.is_object_freeze_call(node) {
+                    return self.render_static_value(*node.children.get(1)?);
+                }
+
                 let callee = node.children.first().copied()?;
                 let callee_node = self.node(callee);
                 let callee_name = callee_node.text.as_deref()?;

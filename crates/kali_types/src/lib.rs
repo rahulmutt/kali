@@ -2956,6 +2956,10 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_numeric_literal_value(expression)),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .and_then(|argument| self.resolve_static_numeric_literal_value(argument)),
             Expression::Identifier(name) => self.resolve_static_numeric_binding(name),
             _ => None,
         }
