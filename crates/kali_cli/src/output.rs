@@ -2778,6 +2778,8 @@ mod tests {
             json!(" browser runtime host description: real browser host ");
         contract["supportedCommands"] = json!([" run ", " test "]);
         contract["diagnosticHint"] = json!(" Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ");
+        contract["summaryNote"] = json!(" browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ");
+        contract["contractScopeNote"] = json!(" browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ");
         contract["diagnosticNotes"] = json!([
             " supported browser runtime commands: run, test ",
             " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
