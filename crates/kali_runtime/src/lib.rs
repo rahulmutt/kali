@@ -231,6 +231,8 @@ pub fn browser_runtime_contract_value() -> serde_json::Value {
         "hostDescriptionNote": descriptor.host_description_note,
         "supportedCommands": descriptor.supported_commands,
         "diagnosticHint": descriptor.diagnostic_hint,
+        "summaryNote": descriptor.summary_note,
+        "contractScopeNote": descriptor.contract_scope_note,
         "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
     })
 }

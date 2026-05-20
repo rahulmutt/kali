@@ -1614,7 +1614,7 @@ fn core_schema_documents_match_current_cli_contracts() {
             .as_object()
             .expect("browser runtime contract properties")
             .len(),
-        6
+        8
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["additionalProperties"],
@@ -1628,6 +1628,8 @@ fn core_schema_documents_match_current_cli_contracts() {
             "hostDescriptionNote",
             "supportedCommands",
             "diagnosticHint",
+            "summaryNote",
+            "contractScopeNote",
             "diagnosticNotes"
         ]
         .iter()
@@ -1662,6 +1664,14 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         doctor["properties"]["browserRuntimeContract"]["properties"]["diagnosticHint"],
+        serde_json::json!({"type": "string", "minLength": 1})
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["summaryNote"],
+        serde_json::json!({"type": "string", "minLength": 1})
+    );
+    assert_eq!(
+        doctor["properties"]["browserRuntimeContract"]["properties"]["contractScopeNote"],
         serde_json::json!({"type": "string", "minLength": 1})
     );
     assert_eq!(

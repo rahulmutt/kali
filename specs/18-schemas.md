@@ -106,6 +106,8 @@ Used by commands that opt into `--output json`.
     "hostDescriptionNote": "browser runtime host description: real browser host",
     "supportedCommands": ["run", "test"],
     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+    "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+    "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
     "diagnosticNotes": [
       "supported browser runtime commands: run, test",
       "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -140,6 +142,8 @@ Required fields:
 - `hostDescriptionNote: const` `"browser runtime host description: real browser host"` — stable note that repeats the browser host description in the same diagnostic-note vocabulary used by human output; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
 - `supportedCommands: string[]` — non-empty, duplicate-free command family the future browser runtime contract will own; note order is stable and reflects the contract's supported browser runtime commands, the current contract serializes it as `[`run`, `test`]`, and the published schema encodes that fixed tuple shape with ordered prefix items; validators compare each emitted item after trimming surrounding whitespace, but whitespace-only items still fail
 - `diagnosticHint: non-empty, non-whitespace string` — browser-runtime guidance shown in diagnostics, pointing users back to the browser-targeted analysis/build lane; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
+- `summaryNote: non-empty, non-whitespace string` — stable note that summarizes the later browser runtime contract; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
+- `contractScopeNote: non-empty, non-whitespace string` — stable note that summarizes the future browser runtime contract scope; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail
 - `diagnosticNotes: string[]` — non-empty, duplicate-free stable ordered notes that summarize the browser runtime contract; each note is a non-empty, non-whitespace string; validators compare each emitted note after trimming surrounding whitespace, but whitespace-only notes still fail; diagnostic metadata only and not a browser-runtime support claim
 
 Malformed environment override values fail through the standard envelope diagnostic path using `E5508`.

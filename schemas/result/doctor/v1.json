@@ -101,6 +101,8 @@
         "hostDescriptionNote",
         "supportedCommands",
         "diagnosticHint",
+        "summaryNote",
+        "contractScopeNote",
         "diagnosticNotes"
       ],
       "properties": {
@@ -133,6 +135,14 @@
           "uniqueItems": true
         },
         "diagnosticHint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summaryNote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contractScopeNote": {
           "type": "string",
           "minLength": 1
         },

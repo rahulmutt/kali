@@ -89,6 +89,14 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
         .as_str()
         .expect("diagnostic hint string")
         .contains("kali check --api browser"));
+    assert_eq!(
+        contract["summaryNote"],
+        BrowserRuntimeContract::summary_note()
+    );
+    assert_eq!(
+        contract["contractScopeNote"],
+        BrowserRuntimeContract::contract_scope_note()
+    );
     assert_eq!(contract["diagnosticNotes"], serde_json::json!([
         "supported browser runtime commands: run, test",
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -392,6 +400,14 @@ fn doctor_reports_auto_selected_browser_harness_in_json() {
         .as_str()
         .expect("diagnostic hint string")
         .contains("kali check --api browser"));
+    assert_eq!(
+        contract["summaryNote"],
+        BrowserRuntimeContract::summary_note()
+    );
+    assert_eq!(
+        contract["contractScopeNote"],
+        BrowserRuntimeContract::contract_scope_note()
+    );
     assert_eq!(contract["diagnosticNotes"], serde_json::json!([
         "supported browser runtime commands: run, test",
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -451,6 +467,14 @@ fn doctor_reports_unavailable_browser_harness_executable_in_json() {
         .as_str()
         .expect("diagnostic hint string")
         .contains("kali check --api browser"));
+    assert_eq!(
+        contract["summaryNote"],
+        BrowserRuntimeContract::summary_note()
+    );
+    assert_eq!(
+        contract["contractScopeNote"],
+        BrowserRuntimeContract::contract_scope_note()
+    );
     assert_eq!(contract["diagnosticNotes"], serde_json::json!([
         "supported browser runtime commands: run, test",
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",

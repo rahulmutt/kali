@@ -413,6 +413,8 @@ fn validate_doctor_payload_value_accepts_the_current_contract_shape() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -444,6 +446,8 @@ fn validate_doctor_payload_value_accepts_auto_browser_harness_override_null() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -487,6 +491,8 @@ fn validate_doctor_payload_value_rejects_browser_harness_source_override_mismatc
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -522,6 +528,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_override() {
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -563,6 +571,8 @@ fn validate_doctor_payload_value_accepts_whitespace_padded_browser_harness_overr
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -596,6 +606,8 @@ fn validate_doctor_payload_value_rejects_invalid_browser_harness_source() {
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -633,6 +645,8 @@ fn validate_doctor_payload_value_rejects_whitespace_browser_harness_source() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -670,6 +684,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_browser_harness_env
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -711,6 +727,8 @@ fn validate_doctor_payload_value_rejects_executable_command_mismatch() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -748,6 +766,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_browser_harness_exe
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -789,6 +809,8 @@ fn validate_doctor_payload_value_rejects_args_command_mismatch() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -825,6 +847,8 @@ fn validate_doctor_payload_value_rejects_non_boolean_executable_available() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -867,6 +891,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_strings() {
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -906,6 +932,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_runtime_host_description(
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -949,6 +977,8 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_host_descriptio
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -981,6 +1011,8 @@ fn validate_doctor_payload_value_accepts_padded_browser_runtime_host_label() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -1013,6 +1045,8 @@ fn validate_doctor_payload_value_accepts_padded_browser_runtime_host_description
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -1045,6 +1079,8 @@ fn validate_doctor_payload_value_accepts_padded_browser_runtime_supported_comman
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": [" run ", " test "],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -1077,6 +1113,8 @@ fn validate_doctor_payload_value_accepts_padded_browser_runtime_diagnostic_notes
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 " supported browser runtime commands: run, test ",
                 " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
@@ -1109,6 +1147,8 @@ fn validate_doctor_payload_value_accepts_padded_browser_runtime_diagnostic_hint(
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": " Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -1144,6 +1184,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_command_items() {
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -1173,6 +1215,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_command_items() {
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3231,6 +3275,8 @@ fn validate_doctor_payload_value_rejects_empty_browser_harness_command() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3268,6 +3314,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_browser_harness_com
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3310,6 +3358,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_browser_harness_arg
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3352,6 +3402,8 @@ fn validate_doctor_payload_value_rejects_unexpected_browser_harness_keys() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3385,6 +3437,8 @@ fn validate_doctor_payload_value_rejects_empty_supported_commands() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": [],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3421,6 +3475,8 @@ fn validate_doctor_payload_value_rejects_unsupported_supported_commands_item() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "build"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3458,6 +3514,8 @@ fn validate_doctor_payload_value_rejects_whitespace_supported_commands_item() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "   "],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3498,6 +3556,8 @@ fn validate_doctor_payload_value_rejects_duplicate_supported_commands() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": [" run ", "run"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3534,6 +3594,8 @@ fn validate_doctor_payload_value_rejects_out_of_order_supported_commands() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["test", "run"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3570,6 +3632,8 @@ fn validate_doctor_payload_value_rejects_duplicate_diagnostic_notes() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 " supported browser runtime commands: run, test ",
                 "supported browser runtime commands: run, test",
@@ -3613,6 +3677,8 @@ fn validate_doctor_payload_value_rejects_out_of_order_diagnostic_notes() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
                 "supported browser runtime commands: run, test",
@@ -3651,6 +3717,8 @@ fn validate_doctor_payload_value_rejects_empty_diagnostic_notes() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [],
         }
     });
@@ -3679,6 +3747,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_diagnostic_note_ite
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     note,
@@ -3718,6 +3788,8 @@ fn validate_doctor_payload_value_rejects_diagnostic_notes_drift() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
@@ -3752,6 +3824,8 @@ fn validate_doctor_payload_value_rejects_unexpected_keys() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3785,6 +3859,8 @@ fn validate_doctor_payload_value_rejects_unexpected_browser_runtime_contract_key
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3822,6 +3898,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3851,6 +3929,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3880,6 +3960,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", null],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3909,6 +3991,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "   "],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3938,6 +4022,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", ""],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -3967,6 +4053,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "   ",
@@ -3996,6 +4084,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "",
@@ -4025,6 +4115,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         17,
@@ -4054,6 +4146,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4083,6 +4177,8 @@ fn validate_doctor_payload_value_rejects_non_string_browser_harness_and_runtime_
                     "hostDescriptionNote": "browser runtime host description: real browser host",
                     "supportedCommands": ["run", "test"],
                     "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                     "diagnosticNotes": [
                         "supported browser runtime commands: run, test",
                         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4122,6 +4218,8 @@ fn validate_doctor_payload_value_rejects_non_string_host_description_note() {
             "hostDescriptionNote": 42,
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4159,6 +4257,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_description_no
                 "hostDescriptionNote": value,
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4196,6 +4296,8 @@ fn validate_doctor_payload_value_rejects_wrong_host_label() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4231,6 +4333,8 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_labels
             "hostDescriptionNote": " browser runtime host description: real browser host ",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4263,6 +4367,8 @@ fn validate_doctor_payload_value_accepts_trimmed_browser_runtime_contract_array_
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": [" run ", " test "],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 " supported browser runtime commands: run, test ",
                 " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
@@ -4377,6 +4483,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_label() {
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4411,6 +4519,8 @@ fn validate_doctor_payload_value_rejects_wrong_host_description_note() {
             "hostDescriptionNote": "browser runtime host description: browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4448,6 +4558,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_description() 
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4485,6 +4597,8 @@ fn validate_doctor_payload_value_accepts_trimmed_diagnostic_hint() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": " Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work. ",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4517,6 +4631,8 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_diagnostic_hint() {
                 "hostDescriptionNote": "browser runtime host description: real browser host",
                 "supportedCommands": ["run", "test"],
                 "diagnosticHint": diagnostic_hint,
+                "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
                 "diagnosticNotes": [
                     "supported browser runtime commands: run, test",
                     "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4551,6 +4667,8 @@ fn validate_doctor_payload_value_rejects_diagnostic_hint_drift() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser`) for browser-targeted analysis/build work.",
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
@@ -4583,6 +4701,8 @@ fn validate_doctor_payload_value_rejects_non_string_diagnostic_hint() {
             "hostDescriptionNote": "browser runtime host description: real browser host",
             "supportedCommands": ["run", "test"],
             "diagnosticHint": false,
+            "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+            "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
             "diagnosticNotes": [
                 "supported browser runtime commands: run, test",
                 "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",

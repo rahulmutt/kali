@@ -1566,6 +1566,8 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
         "hostDescriptionNote",
         "supportedCommands",
         "diagnosticHint",
+        "summaryNote",
+        "contractScopeNote",
         "diagnosticNotes",
     ] {
         if !object.contains_key(key) {
@@ -1582,6 +1584,8 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
             "hostDescriptionNote",
             "supportedCommands",
             "diagnosticHint",
+            "summaryNote",
+            "contractScopeNote",
             "diagnosticNotes",
         ],
         "doctor browserRuntimeContract",
@@ -1597,6 +1601,11 @@ fn validate_browser_runtime_contract_value(value: Option<&Value>) -> Result<(), 
             browser_runtime_contract.host_description_note,
         ),
         ("diagnosticHint", browser_runtime_contract.diagnostic_hint),
+        ("summaryNote", browser_runtime_contract.summary_note),
+        (
+            "contractScopeNote",
+            browser_runtime_contract.contract_scope_note,
+        ),
     ] {
         validate_trimmed_string_field(object, key, expected, "doctor browserRuntimeContract")?;
     }

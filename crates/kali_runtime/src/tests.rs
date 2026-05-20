@@ -484,6 +484,8 @@ fn browser_runtime_contract_documents_the_future_execution_surface() {
             "hostDescriptionNote": BrowserRuntimeContract::host_description_note(),
             "supportedCommands": BrowserRuntimeContract::supported_commands(),
             "diagnosticHint": BrowserRuntimeContract::diagnostic_hint(),
+            "summaryNote": BrowserRuntimeContract::summary_note(),
+            "contractScopeNote": BrowserRuntimeContract::contract_scope_note(),
             "diagnosticNotes": BrowserRuntimeContract::diagnostic_notes(),
         })
     );
