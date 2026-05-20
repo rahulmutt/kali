@@ -50,6 +50,32 @@ export async function browserArrayFromWrappers() {
     .join("")
 }
 
+#[test]
+fn browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_sections() {
+    let source = browser_bundle_array_from_source();
+    for alias in [
+        "Array.from",
+        "globalThis.Array.from",
+        r#"Object.freeze(Array.from)"#,
+        r#"Object.freeze((globalThis['Array']).from)"#,
+    ] {
+        assert_eq!(
+            source
+                .matches(&format!("for (const value of {alias}(values))"))
+                .count(),
+            1,
+            "browser bundle Array.from source should embed {alias} in the for-of loop section"
+        );
+        assert_eq!(
+            source
+                .matches(&format!("for await (const value of {alias}(values))"))
+                .count(),
+            1,
+            "browser bundle Array.from source should embed {alias} in the for-await loop section"
+        );
+    }
+}
+
 fn object_enumeration_spread_source() -> &'static str {
     r##"// kali-tree-shake: objectEnumerationSpreadWrapper
 export async function objectEnumerationSpreadWrapper() {
