@@ -47,10 +47,24 @@ fn assert_empty_thread_topology_when_browser_api_is_explicit(
     );
 
     let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], true);
     let payload = &json["payload"];
     assert_eq!(payload["hostContract"], "browser-requested");
     assert_eq!(payload["runtimeBackend"], "browser-harness");
     assert_empty_thread_topology(&payload["threadTopology"]);
+    if command == "run" {
+        assert_eq!(json["exitCode"], 0);
+        assert_eq!(payload["exitCode"], 0);
+    } else {
+        assert_eq!(payload["total"], 1);
+        assert_eq!(payload["passed"], 1);
+        assert_eq!(payload["failed"], 0);
+        assert_eq!(payload["skipped"], 0);
+    }
+    assert_eq!(json["stderr"], "");
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
 }
 
 #[test]
