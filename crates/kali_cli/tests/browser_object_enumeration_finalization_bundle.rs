@@ -27,6 +27,22 @@ async function browserObjectEnumerationFinalizationWrapper() {
     throw new Error('unexpected Object.keys return/finally semantics');
   }
 
+  let valuesReturnFinally = false;
+  function valuesReturnProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        return value;
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesReturnFinally = true;
+    }
+  }
+  const valuesReturnValue = valuesReturnProbe();
+  if (valuesReturnValue !== 1 || !valuesReturnFinally) {
+    throw new Error('unexpected Object.values return/finally semantics');
+  }
+
   let throwFinally = false;
   function throwProbe() {
     try {
@@ -50,6 +66,29 @@ async function browserObjectEnumerationFinalizationWrapper() {
     throw new Error('unexpected Object.entries throw/finally semantics');
   }
 
+  let valuesThrowFinally = false;
+  function valuesThrowProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Object.values iteration');
+    } finally {
+      valuesThrowFinally = true;
+    }
+  }
+  let valuesThrew = false;
+  try {
+    valuesThrowProbe();
+  } catch {
+    valuesThrew = true;
+  }
+  if (!valuesThrew || !valuesThrowFinally) {
+    throw new Error('unexpected Object.values throw/finally semantics');
+  }
+
   const asyncValues = { "b": 1, "a": 2 };
   let asyncFinallySeen = false;
   let asyncThrew = false;
@@ -67,6 +106,24 @@ async function browserObjectEnumerationFinalizationWrapper() {
   }
   if (!asyncThrew || !asyncFinallySeen) {
     throw new Error('unexpected async Object.keys throw/finally semantics');
+  }
+
+  let asyncValuesFinallySeen = false;
+  let asyncValuesThrew = false;
+  try {
+    for await (const value of Object.values(asyncValues)) {
+      if (value === 1) {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.values iteration');
+  } catch {
+    asyncValuesThrew = true;
+  } finally {
+    asyncValuesFinallySeen = true;
+  }
+  if (!asyncValuesThrew || !asyncValuesFinallySeen) {
+    throw new Error('unexpected async Object.values throw/finally semantics');
   }
 
   console.log('browser object enumeration finalization ok');
