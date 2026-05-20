@@ -213,6 +213,10 @@ fn browser_late_process_control_source_includes_single_quoted_process_root_forms
         r#"process['kill'](0)"#,
         r#"process['exit'](0)"#,
         r#"globalThis['process'].exit(0)"#,
+        r#"Object.freeze((globalThis['process'].kill))(0)"#,
+        r#"Object.freeze((globalThis['process'].kill))(+0)"#,
+        r#"Object.freeze((globalThis['process']['kill']))(0)"#,
+        r#"Object.freeze((globalThis['process']['kill']))(+0)"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
