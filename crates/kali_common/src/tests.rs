@@ -1516,6 +1516,42 @@ fn test_math_floor_trunc_ceil_frozen_callable_invocation_and_entry_sources_are_c
 }
 
 #[test]
+fn test_math_round_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_round_frozen_callable_aliases();
+    let source = math_round_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        r#"Object.freeze(globalThis.Math["round"])"#,
+        r#"Object.freeze((globalThis.Math["round"]))"#,
+        r#"Object.freeze(globalThis.Math.round)"#,
+        r#"Object.freeze((globalThis.Math.round))"#,
+        r#"Object.freeze(globalThis["Math"]["round"])"#,
+        r#"Object.freeze((globalThis["Math"]["round"]))"#,
+        r#"Object.freeze(globalThis["Math"].round)"#,
+        r#"Object.freeze((globalThis["Math"].round))"#,
+        r#"Object.freeze(Math["round"])"#,
+        r#"Object.freeze((Math["round"]))"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.round frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_math_pow_source_lists_all_aliases_in_order() {
     let aliases = math_pow_aliases();
     let source = math_pow_source();
