@@ -40,21 +40,56 @@ fn test_bytewise_shared_memory_lock_free_probe_matches_target_atomic_support() {
 }
 
 #[test]
-fn test_late_object_model_source_lists_proxy_and_weak_aliases() {
+fn test_late_object_model_aliases_and_source_are_canonical() {
+    let aliases = late_object_model_aliases();
     let source = late_object_model_source();
-    assert!(source.contains("Proxy.revocable"), "source: {source}");
-    assert!(
-        source.contains(r#"Object.freeze(Proxy.revocable)"#),
-        "source: {source}"
+
+    assert_eq!(
+        aliases,
+        &[
+            "Proxy",
+            "globalThis.Proxy",
+            r#"globalThis["Proxy"]"#,
+            "new Proxy({}, {})",
+            "new globalThis.Proxy({}, {})",
+            r#"new globalThis["Proxy"]({}, {})"#,
+            "new WeakMap()",
+            "globalThis.WeakMap",
+            r#"globalThis["WeakMap"]()"#,
+            "new WeakSet()",
+            "globalThis.WeakSet",
+            r#"globalThis["WeakSet"]()"#,
+            "globalThis.WeakRef",
+            r#"globalThis["WeakRef"]"#,
+            "new FinalizationRegistry(() => {})",
+            "globalThis.FinalizationRegistry",
+            r#"globalThis["FinalizationRegistry"](() => {})"#,
+            "Proxy.revocable({}, {})",
+            "globalThis.Proxy.revocable({}, {})",
+            r#"globalThis["Proxy"]["revocable"]({}, {})"#,
+            r#"globalThis["Proxy"].revocable({}, {})"#,
+            r#"globalThis.Proxy["revocable"]({}, {})"#,
+            "Object.freeze(Proxy.revocable)({}, {})",
+            "Object.freeze((Proxy.revocable))({}, {})",
+            "Object.freeze(globalThis.Proxy.revocable)({}, {})",
+            "Object.freeze((globalThis.Proxy.revocable))({}, {})",
+            r#"Object.freeze(globalThis["Proxy"]["revocable"])({}, {})"#,
+            r#"Object.freeze((globalThis["Proxy"]["revocable"]))({}, {})"#,
+            r#"Object.freeze(globalThis["Proxy"].revocable)({}, {})"#,
+            r#"Object.freeze(globalThis.Proxy["revocable"])({}, {})"#,
+        ]
     );
-    assert!(
-        source.contains(r#"Object.freeze(globalThis.Proxy.revocable)"#),
-        "source: {source}"
-    );
-    assert!(source.contains("WeakMap"), "source: {source}");
-    assert!(source.contains("WeakSet"), "source: {source}");
-    assert!(source.contains("WeakRef"), "source: {source}");
-    assert!(source.contains("FinalizationRegistry"), "source: {source}");
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in late-object-model inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
 }
 
 #[test]

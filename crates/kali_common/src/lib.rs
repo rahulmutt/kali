@@ -1657,6 +1657,44 @@ pub const fn broader_intl_source() -> &'static str {
     r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis.Intl.DateTimeFormat; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.PluralRules; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; globalThis.Intl.RelativeTimeFormat; globalThis["Intl"].RelativeTimeFormat; globalThis.Intl["RelativeTimeFormat"]; globalThis.Intl.Collator; globalThis["Intl"].Collator; globalThis.Intl["Collator"]; globalThis.Intl.DisplayNames; globalThis["Intl"].DisplayNames; globalThis.Intl["DisplayNames"]; globalThis.Intl.Segmenter; globalThis["Intl"].Segmenter; globalThis.Intl["Segmenter"]; globalThis.Intl.Locale; globalThis["Intl"].Locale; globalThis.Intl["Locale"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["NumberFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Locale"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Locale;"#
 }
 
+const LATE_OBJECT_MODEL_SEGMENTS: &[&str] = &[
+    "Proxy",
+    "globalThis.Proxy",
+    r#"globalThis["Proxy"]"#,
+    "new Proxy({}, {})",
+    "new globalThis.Proxy({}, {})",
+    r#"new globalThis["Proxy"]({}, {})"#,
+    "new WeakMap()",
+    "globalThis.WeakMap",
+    r#"globalThis["WeakMap"]()"#,
+    "new WeakSet()",
+    "globalThis.WeakSet",
+    r#"globalThis["WeakSet"]()"#,
+    "globalThis.WeakRef",
+    r#"globalThis["WeakRef"]"#,
+    "new FinalizationRegistry(() => {})",
+    "globalThis.FinalizationRegistry",
+    r#"globalThis["FinalizationRegistry"](() => {})"#,
+    "Proxy.revocable({}, {})",
+    "globalThis.Proxy.revocable({}, {})",
+    r#"globalThis["Proxy"]["revocable"]({}, {})"#,
+    r#"globalThis["Proxy"].revocable({}, {})"#,
+    r#"globalThis.Proxy["revocable"]({}, {})"#,
+    "Object.freeze(Proxy.revocable)({}, {})",
+    "Object.freeze((Proxy.revocable))({}, {})",
+    "Object.freeze(globalThis.Proxy.revocable)({}, {})",
+    "Object.freeze((globalThis.Proxy.revocable))({}, {})",
+    r#"Object.freeze(globalThis["Proxy"]["revocable"])({}, {})"#,
+    r#"Object.freeze((globalThis["Proxy"]["revocable"]))({}, {})"#,
+    r#"Object.freeze(globalThis["Proxy"].revocable)({}, {})"#,
+    r#"Object.freeze(globalThis.Proxy["revocable"])({}, {})"#,
+];
+
+/// Canonical alias inventory for the shared late-object-model slice.
+pub const fn late_object_model_aliases() -> &'static [&'static str] {
+    LATE_OBJECT_MODEL_SEGMENTS
+}
+
 /// Canonical late-object-model source text used by the browser and runtime smoke.
 pub const fn late_object_model_source() -> &'static str {
     r#"Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"](); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"](); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {});"#
