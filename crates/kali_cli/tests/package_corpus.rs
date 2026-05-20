@@ -67,6 +67,18 @@ fn assert_node_process_corpus_has_zero_probe_inventory(body: &str) {
         );
     }
 
+    let zero_probe_source = kali_common::process_kill_zero_probe_source();
+    let zero_probe_source = zero_probe_source.trim_end_matches(';');
+    assert!(
+        body.contains(zero_probe_source),
+        "node process corpus should confirm the shared zero-probe source"
+    );
+    assert_eq!(
+        body.matches(zero_probe_source).count(),
+        1,
+        "node process corpus should embed the shared zero-probe source exactly once"
+    );
+
     for alias in kali_common::process_kill_zero_probe_aliases() {
         assert!(
             body.contains(alias),
