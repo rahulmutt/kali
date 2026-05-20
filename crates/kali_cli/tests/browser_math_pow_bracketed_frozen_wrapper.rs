@@ -1,8 +1,9 @@
 use std::{fs, process::Command};
 
 use kali_common::{
-    math_pow_bracketed_frozen_callable_aliases, math_pow_bracketed_frozen_callable_source,
-    math_pow_invocation_entries_for_aliases, math_pow_invocation_lines,
+    math_pow_bracketed_frozen_callable_aliases,
+    math_pow_bracketed_frozen_callable_invocation_entries,
+    math_pow_bracketed_frozen_callable_invocation_lines,
 };
 use serde_json::Value;
 use tempfile::tempdir;
@@ -23,13 +24,8 @@ function bracketedGlobalThisMathPowFrozenWrapper() {{
   ];
 }}
 "##,
-        math_pow_invocation_lines(&math_pow_bracketed_frozen_callable_source(), "  "),
-        math_pow_invocation_entries_for_aliases(
-            math_pow_bracketed_frozen_callable_aliases(),
-            "2",
-            "alias",
-            "    ",
-        ),
+        math_pow_bracketed_frozen_callable_invocation_lines("  "),
+        math_pow_bracketed_frozen_callable_invocation_entries("    "),
     )
 }
 

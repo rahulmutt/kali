@@ -1794,6 +1794,32 @@ fn test_math_pow_bracketed_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_pow_bracketed_frozen_callable_invocation_lines_are_canonical() {
+    let source = math_pow_bracketed_frozen_callable_invocation_lines("  ");
+    let expected = math_pow_invocation_lines_for_aliases(
+        math_pow_bracketed_frozen_callable_aliases(),
+        "2",
+        "alias",
+        "  ",
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
+fn test_math_pow_bracketed_frozen_callable_invocation_entries_are_canonical() {
+    let source = math_pow_bracketed_frozen_callable_invocation_entries("    ");
+    let expected = math_pow_invocation_entries_for_aliases(
+        math_pow_bracketed_frozen_callable_aliases(),
+        "2",
+        "alias",
+        "    ",
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_math_pow_invocation_lines_are_canonical() {
     let source = math_pow_invocation_lines(&math_pow_source(), "  ");
     let direct = math_pow_invocation_lines_for_aliases(math_pow_aliases(), "2", "alias", "  ");

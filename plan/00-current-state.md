@@ -107,6 +107,7 @@ The Node package-corpus evidence now also exercises the `process.kill(0)` livene
 - The browser Object.hasOwn harness now also relies on that shared frozen-callable helper inventory for the bracketed `Object.freeze(globalThis["Object"]["hasOwn"])` alias, removing the last local duplicate from the explicit harness source.
 - The shared `Set`/`Map` constructor iteration smoke now also comes from `kali_common` source helpers, so the build-test corpus reuses the same canonical source assembly instead of inlining the long iterator fixtures twice.
 - The browser math floor / trunc / ceil smoke now also shares a canonical frozen-callable helper inventory in `kali_common`, mirroring the `Object.hasOwn` and `process.kill(0)` source helpers.
+- The bracketed `Math.pow` frozen-wrapper browser harness/bundle sources now also reuse dedicated invocation-line helpers in `kali_common`, keeping that browser alias slice aligned with the shared math.pow inventory helpers.
 - The parenthesized receiver-freeze `process.kill(0)` helper inventory now also has a dedicated prefix-free and single-source regression, keeping that alias slice isolated from the late-process-control preamble.
 - The direct runtime `run` / `test` rejection for async default-export class expressions now also spans JS, TS, JSX, and TSX input, keeping that gate aligned with the broader class-expression matrix.
 

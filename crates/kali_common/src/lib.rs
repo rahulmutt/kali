@@ -1253,6 +1253,26 @@ pub fn math_pow_bracketed_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_pow_bracketed_frozen_callable_aliases())
 }
 
+/// Canonical `console.log(...)` invocation lines for the supported bracketed-root frozen `Math.pow` aliases.
+pub fn math_pow_bracketed_frozen_callable_invocation_lines(indentation: &str) -> String {
+    math_pow_invocation_lines_for_aliases(
+        math_pow_bracketed_frozen_callable_aliases(),
+        "2",
+        "alias",
+        indentation,
+    )
+}
+
+/// Canonical `return [...]` invocation entries for the supported bracketed-root frozen `Math.pow` aliases.
+pub fn math_pow_bracketed_frozen_callable_invocation_entries(indentation: &str) -> String {
+    math_pow_invocation_entries_for_aliases(
+        math_pow_bracketed_frozen_callable_aliases(),
+        "2",
+        "alias",
+        indentation,
+    )
+}
+
 /// Canonical frozen callable aliases for the supported `Math.pow` helper slice.
 pub fn math_pow_frozen_callable_aliases() -> Vec<&'static str> {
     ordered_unique_union(&[
