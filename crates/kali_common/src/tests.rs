@@ -141,14 +141,9 @@ fn test_late_object_model_own_property_aliases_and_source_are_canonical() {
 
 #[test]
 fn test_late_threaded_runtime_source_lists_bracketed_spellings() {
-    let source = late_threaded_runtime_source();
-    assert!(
-        source.contains(r#"globalThis["SharedArrayBuffer"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Atomics"]"#),
-        "source: {source}"
+    assert_eq!(
+        late_threaded_runtime_source(),
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];"
     );
 }
 
