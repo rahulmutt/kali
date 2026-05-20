@@ -8,11 +8,8 @@ fn kali_bin() -> String {
 }
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
-    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("console.log({alias}(alias));"))
-        .collect::<Vec<_>>()
-        .join(" ")
+    kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("")
+        .replace('\n', " ")
 }
 
 fn browser_harness_math_floor_trunc_ceil_run_source() -> &'static str {

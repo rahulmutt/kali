@@ -8,19 +8,11 @@ fn kali_bin() -> String {
 }
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
-    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("  console.log({alias}(alias));"))
-        .collect::<Vec<_>>()
-        .join("\n")
+    kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("  ")
 }
 
 fn math_floor_trunc_ceil_frozen_callable_entries() -> String {
-    kali_common::math_floor_trunc_ceil_frozen_callable_aliases()
-        .iter()
-        .map(|alias| format!("{alias}(alias)"))
-        .collect::<Vec<_>>()
-        .join(", ")
+    kali_common::math_floor_trunc_ceil_frozen_callable_entries_source()
 }
 
 fn browser_bundle_math_floor_trunc_ceil_alias_source() -> &'static str {

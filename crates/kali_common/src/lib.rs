@@ -998,6 +998,34 @@ pub fn math_floor_trunc_ceil_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_floor_trunc_ceil_frozen_callable_aliases())
 }
 
+/// Canonical `console.log(...)` invocation lines for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases.
+pub fn math_floor_trunc_ceil_frozen_callable_invocation_lines(indentation: &str) -> String {
+    math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("{indentation}console.log({alias}(alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Canonical `console.log(...)` invocation text for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases.
+pub fn math_floor_trunc_ceil_frozen_callable_invocation_source() -> String {
+    math_floor_trunc_ceil_frozen_callable_invocation_lines("")
+}
+
+/// Canonical `return [...]` entry text for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases.
+pub fn math_floor_trunc_ceil_frozen_callable_entries(indentation: &str) -> String {
+    math_floor_trunc_ceil_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("{indentation}{alias}(alias)"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Canonical `return [...]` entry text for the supported `Math.floor` / `Math.trunc` / `Math.ceil` frozen callable aliases.
+pub fn math_floor_trunc_ceil_frozen_callable_entries_source() -> String {
+    math_floor_trunc_ceil_frozen_callable_entries("")
+}
+
 /// Canonical direct aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_aliases() -> &'static [&'static str] {
     &[
