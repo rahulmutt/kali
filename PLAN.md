@@ -1,13 +1,13 @@
 # Kali — Active Implementation Plan
 
-`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks future work from the current checked-in repository state only. Historical phase checklists and progress journals are intentionally not part of the active plan.
+`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks future work from the current checked-in repository state only. Historical checklists, completed task lists, and implementation journals are intentionally excluded.
 
 ## Plan contract
 
 After every implementation packet the repository must remain workable:
 
 1. `cargo build --workspace` succeeds.
-2. `cargo test --workspace` passes.
+2. `cargo test --workspace` passes when Rust behavior may be affected.
 3. User-visible behavior remains aligned with [`specs/19-feature-maturity.md`](./specs/19-feature-maturity.md).
 4. Hard invariants remain true: AOT-only guest-language compilation, pure Rust implementation, no tracing/background GC, sandbox-first honesty, and deterministic machine contracts.
 
@@ -21,7 +21,9 @@ Normative ownership remains unchanged:
 
 ## Current baseline
 
-The repository is beyond the original MVP and several later surfaces. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`. Current implementation includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, deterministic PGO input, package-corpus probes, and proof-backed claims limited to the published proof boundary.
+The checked-in repository is beyond the original MVP and several later surfaces. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
+
+Implemented work includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, deterministic PGO input handling, package-corpus probes, and proof-backed claims limited to the published proof boundary.
 
 The active plan therefore starts at remaining spec gaps. Do not reopen completed Phase 1 through Phase 20 work as active tasks.
 
@@ -67,7 +69,7 @@ Every phase packet must land with:
 3. docs/spec updates when public behavior changes;
 4. maturity-matrix updates when availability changes;
 5. proof-boundary updates if verification claims change;
-6. `cargo test --workspace` evidence in the handoff.
+6. test evidence in the handoff (`cargo test --workspace`, and `mise run lean-proofs` for proof changes).
 
 ## Reading rule
 

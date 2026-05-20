@@ -21,6 +21,7 @@ This directory contains only active continuation planning. Completed implementat
 ## Rules
 
 - Do not reopen removed historical phase checklists as active work.
+- Do not use plan files as implementation journals.
 - Do not infer availability from this plan; use [`../specs/19-feature-maturity.md`](../specs/19-feature-maturity.md).
 - Do not infer proof-backed scope from this plan; use [`../proofs/BOUNDARY.md`](../proofs/BOUNDARY.md).
 - Any public CLI/schema/diagnostic behavior change must update the owning specs before the work is considered complete.

@@ -21,7 +21,6 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Group evidence by package shape, source class, API surface, command, and support rung.
 - Keep expected failures for native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint cases.
 - Keep corpus snapshots deterministic and concise.
-- The package install flow now also rejects bootstrap-heavy lifecycle-script packages with the canonical E6005 package-contract diagnostic, keeping that exclusion explicit alongside the native-addon case.
 
 ### 23.2 Node ecosystem breadth
 
@@ -40,7 +39,6 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Keep `package-effects` and `package-audit` on the schema-v1 single registry identifier contract.
 - Do not add batch, raw-URL, local-path, project-discovery, or package-set behavior without spec/schema revisions.
 - Preserve deterministic version selection and schema-v1 JSON payload validation.
-- Current progress: padded package identifiers, malformed `jsr:` selectors, nested scheme-like `jsr:` targets, nested raw-URL/local-path `jsr:` targets, and scheme-prefixed selectors such as `npm:lodash`, `file:///tmp/pkg`, and `git+https://example.com/pkg.git` now fail the command-shape gate before any registry lookup, keeping the single-identifier contract exact. The `package-effects` and `package-audit` JSON-output lanes now also cover inherited browser+threaded config combinations, the quiet `package-effects` envelope path now carries the same browser+threaded context, and the package-effects wrapper regression now pins that inherited context in the native-JSON payload contract.
 
 ## Exit gate
 
