@@ -49414,6 +49414,40 @@ fn run_and_test_reject_async_generator_default_export_class_expressions_in_js_ts
 }
 
 #[test]
+fn run_and_test_reject_async_generator_class_expressions_in_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    extension,
+                    "const Example = class NamedExample { async *main() { yield 1; } };\nnew Example();\n",
+                    "async-generator class method lowering is unavailable in the direct runtime path",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_generator_default_export_class_expressions_in_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    extension,
+                    "export default (class NamedExample { *main() { yield 1; } });\n",
+                    "generator class method lowering is unavailable in the direct runtime path",
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn run_and_test_reject_wrapped_generator_and_async_generator_class_expressions_in_ts_input() {
     for (source, expected_message) in [
         (

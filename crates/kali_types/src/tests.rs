@@ -8154,6 +8154,70 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
             "generator class method lowering is unavailable",
         ),
         (
+            Statement::VariableDeclaration(VariableDeclaration {
+                declarations: vec![VariableDeclarator {
+                    id: "Example".to_string(),
+                    init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                        id: Some("NamedExample".to_string()),
+                        body: Box::new(ClassBody {
+                            methods: vec![MethodDefinition {
+                                name: "main".to_string(),
+                                params: vec![],
+                                body: Some(Box::new(BlockStatement {
+                                    body: vec![Statement::ExpressionStatement(
+                                        ExpressionStatement {
+                                            expression: Box::new(Expression::YieldExpression(
+                                                Box::new(YieldExpression {
+                                                    delegate: true,
+                                                    argument: Some(Expression::ArrayExpression(
+                                                        kali_ast::ArrayExpression {
+                                                            elements: vec![],
+                                                        },
+                                                    )),
+                                                }),
+                                            )),
+                                        },
+                                    )],
+                                })),
+                                is_async: true,
+                                generator: true,
+                            }],
+                        }),
+                    }))),
+                }],
+                kind: "const".to_string(),
+            }),
+            "async-generator class method lowering is unavailable",
+        ),
+        (
+            Statement::ExportDefault(ExportDefaultDeclaration::Expression(
+                Expression::ClassExpression(Box::new(ClassExpression {
+                    id: Some("NamedExample".to_string()),
+                    body: Box::new(ClassBody {
+                        methods: vec![MethodDefinition {
+                            name: "main".to_string(),
+                            params: vec![],
+                            body: Some(Box::new(BlockStatement {
+                                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                                    expression: Box::new(Expression::YieldExpression(Box::new(
+                                        YieldExpression {
+                                            delegate: true,
+                                            argument: Some(Expression::ArrayExpression(
+                                                kali_ast::ArrayExpression { elements: vec![] },
+                                            )),
+                                        },
+                                    ))),
+                                })],
+                            })),
+                            is_async: false,
+                            generator: true,
+                        }],
+                    }),
+                })),
+            )),
+            "generator class method lowering is unavailable",
+        ),
+        (
             Statement::ExportDefault(ExportDefaultDeclaration::Expression(
                 Expression::ClassExpression(Box::new(ClassExpression {
                     id: Some("NamedExample".to_string()),
