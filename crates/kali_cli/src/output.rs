@@ -1018,8 +1018,13 @@ fn validate_canonical_absolute_url_string_value(
         ));
     }
 
-    Url::parse(trimmed)
+    let parsed = Url::parse(trimmed)
         .map_err(|_| format!("{context} must be a valid absolute URL, got {value}"))?;
+    if parsed.as_str() != trimmed {
+        return Err(format!(
+            "{context} must be a canonical absolute URL, got {value}"
+        ));
+    }
     Ok(())
 }
 

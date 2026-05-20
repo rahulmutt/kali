@@ -1977,6 +1977,63 @@ fn validate_run_and_test_payload_value_rejects_non_url_thread_topology_script_ur
 }
 
 #[test]
+fn validate_run_and_test_payload_value_rejects_non_canonical_thread_topology_script_url() {
+    let non_canonical_thread_topology = json!({
+        "totalInstances": 1,
+        "terminatedInstances": 0,
+        "liveInstances": [{
+            "instanceId": 0,
+            "scriptUrl": "https://e.co/worker/../worker.js",
+            "postedMessages": [],
+            "postedSharedBuffers": [],
+            "wasTerminated": false,
+        }],
+    });
+
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": non_canonical_thread_topology.clone(),
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": non_canonical_thread_topology,
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err =
+            validator(&payload).expect_err("non-canonical thread topology scriptUrl should fail");
+        assert_eq!(
+            err,
+            "threadTopology liveInstances[0] scriptUrl must be a canonical absolute URL, got https://e.co/worker/../worker.js",
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
 fn merge_thread_topology_snapshot_values_renumbers_and_orders_live_instances() {
     let mut target = json!({
         "totalInstances": 2,
