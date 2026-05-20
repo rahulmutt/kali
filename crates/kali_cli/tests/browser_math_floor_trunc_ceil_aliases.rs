@@ -8,8 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn math_floor_trunc_ceil_frozen_callable_invocations() -> String {
-    kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("")
-        .replace('\n', " ")
+    kali_common::math_floor_trunc_ceil_frozen_callable_invocation_lines("").replace('\n', " ")
 }
 
 fn browser_harness_math_floor_trunc_ceil_run_source() -> &'static str {
