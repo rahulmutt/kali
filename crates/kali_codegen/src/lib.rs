@@ -3171,6 +3171,13 @@ impl<'a> FunctionEmitter<'a> {
         id: LirNodeId,
     ) -> Option<StaticObjectIdentityValue> {
         let node = self.node(id);
+        if self.is_object_freeze_call(node) {
+            return node
+                .children
+                .get(1)
+                .copied()
+                .and_then(|child| self.resolve_static_object_identity_value(child));
+        }
         match node.kind {
             LirNodeKind::Literal => match node.text.as_deref() {
                 Some("true") => Some(StaticObjectIdentityValue::Boolean(true)),

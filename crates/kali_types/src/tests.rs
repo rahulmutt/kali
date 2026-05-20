@@ -9244,7 +9244,9 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_ex
     console.log(Object.is(await 1, await 1));
     console.log(Object.is(await globalThis.Object, await globalThis.Object));
     console.log(Object.is(await globalThis["Object"], await globalThis["Object"]));
+    console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
     console.log(Number.isSafeInteger(await 1));
+    console.log(Number.isFinite(Object.freeze(1)));
     console.log(Math.atan2(await 0, await 1));
     console.log(Object.keys(await { a: 1 }));
     console.log(Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 })));

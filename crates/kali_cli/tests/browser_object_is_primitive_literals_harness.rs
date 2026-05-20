@@ -14,6 +14,7 @@ console.log(Object.is(-0, +0));
 console.log(Object.is(+1, 1));
 console.log(Object.is(true, true));
 console.log(Object.is("hello", "hello"));
+console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
 console.log(Object.is(1n, 1n));
 console.log(Object.is(-1n, -1n));
 console.log(Object.is(null, null));
@@ -38,6 +39,7 @@ fn object_is_browser_harness_test_source() -> &'static str {
   console.log(Object.is(+1, 1));
   console.log(Object.is(true, true));
   console.log(Object.is("hello", "hello"));
+  console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
   console.log(Object.is(1n, 1n));
   console.log(Object.is(-1n, -1n));
   console.log(Object.is(null, null));

@@ -24,6 +24,7 @@ fn object_is_primitive_literals_source() -> &'static str {
   console.log(Object.is(Infinity, Infinity));
   console.log(Object.is(NaN, NaN));
   console.log(Object.is(-Infinity, -Infinity));
+  console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
   console.log(Object.is(await globalThis.Object, await globalThis.Object));
   console.log(globalThis["Object"]["is"](+1, 1));
   console.log(globalThis.Object["is"](+1, 1));
@@ -54,6 +55,7 @@ fn object_is_primitive_literals_test_source() -> &'static str {
     console.log(Object.is(Infinity, Infinity));
     console.log(Object.is(NaN, NaN));
     console.log(Object.is(-Infinity, -Infinity));
+    console.log(Object.is(Object.freeze(+1), Object.freeze(1)));
     console.log(Object.is(await globalThis.Object, await globalThis.Object));
     console.log(globalThis["Object"]["is"](+1, 1));
     console.log(globalThis.Object["is"](+1, 1));
@@ -114,6 +116,7 @@ fn assert_run_supports_object_is_primitive_literals_in_js_input(json_output: boo
 1
 1
 1
+1
 "
         );
         assert!(json["errors"].as_array().expect("errors array").is_empty());
@@ -123,6 +126,7 @@ fn assert_run_supports_object_is_primitive_literals_in_js_input(json_output: boo
             stdout.trim(),
             "0
 0
+1
 1
 1
 1

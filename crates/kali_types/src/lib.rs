@@ -1464,6 +1464,11 @@ impl TypeContext {
                     self.resolve_static_object_identity_literal_value(expression)
                 })
             }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().and_then(|expression| {
+                    self.resolve_static_object_identity_literal_value(expression)
+                })
+            }
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => {
                     self.resolve_static_object_identity_literal_value(object)
