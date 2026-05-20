@@ -49414,6 +49414,40 @@ fn run_and_test_reject_async_generator_default_export_class_expressions_in_js_ts
 }
 
 #[test]
+fn run_and_test_reject_wrapped_generator_and_async_generator_class_expressions_in_ts_input() {
+    for (source, expected_message) in [
+        (
+            "const Example = (class NamedExample { *main() { yield 1; } }) as new () => any;\nnew Example();\n",
+            "generator class method lowering is unavailable in the direct runtime path",
+        ),
+        (
+            "const Example = (class NamedExample { async *main() { yield 1; } }) as new () => any;\nnew Example();\n",
+            "async-generator class method lowering is unavailable in the direct runtime path",
+        ),
+        (
+            "const Example = (class NamedExample { *main() { yield 1; } }) satisfies new () => any;\nnew Example();\n",
+            "generator class method lowering is unavailable in the direct runtime path",
+        ),
+        (
+            "const Example = (class NamedExample { async *main() { yield 1; } }) satisfies new () => any;\nnew Example();\n",
+            "async-generator class method lowering is unavailable in the direct runtime path",
+        ),
+    ] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    "ts",
+                    source,
+                    expected_message,
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn run_rejects_async_generator_lowering_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
