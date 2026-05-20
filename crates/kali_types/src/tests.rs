@@ -2793,6 +2793,12 @@ globalThis["Number"]["isSafeInteger"](numericAlias);
 globalThis["Number"]["isNaN"](NaN);
 Number.isSafeInteger(numericAlias);
 Number["isFinite"](numericAlias);
+const frozenFinite = Object.freeze(Number.isFinite);
+const frozenInteger = Object.freeze(Number.isInteger);
+const frozenSafeInteger = Object.freeze(Number.isSafeInteger);
+frozenFinite(numericAlias);
+frozenInteger(numericAlias);
+frozenSafeInteger(numericAlias);
 "#;
     fs::write(&source_path, source).unwrap();
 

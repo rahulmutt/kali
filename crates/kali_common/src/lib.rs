@@ -849,7 +849,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
 /// Canonical source text for the supported Number predicate slice.
 pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
     format!(
-        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger;"
+        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger);"
     )
 }
 
@@ -876,6 +876,9 @@ pub fn number_predicates_console_log_body_source() -> String {
         r#"console.log(Number["isInteger"](alias))"#,
         r#"console.log(Number["isSafeInteger"](alias))"#,
         r#"console.log(Number["isNaN"](1))"#,
+        r#"console.log(frozenFinite(alias))"#,
+        r#"console.log(frozenInteger(alias))"#,
+        r#"console.log(frozenSafeInteger(alias))"#,
         r#"console.log(finite(alias))"#,
         r#"console.log(integer(alias))"#,
         r#"console.log(safeInteger(alias))"#,
@@ -901,6 +904,9 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "  const finite = Number.isFinite;\n",
             "  const integer = Number.isInteger;\n",
             "  const safeInteger = Number.isSafeInteger;\n",
+            "  const frozenFinite = Object.freeze(Number.isFinite);\n",
+            "  const frozenInteger = Object.freeze(Number.isInteger);\n",
+            "  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);\n",
             "  if (\n",
             "    Number.isFinite(alias) !== true ||\n",
             "    Number.isSafeInteger(await alias) !== true ||\n",
@@ -923,6 +929,9 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "    Number[\"isInteger\"](alias) !== true ||\n",
             "    Number[\"isSafeInteger\"](alias) !== true ||\n",
             "    Number[\"isNaN\"](1) !== false ||\n",
+            "    frozenFinite(alias) !== true ||\n",
+            "    frozenInteger(alias) !== true ||\n",
+            "    frozenSafeInteger(alias) !== true ||\n",
             "    safeInteger(alias) !== true ||\n",
             "    finite(alias) !== true\n",
             "  ) {{\n",
