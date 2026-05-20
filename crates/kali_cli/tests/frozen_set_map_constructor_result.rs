@@ -10,8 +10,16 @@ fn frozen_set_map_constructor_result_source() -> &'static str {
     "const values = [1, 2, 1]; for (const value of Object.freeze(new Set(values))) { console.log(value); } for (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0]); console.log(entry[1]); }\n"
 }
 
+fn frozen_object_helper_iteration_source() -> &'static str {
+    "const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for (const key of Object.freeze(Object.keys(object))) { console.log(key); } for (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0]); console.log(entry[1]); }\n"
+}
+
 fn frozen_set_map_constructor_result_test_source() -> &'static str {
     "Kali.test('frozen set and map constructor results', () => { const values = [1, 2, 1]; for (const value of Object.freeze(new Set(values))) { console.log(value); } for (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0]); console.log(entry[1]); } });\n"
+}
+
+fn frozen_object_helper_iteration_test_source() -> &'static str {
+    "Kali.test('frozen object helper iteration targets', () => { const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for (const key of Object.freeze(Object.keys(object))) { console.log(key); } for (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0]); console.log(entry[1]); } });\n"
 }
 
 fn assert_run_supports_frozen_set_map_constructor_results_in_input(extension: &str) {
@@ -65,6 +73,53 @@ fn assert_test_supports_frozen_set_map_constructor_results_in_input(extension: &
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
 }
 
+fn assert_run_supports_frozen_object_helper_iteration_targets_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, frozen_object_helper_iteration_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout, "b\na\nb\n1\na\n2\n", "stdout: {stdout}");
+}
+
+fn assert_test_supports_frozen_object_helper_iteration_targets_in_input(extension: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("smoke.test.{extension}"));
+    fs::write(&source_path, frozen_object_helper_iteration_test_source()).expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("test")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("b\na\nb\n1\na\n2\n"), "stdout: {stdout}");
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
 #[test]
 fn run_supports_frozen_set_map_constructor_results_in_js_input() {
     assert_run_supports_frozen_set_map_constructor_results_in_input("js");
@@ -86,5 +141,29 @@ fn test_supports_frozen_set_map_constructor_results_in_js_input() {
 fn test_supports_frozen_set_map_constructor_results_in_ts_jsx_and_tsx_input() {
     for extension in ["ts", "jsx", "tsx"] {
         assert_test_supports_frozen_set_map_constructor_results_in_input(extension);
+    }
+}
+
+#[test]
+fn run_supports_frozen_object_helper_iteration_targets_in_js_input() {
+    assert_run_supports_frozen_object_helper_iteration_targets_in_input("js");
+}
+
+#[test]
+fn run_supports_frozen_object_helper_iteration_targets_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_run_supports_frozen_object_helper_iteration_targets_in_input(extension);
+    }
+}
+
+#[test]
+fn test_supports_frozen_object_helper_iteration_targets_in_js_input() {
+    assert_test_supports_frozen_object_helper_iteration_targets_in_input("js");
+}
+
+#[test]
+fn test_supports_frozen_object_helper_iteration_targets_in_ts_jsx_and_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_test_supports_frozen_object_helper_iteration_targets_in_input(extension);
     }
 }

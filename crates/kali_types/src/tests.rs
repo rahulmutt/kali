@@ -252,6 +252,33 @@ fn test_resolution_accepts_new_set_iteration_target_via_builtin_alias_in_js_inpu
 }
 
 #[test]
+fn test_resolution_accepts_object_freeze_wrapped_object_helper_iteration_targets_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"const object = Object.fromEntries([["b", 1], ["a", 2]]);
+async function main() {
+    for (const key of Object.freeze(Object.keys(object))) { console.log(key); }
+    for await (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0], entry[1]); }
+}
+main();
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_await_wrapped_numeric_literals_in_static_literal_paths() {
     let mut ctx = TypeContext::new();
     let statements = vec![

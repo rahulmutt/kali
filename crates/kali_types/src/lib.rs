@@ -678,6 +678,11 @@ impl TypeContext {
                 Expression::ChainExpression(expr) => &expr.expression,
                 Expression::DecoratedExpression(expr) => &expr.expression,
                 Expression::AwaitExpression(expr) => &expr.argument,
+                Expression::CallExpression(call)
+                    if Self::is_object_freeze_call(call) && !call.args.is_empty() =>
+                {
+                    &call.args[0]
+                }
                 Expression::SequenceExpression(expr) => match expr.expressions.last() {
                     Some(expression) => expression,
                     None => return current,
