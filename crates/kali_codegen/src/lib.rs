@@ -5397,6 +5397,14 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
 
+        if self.resolve_set_constructor_call(node).is_some() {
+            return self.collect_set_constructor_iteration_items(node, items);
+        }
+
+        if self.resolve_map_constructor_call(node).is_some() {
+            return self.collect_map_constructor_iteration_items(node, items);
+        }
+
         if let Some(object_enumeration_mode) = self.is_object_enumeration_call(node) {
             if matches!(object_enumeration_mode, ObjectEnumerationMode::Entries) {
                 return false;

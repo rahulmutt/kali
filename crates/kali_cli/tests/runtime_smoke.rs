@@ -47643,6 +47643,10 @@ function setAndMapIteration() {
   for (const value of new Set(values)) {
     direct.push(value);
   }
+  const arrayFromSet = [];
+  for (const value of Array.from(new Set(values))) {
+    arrayFromSet.push(value);
+  }
   const alias = [];
   for (const value of new setAlias(aliasValues)) {
     alias.push(value);
@@ -47670,6 +47674,7 @@ function setAndMapIteration() {
   }
 
   assertSetIteration(direct);
+  assertSetIteration(arrayFromSet);
   assertSetIteration(alias);
   assertSetIteration(wrappedAlias);
   assertSetIteration(globalDirect);
@@ -47683,6 +47688,10 @@ function setAndMapIteration() {
   const mapDirect = [];
   for (const entry of new Map(mapValues)) {
     mapDirect.push(entry);
+  }
+  const arrayFromMap = [];
+  for (const entry of Array.from(new Map(mapValues))) {
+    arrayFromMap.push(entry);
   }
   const mapAliasValues = [];
   for (const entry of new mapAlias(mapValues)) {
@@ -47712,6 +47721,7 @@ function setAndMapIteration() {
   }
 
   assertMapIteration(mapDirect);
+  assertMapIteration(arrayFromMap);
   assertMapIteration(mapAliasValues);
   assertMapIteration(wrappedMapAliasValues);
   assertMapIteration(globalMapDirect);
@@ -47802,6 +47812,10 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const value of new Set(values)) {
       direct.push(value);
     }
+    const arrayFromSet = [];
+    for (const value of Array.from(new Set(values))) {
+      arrayFromSet.push(value);
+    }
     const alias = [];
     for (const value of new setAlias(aliasValues)) {
       alias.push(value);
@@ -47857,6 +47871,7 @@ fn set_and_map_iteration_test_source() -> &'static str {
     }
 
     assertSetIteration(direct);
+    assertSetIteration(arrayFromSet);
     assertSetIteration(alias);
     assertSetIteration(wrappedAlias);
     assertSetIteration(globalDirect);
@@ -47885,6 +47900,10 @@ fn set_and_map_iteration_test_source() -> &'static str {
     const mapDirect = [];
     for (const entry of new Map(mapValues)) {
       mapDirect.push(entry);
+    }
+    const arrayFromMap = [];
+    for (const entry of Array.from(new Map(mapValues))) {
+      arrayFromMap.push(entry);
     }
     const mapAliasValues = [];
     for (const entry of new mapAlias(mapValues)) {
@@ -47942,6 +47961,7 @@ fn set_and_map_iteration_test_source() -> &'static str {
     }
 
     assertMapIteration(mapDirect);
+    assertMapIteration(arrayFromMap);
     assertMapIteration(mapAliasValues);
     assertMapIteration(wrappedMapAliasValues);
     assertMapIteration(globalMapDirect);
