@@ -794,6 +794,30 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 }
 
 #[test]
+fn test_process_kill_zero_probe_node_api_surface_sources_are_canonical() {
+    let run_source = process_kill_zero_probe_node_api_surface_run_source();
+    let test_source = process_kill_zero_probe_node_api_surface_test_source();
+    let expected_run = format!(
+        "const zero = 0; const zeroAlias = zero; {} {} {} {} console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(bracketedDotSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
+        process_kill_zero_probe_call_target_bindings_source(),
+        process_kill_zero_probe_sequence_call_target_bindings_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source(),
+    );
+    let expected_test = format!(
+        "const zero = 0; const zeroAlias = zero; {} {} {} {} Kali.test('process kill alias', () => {{ if ({}) {{ throw new Error('expected zero probe'); }} }});\n",
+        process_kill_zero_probe_call_target_bindings_source(),
+        process_kill_zero_probe_sequence_call_target_bindings_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source(),
+        process_kill_zero_probe_guard_source(),
+    );
+
+    assert_eq!(run_source, expected_run);
+    assert_eq!(test_source, expected_test);
+}
+
+#[test]
 fn test_process_kill_zero_probe_call_target_aliases_list_all_supported_targets_in_order() {
     let targets = process_kill_zero_probe_call_target_aliases();
 

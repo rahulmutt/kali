@@ -637,6 +637,31 @@ pub fn process_kill_zero_probe_console_log_source() -> String {
     format!("{};", statements.join("; "))
 }
 
+/// Canonical source text for the supported Node `process.kill(0)` node-API-surface
+/// alias matrix used by the documented Node runtime regression.
+pub fn process_kill_zero_probe_node_api_surface_run_source() -> String {
+    format!(
+        "const zero = 0; const zeroAlias = zero; {} {} {} {} console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(bracketedDotSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
+        process_kill_zero_probe_call_target_bindings_source(),
+        process_kill_zero_probe_sequence_call_target_bindings_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source(),
+    )
+}
+
+/// Canonical source text for the supported Node `process.kill(0)` node-API-surface
+/// alias matrix used by the documented Node runtime regression.
+pub fn process_kill_zero_probe_node_api_surface_test_source() -> String {
+    format!(
+        "const zero = 0; const zeroAlias = zero; {} {} {} {} Kali.test('process kill alias', () => {{ if ({}) {{ throw new Error('expected zero probe'); }} }});\n",
+        process_kill_zero_probe_call_target_bindings_source(),
+        process_kill_zero_probe_sequence_call_target_bindings_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_source(),
+        process_kill_zero_probe_parenthesized_receiver_freeze_bracket_source(),
+        process_kill_zero_probe_guard_source(),
+    )
+}
+
 /// Canonical rejection-guard source text for the supported Node `process.kill(0)` slice.
 pub fn process_kill_zero_probe_guard_source() -> String {
     process_kill_zero_probe_aliases()
