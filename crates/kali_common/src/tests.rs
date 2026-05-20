@@ -93,22 +93,48 @@ fn test_late_object_model_aliases_and_source_are_canonical() {
 }
 
 #[test]
-fn test_late_object_model_own_property_source_lists_shared_helper_family() {
+fn test_late_object_model_own_property_aliases_and_source_are_canonical() {
+    let aliases = late_object_model_own_property_aliases();
     let source = late_object_model_own_property_source();
-    assert!(
-        source.contains("Object.hasOwn(globalThis, \"a\")"),
-        "source: {source}"
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.hasOwn(globalThis, "a")"#,
+            r#"globalThis.Object.hasOwn(globalThis, "a")"#,
+            r#"globalThis.Object["hasOwn"](globalThis, "a")"#,
+            r#"globalThis["Object"].hasOwn(globalThis, "a")"#,
+            r#"globalThis["Object"]["hasOwn"](globalThis, "a")"#,
+            r#"Object["hasOwnProperty"].call(globalThis, "a")"#,
+            r#"globalThis.Object["hasOwnProperty"].call(globalThis, "a")"#,
+            r#"globalThis["Object"]["hasOwnProperty"].call(globalThis, "a")"#,
+            r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+            r#"globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+            r#"globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a")"#,
+            r#"globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a")"#,
+            r#"globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+            r#"globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a")"#,
+            r#"globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a")"#,
+            r#"globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a")"#,
+            r#"globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a")"#,
+            r#"globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a")"#,
+            r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+            r#"globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
+            r#"globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
+        ]
     );
-    assert!(
-        source.contains(r#"Object["hasOwnProperty"].call(globalThis, "a")"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(
-            r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#
-        ),
-        "source: {source}"
-    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in late-object-model own-property inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
 }
 
 #[test]

@@ -1700,6 +1700,35 @@ pub const fn late_object_model_source() -> &'static str {
     r#"Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"](); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"](); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"](() => {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {});"#
 }
 
+const LATE_OBJECT_MODEL_OWN_PROPERTY_SEGMENTS: &[&str] = &[
+    r#"Object.hasOwn(globalThis, "a")"#,
+    r#"globalThis.Object.hasOwn(globalThis, "a")"#,
+    r#"globalThis.Object["hasOwn"](globalThis, "a")"#,
+    r#"globalThis["Object"].hasOwn(globalThis, "a")"#,
+    r#"globalThis["Object"]["hasOwn"](globalThis, "a")"#,
+    r#"Object["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"globalThis.Object["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"globalThis["Object"]["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+    r#"globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
+    r#"globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a")"#,
+    r#"globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a")"#,
+    r#"globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+    r#"globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a")"#,
+    r#"globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a")"#,
+    r#"globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a")"#,
+    r#"globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a")"#,
+    r#"globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
+    r#"globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a")"#,
+];
+
+/// Canonical alias inventory for the shared late-object-model own-property slice.
+pub fn late_object_model_own_property_aliases() -> &'static [&'static str] {
+    LATE_OBJECT_MODEL_OWN_PROPERTY_SEGMENTS
+}
+
 /// Canonical late-object-model own-property source text used by the browser and runtime smoke.
 pub const fn late_object_model_own_property_source() -> &'static str {
     r#"Object.hasOwn(globalThis, "a"); globalThis.Object.hasOwn(globalThis, "a"); globalThis.Object["hasOwn"](globalThis, "a"); globalThis["Object"].hasOwn(globalThis, "a"); globalThis["Object"]["hasOwn"](globalThis, "a"); Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["hasOwnProperty"].call(globalThis, "a"); Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a"); globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a");"#
