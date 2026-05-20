@@ -26351,55 +26351,13 @@ fn run_supports_bigint_division_semantics_in_js_input() {
 }
 
 #[test]
-fn run_rejects_bigint_remainder_semantics() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.ts");
-    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("run")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
-        "stderr: {stderr}"
-    );
+fn run_supports_bigint_remainder_semantics() {
+    assert_run_supports_bigint_binary_semantics("ts", "3n % 2n", "1");
 }
 
 #[test]
-fn run_rejects_bigint_remainder_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("run")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
-        "stderr: {stderr}"
-    );
+fn run_supports_bigint_remainder_semantics_in_js_input() {
+    assert_run_supports_bigint_binary_semantics("js", "3n % 2n", "1");
 }
 
 #[test]
@@ -29154,29 +29112,8 @@ fn test_supports_bigint_multiplication_semantics_in_js_input() {
 }
 
 #[test]
-fn test_rejects_bigint_remainder_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(&source_path, "console.log(3n % 2n);\n").expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("test")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
-        "stderr: {stderr}"
-    );
+fn test_supports_bigint_remainder_semantics_in_js_input() {
+    assert_test_supports_bigint_binary_semantics("js", "3n % 2n", "1");
 }
 
 #[test]
@@ -36814,69 +36751,13 @@ fn build_emits_browser_bundle_bigint_multiplication_semantics_in_js_input() {
 }
 
 #[test]
-fn build_rejects_browser_bundle_bigint_remainder_semantics() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("app.ts");
-    fs::write(
-        &source_path,
-        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  return 3n % 2n;\n}\n",
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
-        "stderr: {stderr}"
-    );
+fn build_emits_browser_bundle_bigint_remainder_semantics() {
+    assert_browser_bundle_supports_bigint_binary_semantics("ts", "3n % 2n", "1n");
 }
 
 #[test]
-fn build_rejects_browser_bundle_bigint_remainder_semantics_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("app.js");
-    fs::write(
-        &source_path,
-        "// kali-tree-shake: bigintSmoke\nfunction bigintSmoke() {\n  return 3n % 2n;\n}\n",
-    )
-    .expect("write source");
-
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
-
-    assert!(
-        !output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("remainder operator '%'") && stderr.contains("later compatibility path"),
-        "stderr: {stderr}"
-    );
+fn build_emits_browser_bundle_bigint_remainder_semantics_in_js_input() {
+    assert_browser_bundle_supports_bigint_binary_semantics("js", "3n % 2n", "1n");
 }
 
 #[test]

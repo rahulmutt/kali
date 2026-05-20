@@ -3513,6 +3513,33 @@ fn supported_exponentiation_operator_lowering_is_available_for_integer_literals(
 }
 
 #[test]
+fn supported_remainder_operator_lowering_is_available_for_integer_literals() {
+    let program = parse_and_lower_lir("console.log(7 % 3);");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.rem_s"), "{printed}");
+}
+
+#[test]
 fn unsupported_exponentiation_operator_rejects_negative_exponents() {
     let program = parse_and_lower_lir("console.log(2 ** -1);");
     let mut ctx = CodegenCtx::new(TargetConfig {

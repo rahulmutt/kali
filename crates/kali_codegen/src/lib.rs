@@ -1336,14 +1336,10 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "%" => {
-                self.diagnostics.push(Diagnostic::error(
-                    e5::FEATURE_UNAVAILABLE as u32,
-                    "remainder operator '%' is unavailable in the current phase; use a supported arithmetic operator or the later compatibility path".to_string(),
-                ));
-                function.instruction(&Instruction::Unreachable);
+                function.instruction(&Instruction::I64RemS);
                 EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
+                    produced: true,
+                    shape: ValueShape::Scalar,
                 }
             }
             "==" | "===" => {

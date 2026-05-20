@@ -1306,6 +1306,34 @@ fn test_resolution_allows_nullish_coalescing_with_void_and_undefined_fallbacks()
 }
 
 #[test]
+fn test_resolution_allows_remainder_operator() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+                operator: "%".to_string(),
+                left: Expression::Literal(LiteralValue::Number(7.0)),
+                right: Expression::Literal(LiteralValue::Number(3.0)),
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::BinaryExpression(Box::new(BinaryExpression {
+                operator: "%".to_string(),
+                left: Expression::BigIntLiteral("7n".to_string()),
+                right: Expression::BigIntLiteral("3n".to_string()),
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_missing_imports() {
     let mut ctx = TypeContext::with_base_path(".");
     let statements = vec![Statement::ImportDeclaration(ImportDeclaration {

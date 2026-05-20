@@ -497,20 +497,28 @@ fn test_parse_exponentiation_expression() {
 }
 
 #[test]
-fn test_parse_modulo_expression_reports_feature_unavailable() {
+fn test_parse_modulo_expression() {
     let tokens = lex("const value = 3n % 2n;");
     let mut parser = Parser::new(FileId::new(0), tokens);
     let output = parser.parse(None);
 
     assert!(
-        output.diagnostics.iter().any(|diagnostic| {
-            diagnostic.is_error()
-                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
-                && diagnostic.message.contains("remainder operator '%'")
-        }),
+        output.diagnostics.is_empty(),
         "unexpected diagnostics: {:?}",
         output.diagnostics
     );
+
+    let Statement::VariableDeclaration(vd) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let init = vd.declarations[0].init.as_ref().expect("initializer");
+    let Expression::BinaryExpression(expr) = init else {
+        panic!("Expected BinaryExpression, got {init:?}");
+    };
+    assert_eq!(expr.operator, "%");
 }
 
 #[test]
