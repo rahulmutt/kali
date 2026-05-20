@@ -2295,6 +2295,22 @@ fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero
         "source: {source}"
     );
     assert!(
+        source.contains(r#"Object.freeze((globalThis['process'].kill))(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis['process'].kill))(+0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis['process']['kill']))(0)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis['process']['kill']))(+0)"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"Object.freeze(globalThis['process']['kill'])(0)"#),
         "source: {source}"
     );
@@ -2425,6 +2441,10 @@ fn test_late_process_control_single_quoted_process_aliases_lists_all_aliases_in_
             r#"Object.freeze((globalThis['process']).kill)(+0)"#,
             r#"Object.freeze((globalThis['process'])['kill'])(0)"#,
             r#"Object.freeze((globalThis['process'])['kill'])(+0)"#,
+            r#"Object.freeze((globalThis['process'].kill))(0)"#,
+            r#"Object.freeze((globalThis['process'].kill))(+0)"#,
+            r#"Object.freeze((globalThis['process']['kill']))(0)"#,
+            r#"Object.freeze((globalThis['process']['kill']))(+0)"#,
             r#"Object.freeze(globalThis['process']['kill'])(0)"#,
             r#"Object.freeze(globalThis['process']['kill'])(+0)"#,
             r#"process['exit'](0)"#,
