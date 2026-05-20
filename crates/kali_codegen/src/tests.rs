@@ -92,7 +92,7 @@ fn function_plans_are_detected_from_instruction_shape() {
 #[test]
 fn function_plans_preserve_generator_flavor_metadata_for_class_methods() {
     let program = parse_and_lower_lir(
-        "class Example { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+        "class Example { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let plans = collect_functions(&program);
 
@@ -117,7 +117,7 @@ fn function_plans_preserve_generator_flavor_metadata_for_class_methods() {
 #[test]
 fn function_plans_preserve_generator_flavor_metadata_for_class_expressions() {
     let program = parse_and_lower_lir(
-        "const Example = class NamedExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } };",
+        "const Example = class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } };",
     );
     let plans = collect_functions(&program);
 
@@ -147,7 +147,7 @@ fn function_plans_preserve_generator_flavor_metadata_for_class_expressions() {
 #[test]
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_expressions() {
     let program = parse_and_lower_lir(
-        "export default (class NamedExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } });",
+        "export default (class NamedExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } });",
     );
     let plans = collect_functions(&program);
 
@@ -177,7 +177,7 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_ex
 #[test]
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_declarations() {
     let program = parse_and_lower_lir(
-        "export default class NamedDeclExample { async *outer() { yield 1; } *inner() { yield 2; } plain() { return 0; } }",
+        "export default class NamedDeclExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } }",
     );
     let plans = collect_functions(&program);
 
