@@ -39,7 +39,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests and matu
 - Mixed generator/async-generator class bodies now also collapse to the combined class-method `E5506` wording when both flavors appear in one class, keeping the direct runtime gate explicit for that edge case too.
 - Browser late-compat and Node surface smoke now also pin the mixed frozen `Object.freeze(globalThis["process"].kill)(0)` alias and its `+0` zero-literal sibling, plus direct `globalThis.process["kill"](+0)` / `globalThis["process"].kill(+0)` / `globalThis["process"]["kill"](+0)` zero-probe aliases; the browser late-compat source corpus now also asserts the direct `globalThis.process["kill"](+0)` spelling across JS, TS, JSX, and TSX input, and the same browser matrix now also covers the doubly wrapped `((globalThis["process"]["kill"]))(+0)` alias with explicit regression assertions. The browser late-compat rejection fixtures now also cover the parenthesized bracketed freeze-wrapper alias family in the browser corpus.
 
-- The browser-bundle runtime summary path now also mirrors the browser-requested thread-topology stdout merge when the summary file omits it, keeping the browser harness summary contract aligned across both execution wrappers.
+- The browser-bundle runtime summary path now also mirrors the browser-requested thread-topology stdout merge when the summary file omits it, and now also keeps the summary-file `threadTopology` snapshot when it is present, keeping the browser harness summary contract aligned across both execution wrappers.
 
 ### 21.2 Iterator and async-iterator protocols
 
