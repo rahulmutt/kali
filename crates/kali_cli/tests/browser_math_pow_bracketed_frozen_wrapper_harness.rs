@@ -1,6 +1,9 @@
 use std::{fs, process::Command};
 
-use kali_common::{math_pow_bracketed_frozen_callable_source, math_pow_invocation_lines};
+use kali_common::{
+    math_pow_bracketed_frozen_callable_aliases, math_pow_bracketed_frozen_callable_source,
+    math_pow_invocation_lines,
+};
 use serde_json::Value;
 use tempfile::tempdir;
 
@@ -25,6 +28,16 @@ fn browser_harness_bracketed_global_this_math_pow_frozen_test_source() -> String
 "#,
         math_pow_invocation_lines(&math_pow_bracketed_frozen_callable_source(), "")
     )
+}
+
+#[test]
+fn browser_harness_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases(
+) {
+    let source = browser_harness_bracketed_global_this_math_pow_frozen_run_source();
+
+    for expected in math_pow_bracketed_frozen_callable_aliases() {
+        assert!(source.contains(expected), "source: {source}");
+    }
 }
 
 fn assert_browser_harness_bracketed_global_this_math_pow_frozen<S: AsRef<str>>(

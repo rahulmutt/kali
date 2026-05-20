@@ -33,6 +33,16 @@ function bracketedGlobalThisMathPowFrozenWrapper() {{
     )
 }
 
+#[test]
+fn browser_bundle_bracketed_global_this_math_pow_frozen_source_includes_parenthesized_bracketed_aliases(
+) {
+    let source = browser_bundle_bracketed_global_this_math_pow_frozen_source();
+
+    for expected in math_pow_bracketed_frozen_callable_aliases() {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
 fn assert_browser_bundle_bracketed_global_this_math_pow_frozen(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
