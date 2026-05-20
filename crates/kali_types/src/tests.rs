@@ -9236,6 +9236,8 @@ for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
 fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_extensions() {
     let source = r#"async function main() {
     console.log(Object.is(await 1, await 1));
+    console.log(Object.is(await globalThis.Object, await globalThis.Object));
+    console.log(Object.is(await globalThis["Object"], await globalThis["Object"]));
     console.log(Number.isSafeInteger(await 1));
     console.log(Math.atan2(await 0, await 1));
     console.log(Object.keys(await { a: 1 }));

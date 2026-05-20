@@ -368,7 +368,7 @@ fn object_is_lowers_for_same_static_reference_through_object_freeze() {
 #[test]
 fn object_is_lowers_for_same_static_member_roots() {
     let program = parse_and_lower_lir(
-        "console.log(Object.is(globalThis.Object, globalThis.Object)); console.log(Object.is(globalThis[\"Object\"], globalThis[\"Object\"])); console.log(Object.is(globalThis['Object'], globalThis['Object']));",
+        "async function main() { console.log(Object.is(globalThis.Object, globalThis.Object)); console.log(Object.is(globalThis[\"Object\"], globalThis[\"Object\"])); console.log(Object.is(globalThis['Object'], globalThis['Object'])); console.log(Object.is(await globalThis.Object, await globalThis.Object)); console.log(Object.is(await globalThis[\"Object\"], await globalThis[\"Object\"])); } main();",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
