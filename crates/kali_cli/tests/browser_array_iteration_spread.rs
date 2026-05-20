@@ -58,6 +58,8 @@ fn browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_secti
         "globalThis.Array.from",
         r#"Object.freeze(Array.from)"#,
         r#"Object.freeze((globalThis['Array']).from)"#,
+        r#"Object.freeze((globalThis['Array'])["from"])"#,
+        r#"Object.freeze((globalThis['Array']))["from"]"#,
     ] {
         assert_eq!(
             source
