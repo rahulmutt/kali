@@ -13,7 +13,7 @@ Remaining goals:
 - Promote parser-accepted but unavailable semantics only when checker, lowering, runtime, and conformance evidence exist.
 - Implement full generator and async-generator semantics, including resumable state machines, `yield` / `yield*`, async interaction, error propagation, and finalization; until then keep unsupported forms behind canonical `E5506` gates.
 - Expand `for...of` / `for await...of` from bounded static slices toward full iterator and async-iterator protocol behavior, including close/finalization/error semantics.
-- Static `Array.from(new Set(...))` and `Array.from(new Map(...))` slices now reuse the existing set/map collectors; broader generator/iterator semantics remain open.
+- Static `Array.from(new Set(...))` and `Array.from(new Map(...))` slices now reuse the existing set/map collectors, and the browser harness/bundle smoke lanes now cover that Array.from set/map slice too; broader generator/iterator semantics remain open.
 - Continue widening expression/operator, object-model, BigInt, Math, and dynamic-loading semantics where translation-safe; keep unsupported dynamic language forms explicitly gated.
 - Grow bounded TypeScript/JavaScript inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
 - Transparent sequence wrappers around static object-helper targets are now covered in the checker and browser/standalone smoke lanes; broader generator/iterator semantics remain open.

@@ -9946,6 +9946,22 @@ fn test_resolution_supports_for_await_array_from_iteration_in_ts_input() {
 }
 
 #[test]
+fn test_resolution_supports_array_from_new_set_and_new_map_iteration_in_js_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.js",
+        "for (const value of Array.from(new Set([1, 2, 1]))) { console.log(value); }\nfor await (const entry of Array.from(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }",
+    );
+}
+
+#[test]
+fn test_resolution_supports_array_from_new_set_and_new_map_iteration_in_ts_input() {
+    assert_resolution_accepts_frozen_iterator_protocol_edge(
+        "main.ts",
+        "for (const value of Array.from(new Set([1, 2, 1]))) { console.log(value); }\nfor await (const entry of Array.from(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }",
+    );
+}
+
+#[test]
 fn test_resolution_supports_frozen_single_quoted_bracketed_array_from_iteration_in_js_input() {
     assert_resolution_accepts_frozen_iterator_protocol_edge(
         "main.js",

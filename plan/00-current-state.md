@@ -22,6 +22,7 @@ The checked-in repository already includes:
 - Runtime/reporting lanes: `run`, `test`, `test --coverage`, source-graph effects, package effects, package audit, deterministic JSON envelopes, and schema-v1 payload validation.
 - Object-enumeration finalization coverage now also includes async `Object.entries(...)` alongside the existing `Object.keys(...)` / `Object.values(...)` slices in the runtime and browser harness smoke lanes.
 - The static object-helper wrapper slice now also accepts sequence-expression wrappers around `Object.hasOwn(...)`, `Object.keys(...)`, and `Reflect.ownKeys(...)` targets in the checker and browser/standalone smoke coverage.
+- The array-iteration smoke now also accepts `Array.from(new Set(...))` and `Array.from(new Map(...))` wrappers over the same supported iterable path in JS and TS input, and the browser harness/bundle smoke lanes now mirror that same Array.from set/map slice too, keeping the existing Set/Map collectors visible through the Array.from alias path too.
 - Host/API lanes: default standalone, browser-targeted check/build/bundle flows, browser harness execution paths, documented Deno and Node API slices, resource budget validation, and late-host/object-model gating.
 - Package lanes: install/lock/materialization, registry and raw-URL workflows, package-shape rejection, package-corpus probes, and single-package registry-analysis commands.
 - Verification lanes: Lean proof project and published proof-backed boundary limited by `proofs/BOUNDARY.md`.
