@@ -1047,6 +1047,8 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
   if (
     settled.length !== 2 ||
     settled[0].status !== 'fulfilled' ||
@@ -1087,7 +1089,17 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     parenthesizedFrozenBracketedSettled[0].status !== 'fulfilled' ||
     parenthesizedFrozenBracketedSettled[0].value !== 1 ||
     parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
-    parenthesizedFrozenBracketedSettled[1].reason !== 'boom'
+    parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    rootFrozenSettled.length !== 2 ||
+    rootFrozenSettled[0].status !== 'fulfilled' ||
+    rootFrozenSettled[0].value !== 1 ||
+    rootFrozenSettled[1].status !== 'rejected' ||
+    rootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedRootFrozenSettled.length !== 2 ||
+    parenthesizedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedRootFrozenSettled[1].reason !== 'boom'
   ) {
     throw new Error('unexpected Promise.allSettled semantics');
   }

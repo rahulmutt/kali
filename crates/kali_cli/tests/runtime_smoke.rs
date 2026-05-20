@@ -40331,7 +40331,7 @@ fn assert_non_literal_dynamic_import_rejection_json(errors: &[Value]) {
     );
 }
 
-fn promise_all_settled_source_variants() -> [&'static str; 11] {
+fn promise_all_settled_source_variants() -> [&'static str; 13] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
         "console.log(Promise[\"allSettled\"]([1, 2]));\n",
@@ -40343,6 +40343,8 @@ fn promise_all_settled_source_variants() -> [&'static str; 11] {
         "console.log(globalThis['Promise'].allSettled([1, 2]));\n",
         "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
         "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
+        "console.log(Object.freeze(Promise.allSettled)([1, 2]));\n",
+        "console.log(Object.freeze((Promise.allSettled))([1, 2]));\n",
         "console.log(Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]));\n",
     ]
 }
