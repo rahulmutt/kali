@@ -1544,8 +1544,13 @@ const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
     r#"globalThis['process']['kill'](+0)"#,
     r#"process['kill'](0)"#,
     r#"process['kill'](+0)"#,
+    r#"process['kill']((0))"#,
     r#"globalThis.process['kill'](0)"#,
     r#"globalThis.process['kill'](+0)"#,
+    r#"globalThis.process['kill']((0))"#,
+    r#"globalThis['process'].kill((0))"#,
+    r#"globalThis['process']['kill']((0))"#,
+    r#"globalThis.process['kill']((0))"#,
     r#"Object.freeze(process['kill'])(0)"#,
     r#"Object.freeze(process['kill'])(+0)"#,
     r#"Object.freeze((process['kill']))(0)"#,
@@ -1564,14 +1569,20 @@ const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
     r#"Object.freeze(globalThis['process']['kill'])(+0)"#,
     r#"process['exit'](0)"#,
     r#"process['exit'](+0)"#,
+    r#"process['exit']((0))"#,
     r#"Object.freeze(process['exit'])(0)"#,
     r#"Object.freeze(process['exit'])(+0)"#,
     r#"Object.freeze((process['exit']))(0)"#,
     r#"Object.freeze((process['exit']))(+0)"#,
     r#"globalThis['process'].exit(0)"#,
     r#"globalThis['process'].exit(+0)"#,
+    r#"globalThis['process'].exit((0))"#,
     r#"globalThis['process']['exit'](0)"#,
     r#"globalThis['process']['exit'](+0)"#,
+    r#"globalThis['process']['exit']((0))"#,
+    r#"globalThis.process['exit'](0)"#,
+    r#"globalThis.process['exit'](+0)"#,
+    r#"globalThis.process['exit']((0))"#,
     r#"Object.freeze(globalThis['process'].exit)(0)"#,
     r#"Object.freeze(globalThis['process'].exit)(+0)"#,
     r#"Object.freeze((globalThis['process'].exit))(0)"#,
@@ -1582,7 +1593,8 @@ const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
     r#"Object.freeze((globalThis['process']['exit']))(+0)"#,
 ];
 
-/// Canonical late-process-control source text for the browser JS single-quoted process root and exit aliases.
+/// Canonical late-process-control source text for the browser JS single-quoted process root,
+/// wrapped zero-literal, and exit aliases.
 pub fn late_process_control_single_quoted_process_source() -> String {
     format!(
         "{} {}",
