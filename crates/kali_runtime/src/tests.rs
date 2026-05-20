@@ -557,6 +557,36 @@ fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() 
         summary_note: BrowserRuntimeContract::summary_note(),
         contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
     };
+    let invalid_supported_commands_note = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: BrowserRuntimeContract::supported_commands(),
+        supported_commands_note: " supported browser runtime commands: run, test ",
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+    let invalid_summary_note = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: BrowserRuntimeContract::supported_commands(),
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: " browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work ",
+        contract_scope_note: BrowserRuntimeContract::contract_scope_note(),
+    };
+    let invalid_contract_scope_note = BrowserRuntimeContractDescriptor {
+        host_label: BrowserRuntimeContract::host_label(),
+        host_description: BrowserRuntimeContract::host_description(),
+        host_description_note: BrowserRuntimeContract::host_description_note(),
+        supported_commands: BrowserRuntimeContract::supported_commands(),
+        supported_commands_note: BrowserRuntimeContract::supported_commands_note(),
+        diagnostic_hint: BrowserRuntimeContract::diagnostic_hint(),
+        summary_note: BrowserRuntimeContract::summary_note(),
+        contract_scope_note: " browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness ",
+    };
 
     assert!(!browser_runtime_contract_descriptor_is_canonical(
         &invalid_label
@@ -575,6 +605,15 @@ fn browser_runtime_contract_descriptor_rejects_duplicate_or_whitespace_values() 
     ));
     assert!(!browser_runtime_contract_descriptor_is_canonical(
         &invalid_hint
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_supported_commands_note
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_summary_note
+    ));
+    assert!(!browser_runtime_contract_descriptor_is_canonical(
+        &invalid_contract_scope_note
     ));
     assert!(browser_runtime_contract_descriptor_is_canonical(
         &BrowserRuntimeContract::descriptor()

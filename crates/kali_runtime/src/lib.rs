@@ -206,7 +206,10 @@ fn browser_runtime_contract_descriptor_is_canonical(
         descriptor.host_label,
         descriptor.host_description,
         descriptor.host_description_note,
+        descriptor.supported_commands_note,
         descriptor.diagnostic_hint,
+        descriptor.summary_note,
+        descriptor.contract_scope_note,
     ]
     .into_iter()
     .all(trimmed)
