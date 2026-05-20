@@ -966,6 +966,65 @@ pub fn object_has_own_property_call_binding_source(binding_name: &str) -> String
     )
 }
 
+/// Canonical frozen callable aliases for the supported `Math.abs` / `Math.sign` helper slice.
+pub const fn math_abs_sign_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["abs"])"#,
+        r#"Object.freeze((globalThis.Math["abs"]))"#,
+        r#"Object.freeze(globalThis.Math.abs)"#,
+        r#"Object.freeze((globalThis.Math.abs))"#,
+        r#"Object.freeze(globalThis["Math"]["abs"])"#,
+        r#"Object.freeze((globalThis["Math"]["abs"]))"#,
+        r#"Object.freeze(globalThis["Math"].abs)"#,
+        r#"Object.freeze((globalThis["Math"].abs))"#,
+        r#"Object.freeze(Math["abs"])"#,
+        r#"Object.freeze((Math["abs"]))"#,
+        r#"Object.freeze(globalThis.Math["sign"])"#,
+        r#"Object.freeze((globalThis.Math["sign"]))"#,
+        r#"Object.freeze(globalThis.Math.sign)"#,
+        r#"Object.freeze((globalThis.Math.sign))"#,
+        r#"Object.freeze(globalThis["Math"]["sign"])"#,
+        r#"Object.freeze((globalThis["Math"]["sign"]))"#,
+        r#"Object.freeze(globalThis["Math"].sign)"#,
+        r#"Object.freeze((globalThis["Math"].sign))"#,
+        r#"Object.freeze(Math["sign"])"#,
+        r#"Object.freeze((Math["sign"]))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.abs` / `Math.sign` frozen callable aliases.
+pub fn math_abs_sign_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_abs_sign_frozen_callable_aliases())
+}
+
+/// Canonical `console.log(...)` invocation lines for the supported `Math.abs` / `Math.sign` frozen callable aliases.
+pub fn math_abs_sign_frozen_callable_invocation_lines(indentation: &str) -> String {
+    math_abs_sign_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("{indentation}console.log({alias}(alias));"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Canonical `console.log(...)` invocation text for the supported `Math.abs` / `Math.sign` frozen callable aliases.
+pub fn math_abs_sign_frozen_callable_invocation_source() -> String {
+    math_abs_sign_frozen_callable_invocation_lines("")
+}
+
+/// Canonical `return [...]` entry text for the supported `Math.abs` / `Math.sign` frozen callable aliases.
+pub fn math_abs_sign_frozen_callable_entries(indentation: &str) -> String {
+    math_abs_sign_frozen_callable_aliases()
+        .iter()
+        .map(|alias| format!("{indentation}{alias}(alias)"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Canonical `return [...]` entry text for the supported `Math.abs` / `Math.sign` frozen callable aliases.
+pub fn math_abs_sign_frozen_callable_entries_source() -> String {
+    math_abs_sign_frozen_callable_entries("")
+}
+
 /// Canonical frozen callable aliases for the supported `Math.floor` / `Math.trunc` / `Math.ceil` helper slice.
 pub const fn math_floor_trunc_ceil_frozen_callable_aliases() -> &'static [&'static str] {
     &[
