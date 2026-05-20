@@ -3029,8 +3029,38 @@ impl<'a> FunctionEmitter<'a> {
         self.node(object).text.as_deref() == Some("console") && method == "assert"
     }
 
+    fn resolve_transparent_object_root_node(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let mut id = self.resolve_bound_node(id);
+        let mut seen = HashSet::new();
+
+        loop {
+            if !seen.insert(id.0) {
+                return None;
+            }
+
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Value
+                && node.children.len() == 1
+                && node.text.as_deref().is_none_or(|text| text.is_empty())
+            {
+                id = node.children[0];
+                continue;
+            }
+
+            if self.is_object_freeze_call(node) {
+                id = node.children.get(1).copied()?;
+                continue;
+            }
+
+            return Some(id);
+        }
+    }
+
     fn is_math_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
             return false;
         };
         matches!(
@@ -3046,6 +3076,9 @@ impl<'a> FunctionEmitter<'a> {
         let Some(object) = callee_node.children.first().copied() else {
             return false;
         };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
+            return false;
+        };
         matches!(
             self.node(object).text.as_deref(),
             Some("Object")
@@ -3057,6 +3090,9 @@ impl<'a> FunctionEmitter<'a> {
 
     fn is_number_object(&self, callee_node: &LirNode) -> bool {
         let Some(object) = callee_node.children.first().copied() else {
+            return false;
+        };
+        let Some(object) = self.resolve_transparent_object_root_node(object) else {
             return false;
         };
         matches!(
@@ -5036,6 +5072,7 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let object = callee_node.children.first().copied()?;
+        let object = self.resolve_transparent_object_root_node(object)?;
         let object_text = self.node(object).text.as_deref().unwrap_or_default();
         if object_text.contains("Object") || object_text.contains("Reflect") {
             Some(mode)
