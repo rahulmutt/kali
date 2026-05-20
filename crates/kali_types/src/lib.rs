@@ -1940,6 +1940,7 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(Self::call_member_access_name),
+            Expression::AwaitExpression(expr) => Self::call_member_access_name(&expr.argument),
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => Self::call_member_access_name(object),
             },
@@ -2166,6 +2167,7 @@ impl TypeContext {
                     let last = expr.expressions.last()?;
                     current = last;
                 }
+                Expression::AwaitExpression(expr) => current = &expr.argument,
                 Expression::MemberExpression(member) => {
                     let dotted = Self::member_access_name(member)?;
                     let bracketed = Self::member_access_name_bracketed(member)?;

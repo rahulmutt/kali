@@ -483,27 +483,6 @@ fn late_js_compatibility_source_includes_frozen_process_zero_probe_alias() {
 }
 
 #[test]
-fn late_js_compatibility_source_includes_mixed_bracketed_proxy_revocable_form() {
-    let source = late_js_compatibility_source_with_mixed_process_forms();
-    assert!(
-        source.contains(r#"globalThis["Proxy"].revocable"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis.Proxy["revocable"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze(globalThis.Proxy.revocable)"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"Object.freeze(globalThis["Proxy"].revocable)"#),
-        "source: {source}"
-    );
-}
-
-#[test]
 fn late_js_compatibility_source_includes_bracketed_process_env_mutation_forms() {
     let source = late_process_env_mutation_source();
     for expected in [
@@ -578,6 +557,27 @@ fn late_js_compatibility_source_includes_bracketed_globalthis_deno_env_and_permi
 }
 
 #[test]
+fn late_js_compatibility_source_includes_mixed_bracketed_proxy_revocable_form() {
+    let source = late_js_compatibility_source_with_mixed_process_forms();
+    assert!(
+        source.contains(r#"globalThis["Proxy"].revocable"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis.Proxy["revocable"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis.Proxy.revocable)"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis["Proxy"].revocable)"#),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn late_js_compatibility_source_includes_bracketed_threaded_runtime_forms() {
     let source = late_js_compatibility_source_with_mixed_process_forms();
     for expected in [
@@ -586,6 +586,33 @@ fn late_js_compatibility_source_includes_bracketed_threaded_runtime_forms() {
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
+}
+
+#[test]
+fn check_rejects_await_wrapped_proxy_revocable_late_compatibility_member_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "(async function main() { Object.freeze(await globalThis.Proxy.revocable)({}, {}); })();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Proxy.revocable") || stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
