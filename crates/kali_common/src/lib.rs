@@ -641,7 +641,7 @@ pub fn process_kill_zero_probe_console_log_source() -> String {
 /// alias matrix used by the documented Node runtime regression.
 pub fn process_kill_zero_probe_node_api_surface_run_source() -> String {
     format!(
-        "const zero = 0; const zeroAlias = zero; {} {} {} {} console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(bracketedDotSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
+        "const zero = 0; const zeroAlias = zero; {} {} {} {} console.log(process.kill(zeroAlias)); console.log(dotRootKill(+zero)); console.log(globalThis[\"process\"][\"kill\"](zero)); console.log(process[\"kill\"](zero)); console.log(kill(0)); console.log(bracketedDotKill(+0)); console.log(globalThis[\"process\"].kill(+0)); console.log(dotBracketKill(0)); console.log(fullyBracketedKill(0)); console.log(sequenceKill(0)); console.log(bracketedRootSequenceKill(0)); console.log(dotRootSequenceKill(0)); console.log(bracketedSequenceKill(0)); console.log(dotBracketSequenceKill(0)); console.log(bracketedDotSequenceKill(0)); console.log(((globalThis[\"process\"][\"kill\"]))(+0));\n",
         process_kill_zero_probe_call_target_bindings_source(),
         process_kill_zero_probe_sequence_call_target_bindings_source(),
         process_kill_zero_probe_parenthesized_receiver_freeze_source(),
