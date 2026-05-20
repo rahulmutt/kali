@@ -4244,12 +4244,11 @@ fn command_allows_pretty_without_json(command: Option<&Commands>) -> bool {
     )
 }
 
+const PACKAGE_AUDIT_PREVIEW_MESSAGE: &str =
+    "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape";
+
 fn package_audit_preview_diagnostic() -> Diagnostic {
-    Diagnostic::error(
-        e5::INVALID_CLI_USAGE as u32,
-        "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape",
-    )
-    .with_context(
+    Diagnostic::error(e5::INVALID_CLI_USAGE as u32, PACKAGE_AUDIT_PREVIEW_MESSAGE).with_context(
         DiagnosticContext::new(DiagnosticContextOrigin::Cli)
             .with_flag("--preview")
             .with_requested_value("true")
@@ -5040,7 +5039,7 @@ mod tests {
         analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
         manifest_compat_features, manifest_runtime_profiles, package_audit_command,
         package_audit_preview_diagnostic, package_effects_report, sort_package_audit_findings,
-        CliOutputOptions,
+        CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
     };
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
@@ -5165,7 +5164,7 @@ mod tests {
         let diagnostic = package_audit_preview_diagnostic();
         let context = diagnostic.context.as_ref().expect("diagnostic context");
         assert_eq!(diagnostic.code, Some(e5::INVALID_CLI_USAGE as u32));
-        assert_eq!(diagnostic.message, "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape");
+        assert_eq!(diagnostic.message, PACKAGE_AUDIT_PREVIEW_MESSAGE);
         assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
         assert_eq!(context.flag.as_deref(), Some("--preview"));
         assert_eq!(context.requested_value.as_deref(), Some("true"));
