@@ -1645,12 +1645,17 @@ pub fn late_process_control_single_quoted_process_aliases() -> &'static [&'stati
 
 /// Canonical late-process-control source text for the browser JS single-quoted process root,
 /// wrapped zero-literal, and exit aliases.
+pub fn late_process_control_single_quoted_process_aliases_source() -> String {
+    join_semicolon_terminated_segments(late_process_control_single_quoted_process_aliases())
+}
+
+/// Canonical late-process-control source text for the browser JS single-quoted process root,
+/// wrapped zero-literal, and exit aliases.
 pub fn late_process_control_single_quoted_process_source() -> String {
     format!(
         "{} {}",
         late_process_control_source(),
-        join_semicolon_terminated_segments(late_process_control_single_quoted_process_aliases())
-            .trim_end()
+        late_process_control_single_quoted_process_aliases_source().trim_end()
     )
 }
 

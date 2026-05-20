@@ -2408,6 +2408,7 @@ fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero
 #[test]
 fn test_late_process_control_single_quoted_process_aliases_lists_all_aliases_in_order() {
     let aliases = late_process_control_single_quoted_process_aliases();
+    let aliases_source = late_process_control_single_quoted_process_aliases_source();
     let source = late_process_control_single_quoted_process_source();
     let expected_segment = aliases.join("; ");
 
@@ -2479,6 +2480,7 @@ fn test_late_process_control_single_quoted_process_aliases_lists_all_aliases_in_
             r#"Object.freeze((globalThis['process']['exit']))(+0)"#,
         ]
     );
+    assert_eq!(aliases_source, format!("{};", expected_segment));
     assert_eq!(
         source.matches(&expected_segment).count(),
         1,

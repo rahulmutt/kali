@@ -28,7 +28,11 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> String {
-    kali_common::late_process_control_source()
+    format!(
+        "{} {}",
+        kali_common::late_process_control_source(),
+        kali_common::late_process_control_single_quoted_process_aliases_source().trim_end()
+    )
 }
 
 fn late_network_source() -> &'static str {
@@ -317,6 +321,20 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
             messages.iter().any(|message| message.contains(expected)),
             "missing {expected} in {messages:?}"
         );
+    }
+}
+
+#[test]
+fn browser_late_process_control_source_includes_single_quoted_process_root_forms() {
+    let source = late_process_control_source();
+    for expected in [
+        r#"globalThis['process'].kill(0)"#,
+        r#"globalThis['process']['kill'](0)"#,
+        r#"process['kill'](0)"#,
+        r#"process['exit'](0)"#,
+        r#"globalThis['process'].exit(0)"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
     }
 }
 
