@@ -5334,11 +5334,13 @@ impl<'a> FunctionEmitter<'a> {
             return Some(node);
         }
 
+        if self.is_object_freeze_call(node) {
+            let argument = node.children.get(1).copied()?;
+            return self.resolve_set_constructor_call(self.node(argument));
+        }
+
         if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
-            let child = self.node(node.children[0]);
-            if self.is_set_constructor_call(child) {
-                return Some(child);
-            }
+            return self.resolve_set_constructor_call(self.node(node.children[0]));
         }
 
         None
@@ -5465,11 +5467,13 @@ impl<'a> FunctionEmitter<'a> {
             return Some(node);
         }
 
+        if self.is_object_freeze_call(node) {
+            let argument = node.children.get(1).copied()?;
+            return self.resolve_map_constructor_call(self.node(argument));
+        }
+
         if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
-            let child = self.node(node.children[0]);
-            if self.is_map_constructor_call(child) {
-                return Some(child);
-            }
+            return self.resolve_map_constructor_call(self.node(node.children[0]));
         }
 
         None
