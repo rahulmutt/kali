@@ -8270,6 +8270,80 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
 }
 
 #[test]
+fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
+    let statement = Statement::VariableDeclaration(VariableDeclaration {
+        declarations: vec![VariableDeclarator {
+            id: "Example".to_string(),
+            init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                id: Some("NamedExample".to_string()),
+                body: Box::new(ClassBody {
+                    methods: vec![
+                        MethodDefinition {
+                            name: "syncGen".to_string(),
+                            params: vec![],
+                            body: Some(Box::new(BlockStatement {
+                                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                                    expression: Box::new(Expression::YieldExpression(Box::new(
+                                        YieldExpression {
+                                            delegate: true,
+                                            argument: Some(Expression::ArrayExpression(
+                                                kali_ast::ArrayExpression { elements: vec![] },
+                                            )),
+                                        },
+                                    ))),
+                                })],
+                            })),
+                            is_async: false,
+                            generator: true,
+                        },
+                        MethodDefinition {
+                            name: "asyncGen".to_string(),
+                            params: vec![],
+                            body: Some(Box::new(BlockStatement {
+                                body: vec![Statement::ExpressionStatement(ExpressionStatement {
+                                    expression: Box::new(Expression::YieldExpression(Box::new(
+                                        YieldExpression {
+                                            delegate: true,
+                                            argument: Some(Expression::ArrayExpression(
+                                                kali_ast::ArrayExpression { elements: vec![] },
+                                            )),
+                                        },
+                                    ))),
+                                })],
+                            })),
+                            is_async: true,
+                            generator: true,
+                        },
+                    ],
+                }),
+            }))),
+        }],
+        kind: "const".to_string(),
+    });
+
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement.clone()]);
+        assert_eq!(
+            result.diagnostics.len(),
+            1,
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+        assert_eq!(
+            result.diagnostics[0].code,
+            Some(e5::FEATURE_UNAVAILABLE as u32)
+        );
+        assert!(result.diagnostics[0]
+            .message
+            .contains("generator and async-generator class method lowering is unavailable"));
+    }
+}
+
+#[test]
 fn test_resolution_supports_async_class_method_lowering() {
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
         name: "Example".to_string(),

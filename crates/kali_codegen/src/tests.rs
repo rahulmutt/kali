@@ -2331,6 +2331,31 @@ fn mixed_generator_and_async_generator_class_method_lowering_reports_feature_una
 }
 
 #[test]
+fn mixed_generator_and_async_generator_class_expression_lowering_reports_feature_unavailable() {
+    let program = parse_and_lower_lir(
+        "const Example = class NamedExample { *syncGen() { yield* []; } async *asyncGen() { yield 1; } };\nnew Example();",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("generator and async-generator function lowering")
+        }),
+        "expected a combined generator class-expression diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn generator_function_without_yield_still_remains_feature_unavailable() {
     let program = parse_and_lower_lir("function* main() { return 1; }\nmain();");
     let mut ctx = CodegenCtx::new(TargetConfig {

@@ -6426,6 +6426,16 @@ fn runtime_entrypoint_rejects_mixed_generator_class_expressions_in_js_input() {
 }
 
 #[test]
+fn runtime_entrypoint_rejects_mixed_generator_class_expressions_in_ts_jsx_tsx_input() {
+    for extension in ["ts", "jsx", "tsx"] {
+        assert_runtime_entrypoint_rejects_mixed_generator_class_expression_in_input(
+            extension,
+            "const Example = class NamedExample { *main() { yield 1; } async *other() { yield* main(); } };\nnew Example();\n",
+        );
+    }
+}
+
+#[test]
 fn runtime_entrypoint_rejects_generator_class_expressions_wrapped_in_type_assertions_in_ts_input() {
     assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "ts",
