@@ -8,31 +8,10 @@ fn kali_bin() -> String {
 }
 
 fn object_is_primitive_literals_source() -> &'static str {
-    r#"const zero = 0; const zeroAlias = zero;
-console.log(Object.is(zeroAlias, -0));
-console.log(Object.is(-0, +0));
-console.log(Object.is(+1, 1));
-console.log(Object.is(true, true));
-console.log(Object.is("hello", "hello"));
-console.log(Object.is(`hello`, `hello`));
-console.log(Object.is(1n, 1n));
-console.log(Object.is(-1n, -1n));
-console.log(Object.is(null, null));
-console.log(Object.is(Infinity, Infinity));
-console.log(Object.is(NaN, NaN));
-console.log(Object.is(-Infinity, -Infinity));
-console.log(globalThis["Object"]["is"](+1, 1));
-console.log(globalThis.Object["is"](+1, 1));
-console.log(globalThis["Object"].is(+1, 1));
-console.log(globalThis.Object.is(+1, 1));
-console.log(Object["is"](+1, 1));
-"#
-}
-
-fn object_is_primitive_literals_test_source() -> &'static str {
-    r#"Kali.test('object is primitive literals', () => {
+    r#"async function main() {
   const zero = 0;
   const zeroAlias = zero;
+  const object = { a: 1 };
   console.log(Object.is(zeroAlias, -0));
   console.log(Object.is(-0, +0));
   console.log(Object.is(+1, 1));
@@ -45,11 +24,44 @@ fn object_is_primitive_literals_test_source() -> &'static str {
   console.log(Object.is(Infinity, Infinity));
   console.log(Object.is(NaN, NaN));
   console.log(Object.is(-Infinity, -Infinity));
+  console.log(Object.is(await globalThis.Object, await globalThis.Object));
   console.log(globalThis["Object"]["is"](+1, 1));
   console.log(globalThis.Object["is"](+1, 1));
   console.log(globalThis["Object"].is(+1, 1));
   console.log(globalThis.Object.is(+1, 1));
   console.log(Object["is"](+1, 1));
+}
+main();
+"#
+}
+
+fn object_is_primitive_literals_test_source() -> &'static str {
+    r#"Kali.test('object is primitive literals', () => {
+  async function main() {
+    const zero = 0;
+    const zeroAlias = zero;
+    const object = { a: 1 };
+    const objectAlias = object;
+    console.log(Object.is(zeroAlias, -0));
+    console.log(Object.is(-0, +0));
+    console.log(Object.is(+1, 1));
+    console.log(Object.is(true, true));
+    console.log(Object.is("hello", "hello"));
+    console.log(Object.is(`hello`, `hello`));
+    console.log(Object.is(1n, 1n));
+    console.log(Object.is(-1n, -1n));
+    console.log(Object.is(null, null));
+    console.log(Object.is(Infinity, Infinity));
+    console.log(Object.is(NaN, NaN));
+    console.log(Object.is(-Infinity, -Infinity));
+    console.log(Object.is(await globalThis.Object, await globalThis.Object));
+    console.log(globalThis["Object"]["is"](+1, 1));
+    console.log(globalThis.Object["is"](+1, 1));
+    console.log(globalThis["Object"].is(+1, 1));
+    console.log(globalThis.Object.is(+1, 1));
+    console.log(Object["is"](+1, 1));
+  }
+  return main();
 });
 "#
 }
@@ -101,6 +113,7 @@ fn assert_run_supports_object_is_primitive_literals_in_js_input(json_output: boo
 1
 1
 1
+1
 "
         );
         assert!(json["errors"].as_array().expect("errors array").is_empty());
@@ -110,6 +123,7 @@ fn assert_run_supports_object_is_primitive_literals_in_js_input(json_output: boo
             stdout.trim(),
             "0
 0
+1
 1
 1
 1
