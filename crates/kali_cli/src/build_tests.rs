@@ -1,7 +1,8 @@
 use super::*;
 use kali_common::{
-    map_constructor_iteration_source, math_pow_browser_alias_inventory_aliases,
-    math_pow_invocation_lines_for_aliases, set_constructor_iteration_source,
+    array_from_alias_inventory_source, array_from_loop_lines, map_constructor_iteration_source,
+    math_pow_browser_alias_inventory_aliases, math_pow_invocation_lines_for_aliases,
+    set_constructor_iteration_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use sha2::{Digest, Sha256};
@@ -3939,9 +3940,80 @@ fn assert_build_source_file_supports_for_of_identifier_binding_in_input(extensio
         .expect("generated wasm should validate");
 }
 
+fn assert_build_source_file_supports_array_from_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    let alias_inventory = array_from_alias_inventory_source();
+    let source = format!(
+        "const values = [1, 2];\n{}\n{}\n",
+        array_from_loop_lines(&alias_inventory, "for (const value of ", "  "),
+        array_from_loop_lines(&alias_inventory, "for await (const value of ", "  "),
+    );
+    fs::write(&source_path, source).expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Array.from iteration should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
 fn build_source_file_supports_for_of_identifier_binding_in_ts_input() {
     assert_build_source_file_supports_for_of_identifier_binding_in_input("ts");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_js_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_ts_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Deno, "ts");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_jsx_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Deno, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_tsx_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Deno, "tsx");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_browser_api_surface_in_js_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_browser_api_surface_in_ts_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_browser_api_surface_in_jsx_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_supports_array_from_iteration_in_browser_api_surface_in_tsx_input() {
+    assert_build_source_file_supports_array_from_iteration_in_input(ApiSurface::Browser, "tsx");
 }
 
 #[test]
