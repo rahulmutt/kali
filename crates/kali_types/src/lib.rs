@@ -2943,6 +2943,9 @@ impl TypeContext {
             Expression::ParenthesizedExpression(expr) => {
                 self.resolve_static_numeric_literal_value(&expr.expression)
             }
+            Expression::AwaitExpression(expr) => {
+                self.resolve_static_numeric_literal_value(&expr.argument)
+            }
             Expression::UnaryExpression(expr) if expr.operator == "+" => {
                 self.resolve_static_numeric_literal_value(&expr.argument)
             }

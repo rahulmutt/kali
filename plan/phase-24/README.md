@@ -38,6 +38,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 - Use version-pinned workload fixtures with hash validation.
 - Promote performance wording only with workload, build mode, baseline, repeatability, and artifact-determinism evidence.
 - Keep package anecdotes separate from package-compatibility claims.
+- Track benchmark inventory updates such as `math-floor-builtin-js`, `math-round-builtin-js`, `math-pow-builtin-js`, `math-trunc-builtin-js`, `math-ceil-builtin-js`, and `folded-arithmetic-variant-js` explicitly in the evidence notes.
 
 ## Exit gate
 

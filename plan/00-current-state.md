@@ -14,6 +14,8 @@ This file records the planning baseline for the active continuation roadmap. It 
 The checked-in repository already includes:
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
+- Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.
+- The benchmark inventory notes now record that the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, and that the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`).
 - Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, deterministic metadata, and sidecar manifests.
 - Runtime/reporting lanes: `run`, `test`, `test --coverage`, source-graph effects, package effects, package audit, deterministic JSON envelopes, and schema-v1 payload validation.
 - Host/API lanes: default standalone, browser-targeted check/build/bundle flows, browser harness execution paths, documented Deno and Node API slices, resource budget validation, and late-host/object-model gating.

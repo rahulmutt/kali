@@ -1,14 +1,14 @@
 use super::*;
 use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
-    BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration, ClassExpression,
-    DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
-    Expression, ExpressionOrSpread, ExpressionStatement, ForOfLefthand, ForOfStatement,
-    FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression, MethodDefinition,
-    ObjectExpression, ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName,
-    SatisfiesExpression, TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion,
-    UnaryExpression, UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator,
-    YieldExpression,
+    AwaitExpression, BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
+    ClassExpression, DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration,
+    ExportSpecifier, Expression, ExpressionOrSpread, ExpressionStatement, ForOfLefthand,
+    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
+    MethodDefinition, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ParenthesizedExpression, PropertyName, SatisfiesExpression, TemplateElement, TemplateLiteral,
+    TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
+    VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_common::process_kill_zero_probe_source;
 use kali_error::_error_codes::{e3, e5};
@@ -249,6 +249,43 @@ fn test_resolution_accepts_new_set_iteration_target_via_builtin_alias_in_js_inpu
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_accepts_await_wrapped_numeric_literals_in_static_literal_paths() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "exp".to_string(),
+                })),
+                args: vec![Expression::AwaitExpression(Box::new(AwaitExpression {
+                    argument: Expression::Literal(LiteralValue::Number(0.0)),
+                }))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::AwaitExpression(Box::new(AwaitExpression {
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                    Expression::AwaitExpression(Box::new(AwaitExpression {
+                        argument: Expression::Literal(LiteralValue::Number(0.0)),
+                    })),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }
 
 #[test]
