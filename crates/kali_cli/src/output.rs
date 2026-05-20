@@ -2857,4 +2857,32 @@ mod tests {
             "doctor browserRuntimeContract hostDescriptionNote must be `browser runtime host description: real browser host`"
         );
     }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_summary_note() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["summaryNote"] = json!("   ");
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("whitespace-only summaryNote should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract summaryNote must be `browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work`"
+        );
+    }
+
+    #[test]
+    fn browser_runtime_contract_rejects_whitespace_only_contract_scope_note() {
+        let mut contract = browser_runtime_contract_fixture();
+        contract["contractScopeNote"] = json!("   ");
+
+        let err = validate_browser_runtime_contract_value(Some(&contract))
+            .expect_err("whitespace-only contractScopeNote should be rejected");
+
+        assert_eq!(
+            err,
+            "doctor browserRuntimeContract contractScopeNote must be `browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness`"
+        );
+    }
 }
