@@ -1666,6 +1666,125 @@ fn validate_run_and_test_payload_value_rejects_malformed_thread_topology() {
 }
 
 #[test]
+fn validate_run_and_test_payload_value_rejects_unexpected_thread_topology_keys() {
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": {
+                    "totalInstances": 1,
+                    "terminatedInstances": 0,
+                    "liveInstances": [],
+                    "metadata": true,
+                },
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": {
+                    "totalInstances": 1,
+                    "terminatedInstances": 0,
+                    "liveInstances": [],
+                    "metadata": true,
+                },
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err = validator(&payload).expect_err("unexpected thread topology keys should fail");
+        assert!(
+            err.contains("threadTopology contains unexpected key `metadata`"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
+fn validate_run_and_test_payload_value_rejects_unexpected_thread_topology_instance_keys() {
+    for (kind, validator, payload) in [
+        (
+            "run",
+            validate_run_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "exitCode": 0,
+                "runtimeMs": 12,
+                "threadTopology": {
+                    "totalInstances": 1,
+                    "terminatedInstances": 0,
+                    "liveInstances": [{
+                        "instanceId": 0,
+                        "scriptUrl": "https://e.co/worker.js",
+                        "postedMessages": [],
+                        "postedSharedBuffers": [],
+                        "wasTerminated": false,
+                        "metadata": true,
+                    }],
+                },
+            }),
+        ),
+        (
+            "test",
+            validate_test_payload_value as fn(&serde_json::Value) -> Result<(), String>,
+            json!({
+                "total": 4,
+                "passed": 3,
+                "failed": 1,
+                "skipped": 0,
+                "runtimeMs": 27,
+                "threadTopology": {
+                    "totalInstances": 1,
+                    "terminatedInstances": 0,
+                    "liveInstances": [{
+                        "instanceId": 0,
+                        "scriptUrl": "https://e.co/worker.js",
+                        "postedMessages": [],
+                        "postedSharedBuffers": [],
+                        "wasTerminated": false,
+                        "metadata": true,
+                    }],
+                },
+                "coverage": {
+                    "mode": "function",
+                    "files": [],
+                    "summary": {
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                        "coveragePercent": 75.0,
+                    },
+                },
+            }),
+        ),
+    ] {
+        let err = validator(&payload)
+            .expect_err("unexpected thread topology liveInstances item keys should fail");
+        assert!(
+            err.contains("threadTopology liveInstances item contains unexpected key `metadata`"),
+            "{kind} error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_run_and_test_payload_value_rejects_duplicate_thread_topology_instance_ids() {
     let duplicated_thread_topology = json!({
         "totalInstances": 2,
