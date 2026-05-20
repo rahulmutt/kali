@@ -43,4 +43,4 @@ Unsupported but documented surfaces should fail explicitly with the canonical di
 - `E5508` for invalid command shape, arity, or contradictory flags;
 - `E6004` for missing/stale dependency materialization;
 - `E5511` for unavailable statically known export surface on library-oriented builds.
-- package-audit preview-shim regressions now also confirm the legacy `--preview` gate wins before malformed-target validation or registry lookup in JSON mode, including a valid single-target JSON-mode invocation so the registry never gets consulted on that path, keeping the command-shape boundary explicit.
+- package-audit preview-shim regressions now also confirm the legacy `--preview` gate wins before malformed-target validation or registry lookup in JSON mode, including a valid single-target JSON-mode invocation so the registry never gets consulted on that path, keeping the command-shape boundary explicit. The package-analysis-specific flag regressions now also cover both flag-before-target and target-before-flag spellings for `package-effects` and `package-audit`, keeping the rejection boundary order-independent.

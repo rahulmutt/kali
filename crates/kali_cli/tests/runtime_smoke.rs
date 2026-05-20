@@ -65247,19 +65247,17 @@ fn package_effects_rejects_package_analysis_specific_flags() {
     .expect("write package.json");
     fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
 
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
-        &["--sandbox", "kali.policy.json"][..],
-    ] {
-        let output = Command::new(kali_bin())
-            .current_dir(dir.path())
-            .arg("package-effects")
-            .args(args)
-            .arg("flagpkg")
-            .output()
-            .expect("run kali");
+    let assert_rejection = |prepend_target: bool, args: &[&str]| {
+        let mut command = Command::new(kali_bin());
+        command.current_dir(dir.path());
+        command.arg("package-effects");
+        if prepend_target {
+            command.arg("flagpkg").args(args);
+        } else {
+            command.args(args).arg("flagpkg");
+        }
+
+        let output = command.output().expect("run kali");
 
         assert!(!output.status.success());
         assert_eq!(output.status.code(), Some(5));
@@ -65269,6 +65267,16 @@ fn package_effects_rejects_package_analysis_specific_flags() {
             stderr.contains("does not accept package-analysis-specific flags"),
             "stderr: {stderr}"
         );
+    };
+
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", "kali.policy.json"][..],
+    ] {
+        assert_rejection(false, args);
+        assert_rejection(true, args);
     }
 }
 
@@ -65289,22 +65297,20 @@ fn package_effects_rejects_package_analysis_specific_flags_in_json_output() {
     fs::write(package_dir.join("index.js"), "console.log('hello');").expect("write package entry");
     let policy_path = dir.path().join("kali.policy.json");
     fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+    let policy_path = policy_path.to_str().expect("policy path");
 
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
-        &["--sandbox", policy_path.to_str().expect("policy path")][..],
-    ] {
-        let output = Command::new(kali_bin())
-            .current_dir(dir.path())
-            .arg("--output")
-            .arg("json")
-            .arg("package-effects")
-            .args(args)
-            .arg("flagpkg")
-            .output()
-            .expect("run kali");
+    let assert_rejection = |prepend_target: bool, args: &[&str]| {
+        let mut command = Command::new(kali_bin());
+        command.current_dir(dir.path());
+        command.arg("--output").arg("json");
+        command.arg("package-effects");
+        if prepend_target {
+            command.arg("flagpkg").args(args);
+        } else {
+            command.args(args).arg("flagpkg");
+        }
+
+        let output = command.output().expect("run kali");
 
         assert!(!output.status.success());
         assert_eq!(output.status.code(), Some(5));
@@ -65323,6 +65329,16 @@ fn package_effects_rejects_package_analysis_specific_flags_in_json_output() {
                 .contains("package-analysis-specific flags"),
             "json: {json}"
         );
+    };
+
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", policy_path][..],
+    ] {
+        assert_rejection(false, args);
+        assert_rejection(true, args);
     }
 }
 
@@ -69410,19 +69426,43 @@ fn package_audit_rejects_package_analysis_specific_flags() {
     let dir = tempdir().expect("tempdir");
     let policy_path = dir.path().join("kali.policy.json");
     fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+    let policy_path = policy_path.to_str().expect("policy path");
 
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .env("KALI_REGISTRY", registry_url)
-        .arg("package-audit")
-        .arg("--sandbox")
-        .arg(&policy_path)
-        .arg("lodash")
-        .output()
-        .expect("run kali");
+    let assert_rejection = |prepend_target: bool, args: &[&str]| {
+        let mut command = Command::new(kali_bin());
+        command.current_dir(dir.path());
+        command.env("KALI_REGISTRY", &registry_url);
+        command.arg("package-audit");
+        if prepend_target {
+            command.arg("lodash").args(args);
+        } else {
+            command.args(args).arg("lodash");
+        }
+
+        let output = command.output().expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5508"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("does not accept package-analysis-specific flags"),
+            "stderr: {stderr}"
+        );
+    };
+
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", policy_path][..],
+    ] {
+        assert_rejection(false, args);
+        assert_rejection(true, args);
+    }
 
     stop.store(true, Ordering::SeqCst);
     handle.join().expect("join registry server");
@@ -69431,14 +69471,6 @@ fn package_audit_rejects_package_analysis_specific_flags() {
         hits.load(Ordering::SeqCst),
         0,
         "registry server should not be queried"
-    );
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5508"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("does not accept package-analysis-specific flags"),
-        "stderr: {stderr}"
     );
 }
 
@@ -69466,21 +69498,50 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
     let dir = tempdir().expect("tempdir");
     let policy_path = dir.path().join("kali.policy.json");
     fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+    let policy_path = policy_path.to_str().expect("policy path");
 
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .env("KALI_REGISTRY", registry_url)
-        .arg("--output")
-        .arg("json")
-        .arg("package-audit")
-        .arg("--sandbox")
-        .arg(&policy_path)
-        .arg("lodash")
-        .output()
-        .expect("run kali");
+    let assert_rejection = |prepend_target: bool, args: &[&str]| {
+        let mut command = Command::new(kali_bin());
+        command.current_dir(dir.path());
+        command.env("KALI_REGISTRY", &registry_url);
+        command.arg("--output").arg("json");
+        command.arg("package-audit");
+        if prepend_target {
+            command.arg("lodash").args(args);
+        } else {
+            command.args(args).arg("lodash");
+        }
+
+        let output = command.output().expect("run kali");
+
+        assert!(!output.status.success());
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "package-audit");
+        assert!(!json["success"].as_bool().expect("success boolean"));
+        assert_eq!(json["errors"][0]["code"], "E5508");
+        assert!(
+            json["errors"][0]["message"]
+                .as_str()
+                .expect("error message")
+                .contains("package-analysis-specific flags"),
+            "json: {json}"
+        );
+    };
+
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+        &["--sandbox", policy_path][..],
+    ] {
+        assert_rejection(false, args);
+        assert_rejection(true, args);
+    }
 
     stop.store(true, Ordering::SeqCst);
     handle.join().expect("join registry server");
@@ -69489,20 +69550,6 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
         hits.load(Ordering::SeqCst),
         0,
         "registry server should not be queried"
-    );
-    assert!(!output.status.success());
-    assert_eq!(output.status.code(), Some(5));
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "package-audit");
-    assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["errors"][0]["code"], "E5508");
-    assert!(
-        json["errors"][0]["message"]
-            .as_str()
-            .expect("error message")
-            .contains("package-analysis-specific flags"),
-        "json: {json}"
     );
 }
 
