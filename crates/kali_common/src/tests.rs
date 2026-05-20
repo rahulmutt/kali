@@ -794,6 +794,99 @@ fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zer
 }
 
 #[test]
+fn test_process_kill_zero_probe_wrapped_zero_aliases_list_all_aliases_in_order() {
+    let aliases = process_kill_zero_probe_wrapped_zero_aliases();
+    let source = process_kill_zero_probe_wrapped_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"process.kill((0))"#,
+            r#"process["kill"]((0))"#,
+            r#"globalThis.process.kill((0))"#,
+            r#"globalThis.process["kill"]((0))"#,
+            r#"globalThis["process"].kill((0))"#,
+            r#"globalThis["process"]["kill"]((0))"#,
+            r#"Object.freeze(process.kill)(0)"#,
+            r#"Object.freeze(process.kill)(+0)"#,
+            r#"Object.freeze((process.kill))(0)"#,
+            r#"Object.freeze((process.kill))(+0)"#,
+            r#"Object.freeze(globalThis.process.kill)(0)"#,
+            r#"Object.freeze(globalThis.process.kill)(+0)"#,
+            r#"Object.freeze((globalThis.process.kill))(0)"#,
+            r#"Object.freeze((globalThis.process.kill))(+0)"#,
+            r#"Object.freeze(globalThis.process["kill"])(0)"#,
+            r#"Object.freeze(globalThis.process["kill"])(+0)"#,
+            r#"Object.freeze((globalThis.process["kill"]))(0)"#,
+            r#"Object.freeze((globalThis.process["kill"]))(+0)"#,
+            r#"Object.freeze(globalThis["process"].kill)(0)"#,
+            r#"Object.freeze(globalThis["process"].kill)(+0)"#,
+            r#"Object.freeze(globalThis["process"]["kill"])(0)"#,
+            r#"Object.freeze(globalThis["process"]["kill"])(+0)"#,
+            r#"Object.freeze((globalThis["process"]["kill"]))(0)"#,
+            r#"Object.freeze((globalThis["process"]["kill"]))(+0)"#,
+            r#"Object.freeze((globalThis["process"].kill))(0)"#,
+            r#"Object.freeze((globalThis["process"].kill))(+0)"#,
+            r#"Object.freeze(process)["kill"](0)"#,
+            r#"Object.freeze(process)["kill"](+0)"#,
+            r#"Object.freeze((process)["kill"])(0)"#,
+            r#"Object.freeze((process)["kill"])(+0)"#,
+            r#"Object.freeze((process).kill)(0)"#,
+            r#"Object.freeze((process).kill)(+0)"#,
+            r#"Object.freeze((process["kill"]))(0)"#,
+            r#"Object.freeze((process["kill"]))(+0)"#,
+            r#"Object.freeze(globalThis.process)["kill"](0)"#,
+            r#"Object.freeze(globalThis.process)["kill"](+0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(0)"#,
+            r#"Object.freeze((globalThis.process)["kill"])(+0)"#,
+            r#"Object.freeze((globalThis.process).kill)(0)"#,
+            r#"Object.freeze((globalThis.process).kill)(+0)"#,
+            r#"Object.freeze((globalThis["process"]).kill)(0)"#,
+            r#"Object.freeze((globalThis["process"]).kill)(+0)"#,
+            r#"Object.freeze(globalThis["process"])["kill"](0)"#,
+            r#"Object.freeze(globalThis["process"])["kill"](+0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(0)"#,
+            r#"Object.freeze((globalThis["process"])["kill"])(+0)"#,
+            r#"((process.kill))(0)"#,
+            r#"((process.kill))(+0)"#,
+            r#"((globalThis.process.kill))(0)"#,
+            r#"((globalThis.process.kill))(+0)"#,
+            r#"((process["kill"]))(0)"#,
+            r#"((process["kill"]))(+0)"#,
+            r#"((globalThis.process["kill"]))(0)"#,
+            r#"((globalThis.process["kill"]))(+0)"#,
+            r#"((globalThis["process"].kill))(0)"#,
+            r#"((globalThis["process"].kill))(+0)"#,
+            r#"((globalThis["process"]["kill"]))(0)"#,
+            r#"((globalThis["process"]["kill"]))(+0)"#,
+            r#"Object.freeze((process))["kill"](0)"#,
+            r#"Object.freeze((process))["kill"](+0)"#,
+            r#"Object.freeze((process)).kill(0)"#,
+            r#"Object.freeze((process)).kill(+0)"#,
+            r#"Object.freeze((globalThis.process))["kill"](0)"#,
+            r#"Object.freeze((globalThis.process))["kill"](+0)"#,
+            r#"Object.freeze((globalThis.process)).kill(0)"#,
+            r#"Object.freeze((globalThis.process)).kill(+0)"#,
+            r#"Object.freeze((globalThis["process"]))["kill"](0)"#,
+            r#"Object.freeze((globalThis["process"]))["kill"](+0)"#,
+            r#"Object.freeze((globalThis["process"])).kill(0)"#,
+            r#"Object.freeze((globalThis["process"])).kill(+0)"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in wrapped zero-probe inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
+}
+
+#[test]
 fn test_process_kill_zero_probe_node_api_surface_sources_are_canonical() {
     let run_source = process_kill_zero_probe_node_api_surface_run_source();
     let test_source = process_kill_zero_probe_node_api_surface_test_source();
