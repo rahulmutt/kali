@@ -2181,9 +2181,7 @@ impl TypeContext {
                 Expression::ChainExpression(expr) => current = &expr.expression,
                 Expression::DecoratedExpression(expr) => current = &expr.expression,
                 Expression::SequenceExpression(expr) => {
-                    let Some(last) = expr.expressions.last() else {
-                        return None;
-                    };
+                    let last = expr.expressions.last()?;
                     current = last;
                 }
                 Expression::MemberExpression(member) => {
