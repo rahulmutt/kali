@@ -3059,6 +3059,33 @@ fn test_resolution_supports_object_is_through_object_freeze_same_reference() {
 }
 
 #[test]
+fn test_resolution_supports_object_is_through_static_member_roots() {
+    let source = r#"Object.is(globalThis.Object, globalThis.Object);
+Object.is(globalThis["Object"], globalThis["Object"]);
+Object.is(globalThis['Object'], globalThis['Object']);
+"#;
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_accepts_object_is_alias_spellings_for_primitive_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![
@@ -3783,6 +3810,38 @@ fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_referenc
             }))),
         }),
     ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_accepts_object_is_with_optional_chain_wrapped_same_reference() {
+    let mut ctx = TypeContext::new();
+    let object_root = Expression::MemberExpression(Box::new(MemberExpression {
+        object: Expression::Identifier("globalThis".to_string()),
+        property: "Object".to_string(),
+    }));
+    let optional_chain_root =
+        Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
+            inner: Box::new(OptionalChainInner::NonNull {
+                object: Box::new(object_root.clone()),
+                optional: true,
+            }),
+        }));
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: "is".to_string(),
+            })),
+            args: vec![optional_chain_root, object_root],
+        }))),
+    })];
 
     let result = ctx.resolve_statements(&statements);
     assert!(

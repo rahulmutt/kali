@@ -1648,6 +1648,26 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
+            if let (Some(left_reference), Some(right_reference)) = (
+                self.resolve_static_reference_root_name(*left),
+                self.resolve_static_reference_root_name(*right),
+            ) {
+                if left_reference == right_reference {
+                    for arg in args {
+                        let produced = self.emit_node(function, *arg, true);
+                        if produced.produced {
+                            function.instruction(&Instruction::Drop);
+                        }
+                    }
+
+                    function.instruction(&Instruction::I64Const(1));
+                    return EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Boolean,
+                    };
+                }
+            }
+
             if let (Some(left_ref), Some(right_ref)) = (
                 self.resolve_literal_aggregate(*left),
                 self.resolve_literal_aggregate(*right),
@@ -3208,6 +3228,36 @@ impl<'a> FunctionEmitter<'a> {
                     }),
                 _ => None,
             },
+            _ => None,
+        }
+    }
+
+    fn resolve_static_reference_root_name(&self, id: LirNodeId) -> Option<String> {
+        let id = self.resolve_bound_node(id);
+        let id = self.unwrap_transparent_value_node(id);
+        let node = self.node(id);
+
+        if self.is_object_freeze_call(node) {
+            return node
+                .children
+                .get(1)
+                .copied()
+                .and_then(|child| self.resolve_static_reference_root_name(child));
+        }
+
+        match node.kind {
+            LirNodeKind::Value if node.children.is_empty() => {
+                let text = node.text.as_deref()?;
+                if let Some(bound) = self.bindings.get(text).copied() {
+                    return self.resolve_static_reference_root_name(bound);
+                }
+                Some(text.to_string())
+            }
+            LirNodeKind::Value if node.children.len() == 1 => {
+                let object = self.resolve_static_reference_root_name(node.children[0])?;
+                let property = node.text.as_deref()?;
+                Some(format!("{object}.{property}"))
+            }
             _ => None,
         }
     }

@@ -1392,39 +1392,7 @@ impl TypeContext {
         &self,
         expression: &Expression,
     ) -> Option<String> {
-        match expression {
-            Expression::ParenthesizedExpression(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.expression)
-            }
-            Expression::AwaitExpression(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.argument)
-            }
-            Expression::TypeAssertion(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.expression)
-            }
-            Expression::SatisfiesExpression(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.expression)
-            }
-            Expression::ChainExpression(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.expression)
-            }
-            Expression::DecoratedExpression(expr) => {
-                self.resolve_static_object_identity_reference_name(&expr.expression)
-            }
-            Expression::SequenceExpression(expr) => {
-                expr.expressions.last().and_then(|expression| {
-                    self.resolve_static_object_identity_reference_name(expression)
-                })
-            }
-            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
-                .args
-                .first()
-                .and_then(|argument| self.resolve_static_object_identity_reference_name(argument)),
-            Expression::Identifier(name) => self
-                .resolve_static_reference_binding_name(name)
-                .or_else(|| Some(name.clone())),
-            _ => None,
-        }
+        self.resolve_static_reference_root(expression)
     }
 
     fn resolve_static_object_identity_literal_value(

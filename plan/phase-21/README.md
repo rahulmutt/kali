@@ -42,7 +42,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 - Grow inference inside deterministic budgets only.
 - Preserve annotation-required boundaries for exported/public and cross-module surfaces when inference would exceed the bounded contract.
 - Add positive and negative checker baselines for TS and first-class JS input.
-- Keep transparent wrapper handling aligned with the bounded-literal path when it stays cheap and deterministic (for example, await-wrapped numeric literals in static-literal checks).
+- Keep transparent wrapper handling aligned with the bounded-literal path when it stays cheap and deterministic (for example, await-wrapped numeric literals plus optional-chain-wrapped or direct same-reference static member comparisons).
 
 ### 21.5 Conformance hygiene
 
