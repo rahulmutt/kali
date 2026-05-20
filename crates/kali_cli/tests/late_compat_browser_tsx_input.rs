@@ -36,7 +36,12 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
 }
 
 fn late_process_control_source() -> String {
-    kali_common::late_process_control_source()
+    format!(
+        "{} {} {}",
+        kali_common::late_process_control_source(),
+        kali_common::late_process_control_single_quoted_kill_source().trim_end(),
+        kali_common::late_process_control_single_quoted_exit_source().trim_end()
+    )
 }
 
 fn late_network_source() -> &'static str {

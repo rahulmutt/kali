@@ -2527,8 +2527,8 @@ fn test_late_process_control_single_quoted_process_aliases_compose_kill_and_exit
     let aliases = late_process_control_single_quoted_process_aliases();
     let kill_aliases = late_process_control_single_quoted_kill_aliases();
     let exit_aliases = late_process_control_single_quoted_exit_aliases();
-    let kill_source = late_process_control_single_quoted_kill_aliases_source();
-    let exit_source = late_process_control_single_quoted_exit_aliases_source();
+    let kill_source = late_process_control_single_quoted_kill_source();
+    let exit_source = late_process_control_single_quoted_exit_source();
     let source = late_process_control_single_quoted_process_aliases_source();
 
     assert_eq!(kill_aliases, &aliases[..kill_aliases.len()]);
@@ -2547,6 +2547,53 @@ fn test_late_process_control_single_quoted_process_aliases_compose_kill_and_exit
         1,
         "source: {source}"
     );
+}
+
+#[test]
+fn test_late_process_control_single_quoted_kill_source_lists_all_aliases_in_order() {
+    let aliases = late_process_control_single_quoted_kill_aliases();
+    let source = late_process_control_single_quoted_kill_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"globalThis['process'].kill(0)"#,
+            r#"globalThis['process'].kill(+0)"#,
+            r#"globalThis['process']['kill'](0)"#,
+            r#"globalThis['process']['kill'](+0)"#,
+            r#"process['kill'](0)"#,
+            r#"process['kill'](+0)"#,
+            r#"process['kill']((0))"#,
+            r#"globalThis.process['kill'](0)"#,
+            r#"globalThis.process['kill'](+0)"#,
+            r#"globalThis.process['kill']((0))"#,
+            r#"globalThis['process'].kill((0))"#,
+            r#"globalThis['process']['kill']((0))"#,
+            r#"globalThis.process['kill']((0))"#,
+            r#"Object.freeze(process['kill'])(0)"#,
+            r#"Object.freeze(process['kill'])(+0)"#,
+            r#"Object.freeze((process['kill']))(0)"#,
+            r#"Object.freeze((process['kill']))(+0)"#,
+            r#"Object.freeze(globalThis.process['kill'])(0)"#,
+            r#"Object.freeze(globalThis.process['kill'])(+0)"#,
+            r#"Object.freeze((globalThis.process['kill']))(0)"#,
+            r#"Object.freeze((globalThis.process['kill']))(+0)"#,
+            r#"Object.freeze(globalThis['process'].kill)(0)"#,
+            r#"Object.freeze(globalThis['process'].kill)(+0)"#,
+            r#"Object.freeze((globalThis['process']).kill)(0)"#,
+            r#"Object.freeze((globalThis['process']).kill)(+0)"#,
+            r#"Object.freeze((globalThis['process'])['kill'])(0)"#,
+            r#"Object.freeze((globalThis['process'])['kill'])(+0)"#,
+            r#"Object.freeze((globalThis['process'].kill))(0)"#,
+            r#"Object.freeze((globalThis['process'].kill))(+0)"#,
+            r#"Object.freeze((globalThis['process']['kill']))(0)"#,
+            r#"Object.freeze((globalThis['process']['kill']))(+0)"#,
+            r#"Object.freeze(globalThis['process']['kill'])(0)"#,
+            r#"Object.freeze(globalThis['process']['kill'])(+0)"#,
+        ]
+    );
+    assert_eq!(source, expected, "source: {source}");
 }
 
 #[test]

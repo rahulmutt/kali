@@ -1673,14 +1673,25 @@ pub fn late_process_control_single_quoted_kill_aliases_source() -> String {
     join_semicolon_terminated_segments(late_process_control_single_quoted_kill_aliases())
 }
 
-/// Canonical late-process-control aliases for the browser JS single-quoted exit root and wrappers.
+/// Canonical late-process-control aliases for the browser JS single-quoted process root,
+/// wrapped zero-literal, and exit aliases.
 pub fn late_process_control_single_quoted_exit_aliases() -> &'static [&'static str] {
     &LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS[33..]
 }
 
 /// Canonical late-process-control source text for the browser JS single-quoted exit aliases.
-pub fn late_process_control_single_quoted_exit_aliases_source() -> String {
+pub fn late_process_control_single_quoted_exit_source() -> String {
     join_semicolon_terminated_segments(late_process_control_single_quoted_exit_aliases())
+}
+
+/// Canonical late-process-control source text for the browser JS single-quoted exit aliases.
+pub fn late_process_control_single_quoted_exit_aliases_source() -> String {
+    late_process_control_single_quoted_exit_source()
+}
+
+/// Canonical late-process-control source text for the browser JS single-quoted kill aliases.
+pub fn late_process_control_single_quoted_kill_source() -> String {
+    late_process_control_single_quoted_kill_aliases_source()
 }
 
 /// Canonical late-process-control aliases for the browser JS single-quoted process root,
@@ -1694,8 +1705,8 @@ pub fn late_process_control_single_quoted_process_aliases() -> &'static [&'stati
 pub fn late_process_control_single_quoted_process_aliases_source() -> String {
     format!(
         "{} {}",
-        late_process_control_single_quoted_kill_aliases_source().trim_end(),
-        late_process_control_single_quoted_exit_aliases_source().trim_end()
+        late_process_control_single_quoted_kill_source().trim_end(),
+        late_process_control_single_quoted_exit_source().trim_end()
     )
 }
 
