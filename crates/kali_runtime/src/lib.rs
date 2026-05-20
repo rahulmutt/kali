@@ -202,10 +202,14 @@ fn browser_runtime_contract_descriptor_is_canonical(
                 .all(|value| trimmed(value) && seen.insert(value))
     };
 
-    trimmed(descriptor.host_label)
-        && trimmed(descriptor.host_description)
-        && trimmed(descriptor.host_description_note)
-        && trimmed(descriptor.diagnostic_hint)
+    [
+        descriptor.host_label,
+        descriptor.host_description,
+        descriptor.host_description_note,
+        descriptor.diagnostic_hint,
+    ]
+    .into_iter()
+    .all(trimmed)
         && unique(descriptor.supported_commands)
         && unique(BrowserRuntimeContract::diagnostic_notes())
 }
