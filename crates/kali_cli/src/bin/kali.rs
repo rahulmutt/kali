@@ -2957,6 +2957,18 @@ const exported = {{ load, loadWithImports, loadDynamicImport }};
     content
 }
 
+fn browser_stdout_thread_topology_snapshot_value(stdout: &str) -> Option<Value> {
+    stdout.lines().rev().find_map(|line| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let value = serde_json::from_str::<Value>(trimmed).ok()?;
+        value.get("threadTopology").cloned()
+    })
+}
+
 fn run_command(
     file: String,
     guest_args: Vec<String>,
@@ -3143,12 +3155,27 @@ fn run_command(
     match runtime.execute(&wasm_bytes) {
         Ok(outcome) => {
             if output.is_json() {
+                let mut thread_topology = outcome.thread_topology.thread_topology_snapshot_value();
+                if matches!(effective_api, kali_cli::ApiSurface::Browser)
+                    && outcome.thread_topology.total_instances == 0
+                    && outcome.thread_topology.terminated_instances == 0
+                    && outcome.thread_topology.live_instances.is_empty()
+                {
+                    if let Some(stdout_thread_topology) =
+                        browser_stdout_thread_topology_snapshot_value(&outcome.stdout)
+                    {
+                        output::merge_thread_topology_snapshot_values(
+                            &mut thread_topology,
+                            &stdout_thread_topology,
+                        );
+                    }
+                }
                 let payload = json!({
                     "exitCode": outcome.exit_code,
                     "runtimeMs": start.elapsed().as_millis(),
                     "hostContract": runtime.host_contract().canonical_label(),
                     "runtimeBackend": runtime.runtime_backend().canonical_label(),
-                    "threadTopology": outcome.thread_topology.thread_topology_snapshot_value(),
+                    "threadTopology": thread_topology,
                 });
                 validate_run_payload_value(&payload)
                     .expect("constructed run payload must satisfy schema-v1 shape");
@@ -3451,8 +3478,22 @@ fn test_command(
                 failed += outcome.tests_failed;
                 captured_stdout.push_str(&outcome.stdout);
                 captured_stderr.push_str(&outcome.stderr);
-                let outcome_thread_topology =
+                let mut outcome_thread_topology =
                     outcome.thread_topology.thread_topology_snapshot_value();
+                if matches!(effective_api, kali_cli::ApiSurface::Browser)
+                    && outcome.thread_topology.total_instances == 0
+                    && outcome.thread_topology.terminated_instances == 0
+                    && outcome.thread_topology.live_instances.is_empty()
+                {
+                    if let Some(stdout_thread_topology) =
+                        browser_stdout_thread_topology_snapshot_value(&outcome.stdout)
+                    {
+                        output::merge_thread_topology_snapshot_values(
+                            &mut outcome_thread_topology,
+                            &stdout_thread_topology,
+                        );
+                    }
+                }
                 output::merge_thread_topology_snapshot_values(
                     &mut thread_topology,
                     &outcome_thread_topology,

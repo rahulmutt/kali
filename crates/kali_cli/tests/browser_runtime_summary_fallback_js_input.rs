@@ -494,6 +494,51 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_thread_topology_is_i
 }
 
 #[test]
+fn json_test_merges_thread_topology_from_stdout_when_browser_summary_file_omits_it_when_browser_harness_is_configured_in_js_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("merged-thread-topology.test.js");
+    write_js_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[\"browser merge\"],\"testsFailed\":2,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\"}\n"); process.stdout.write("{\"args\":[\"stdout\"],\"tests\":[\"browser merge\"],\"testsFailed\":1,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\"https://example.com/stdout-thread.js\",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n");'"#,
+        )
+        .arg("--output")
+        .arg("json")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "test");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["payload"]["hostContract"], "browser-requested");
+    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    assert_eq!(
+        json["payload"]["threadTopology"],
+        serde_json::json!({
+            "totalInstances": 1,
+            "terminatedInstances": 0,
+            "liveInstances": [{
+                "instanceId": 0,
+                "scriptUrl": "https://example.com/stdout-thread.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            }],
+        })
+    );
+    assert_eq!(json["stderr"], "");
+}
+
+#[test]
 fn run_falls_back_to_stdout_when_browser_summary_file_thread_topology_script_url_is_whitespace_padded_when_browser_harness_is_configured_in_js_input(
 ) {
     let dir = tempdir().expect("tempdir");
