@@ -9098,6 +9098,7 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_ex
     let source = r#"async function main() {
     console.log(Object.is(await 1, await 1));
     console.log(Number.isSafeInteger(await 1));
+    console.log(Math.atan2(await 0, await 1));
     console.log(Object.keys(await { a: 1 }));
     console.log(Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 })));
     console.log(globalThis['Reflect']['ownKeys'](await Object.freeze({ c: 3, a: 1 })));

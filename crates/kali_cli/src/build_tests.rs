@@ -3224,6 +3224,26 @@ fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denomin
     );
 }
 
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_await_wrappers_in_js_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Deno,
+        "js",
+        "async function main() {\n  const zero = await 0;\n  const one = await 1;\n  console.log(Math.atan2(zero, one));\n}\nmain();\n",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_await_wrappers_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_atan2_zero_numerator_and_non_negative_denominator_wrapper_literals_in_input(
+        ApiSurface::Browser,
+        "ts",
+        "async function main() {\n  const zero = await 0;\n  const one = await 1;\n  console.log(globalThis[\"Math\"].atan2(zero, one));\n}\nmain();\n",
+    );
+}
+
 fn assert_build_source_file_supports_global_this_math_atan2_zero_numerator_and_non_negative_denominator_root_variants_in_input(
     api_surface: ApiSurface,
     extension: &str,
