@@ -1639,6 +1639,27 @@ const LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS: &[&str] = &[
 
 /// Canonical late-process-control aliases for the browser JS single-quoted process root,
 /// wrapped zero-literal, and exit aliases.
+pub fn late_process_control_single_quoted_kill_aliases() -> &'static [&'static str] {
+    &LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS[..33]
+}
+
+/// Canonical late-process-control source text for the browser JS single-quoted kill aliases.
+pub fn late_process_control_single_quoted_kill_aliases_source() -> String {
+    join_semicolon_terminated_segments(late_process_control_single_quoted_kill_aliases())
+}
+
+/// Canonical late-process-control aliases for the browser JS single-quoted exit root and wrappers.
+pub fn late_process_control_single_quoted_exit_aliases() -> &'static [&'static str] {
+    &LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS[33..]
+}
+
+/// Canonical late-process-control source text for the browser JS single-quoted exit aliases.
+pub fn late_process_control_single_quoted_exit_aliases_source() -> String {
+    join_semicolon_terminated_segments(late_process_control_single_quoted_exit_aliases())
+}
+
+/// Canonical late-process-control aliases for the browser JS single-quoted process root,
+/// wrapped zero-literal, and exit aliases.
 pub fn late_process_control_single_quoted_process_aliases() -> &'static [&'static str] {
     LATE_PROCESS_CONTROL_SINGLE_QUOTED_PROCESS_SEGMENTS
 }
@@ -1646,7 +1667,11 @@ pub fn late_process_control_single_quoted_process_aliases() -> &'static [&'stati
 /// Canonical late-process-control source text for the browser JS single-quoted process root,
 /// wrapped zero-literal, and exit aliases.
 pub fn late_process_control_single_quoted_process_aliases_source() -> String {
-    join_semicolon_terminated_segments(late_process_control_single_quoted_process_aliases())
+    format!(
+        "{} {}",
+        late_process_control_single_quoted_kill_aliases_source().trim_end(),
+        late_process_control_single_quoted_exit_aliases_source().trim_end()
+    )
 }
 
 /// Canonical late-process-control source text for the browser JS single-quoted process root,

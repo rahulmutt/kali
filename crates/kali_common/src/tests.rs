@@ -2489,6 +2489,33 @@ fn test_late_process_control_single_quoted_process_aliases_lists_all_aliases_in_
 }
 
 #[test]
+fn test_late_process_control_single_quoted_process_aliases_compose_kill_and_exit_helpers() {
+    let aliases = late_process_control_single_quoted_process_aliases();
+    let kill_aliases = late_process_control_single_quoted_kill_aliases();
+    let exit_aliases = late_process_control_single_quoted_exit_aliases();
+    let kill_source = late_process_control_single_quoted_kill_aliases_source();
+    let exit_source = late_process_control_single_quoted_exit_aliases_source();
+    let source = late_process_control_single_quoted_process_aliases_source();
+
+    assert_eq!(kill_aliases, &aliases[..kill_aliases.len()]);
+    assert_eq!(exit_aliases, &aliases[kill_aliases.len()..]);
+    assert_eq!(
+        source,
+        format!("{} {}", kill_source.trim_end(), exit_source.trim_end())
+    );
+    assert_eq!(
+        source.matches(kill_source.trim_end()).count(),
+        1,
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(exit_source.trim_end()).count(),
+        1,
+        "source: {source}"
+    );
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_in_order() {
     let aliases = process_kill_zero_probe_parenthesized_receiver_aliases();
     let source = process_kill_zero_probe_parenthesized_receiver_source();
