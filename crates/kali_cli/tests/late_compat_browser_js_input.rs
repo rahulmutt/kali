@@ -1255,6 +1255,16 @@ fn browser_late_process_control_source_includes_bracketed_forms() {
         1,
         "browser JS late-compat source should embed the shared parenthesized receiver-freeze source exactly once"
     );
+    for expected in
+        kali_common::process_kill_zero_probe_parenthesized_receiver_freeze_bracket_aliases()
+    {
+        assert!(source.contains(expected), "source: {source}");
+        assert_eq!(
+            source.matches(expected).count(),
+            1,
+            "browser JS late-compat source should embed each shared parenthesized receiver-freeze bracket alias exactly once: {expected}"
+        );
+    }
 }
 
 #[test]
