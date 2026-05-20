@@ -1496,6 +1496,11 @@ impl TypeContext {
                     self.resolve_static_object_identity_literal_value(expression)
                 })
             }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    self.resolve_static_object_identity_literal_value(object)
+                }
+            },
             Expression::Identifier(name) => match name.as_str() {
                 "Infinity" => Some(StaticObjectIdentityValue::Number(f64::INFINITY)),
                 "NaN" => Some(StaticObjectIdentityValue::Number(f64::NAN)),
@@ -1586,6 +1591,11 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_reference_root(expression)),
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    self.resolve_static_reference_root(object)
+                }
+            },
             Expression::MemberExpression(member) => Self::member_access_name(member),
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
                 .args

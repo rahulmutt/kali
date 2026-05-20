@@ -3713,6 +3713,58 @@ fn test_resolution_accepts_object_is_with_same_static_reference() {
 }
 
 #[test]
+fn test_resolution_accepts_object_is_with_optional_chain_wrapped_static_reference() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "object".to_string(),
+                init: Some(Expression::OptionalChainExpression(Box::new(
+                    OptionalChainExpression {
+                        inner: Box::new(OptionalChainInner::NonNull {
+                            object: Box::new(Expression::MemberExpression(Box::new(
+                                MemberExpression {
+                                    object: Expression::Identifier("globalThis".to_string()),
+                                    property: "Object".to_string(),
+                                },
+                            ))),
+                            optional: true,
+                        }),
+                    },
+                ))),
+            }],
+        }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "alias".to_string(),
+                init: Some(Expression::Identifier("object".to_string())),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "is".to_string(),
+                })),
+                args: vec![
+                    Expression::Identifier("alias".to_string()),
+                    Expression::Identifier("object".to_string()),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_accepts_object_is_with_sequence_wrapped_static_primitive_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![
