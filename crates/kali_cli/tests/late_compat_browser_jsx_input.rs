@@ -446,6 +446,33 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
 }
 
 #[test]
+fn check_rejects_await_wrapped_proxy_revocable_late_compatibility_member_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        "(async function main() { Object.freeze(await globalThis.Proxy.revocable)({}, {}); })();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Proxy.revocable") || stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn browser_late_network_source_includes_bracketed_forms() {
     let source = late_network_source();
     for expected in [

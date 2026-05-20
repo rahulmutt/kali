@@ -979,6 +979,33 @@ fn run_rejects_late_browser_compatibility_forms_in_tsx_input_in_json() {
 }
 
 #[test]
+fn check_rejects_await_wrapped_proxy_revocable_late_compatibility_member_in_tsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.tsx");
+    fs::write(
+        &source_path,
+        "(async function main() { Object.freeze(await globalThis.Proxy.revocable)({}, {}); })();\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Proxy.revocable") || stderr.contains("globalThis.Proxy.revocable"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_rejects_late_browser_compatibility_forms_in_tsx_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("smoke.test.tsx");
