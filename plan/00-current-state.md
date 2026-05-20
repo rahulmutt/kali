@@ -20,6 +20,7 @@ The checked-in repository already includes:
 - The benchmark inventory notes now record that the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, that browser-harness/browser-bundle smoke now also covers the dot-root `Object.freeze(globalThis.Math.round)` callable alias on that supported slice, and that the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`).
 - Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, deterministic metadata, and sidecar manifests.
 - Runtime/reporting lanes: `run`, `test`, `test --coverage`, source-graph effects, package effects, package audit, deterministic JSON envelopes, and schema-v1 payload validation.
+- Object-enumeration finalization coverage now also includes async `Object.entries(...)` alongside the existing `Object.keys(...)` / `Object.values(...)` slices in the runtime and browser harness smoke lanes.
 - Host/API lanes: default standalone, browser-targeted check/build/bundle flows, browser harness execution paths, documented Deno and Node API slices, resource budget validation, and late-host/object-model gating.
 - Package lanes: install/lock/materialization, registry and raw-URL workflows, package-shape rejection, package-corpus probes, and single-package registry-analysis commands.
 - Verification lanes: Lean proof project and published proof-backed boundary limited by `proofs/BOUNDARY.md`.

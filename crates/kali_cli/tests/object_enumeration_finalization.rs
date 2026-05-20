@@ -125,6 +125,24 @@ if (!asyncValuesThrew || !asyncValuesFinallySeen) {
   throw new Error('unexpected async Object.values throw/finally semantics');
 }
 
+let asyncEntriesFinallySeen = false;
+let asyncEntriesThrew = false;
+try {
+  for await (const entry of Object.entries(asyncValues)) {
+    if (entry[0] === 'b') {
+      throw new Error('boom');
+    }
+  }
+  throw new Error('unexpected empty async Object.entries iteration');
+} catch {
+  asyncEntriesThrew = true;
+} finally {
+  asyncEntriesFinallySeen = true;
+}
+if (!asyncEntriesThrew || !asyncEntriesFinallySeen) {
+  throw new Error('unexpected async Object.entries throw/finally semantics');
+}
+
 assertSyncFinalization();
 console.log('object enumeration finalization ok');
 "#

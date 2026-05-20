@@ -87,6 +87,61 @@ fn browser_object_enumeration_finalization_run_source() -> &'static str {
   if (!valuesThrew || !valuesThrowFinally) {
     throw new Error('unexpected Object.values throw/finally semantics');
   }
+
+  const asyncValues = { "b": 1, "a": 2 };
+  let asyncFinallySeen = false;
+  let asyncThrew = false;
+  try {
+    for await (const key of Object.keys(asyncValues)) {
+      if (key === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.keys iteration');
+  } catch {
+    asyncThrew = true;
+  } finally {
+    asyncFinallySeen = true;
+  }
+  if (!asyncThrew || !asyncFinallySeen) {
+    throw new Error('unexpected async Object.keys throw/finally semantics');
+  }
+
+  let asyncValuesFinallySeen = false;
+  let asyncValuesThrew = false;
+  try {
+    for await (const value of Object.values(asyncValues)) {
+      if (value === 1) {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.values iteration');
+  } catch {
+    asyncValuesThrew = true;
+  } finally {
+    asyncValuesFinallySeen = true;
+  }
+  if (!asyncValuesThrew || !asyncValuesFinallySeen) {
+    throw new Error('unexpected async Object.values throw/finally semantics');
+  }
+
+  let asyncEntriesFinallySeen = false;
+  let asyncEntriesThrew = false;
+  try {
+    for await (const entry of Object.entries(asyncValues)) {
+      if (entry[0] === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Object.entries iteration');
+  } catch {
+    asyncEntriesThrew = true;
+  } finally {
+    asyncEntriesFinallySeen = true;
+  }
+  if (!asyncEntriesThrew || !asyncEntriesFinallySeen) {
+    throw new Error('unexpected async Object.entries throw/finally semantics');
+  }
 }
 
 assertSyncFinalization();
