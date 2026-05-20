@@ -2273,6 +2273,7 @@ fn browser_runtime_contract_docs_track_trimmed_validation_rules() {
             "specs/18-schemas.md",
             [
                 "hostLabel: const",
+                "`hostLabel: const` `\"browser-requested\"` — canonical label for the browser-requested host contract used in diagnostics; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail",
                 "hostDescription: non-empty, non-whitespace string",
                 "`hostDescription: non-empty, non-whitespace string` — short human-readable description of the intended browser host; validators compare the emitted value after trimming surrounding whitespace, but whitespace-only values still fail. This matches the CLI validator's trim-on-compare rule for the browser runtime contract.",
                 "hostDescriptionNote: const",
