@@ -1071,16 +1071,21 @@ pub fn math_pow_browser_alias_inventory_source() -> String {
     join_semicolon_terminated_segments(&math_pow_browser_alias_inventory_aliases())
 }
 
+/// Canonical browser-invocation lines for the supported `Math.pow` browser alias inventory.
+pub fn math_pow_browser_alias_inventory_invocation_lines(indentation: &str) -> String {
+    math_pow_invocation_lines_for_aliases(
+        math_pow_browser_alias_inventory_aliases().as_slice(),
+        "2",
+        "alias",
+        indentation,
+    )
+}
+
 /// Canonical browser-source invocation text for the supported `Math.pow` browser alias inventory.
 pub fn math_pow_browser_alias_inventory_invocation_source() -> String {
     format!(
         "const exponent = 3; const alias = exponent;\n{}\n",
-        math_pow_invocation_lines_for_aliases(
-            math_pow_browser_alias_inventory_aliases().as_slice(),
-            "2",
-            "alias",
-            "",
-        )
+        math_pow_browser_alias_inventory_invocation_lines("")
     )
 }
 

@@ -1656,16 +1656,24 @@ fn test_math_pow_browser_alias_inventory_source_reuses_the_canonical_math_pow_al
 }
 
 #[test]
+fn test_math_pow_browser_alias_inventory_invocation_lines_are_canonical() {
+    let source = math_pow_browser_alias_inventory_invocation_lines("");
+    let expected = math_pow_invocation_lines_for_aliases(
+        math_pow_browser_alias_inventory_aliases().as_slice(),
+        "2",
+        "alias",
+        "",
+    );
+
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_math_pow_browser_alias_inventory_invocation_source_is_canonical() {
     let source = math_pow_browser_alias_inventory_invocation_source();
     let expected = format!(
         "const exponent = 3; const alias = exponent;\n{}\n",
-        math_pow_invocation_lines_for_aliases(
-            math_pow_browser_alias_inventory_aliases().as_slice(),
-            "2",
-            "alias",
-            "",
-        )
+        math_pow_browser_alias_inventory_invocation_lines("")
     );
 
     assert_eq!(source, expected);
