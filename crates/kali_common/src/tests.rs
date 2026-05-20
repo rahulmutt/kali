@@ -2550,6 +2550,52 @@ fn test_late_process_control_single_quoted_process_aliases_compose_kill_and_exit
 }
 
 #[test]
+fn test_late_process_control_single_quoted_exit_source_lists_all_aliases_in_order() {
+    let aliases = late_process_control_single_quoted_exit_aliases();
+    let source = late_process_control_single_quoted_exit_aliases_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"process['exit'](0)"#,
+            r#"process['exit'](+0)"#,
+            r#"process['exit']((0))"#,
+            r#"Object.freeze(process['exit'])(0)"#,
+            r#"Object.freeze(process['exit'])(+0)"#,
+            r#"Object.freeze((process['exit']))(0)"#,
+            r#"Object.freeze((process['exit']))(+0)"#,
+            r#"Object.freeze((process)['exit'])(0)"#,
+            r#"Object.freeze((process)['exit'])(+0)"#,
+            r#"Object.freeze((globalThis.process)['exit'])(0)"#,
+            r#"Object.freeze((globalThis.process)['exit'])(+0)"#,
+            r#"Object.freeze((globalThis['process'])['exit'])(0)"#,
+            r#"Object.freeze((globalThis['process'])['exit'])(+0)"#,
+            r#"globalThis['process'].exit(0)"#,
+            r#"globalThis['process'].exit(+0)"#,
+            r#"globalThis['process'].exit((0))"#,
+            r#"globalThis['process']['exit'](0)"#,
+            r#"globalThis['process']['exit'](+0)"#,
+            r#"globalThis['process']['exit']((0))"#,
+            r#"globalThis.process['exit'](0)"#,
+            r#"globalThis.process['exit'](+0)"#,
+            r#"globalThis.process['exit']((0))"#,
+            r#"Object.freeze(globalThis['process'].exit)(0)"#,
+            r#"Object.freeze(globalThis['process'].exit)(+0)"#,
+            r#"Object.freeze((globalThis['process'].exit))(0)"#,
+            r#"Object.freeze((globalThis['process'].exit))(+0)"#,
+            r#"Object.freeze(globalThis['process']['exit'])(0)"#,
+            r#"Object.freeze(globalThis['process']['exit'])(+0)"#,
+            r#"Object.freeze((globalThis['process']['exit']))(0)"#,
+            r#"Object.freeze((globalThis['process']['exit']))(+0)"#,
+        ]
+    );
+    assert_eq!(source, expected);
+    assert_eq!(source.matches(&expected).count(), 1, "source: {source}");
+    assert!(!source.contains("process.kill(0)"), "source: {source}");
+}
+
+#[test]
 fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_in_order() {
     let aliases = process_kill_zero_probe_parenthesized_receiver_aliases();
     let source = process_kill_zero_probe_parenthesized_receiver_source();
