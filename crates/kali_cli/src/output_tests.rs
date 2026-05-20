@@ -2047,6 +2047,83 @@ fn merge_thread_topology_snapshot_values_renumbers_and_orders_live_instances() {
 }
 
 #[test]
+fn merge_thread_topology_snapshot_values_renumbers_live_instances_after_gapped_ids() {
+    let mut target = json!({
+        "totalInstances": 3,
+        "terminatedInstances": 1,
+        "liveInstances": [
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-0.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+            {
+                "instanceId": 2,
+                "scriptUrl": "https://e.co/worker-2.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+        ],
+    });
+    let source = json!({
+        "totalInstances": 2,
+        "terminatedInstances": 0,
+        "liveInstances": [
+            {
+                "instanceId": 0,
+                "scriptUrl": "https://e.co/worker-3.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+            {
+                "instanceId": 1,
+                "scriptUrl": "https://e.co/worker-4.js",
+                "postedMessages": [],
+                "postedSharedBuffers": [],
+                "wasTerminated": false,
+            },
+        ],
+    });
+
+    merge_thread_topology_snapshot_values(&mut target, &source);
+
+    assert_eq!(target["totalInstances"], json!(5));
+    assert_eq!(target["terminatedInstances"], json!(1));
+    assert_eq!(
+        target["liveInstances"]
+            .as_array()
+            .expect("live instances")
+            .iter()
+            .map(|item| item["instanceId"].as_u64().expect("instance id"))
+            .collect::<Vec<_>>(),
+        vec![0, 2, 3, 4]
+    );
+    validate_test_payload_value(&json!({
+        "total": 5,
+        "passed": 4,
+        "failed": 1,
+        "skipped": 0,
+        "runtimeMs": 27,
+        "threadTopology": target,
+        "coverage": {
+            "mode": "function",
+            "files": [],
+            "summary": {
+                "functionsTotal": 4,
+                "functionsCovered": 3,
+                "functionsMissed": 1,
+                "coveragePercent": 75.0,
+            },
+        },
+    }))
+    .expect("merged thread topology with gapped ids should validate");
+}
+
+#[test]
 fn validate_test_payload_value_rejects_malformed_coverage() {
     let value = json!({
         "total": 4,
