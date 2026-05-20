@@ -300,13 +300,24 @@ fn await_wrapped_static_helper_run_source() -> &'static str {
   if (!Number.isSafeInteger(await 1)) {
     throw new Error('unexpected await-wrapped Number.isSafeInteger semantics');
   }
+  if (!Object.hasOwn((0, { a: 1 }), 'a')) {
+    throw new Error('unexpected sequence-wrapped Object.hasOwn semantics');
+  }
   const keys = Object.keys(await { a: 1 });
   if (keys.length !== 1 || keys[0] !== 'a') {
     throw new Error('unexpected await-wrapped Object.keys semantics');
   }
+  const sequencedKeys = Object.keys((0, { a: 1 }));
+  if (sequencedKeys.length !== 1 || sequencedKeys[0] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Object.keys semantics');
+  }
   const ownKeys = Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 }));
   if (ownKeys.length !== 2 || ownKeys[0] !== 'b' || ownKeys[1] !== 'a') {
     throw new Error('unexpected await-wrapped Reflect.ownKeys semantics');
+  }
+  const sequencedOwnKeys = Reflect.ownKeys((0, Object.freeze({ b: 1, a: 2 })));
+  if (sequencedOwnKeys.length !== 2 || sequencedOwnKeys[0] !== 'b' || sequencedOwnKeys[1] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Reflect.ownKeys semantics');
   }
 }
 main();
@@ -322,13 +333,24 @@ fn await_wrapped_static_helper_test_source() -> &'static str {
     if (!Number.isSafeInteger(await 1)) {
       throw new Error('unexpected await-wrapped Number.isSafeInteger semantics');
     }
+    if (!Object.hasOwn((0, { a: 1 }), 'a')) {
+      throw new Error('unexpected sequence-wrapped Object.hasOwn semantics');
+    }
     const keys = Object.keys(await { a: 1 });
     if (keys.length !== 1 || keys[0] !== 'a') {
       throw new Error('unexpected await-wrapped Object.keys semantics');
     }
+    const sequencedKeys = Object.keys((0, { a: 1 }));
+    if (sequencedKeys.length !== 1 || sequencedKeys[0] !== 'a') {
+      throw new Error('unexpected sequence-wrapped Object.keys semantics');
+    }
     const ownKeys = Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 }));
     if (ownKeys.length !== 2 || ownKeys[0] !== 'b' || ownKeys[1] !== 'a') {
       throw new Error('unexpected await-wrapped Reflect.ownKeys semantics');
+    }
+    const sequencedOwnKeys = Reflect.ownKeys((0, Object.freeze({ b: 1, a: 2 })));
+    if (sequencedOwnKeys.length !== 2 || sequencedOwnKeys[0] !== 'b' || sequencedOwnKeys[1] !== 'a') {
+      throw new Error('unexpected sequence-wrapped Reflect.ownKeys semantics');
     }
   }
   return main();

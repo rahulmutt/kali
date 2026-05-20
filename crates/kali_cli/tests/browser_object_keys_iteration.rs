@@ -83,13 +83,24 @@ function browserGlobalObjectKeysIteration() {
 fn browser_bundle_await_wrapped_static_object_helpers_source() -> &'static str {
     r##"// kali-tree-shake: browserAwaitWrappedStaticObjectHelpers
 async function browserAwaitWrappedStaticObjectHelpers() {
+  if (!Object.hasOwn((0, { "a": 1 }), 'a')) {
+    throw new Error('unexpected sequence-wrapped Object.hasOwn semantics');
+  }
   const keys = Object.keys(await { "b": 1, "a": 2 });
   if (keys.length !== 2 || keys[0] !== 'b' || keys[1] !== 'a') {
     throw new Error('unexpected await-wrapped Object.keys iteration semantics');
   }
+  const sequencedKeys = Object.keys((0, { "b": 1, "a": 2 }));
+  if (sequencedKeys.length !== 2 || sequencedKeys[0] !== 'b' || sequencedKeys[1] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Object.keys iteration semantics');
+  }
   const ownKeys = Reflect.ownKeys(await Object.freeze({ "b": 1, "a": 2 }));
   if (ownKeys.length !== 2 || ownKeys[0] !== 'b' || ownKeys[1] !== 'a') {
     throw new Error('unexpected await-wrapped Reflect.ownKeys iteration semantics');
+  }
+  const sequencedOwnKeys = Reflect.ownKeys((0, Object.freeze({ "b": 1, "a": 2 })));
+  if (sequencedOwnKeys.length !== 2 || sequencedOwnKeys[0] !== 'b' || sequencedOwnKeys[1] !== 'a') {
+    throw new Error('unexpected sequence-wrapped Reflect.ownKeys iteration semantics');
   }
   console.log('browser await-wrapped static object helpers ok');
 }

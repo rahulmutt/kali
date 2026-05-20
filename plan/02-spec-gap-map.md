@@ -15,6 +15,7 @@ Remaining goals:
 - Expand `for...of` / `for await...of` from bounded static slices toward full iterator and async-iterator protocol behavior, including close/finalization/error semantics.
 - Continue widening expression/operator, object-model, BigInt, Math, and dynamic-loading semantics where translation-safe; keep unsupported dynamic language forms explicitly gated.
 - Grow bounded TypeScript/JavaScript inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
+- Transparent sequence wrappers around static object-helper targets are now covered in the checker and browser/standalone smoke lanes; broader generator/iterator semantics remain open.
 - Keep conformance dashboards concise: snapshots of supported/gated behavior, not implementation journals.
 
 ## Runtime, host, and platform expansion

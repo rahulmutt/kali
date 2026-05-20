@@ -21,6 +21,7 @@ The checked-in repository already includes:
 - Build/artifact lanes: executable builds, browser bundles, IR validation, library artifacts, C ABI artifacts, component artifacts, deterministic metadata, and sidecar manifests.
 - Runtime/reporting lanes: `run`, `test`, `test --coverage`, source-graph effects, package effects, package audit, deterministic JSON envelopes, and schema-v1 payload validation.
 - Object-enumeration finalization coverage now also includes async `Object.entries(...)` alongside the existing `Object.keys(...)` / `Object.values(...)` slices in the runtime and browser harness smoke lanes.
+- The static object-helper wrapper slice now also accepts sequence-expression wrappers around `Object.hasOwn(...)`, `Object.keys(...)`, and `Reflect.ownKeys(...)` targets in the checker and browser/standalone smoke coverage.
 - Host/API lanes: default standalone, browser-targeted check/build/bundle flows, browser harness execution paths, documented Deno and Node API slices, resource budget validation, and late-host/object-model gating.
 - Package lanes: install/lock/materialization, registry and raw-URL workflows, package-shape rejection, package-corpus probes, and single-package registry-analysis commands.
 - Verification lanes: Lean proof project and published proof-backed boundary limited by `proofs/BOUNDARY.md`.

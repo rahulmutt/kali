@@ -1699,6 +1699,10 @@ impl TypeContext {
             Expression::DecoratedExpression(expr) => {
                 self.resolve_static_object_keys_target(&expr.expression)
             }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|expression| self.resolve_static_object_keys_target(expression)),
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 properties.iter().all(|property| {
                     matches!(

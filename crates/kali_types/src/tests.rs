@@ -2499,6 +2499,16 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
                 }))),
             }],
         }),
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "sequenced_object".to_string(),
+                init: Some(sequence_expression(vec![
+                    Expression::Literal(LiteralValue::Number(0.0)),
+                    Expression::Identifier("object".to_string()),
+                ])),
+            }],
+        }),
         Statement::ExpressionStatement(ExpressionStatement {
             expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
                 callee: Expression::Identifier("has_own".to_string()),
@@ -2513,6 +2523,24 @@ fn test_resolution_supports_object_has_own_as_static_object_model_callable_in_br
                 callee: Expression::Identifier("has_own_property_call".to_string()),
                 args: vec![
                     Expression::Identifier("object".to_string()),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::Identifier("has_own".to_string()),
+                args: vec![
+                    Expression::Identifier("sequenced_object".to_string()),
+                    Expression::Literal(LiteralValue::String("a".to_string())),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::Identifier("has_own_property_call".to_string()),
+                args: vec![
+                    Expression::Identifier("sequenced_object".to_string()),
                     Expression::Literal(LiteralValue::String("a".to_string())),
                 ],
             }))),
