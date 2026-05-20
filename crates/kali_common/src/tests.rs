@@ -2085,6 +2085,18 @@ fn test_late_process_control_single_quoted_process_source_reuses_the_shared_zero
     );
 
     assert_eq!(source, expected, "source: {source}");
+    for expected in [
+        r#"; process['kill']((0));"#,
+        r#"; globalThis['process'].kill((0));"#,
+        r#"; process['exit']((0));"#,
+        r#"; globalThis['process'].exit((0));"#,
+    ] {
+        assert_eq!(
+            source.matches(expected).count(),
+            1,
+            "wrapped single-quoted alias should appear exactly once: {expected}; source: {source}"
+        );
+    }
     assert!(
         source.contains(r#"globalThis['process'].kill(0)"#),
         "source: {source}"
