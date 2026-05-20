@@ -664,6 +664,7 @@ Current-repository-state note:
 kali package-effects lodash                # Analyze npm package
 kali package-effects jsr:@std/path         # Analyze JSR package
 kali package-effects --pretty lodash       # Pretty-printed package-effect report JSON
+kali package-effects --pretty browserpkg   # Pretty-printed package-effect report JSON under inherited browser resolution
 kali package-effects --output json lodash  # Command envelope + package-effect payload
 kali package-effects --pretty --output json lodash # Pretty-printed command envelope + package-effect payload
 ```
