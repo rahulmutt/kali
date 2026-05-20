@@ -928,3 +928,37 @@ fn json_test_falls_back_to_stdout_when_browser_summary_file_thread_topology_scri
     );
     assert_eq!(json["stderr"], "");
 }
+
+#[test]
+fn run_falls_back_to_stdout_when_browser_summary_file_thread_topology_script_url_is_whitespace_padded_when_browser_harness_is_configured_in_tsx_input(
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("thread-topology-summary.tsx");
+    write_tsx_source(&source_path);
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env(
+            "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+            r#"node -e 'const fs = require("fs"); fs.writeFileSync(process.env.KALI_BROWSER_HARNESS_SUMMARY_FILE, "{\"args\":[\"summary\"],\"tests\":[\"browser merge\"],\"testsFailed\":2,\"hostContract\":\"browser-requested\",\"runtimeBackend\":\"browser-harness\",\"threadTopology\":{\"totalInstances\":1,\"terminatedInstances\":0,\"liveInstances\":[{\"instanceId\":0,\"scriptUrl\":\" https://example.com/thread.js \",\"postedMessages\":[],\"postedSharedBuffers\":[],\"wasTerminated\":false}]}}\n"); process.stdout.write("browser thread topology summary\n");'"#,
+        )
+        .arg("run")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("browser thread topology summary"),
+        "stdout: {stdout}"
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+}
