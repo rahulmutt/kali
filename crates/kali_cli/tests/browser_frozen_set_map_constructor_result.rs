@@ -21,6 +21,13 @@ fn browser_frozen_set_map_constructor_result_run_source() -> &'static str {
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for (const value of Object.freeze(new globalThis["Set"](values))) {
+    console.log(value);
+  }
+  for (const entry of Object.freeze(new globalThis['Map']([[1, 2], [1, 3], [4, 5]]))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
 }
 
 browserFrozenSetMapConstructorResult();
@@ -35,6 +42,13 @@ fn browser_frozen_set_map_constructor_result_test_source() -> &'static str {
       console.log(value);
     }
     for (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const value of Object.freeze(new globalThis["Set"](values))) {
+      console.log(value);
+    }
+    for (const entry of Object.freeze(new globalThis['Map']([[1, 2], [1, 3], [4, 5]]))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -56,6 +70,13 @@ export async function browserFrozenSetMapConstructorResult() {
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for (const value of Object.freeze(new globalThis["Set"](values))) {
+    console.log(value);
+  }
+  for (const entry of Object.freeze(new globalThis['Map']([[1, 2], [1, 3], [4, 5]]))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
 }
 "##
 }
@@ -67,6 +88,13 @@ fn browser_parenthesized_frozen_set_map_constructor_result_run_source() -> &'sta
     console.log(value);
   }
   for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const value of Object.freeze((new globalThis["Set"](values)))) {
+    console.log(value);
+  }
+  for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -87,6 +115,13 @@ fn browser_parenthesized_frozen_set_map_constructor_result_test_source() -> &'st
       console.log(entry[0]);
       console.log(entry[1]);
     }
+    for (const value of Object.freeze((new globalThis["Set"](values)))) {
+      console.log(value);
+    }
+    for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
   }
 
   return browserParenthesizedFrozenSetMapConstructorResult();
@@ -102,6 +137,13 @@ export async function browserParenthesizedFrozenSetMapConstructorResult() {
     console.log(value);
   }
   for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const value of Object.freeze((new globalThis["Set"](values)))) {
+    console.log(value);
+  }
+  for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -170,14 +212,20 @@ fn assert_browser_requested_frozen_set_map_constructor_result(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "json: {json}");
+        assert!(
+            stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+            "json: {json}"
+        );
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         return;
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+        "stdout: {stdout}"
+    );
     if command == "test" {
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
@@ -265,7 +313,10 @@ fn assert_browser_bundle_frozen_set_map_constructor_result(filename: &str, json_
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+        "stdout: {stdout}"
+    );
 }
 
 fn assert_browser_requested_parenthesized_frozen_set_map_constructor_result(
@@ -329,14 +380,20 @@ fn assert_browser_requested_parenthesized_frozen_set_map_constructor_result(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "json: {json}");
+        assert!(
+            stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+            "json: {json}"
+        );
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         return;
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+        "stdout: {stdout}"
+    );
     if command == "test" {
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
@@ -427,7 +484,10 @@ fn assert_browser_bundle_parenthesized_frozen_set_map_constructor_result(
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
