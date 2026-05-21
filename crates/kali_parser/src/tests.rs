@@ -269,6 +269,26 @@ fn test_parse_default_export_function_declaration() {
 }
 
 #[test]
+fn test_parse_default_export_generator_function_declaration() {
+    let tokens = lex("export default function* main() { yield 1; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportDefault(decl) => match decl {
+            kali_ast::ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                assert_eq!(function.name, "main");
+                assert!(!function.is_async);
+                assert!(function.generator);
+            }
+            other => panic!("Expected function declaration export, got {other:?}"),
+        },
+        other => panic!("Expected ExportDefaultDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_default_export_async_generator_function_declaration() {
     let tokens = lex("export default async function* main() { yield 1; }");
     let mut parser = Parser::new(FileId::new(0), tokens);
