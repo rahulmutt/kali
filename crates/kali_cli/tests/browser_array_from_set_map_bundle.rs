@@ -21,6 +21,9 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze(globalThis["Array"]["from"])(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze(globalThis['Array']['from'])(new Set(setValues))) {
+    console.log(value);
+  }
   for await (const value of Array.from(new Set(setValues))) {
     console.log(value);
   }
@@ -115,7 +118,7 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
 }
