@@ -2968,6 +2968,37 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_unsupported_registry_names() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "pnpm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["semver"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("unsupported package registry should fail validation");
+    assert!(
+        err.contains("package registry") && err.contains("`npm` or `jsr`"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_non_object_payloads() {
     for value in [serde_json::Value::Null, json!("oops"), json!(1)] {
         let err = validate_package_effects_payload_value(&value)

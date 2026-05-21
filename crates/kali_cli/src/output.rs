@@ -1243,6 +1243,16 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
         }
     }
 
+    match object.get("registry").and_then(Value::as_str) {
+        Some("npm") | Some("jsr") => {}
+        Some(other) => {
+            return Err(format!(
+                "package-effects payload package registry must be `npm` or `jsr`, got `{other}`"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
     Ok(())
 }
 
