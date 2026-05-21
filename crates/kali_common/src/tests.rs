@@ -799,6 +799,10 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
             r#"Object.freeze((globalThis["Reflect"].ownKeys))"#,
             r#"Object.freeze((globalThis["Reflect"]["ownKeys"]))"#,
             r#"Object.freeze((globalThis.Reflect.ownKeys))"#,
+            r#"Object.freeze(globalThis['Reflect'].ownKeys)"#,
+            r#"Object.freeze(globalThis['Reflect']['ownKeys'])"#,
+            r#"Object.freeze((globalThis['Reflect'].ownKeys))"#,
+            r#"Object.freeze((globalThis['Reflect']['ownKeys']))"#,
         ]
     );
 
@@ -818,18 +822,21 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
     let source = reflect_own_keys_frozen_callable_source("obj");
     let expected = concat!(
         "const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); ",
-        "const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect[\"ownKeys\"])(obj); ",
-        "const frozenMixedRootKeys = Object.freeze(globalThis[\"Reflect\"].ownKeys)(obj); ",
-        "const frozenBracketedKeys = Object.freeze(globalThis[\"Reflect\"][\"ownKeys\"])(obj); ",
-        "const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect[\"ownKeys\"]))(obj); ",
-        "const parenthesizedFrozenMixedRootKeys = Object.freeze((globalThis[\"Reflect\"].ownKeys))(obj); ",
-        "const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis[\"Reflect\"][\"ownKeys\"]))(obj); ",
-        "const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);"
+        r#"const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); "#,
+        r#"const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); "#,
+        r#"const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj); "#,
+        r#"const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj); "#,
+        r#"const parenthesizedFrozenMixedRootKeys = Object.freeze((globalThis["Reflect"].ownKeys))(obj); "#,
+        r#"const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj); "#,
+        "const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj); ",
+        r#"const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)(obj); "#,
+        r#"const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(obj); "#,
+        r#"const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj); "#,
+        r#"const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);"#
     );
 
     assert_eq!(source, expected);
 }
-
 #[test]
 fn test_process_kill_zero_probe_unavailable_message_lists_direct_and_wrapped_zero_aliases() {
     let aliases = process_kill_zero_probe_aliases();
