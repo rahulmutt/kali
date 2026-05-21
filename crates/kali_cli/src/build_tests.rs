@@ -1,8 +1,9 @@
 use super::*;
 use kali_common::{
-    array_from_alias_inventory_source, array_from_loop_lines, map_constructor_iteration_source,
+    array_from_alias_inventory_source, array_from_loop_lines,
+    map_constructor_frozen_callable_source, map_constructor_iteration_source,
     math_pow_browser_alias_inventory_aliases, math_pow_invocation_lines_for_aliases,
-    set_constructor_iteration_source,
+    set_constructor_frozen_callable_source, set_constructor_iteration_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use sha2::{Digest, Sha256};
@@ -4566,7 +4567,55 @@ fn build_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_br
     }
 }
 
+fn assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        format!(
+            "{} {}",
+            set_constructor_frozen_callable_source(),
+            map_constructor_frozen_callable_source()
+        ),
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("set and map frozen callable inventory should build");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
 #[test]
+fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_deno_js_input() {
+    assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_browser_js_input() {
+    assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
 fn check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_deno_js_and_ts_input()
 {
     for extension in ["js", "ts"] {
