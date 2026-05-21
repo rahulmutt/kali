@@ -9343,6 +9343,52 @@ for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
 }
 
 #[test]
+fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like_input() {
+    let source = r#"async function main() {
+    const obj = Object.fromEntries([["b", 1], ["a", 2]]);
+    const frozenKeys = Object.freeze(Object["keys"])(obj);
+    const frozenValues = Object.freeze(globalThis.Object["values"])(obj);
+    const frozenBracketedKeys = Object.freeze(globalThis["Object"]["keys"])(obj);
+    const frozenBracketedValues = Object.freeze(globalThis["Object"]["values"])(obj);
+    const frozenEntries = Object.freeze(globalThis["Object"]["entries"])(obj);
+    const frozenOwnKeys = Object.freeze(Reflect.ownKeys)(obj);
+    for (const key of frozenKeys) {
+        console.log(key);
+    }
+    for (const value of frozenValues) {
+        console.log(value);
+    }
+    for (const entry of frozenEntries) {
+        console.log(entry[0], entry[1]);
+    }
+    for (const key of frozenOwnKeys) {
+        console.log(key);
+    }
+}
+main();
+"#;
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_accepts_object_freeze_wrapped_set_constructor_targets_in_js_like_input() {
     let source = r#"async function main() {
     for (const value of Object.freeze(new Set([1, 2, 1]))) {
@@ -9413,6 +9459,8 @@ fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_ex
     console.log(Number.isFinite(Object.freeze(1)));
     console.log(Math.atan2(await 0, await 1));
     console.log(Object.keys(await { a: 1 }));
+    console.log(Object["keys"](await { a: 1 }));
+    console.log(globalThis.Object["values"](await { a: 1 }));
     console.log(Reflect.ownKeys(await Object.freeze({ b: 1, a: 2 })));
     console.log(globalThis['Reflect']['ownKeys'](await Object.freeze({ c: 3, a: 1 })));
     console.log(Object.hasOwn(await Object.freeze({ d: 4 }), 'd'));

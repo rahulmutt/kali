@@ -818,27 +818,39 @@ impl TypeContext {
     }
 
     fn is_static_object_enumeration_iteration_target(&self, call: &CallExpression) -> bool {
-        let Some(callee_name) = Self::call_member_access_name(&call.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
             return false;
         };
         if !matches!(
             callee_name.as_str(),
             "Object.keys"
+                | "Object[\"keys\"]"
+                | "Object['keys']"
                 | "Object.values"
+                | "Object[\"values\"]"
+                | "Object['values']"
                 | "Object.entries"
                 | "Object[\"entries\"]"
                 | "Object['entries']"
                 | "globalThis.Object.keys"
+                | "globalThis.Object[\"keys\"]"
+                | "globalThis.Object['keys']"
                 | "globalThis.Object.values"
+                | "globalThis.Object[\"values\"]"
+                | "globalThis.Object['values']"
                 | "globalThis.Object.entries"
                 | "globalThis.Object[\"entries\"]"
                 | "globalThis.Object['entries']"
                 | r#"globalThis["Object"].keys"#
+                | r#"globalThis["Object"]["keys"]"#
+                | r#"globalThis['Object'].keys"#
+                | r#"globalThis['Object']['keys']"#
                 | r#"globalThis["Object"].values"#
+                | r#"globalThis["Object"]["values"]"#
+                | r#"globalThis['Object'].values"#
+                | r#"globalThis['Object']['values']"#
                 | r#"globalThis["Object"].entries"#
                 | r#"globalThis["Object"]["entries"]"#
-                | r#"globalThis['Object'].keys"#
-                | r#"globalThis['Object'].values"#
                 | r#"globalThis['Object'].entries"#
                 | r#"globalThis['Object']['entries']"#
                 | "Reflect.ownKeys"

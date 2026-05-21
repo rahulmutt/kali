@@ -2144,6 +2144,12 @@ impl Optimizer {
     }
 
     fn member_access_name(&self, program: &LirProgram, node: &LirNode) -> Option<String> {
+        if self.is_object_freeze_call(program, node) {
+            let inner = node.children.get(1).copied()?;
+            let inner = program.nodes.get(inner.0 as usize)?;
+            return self.member_access_name(program, inner);
+        }
+
         let object = node.children.first().copied()?;
         let object = program.nodes.get(object.0 as usize)?;
         let object_name = match object.text.as_deref() {
