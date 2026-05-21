@@ -2862,6 +2862,42 @@ Object.prototype.hasOwnProperty.call(Object.fromEntries([["e", 5], ["f", 6]]), "
 }
 
 #[test]
+fn test_resolution_supports_same_branch_conditional_string_keys_for_object_has_own_in_js_input() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("Object".to_string()),
+                property: "hasOwn".to_string(),
+            })),
+            args: vec![
+                Expression::ObjectExpression(ObjectExpression {
+                    properties: vec![ObjectProperty {
+                        key: PropertyName::Identifier("a".to_string()),
+                        value: Expression::Literal(LiteralValue::Number(1.0)),
+                        kind: ObjectPropertyKind::Init,
+                    }],
+                }),
+                Expression::ConditionalExpression(Box::new(kali_ast::ConditionalExpression {
+                    test: Box::new(Expression::Literal(LiteralValue::Boolean(true))),
+                    consequent: Box::new(Expression::Literal(LiteralValue::String(
+                        "a".to_string(),
+                    ))),
+                    alternate: Box::new(Expression::Literal(LiteralValue::String("a".to_string()))),
+                })),
+            ],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_bracketed_object_is_and_number_predicate_alias_spelling_in_js_input() {
     let dir = tempdir().unwrap();
     let source_path = dir.path().join("main.js");

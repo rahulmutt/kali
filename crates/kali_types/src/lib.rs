@@ -1348,6 +1348,26 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_string_expression(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_string_expression(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_string_expression(&expr.alternate)
+                    }
+                    _ => {
+                        let consequent = self.resolve_static_string_expression(&expr.consequent);
+                        let alternate = self.resolve_static_string_expression(&expr.alternate);
+                        match (consequent, alternate) {
+                            (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                Some(consequent)
+                            }
+                            _ => None,
+                        }
+                    }
+                }
+            }
             Expression::TemplateLiteral(template) => {
                 let mut rendered = String::new();
                 for (idx, quasi) in template.quasis.iter().enumerate() {
