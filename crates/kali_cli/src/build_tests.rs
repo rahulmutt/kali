@@ -4120,7 +4120,7 @@ fn assert_build_source_file_supports_array_from_new_set_and_new_map_iteration_in
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "for (const value of Array.from(new Set([1, 2, 1]))) { console.log(value); }\nfor await (const entry of Array.from(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }\nfor (const frozenValue of Array.from(Object.freeze(new Set([1, 2, 1])))) { console.log(frozenValue); }\nfor await (const frozenEntry of Array.from(Object.freeze(new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(frozenEntry[0], frozenEntry[1]); }\n",
+        "for (const value of Array.from(new Set([1, 2, 1]))) { console.log(value); }\nfor await (const entry of Array.from(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); }\nfor (const frozenValue of Array.from(Object.freeze(new Set([1, 2, 1])))) { console.log(frozenValue); }\nfor await (const frozenEntry of Array.from(Object.freeze(new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(frozenEntry[0], frozenEntry[1]); }\nfor (const aliasedValue of Array.from(new globalThis[\"Set\"]([1, 2, 1]))) { console.log(aliasedValue); }\nfor await (const aliasedEntry of Array.from(new globalThis['Map']([[1, 2], [1, 3], [4, 5]]))) { console.log(aliasedEntry[0], aliasedEntry[1]); }\nfor (const frozenAliasedValue of Array.from(Object.freeze(new globalThis[\"Set\"]([1, 2, 1])))) { console.log(frozenAliasedValue); }\nfor await (const frozenAliasedEntry of Array.from(Object.freeze(new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) { console.log(frozenAliasedEntry[0], frozenAliasedEntry[1]); }\n",
     )
     .expect("write source");
 
