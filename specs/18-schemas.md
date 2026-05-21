@@ -167,6 +167,29 @@ Required fields:
 - `sourcePath: non-empty, non-whitespace string` — path to the starter source file (`main.ts` or `lib.ts`)
 - `library: boolean` — whether the selected scaffold template was `--lib`
 
+## Install Payload
+
+`kali install --output json` uses the standard command envelope with command name `install` and this success payload:
+
+```json
+{
+  "manifestPath": "/path/to/project/kali.json",
+  "lockPath": "/path/to/project/kali.lock",
+  "installed": [],
+  "updated": [],
+  "removed": []
+}
+```
+
+Required fields:
+- `installed: string[]` — package identifiers added during the invocation
+- `updated: string[]` — package identifiers whose recorded metadata changed during the invocation
+- `removed: string[]` — package identifiers removed during the invocation
+
+Optional fields:
+- `manifestPath: non-empty, non-whitespace string | null` — path to the written `kali.json` when the invocation touched manifest-owned registry state; `null` when no manifest file was written
+- `lockPath: non-empty, non-whitespace string | null` — path to the written `kali.lock` when the invocation touched lockfile state; `null` when no lockfile was written
+
 ## Common Source Location Types
 
 Kali uses two related but distinct span concepts:

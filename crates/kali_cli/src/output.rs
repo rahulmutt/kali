@@ -458,7 +458,13 @@ pub fn validate_install_payload_value(value: &Value) -> Result<(), String> {
     for key in ["manifestPath", "lockPath"] {
         if let Some(other) = object.get(key) {
             match other {
-                Value::Null | Value::String(_) => {}
+                Value::Null => {}
+                Value::String(_) => {
+                    validate_non_empty_string_value(
+                        Some(other),
+                        &format!("install payload {key}"),
+                    )?;
+                }
                 _ => {
                     return Err(format!(
                         "install payload {key} must be a string or null, got {other}"
