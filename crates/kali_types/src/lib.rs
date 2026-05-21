@@ -1759,7 +1759,7 @@ impl TypeContext {
     }
 
     fn resolve_static_object_from_entries_call(&self, call: &CallExpression) -> bool {
-        let Some(callee_name) = Self::call_member_access_name(&call.callee) else {
+        let Some(callee_name) = self.resolve_static_callable_name(&call.callee) else {
             return false;
         };
 

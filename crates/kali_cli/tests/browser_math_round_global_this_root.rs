@@ -17,6 +17,10 @@ function globalThisMathRoundIdentity() {
   console.log(globalThis["Math"]["round"](value));
   console.log("optional-chain", globalThis?.Math.round(value));
   console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value));
+  const frozenParenthesizedOptionalChain = Object.freeze((globalThis?.Math.round))(value);
+  if (frozenParenthesizedOptionalChain !== 2) {
+    throw new Error("unexpected frozen parenthesized optional-chain identity");
+  }
   console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
@@ -27,6 +31,7 @@ function globalThisMathRoundIdentity() {
     globalThis["Math"]["round"](value),
     globalThis?.Math.round(value),
     Object.freeze(globalThis?.Math.round)(value),
+    frozenParenthesizedOptionalChain,
     Math.round(frozenValue),
     Object.freeze(globalThis["Math"]["round"])(value),
     Object.freeze(globalThis.Math.round)(value),
@@ -37,7 +42,7 @@ function globalThisMathRoundIdentity() {
 }
 
 fn browser_harness_global_this_math_round_run_source() -> &'static str {
-    "const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(\"optional-chain\", globalThis?.Math.round(value)); console.log(\"frozen-optional-chain\", Object.freeze(globalThis?.Math.round)(value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
+    "const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(\"optional-chain\", globalThis?.Math.round(value)); console.log(\"frozen-optional-chain\", Object.freeze(globalThis?.Math.round)(value)); const frozenParenthesizedOptionalChain = Object.freeze((globalThis?.Math.round))(value); if (frozenParenthesizedOptionalChain !== 2) { throw new Error(\"unexpected frozen parenthesized optional-chain identity\"); } console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
 }
 
 fn browser_harness_global_this_math_round_test_source() -> &'static str {
@@ -49,6 +54,10 @@ fn browser_harness_global_this_math_round_test_source() -> &'static str {
   console.log(globalThis["Math"]["round"](value));
   console.log("optional-chain", globalThis?.Math.round(value));
   console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value));
+  const frozenParenthesizedOptionalChain = Object.freeze((globalThis?.Math.round))(value);
+  if (frozenParenthesizedOptionalChain !== 2) {
+    throw new Error("unexpected frozen parenthesized optional-chain identity");
+  }
   console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
