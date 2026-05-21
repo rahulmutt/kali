@@ -1316,6 +1316,12 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedSingleFrozenBracketedSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedBracketedRootFrozenSettled = await Object.freeze(globalThis["Promise"].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const singleMixedBracketedRootFrozenSettled = await Object.freeze(globalThis['Promise'].allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const fullyBracketedSingleRootFrozenSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedFullyBracketedSingleRootFrozenSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedSingleMixedBracketedRootFrozenSettled = await Object.freeze((globalThis['Promise'].allSettled))([Promise.resolve(1), Promise.reject('boom')]);
   const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const singleMixedRootFrozenSettled = await Object.freeze(globalThis.Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
@@ -1367,6 +1373,36 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     parenthesizedFrozenBracketedSettled[0].value !== 1 ||
     parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
     parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    mixedBracketedRootFrozenSettled.length !== 2 ||
+    mixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedBracketedRootFrozenSettled[0].value !== 1 ||
+    mixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    singleMixedBracketedRootFrozenSettled.length !== 2 ||
+    singleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    singleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    singleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    singleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
+    fullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    fullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    fullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    fullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    fullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled.length !== 2 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[0].value !== 1 ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedFullyBracketedSingleRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedSingleMixedBracketedRootFrozenSettled[1].reason !== 'boom' ||
     mixedRootFrozenSettled.length !== 2 ||
     mixedRootFrozenSettled[0].status !== 'fulfilled' ||
     mixedRootFrozenSettled[0].value !== 1 ||
