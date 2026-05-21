@@ -1821,11 +1821,35 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
     let body = promise_all_settled_browser_body_source();
 
     assert!(
+        body.contains("const singleMixedSettled = await Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleDottedSettled = await globalThis.Promise['allSettled']([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenBracketedSettled = await Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );
     assert!(
         body.contains("const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis[\"Promise\"][\"allSettled\"]))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleFrozenBracketedSettled = await Object.freeze((globalThis['Promise']['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );
     assert!(
@@ -1837,11 +1861,27 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
         "body: {body}"
     );
     assert!(
+        body.contains("const singleMixedRootFrozenSettled = await Object.freeze(globalThis.Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleMixedRootFrozenSettled = await Object.freeze((globalThis.Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const bracketedRootFrozenSettled = await Object.freeze(Promise[\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );
     assert!(
         body.contains("const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise[\"allSettled\"]))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleBracketedRootFrozenSettled = await Object.freeze(Promise['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleBracketedRootFrozenSettled = await Object.freeze((Promise['allSettled']))([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );
     assert!(
