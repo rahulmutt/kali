@@ -4601,19 +4601,23 @@ fn assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_in
 }
 
 #[test]
-fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_deno_js_input() {
-    assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
-        ApiSurface::Deno,
-        "js",
-    );
+fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_deno_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
+            ApiSurface::Deno,
+            extension,
+        );
+    }
 }
 
 #[test]
-fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_browser_js_input() {
-    assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
-        ApiSurface::Browser,
-        "js",
-    );
+fn build_source_file_supports_set_and_map_frozen_callable_inventory_in_browser_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        assert_build_source_file_supports_set_and_map_frozen_callable_inventory_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
 }
 
 fn check_source_file_supports_for_of_reflect_own_keys_const_bound_iterable_in_deno_js_and_ts_input()
