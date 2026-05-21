@@ -9802,9 +9802,15 @@ fn test_resolution_supports_frozen_math_pow_callable_aliases_across_js_like_exte
 const frozenDotRoot = Object.freeze(Math.pow);
 const frozenGlobalDotRoot = Object.freeze(globalThis.Math.pow);
 const frozenBracketedRoot = Object.freeze(globalThis["Math"]["pow"]);
+const frozenSingleQuotedBracketedRoot = Object.freeze(globalThis['Math']['pow']);
+const frozenSingleQuotedMathRoot = Object.freeze(Math['pow']);
+const frozenParenthesizedDotRoot = Object.freeze((Math.pow));
 frozenDotRoot(2, exponent);
 frozenGlobalDotRoot(2, exponent);
 frozenBracketedRoot(2, exponent);
+frozenSingleQuotedBracketedRoot(2, exponent);
+frozenSingleQuotedMathRoot(2, exponent);
+frozenParenthesizedDotRoot(2, exponent);
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {
