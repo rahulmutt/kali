@@ -2972,7 +2972,14 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
                 }
             }
             Expression::FunctionExpression(function) => {
-                if let Some(body) = &function.body {
+                if function.generator {
+                    diagnostics.push(Diagnostic::error(
+                        e5::FEATURE_UNAVAILABLE as u32,
+                        kali_common::generator_function_lowering_unavailable_message(
+                            function.is_async,
+                        ),
+                    ));
+                } else if let Some(body) = &function.body {
                     for nested in &body.body {
                         collect_statement(nested, diagnostics);
                     }

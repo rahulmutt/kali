@@ -6814,6 +6814,55 @@ fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_i
     );
 }
 
+fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
+    extension: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source).expect("write source");
+
+    let expected_message = if source.contains("async function*") {
+        "async-generator function lowering is unavailable in the current phase"
+    } else {
+        "generator function lowering is unavailable in the current phase"
+    };
+
+    let error = reject_async_and_generator_class_methods_in_runtime_entrypoint(&source_path)
+        .expect_err("generator function lowering should fail in the direct runtime path");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "expected an E5506 diagnostic: {error:?}"
+    );
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains(expected_message)),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_generator_function_expressions_in_supported_input_matrix() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
+            extension,
+            "const generatorExpr = function* generatorExpr() { yield 1; };\ngeneratorExpr;\n",
+        );
+    }
+}
+
+#[test]
+fn runtime_entrypoint_rejects_async_generator_function_expressions_in_supported_input_matrix() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
+            extension,
+            "const asyncGeneratorExpr = async function* asyncGeneratorExpr() { yield 1; };\nasyncGeneratorExpr;\n",
+        );
+    }
+}
+
 #[test]
 fn build_source_file_rejects_generator_functions_in_ts_input() {
     assert_build_source_file_rejects_generator_lowering_in_input("ts");
