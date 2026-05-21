@@ -31455,7 +31455,7 @@ fn run_supports_math_round_builtin_semantics_through_const_alias_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias)); console.log(Object.freeze(globalThis['Math']['round'])(alias));\n",
     )
     .expect("write source");
 
@@ -31475,7 +31475,7 @@ fn run_supports_math_round_builtin_semantics_through_const_alias_in_js_input() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(
         stdout.lines().filter(|line| *line == "2").count(),
-        5,
+        6,
         "stdout: {stdout}"
     );
 }
@@ -31486,7 +31486,7 @@ fn json_run_supports_math_round_builtin_semantics_through_const_alias_in_js_inpu
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias)); console.log(Object.freeze(globalThis['Math']['round'])(alias));\n",
     )
     .expect("write source");
 
@@ -31515,7 +31515,7 @@ fn json_run_supports_math_round_builtin_semantics_through_const_alias_in_js_inpu
     let stdout = json["stdout"].as_str().expect("stdout");
     assert_eq!(
         stdout.lines().filter(|line| *line == "2").count(),
-        5,
+        6,
         "json: {json}"
     );
 }
