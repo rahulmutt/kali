@@ -728,13 +728,13 @@ fn assert_browser_late_subprocess_rejection(stderr: &str) {
     assert!(stderr.contains("Process.Spawn"), "stderr: {stderr}");
     assert_eq!(
         stderr.matches("Process.Spawn").count(),
-        5,
+        6,
         "stderr: {stderr}"
     );
 }
 
 fn assert_browser_late_subprocess_rejection_json(errors: &[Value]) {
-    assert_eq!(errors.len(), 5, "errors array: {errors:?}");
+    assert_eq!(errors.len(), 6, "errors array: {errors:?}");
     assert!(
         errors.iter().all(|error| error["code"] == "E9007"),
         "unexpected errors: {errors:?}"
@@ -1328,6 +1328,7 @@ fn browser_late_subprocess_source_includes_bracketed_forms() {
     let source = late_subprocess_source();
     for expected in [
         r#"new Deno.Command('sh').spawn()"#,
+        r#"new Deno["Command"]('sh').spawn()"#,
         r#"new globalThis.Deno.Command('sh').spawn()"#,
         r#"new globalThis.Deno["Command"]('sh').spawn()"#,
         r#"new globalThis["Deno"].Command('sh').spawn()"#,

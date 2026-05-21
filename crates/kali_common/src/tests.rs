@@ -193,7 +193,7 @@ fn test_late_env_materialization_source_lists_to_object_aliases() {
 fn test_late_subprocess_source_lists_command_aliases() {
     assert_eq!(
         late_subprocess_source(),
-        r#"new Deno.Command('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis.Deno["Command"]('sh').spawn(); new globalThis["Deno"].Command('sh').spawn(); new globalThis["Deno"]["Command"]('sh').spawn();"#
+        r#"new Deno.Command('sh').spawn(); new Deno["Command"]('sh').spawn(); new globalThis.Deno.Command('sh').spawn(); new globalThis.Deno["Command"]('sh').spawn(); new globalThis["Deno"].Command('sh').spawn(); new globalThis["Deno"]["Command"]('sh').spawn();"#
     );
 }
 
