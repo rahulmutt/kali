@@ -682,6 +682,10 @@ pub const fn object_has_own_frozen_callable_aliases() -> &'static [&'static str]
         r#"Object.freeze((globalThis.Object.hasOwn))"#,
         r#"Object.freeze(globalThis.Object["hasOwn"])"#,
         r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis?.Object.hasOwn)"#,
+        r#"Object.freeze((globalThis?.Object.hasOwn))"#,
+        r#"Object.freeze(globalThis?.Object["hasOwn"])"#,
+        r#"Object.freeze((globalThis?.Object["hasOwn"]))"#,
         r#"Object.freeze(globalThis["Object"].hasOwn)"#,
         r#"Object.freeze((globalThis["Object"].hasOwn))"#,
         r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
@@ -1159,16 +1163,26 @@ pub const fn math_round_frozen_callable_aliases() -> &'static [&'static str] {
     &[
         r#"Object.freeze(globalThis.Math["round"])"#,
         r#"Object.freeze((globalThis.Math["round"]))"#,
+        r#"Object.freeze(globalThis.Math['round'])"#,
+        r#"Object.freeze((globalThis.Math['round']))"#,
         r#"Object.freeze(globalThis.Math.round)"#,
         r#"Object.freeze((globalThis.Math.round))"#,
         r#"Object.freeze(globalThis["Math"]["round"])"#,
         r#"Object.freeze((globalThis["Math"]["round"]))"#,
+        r#"Object.freeze(globalThis["Math"]['round'])"#,
+        r#"Object.freeze((globalThis["Math"]['round']))"#,
         r#"Object.freeze(globalThis["Math"].round)"#,
         r#"Object.freeze((globalThis["Math"].round))"#,
+        r#"Object.freeze(globalThis['Math']['round'])"#,
+        r#"Object.freeze((globalThis['Math']['round']))"#,
+        r#"Object.freeze(globalThis['Math'].round)"#,
+        r#"Object.freeze((globalThis['Math'].round))"#,
         r#"Object.freeze(Math.round)"#,
         r#"Object.freeze((Math.round))"#,
         r#"Object.freeze(Math["round"])"#,
         r#"Object.freeze((Math["round"]))"#,
+        r#"Object.freeze(Math['round'])"#,
+        r#"Object.freeze((Math['round']))"#,
     ]
 }
 
@@ -1292,6 +1306,8 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
   const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);

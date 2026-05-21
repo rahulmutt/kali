@@ -1208,6 +1208,10 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis.Object.hasOwn))"#,
         r#"Object.freeze(globalThis.Object["hasOwn"])"#,
         r#"Object.freeze((globalThis.Object["hasOwn"]))"#,
+        r#"Object.freeze(globalThis?.Object.hasOwn)"#,
+        r#"Object.freeze((globalThis?.Object.hasOwn))"#,
+        r#"Object.freeze(globalThis?.Object["hasOwn"])"#,
+        r#"Object.freeze((globalThis?.Object["hasOwn"]))"#,
         r#"Object.freeze(globalThis["Object"].hasOwn)"#,
         r#"Object.freeze((globalThis["Object"].hasOwn))"#,
         r#"Object.freeze(globalThis["Object"]["hasOwn"])"#,
@@ -1656,16 +1660,26 @@ fn test_math_round_frozen_callable_source_lists_all_aliases_in_order() {
     for expected_alias in [
         r#"Object.freeze(globalThis.Math["round"])"#,
         r#"Object.freeze((globalThis.Math["round"]))"#,
+        r#"Object.freeze(globalThis.Math['round'])"#,
+        r#"Object.freeze((globalThis.Math['round']))"#,
         r#"Object.freeze(globalThis.Math.round)"#,
         r#"Object.freeze((globalThis.Math.round))"#,
         r#"Object.freeze(globalThis["Math"]["round"])"#,
         r#"Object.freeze((globalThis["Math"]["round"]))"#,
+        r#"Object.freeze(globalThis["Math"]['round'])"#,
+        r#"Object.freeze((globalThis["Math"]['round']))"#,
         r#"Object.freeze(globalThis["Math"].round)"#,
         r#"Object.freeze((globalThis["Math"].round))"#,
+        r#"Object.freeze(globalThis['Math']['round'])"#,
+        r#"Object.freeze((globalThis['Math']['round']))"#,
+        r#"Object.freeze(globalThis['Math'].round)"#,
+        r#"Object.freeze((globalThis['Math'].round))"#,
         r#"Object.freeze(Math.round)"#,
         r#"Object.freeze((Math.round))"#,
         r#"Object.freeze(Math["round"])"#,
         r#"Object.freeze((Math["round"]))"#,
+        r#"Object.freeze(Math['round'])"#,
+        r#"Object.freeze((Math['round']))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
@@ -1973,6 +1987,14 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
     );
     assert!(
         body.contains("const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)[\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis[\"Promise\"])[\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );
     assert!(

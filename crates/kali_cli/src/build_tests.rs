@@ -1539,7 +1539,7 @@ fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_tsx_
     assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "tsx");
 }
 
-fn promise_all_settled_source_variants() -> [&'static str; 20] {
+fn promise_all_settled_source_variants() -> [&'static str; 22] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
         "console.log(Promise[\"allSettled\"]([1, 2]));\n",
@@ -1551,6 +1551,8 @@ fn promise_all_settled_source_variants() -> [&'static str; 20] {
         "console.log(globalThis['Promise'].allSettled([1, 2]));\n",
         "console.log(globalThis[\"Promise\"][\"allSettled\"]([1, 2]));\n",
         "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
+        "console.log(Object.freeze((globalThis.Promise)[\"allSettled\"])([1, 2]));\n",
+        "console.log(Object.freeze((globalThis[\"Promise\"])[\"allSettled\"])([1, 2]));\n",
         "console.log(Object.freeze(Promise[\"allSettled\"])([1, 2]));\n",
         "console.log(Object.freeze((Promise[\"allSettled\"]))([1, 2]));\n",
         "console.log(Object.freeze(Promise.allSettled)([1, 2]));\n",
@@ -2025,7 +2027,7 @@ fn assert_build_source_file_supports_global_this_math_round_identity_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        "const value = 1.6; const flag = value > 0; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"].round(value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(globalThis.Math[\"round\"])(value)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(Math.round)(value)); console.log(Object.freeze((globalThis[\"Math\"][\"round\"]))(value)); console.log(\"frozen-parenthesized-mixed-bracket\", Object.freeze((globalThis.Math[\"round\"]))(value)); console.log(Object.freeze(globalThis['Math']['round'])(value)); console.log((flag ? globalThis.Math.round : Object.freeze(globalThis.Math.round))(value));\n",
+        "const value = 1.6; const flag = value > 0; console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis.Math['round'](value)); console.log(globalThis[\"Math\"].round(value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(globalThis[\"Math\"]['round'](value)); console.log(globalThis['Math']['round'](value)); console.log(globalThis['Math'].round(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(globalThis.Math[\"round\"])(value)); console.log(Object.freeze(globalThis.Math['round'])(value)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis[\"Math\"]['round'])(value)); console.log(Object.freeze(globalThis['Math']['round'])(value)); console.log(Object.freeze(globalThis['Math'].round)(value)); console.log(Object.freeze(Math.round)(value)); console.log(Object.freeze((globalThis[\"Math\"][\"round\"]))(value)); console.log(\"frozen-parenthesized-mixed-bracket\", Object.freeze((globalThis.Math[\"round\"]))(value)); console.log(Object.freeze(globalThis['Math']['round'])(value)); console.log((flag ? globalThis.Math.round : Object.freeze(globalThis.Math.round))(value));\n",
     )
     .expect("write source");
 

@@ -28,13 +28,13 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 ### 21.2 Iterator and async-iterator protocols
 
 - Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices, including transparent `Object.freeze(...)` wrappers around direct `Set`/`Map` constructor targets where the iterable shape stays static, including parenthesized `Object.freeze((new Set(...)))` / `Object.freeze((new Map(...)))` variants. Current smoke also covers `Array.from(Object.freeze(new Set(...)))` / `Array.from(Object.freeze(new Map(...)))` constructor-result wrappers, including parenthesized variants, in the browser harness/bundle matrix.
-- Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization; the direct runtime smoke now also mirrors the full 20-entry `Promise.allSettled` alias/freeze inventory already exercised by the build lanes.
+- Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization; the direct runtime smoke now also mirrors the expanded `Promise.allSettled` alias/freeze inventory already exercised by the build lanes.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 - Current browser and checker evidence also keeps the bracketed `globalThis["Array"].from` freeze alias on the static set/map slice aligned across the existing smoke lanes, the fully bracketed `globalThis["Array"]["from"]` alias now also shares that coverage, the direct double-quoted `Array["from"]` freeze alias now also joins the standalone and browser-requested smoke lanes, and the single-quoted root `globalThis['Set']` / `globalThis['Map']` constructor spellings now also ride the standalone smoke lane; the browser bundle/harness smoke now also includes parenthesized frozen `Set` / `Map` constructor aliases. The same iterator slice now also keeps the single-quoted `globalThis['Reflect'].ownKeys` / `globalThis['Reflect']['ownKeys']` frozen callable aliases aligned across the supported object-helper smoke lanes.
 
 ### 21.3 Dynamic language and built-in semantics
 
-- Widen object-model, Math, BigInt, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned.
+- Widen object-model, Math, BigInt, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned; the current smoke also keeps the optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` frozen aliases aligned with the existing helper slices.
 - Keep non-literal dynamic import, broad reflective APIs, and eval-adjacent forms gated unless their spec rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 
