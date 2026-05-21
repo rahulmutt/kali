@@ -58,6 +58,44 @@ fn browser_harness_global_this_math_atan2_await_wrapped_test_source() -> &'stati
 "#
 }
 
+fn browser_bundle_global_this_math_atan2_frozen_source() -> &'static str {
+    r##"// kali-tree-shake: globalThisMathAtan2FrozenCallableAliases
+function globalThisMathAtan2FrozenCallableAliases() {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+  return [frozenDotRoot(zero, one), frozenBracketedRoot(zero, one), frozenSingleQuotedRoot(zero, one), frozenDirect(zero, one)];
+}
+"##
+}
+
+fn browser_harness_global_this_math_atan2_frozen_run_source() -> &'static str {
+    "const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis[\"Math\"][\"atan2\"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));\n"
+}
+
+fn browser_harness_global_this_math_atan2_frozen_test_source() -> &'static str {
+    r#"Kali.test('globalThis math atan2 frozen callable aliases', () => {
+  const zero = 0;
+  const one = 1;
+  const frozenDotRoot = Object.freeze(globalThis.Math.atan2);
+  const frozenBracketedRoot = Object.freeze(globalThis["Math"]["atan2"]);
+  const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']);
+  const frozenDirect = Object.freeze(Math.atan2);
+  console.log(frozenDotRoot(zero, one));
+  console.log(frozenBracketedRoot(zero, one));
+  console.log(frozenSingleQuotedRoot(zero, one));
+  console.log(frozenDirect(zero, one));
+});
+"#
+}
+
 fn assert_browser_bundle_global_this_math_atan2_await_wrapped(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -146,9 +184,23 @@ await mod.globalThisMathAtan2AwaitWrappedZeroSlice();
 }
 
 fn assert_browser_bundle_global_this_math_atan2(filename: &str, json_output: bool) {
+    assert_browser_bundle_global_this_math_atan2_source(
+        browser_bundle_global_this_math_atan2_source(),
+        "globalThisMathAtan2ZeroSlice",
+        filename,
+        json_output,
+    );
+}
+
+fn assert_browser_bundle_global_this_math_atan2_source(
+    source: &str,
+    export_name: &str,
+    filename: &str,
+    json_output: bool,
+) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, browser_bundle_global_this_math_atan2_source()).expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command
@@ -199,9 +251,7 @@ fn assert_browser_bundle_global_this_math_atan2(filename: &str, json_output: boo
     let harness = kali_runtime::browser_bundle_harness_script(
         "app",
         false,
-        r#"const mod = await import(bundleJs.href);
-await mod.globalThisMathAtan2ZeroSlice();
-"#,
+        &format!("const mod = await import(bundleJs.href);\nawait mod.{export_name}();\n"),
     );
     fs::write(&harness_path, harness).expect("write browser bundle harness");
 
@@ -294,195 +344,239 @@ fn assert_browser_harness_global_this_math_atan2(
 }
 
 #[test]
+fn browser_bundle_global_this_math_atan2_frozen_source_includes_direct_frozen_callable_aliases() {
+    let source = browser_bundle_global_this_math_atan2_frozen_source();
+    assert!(
+        source.contains("Object.freeze(globalThis.Math.atan2)"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains("Object.freeze(globalThis[\"Math\"][\"atan2\"])")
+            || source.contains("Object.freeze(globalThis['Math']['atan2'])"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains("Object.freeze(Math.atan2)"),
+        "source: {source}"
+    );
+}
+
+#[test]
 fn build_emits_global_this_math_atan2_zero_slice_in_js_input() {
     assert_browser_bundle_global_this_math_atan2("app.js", false);
 }
 
 #[test]
-fn build_emits_global_this_math_atan2_zero_slice_in_ts_input() {
-    assert_browser_bundle_global_this_math_atan2("app.ts", false);
+fn build_emits_global_this_math_atan2_zero_slice_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2(filename, false);
+    }
 }
 
 #[test]
-fn json_build_emits_global_this_math_atan2_zero_slice_in_js_input() {
-    assert_browser_bundle_global_this_math_atan2("app.js", true);
+fn json_build_emits_global_this_math_atan2_zero_slice_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2(filename, true);
+    }
 }
 
 #[test]
-fn json_build_emits_global_this_math_atan2_zero_slice_in_ts_input() {
-    assert_browser_bundle_global_this_math_atan2("app.ts", true);
+fn build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2_source(
+            browser_bundle_global_this_math_atan2_frozen_source(),
+            "globalThisMathAtan2FrozenCallableAliases",
+            filename,
+            false,
+        );
+    }
 }
 
 #[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_input() {
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.js",
-        browser_harness_global_this_math_atan2_run_source(),
-        false,
-    );
+fn json_build_emits_global_this_math_atan2_frozen_callable_aliases_in_js_like_input() {
+    for filename in ["app.js", "app.ts", "app.jsx", "app.tsx"] {
+        assert_browser_bundle_global_this_math_atan2_source(
+            browser_bundle_global_this_math_atan2_frozen_source(),
+            "globalThisMathAtan2FrozenCallableAliases",
+            filename,
+            true,
+        );
+    }
 }
 
 #[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_ts_input() {
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.ts",
-        browser_harness_global_this_math_atan2_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.js",
-        browser_harness_global_this_math_atan2_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_ts_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.ts",
-        browser_harness_global_this_math_atan2_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_input(
+fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.js",
-        browser_harness_global_this_math_atan2_run_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "main.js",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.ts",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.jsx",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.tsx",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("run", filename, source, false);
+    }
 }
 
 #[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_input(
+fn run_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.js",
-        browser_harness_global_this_math_atan2_test_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "main.js",
+            browser_harness_global_this_math_atan2_frozen_run_source(),
+        ),
+        (
+            "main.ts",
+            browser_harness_global_this_math_atan2_frozen_run_source(),
+        ),
+        (
+            "main.jsx",
+            browser_harness_global_this_math_atan2_frozen_run_source(),
+        ),
+        (
+            "main.tsx",
+            browser_harness_global_this_math_atan2_frozen_run_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("run", filename, source, false);
+    }
 }
 
 #[test]
-fn build_emits_global_this_math_atan2_zero_slice_in_jsx_input() {
-    assert_browser_bundle_global_this_math_atan2("app.jsx", false);
-}
-
-#[test]
-fn build_emits_global_this_math_atan2_zero_slice_in_tsx_input() {
-    assert_browser_bundle_global_this_math_atan2("app.tsx", false);
-}
-
-#[test]
-fn json_build_emits_global_this_math_atan2_zero_slice_in_jsx_input() {
-    assert_browser_bundle_global_this_math_atan2("app.jsx", true);
-}
-
-#[test]
-fn json_build_emits_global_this_math_atan2_zero_slice_in_tsx_input() {
-    assert_browser_bundle_global_this_math_atan2("app.tsx", true);
-}
-
-#[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_jsx_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.jsx",
-        browser_harness_global_this_math_atan2_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_tsx_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.tsx",
-        browser_harness_global_this_math_atan2_run_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_jsx_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_global_this_math_atan2_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_tsx_input()
-{
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_global_this_math_atan2_test_source(),
-        false,
-    );
-}
-
-#[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_jsx_input(
+fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.jsx",
-        browser_harness_global_this_math_atan2_run_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, false);
+    }
 }
 
 #[test]
-fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_tsx_input(
+fn test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "run",
-        "main.tsx",
-        browser_harness_global_this_math_atan2_run_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, false);
+    }
 }
 
 #[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_jsx_input(
+fn run_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.jsx",
-        browser_harness_global_this_math_atan2_test_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "main.js",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.ts",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.jsx",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+        (
+            "main.tsx",
+            browser_harness_global_this_math_atan2_run_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("run", filename, source, true);
+    }
 }
 
 #[test]
-fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_tsx_input(
+fn test_supports_global_this_math_atan2_zero_slice_when_browser_harness_is_configured_in_json_js_like_input(
 ) {
-    assert_browser_harness_global_this_math_atan2(
-        "test",
-        "smoke.test.tsx",
-        browser_harness_global_this_math_atan2_test_source(),
-        true,
-    );
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, true);
+    }
+}
+
+#[test]
+fn test_supports_global_this_math_atan2_frozen_callable_aliases_when_browser_harness_is_configured_in_json_js_like_input(
+) {
+    for (filename, source) in [
+        (
+            "smoke.test.js",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.ts",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.jsx",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+        (
+            "smoke.test.tsx",
+            browser_harness_global_this_math_atan2_frozen_test_source(),
+        ),
+    ] {
+        assert_browser_harness_global_this_math_atan2("test", filename, source, true);
+    }
 }
 
 #[test]
