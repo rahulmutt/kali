@@ -21,10 +21,20 @@ function globalThisMathMaxMinFrozenAliases() {
   console.log(Object.freeze(Math.min)(3, alias, 1));
   console.log(Object.freeze(globalThis.Math["max"])(1, alias, 3));
   console.log(Object.freeze(globalThis.Math["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1));
   console.log(Object.freeze(globalThis["Math"]["max"])(1, alias, 3));
   console.log(Object.freeze(globalThis["Math"]["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1));
   console.log(Object.freeze(Math["max"])(1, alias, 3));
   console.log(Object.freeze(Math["min"])(3, alias, 1));
+  console.log(Object.freeze(Math['max'])(1, alias, 3));
+  console.log(Object.freeze(Math['min'])(3, alias, 1));
   return [
     globalThis.Math.max(1, alias, 3),
     globalThis.Math.min(3, alias, 1),
@@ -32,10 +42,20 @@ function globalThisMathMaxMinFrozenAliases() {
     Object.freeze(Math.min)(3, alias, 1),
     Object.freeze(globalThis.Math["max"])(1, alias, 3),
     Object.freeze(globalThis.Math["min"])(3, alias, 1),
+    Object.freeze(globalThis.Math['max'])(1, alias, 3),
+    Object.freeze(globalThis.Math['min'])(3, alias, 1),
     Object.freeze(globalThis["Math"]["max"])(1, alias, 3),
     Object.freeze(globalThis["Math"]["min"])(3, alias, 1),
+    Object.freeze(globalThis["Math"]['max'])(1, alias, 3),
+    Object.freeze(globalThis["Math"]['min'])(3, alias, 1),
+    Object.freeze(globalThis['Math']['max'])(1, alias, 3),
+    Object.freeze(globalThis['Math']['min'])(3, alias, 1),
+    Object.freeze(globalThis['Math'].max)(1, alias, 3),
+    Object.freeze(globalThis['Math'].min)(3, alias, 1),
     Object.freeze(Math["max"])(1, alias, 3),
     Object.freeze(Math["min"])(3, alias, 1),
+    Object.freeze(Math['max'])(1, alias, 3),
+    Object.freeze(Math['min'])(3, alias, 1),
   ];
 }
 "##
@@ -48,7 +68,7 @@ fn browser_harness_global_this_math_max_min_run_source() -> &'static str {
     static SOURCE: OnceLock<String> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
-            "const value = 2; const alias = value; console.log(globalThis.Math.max(1, alias, 3)); console.log(globalThis.Math.min(3, alias, 1)); console.log(Object.freeze(Math.max)(1, alias, 3)); console.log(Object.freeze(Math.min)(3, alias, 1)); console.log(Object.freeze(globalThis.Math[\"max\"])(1, alias, 3)); console.log(Object.freeze(globalThis.Math[\"min\"])(3, alias, 1)); console.log(Object.freeze(globalThis[\"Math\"][\"max\"])(1, alias, 3)); console.log(Object.freeze(globalThis[\"Math\"][\"min\"])(3, alias, 1)); console.log(Object.freeze(Math[\"max\"])(1, alias, 3)); console.log(Object.freeze(Math[\"min\"])(3, alias, 1));\n".to_string()
+            "const value = 2; const alias = value; console.log(globalThis.Math.max(1, alias, 3)); console.log(globalThis.Math.min(3, alias, 1)); console.log(Object.freeze(Math.max)(1, alias, 3)); console.log(Object.freeze(Math.min)(3, alias, 1)); console.log(Object.freeze(globalThis.Math[\"max\"])(1, alias, 3)); console.log(Object.freeze(globalThis.Math[\"min\"])(3, alias, 1)); console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3)); console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1)); console.log(Object.freeze(globalThis[\"Math\"][\"max\"])(1, alias, 3)); console.log(Object.freeze(globalThis[\"Math\"][\"min\"])(3, alias, 1)); console.log(Object.freeze(globalThis[\"Math\"]['max'])(1, alias, 3)); console.log(Object.freeze(globalThis[\"Math\"]['min'])(3, alias, 1)); console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3)); console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1)); console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3)); console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1)); console.log(Object.freeze(Math[\"max\"])(1, alias, 3)); console.log(Object.freeze(Math[\"min\"])(3, alias, 1)); console.log(Object.freeze(Math['max'])(1, alias, 3)); console.log(Object.freeze(Math['min'])(3, alias, 1));\n".to_string()
         })
         .as_str()
 }
@@ -66,10 +86,20 @@ fn browser_harness_global_this_math_max_min_test_source() -> &'static str {
   console.log(Object.freeze(Math.min)(3, alias, 1));
   console.log(Object.freeze(globalThis.Math["max"])(1, alias, 3));
   console.log(Object.freeze(globalThis.Math["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis.Math['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis.Math['min'])(3, alias, 1));
   console.log(Object.freeze(globalThis["Math"]["max"])(1, alias, 3));
   console.log(Object.freeze(globalThis["Math"]["min"])(3, alias, 1));
+  console.log(Object.freeze(globalThis["Math"]['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis["Math"]['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math']['max'])(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math']['min'])(3, alias, 1));
+  console.log(Object.freeze(globalThis['Math'].max)(1, alias, 3));
+  console.log(Object.freeze(globalThis['Math'].min)(3, alias, 1));
   console.log(Object.freeze(Math["max"])(1, alias, 3));
   console.log(Object.freeze(Math["min"])(3, alias, 1));
+  console.log(Object.freeze(Math['max'])(1, alias, 3));
+  console.log(Object.freeze(Math['min'])(3, alias, 1));
 });
 "#
             .to_string()
