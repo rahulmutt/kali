@@ -112,10 +112,10 @@ export async function browserParenthesizedFrozenSetMapConstructorResult() {
 fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
     r##"async function browserFrozenObjectHelperIterationTargets() {
   const object = Object.fromEntries([["b", 1], ["a", 2]]);
-  for await (const key of Object.freeze(Object.keys(object))) {
+  for await (const key of Object.freeze(Object.keys)(object)) {
     console.log(key);
   }
-  for await (const entry of Object.freeze(Object.entries(object))) {
+  for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -129,10 +129,10 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
     r##"Kali.test('for await frozen object helper iteration targets', () => {
   async function browserFrozenObjectHelperIterationTargets() {
     const object = Object.fromEntries([["b", 1], ["a", 2]]);
-    for await (const key of Object.freeze(Object.keys(object))) {
+    for await (const key of Object.freeze(Object.keys)(object)) {
       console.log(key);
     }
-    for await (const entry of Object.freeze(Object.entries(object))) {
+    for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -147,10 +147,10 @@ fn browser_frozen_object_helper_iteration_bundle_source() -> &'static str {
     r##"// kali-tree-shake: browserFrozenObjectHelperIterationTargets
 export async function browserFrozenObjectHelperIterationTargets() {
   const object = Object.fromEntries([["b", 1], ["a", 2]]);
-  for await (const key of Object.freeze(Object.keys(object))) {
+  for await (const key of Object.freeze(Object.keys)(object)) {
     console.log(key);
   }
-  for await (const entry of Object.freeze(Object.entries(object))) {
+  for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
     console.log(entry[0]);
     console.log(entry[1]);
   }

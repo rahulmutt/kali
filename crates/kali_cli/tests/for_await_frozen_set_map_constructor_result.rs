@@ -11,7 +11,7 @@ fn frozen_set_map_constructor_result_source() -> &'static str {
 }
 
 fn frozen_object_helper_iteration_source() -> &'static str {
-    "const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for await (const key of Object.freeze(Object.keys(object))) { console.log(key); } for await (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0]); console.log(entry[1]); }\n"
+    "const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for await (const key of Object.freeze(Object.keys)(object)) { console.log(key); } for await (const entry of Object.freeze(globalThis[\"Object\"][\"entries\"])(object)) { console.log(entry[0]); console.log(entry[1]); }\n"
 }
 
 fn frozen_set_map_constructor_result_test_source() -> &'static str {
@@ -19,7 +19,7 @@ fn frozen_set_map_constructor_result_test_source() -> &'static str {
 }
 
 fn frozen_object_helper_iteration_test_source() -> &'static str {
-    "Kali.test('for await frozen object helper iteration targets', () => { const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for await (const key of Object.freeze(Object.keys(object))) { console.log(key); } for await (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0]); console.log(entry[1]); } });\n"
+    "Kali.test('for await frozen object helper iteration targets', () => { const object = Object.fromEntries([[\"b\", 1], [\"a\", 2]]); for await (const key of Object.freeze(Object.keys)(object)) { console.log(key); } for await (const entry of Object.freeze(globalThis[\"Object\"][\"entries\"])(object)) { console.log(entry[0]); console.log(entry[1]); } });\n"
 }
 
 fn assert_run_supports_frozen_set_map_constructor_results_in_input(extension: &str) {
