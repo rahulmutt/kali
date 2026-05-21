@@ -1539,7 +1539,7 @@ fn build_source_file_supports_object_has_own_call_in_browser_api_surface_in_tsx_
     assert_build_source_file_supports_object_has_own_call_in_input(ApiSurface::Browser, "tsx");
 }
 
-fn promise_all_settled_source_variants() -> [&'static str; 12] {
+fn promise_all_settled_source_variants() -> [&'static str; 20] {
     [
         "console.log(Promise.allSettled([1, 2]));\n",
         "console.log(Promise[\"allSettled\"]([1, 2]));\n",
@@ -1553,6 +1553,14 @@ fn promise_all_settled_source_variants() -> [&'static str; 12] {
         "console.log(globalThis['Promise']['allSettled']([1, 2]));\n",
         "console.log(Object.freeze(Promise[\"allSettled\"])([1, 2]));\n",
         "console.log(Object.freeze((Promise[\"allSettled\"]))([1, 2]));\n",
+        "console.log(Object.freeze(Promise.allSettled)([1, 2]));\n",
+        "console.log(Object.freeze((Promise.allSettled))([1, 2]));\n",
+        "console.log(Object.freeze(globalThis.Promise.allSettled)([1, 2]));\n",
+        "console.log(Object.freeze((globalThis.Promise.allSettled))([1, 2]));\n",
+        "console.log(Object.freeze(globalThis.Promise[\"allSettled\"])([1, 2]));\n",
+        "console.log(Object.freeze((globalThis.Promise[\"allSettled\"]))([1, 2]));\n",
+        "console.log(Object.freeze(globalThis[\"Promise\"].allSettled)([1, 2]));\n",
+        "console.log(Object.freeze((globalThis[\"Promise\"].allSettled))([1, 2]));\n",
     ]
 }
 
