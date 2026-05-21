@@ -776,6 +776,41 @@ fn test_parse_object_literal_expression_accepts_transparent_wrapper_computed_pro
 }
 
 #[test]
+fn test_parse_object_literal_expression_accepts_frozen_computed_property_names() {
+    let tokens = lex(
+        "const obj = { [Object.freeze(\"answer\")]: 1, [globalThis.Object.freeze((+2))]: 2 };\n",
+    );
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    assert_eq!(output.statements.len(), 1);
+
+    let Statement::VariableDeclaration(decl) = &output.statements[0] else {
+        panic!(
+            "Expected VariableDeclaration, got {:?}",
+            output.statements[0]
+        );
+    };
+    let Some(Expression::ObjectExpression(obj)) = decl.declarations[0].init.as_ref() else {
+        panic!(
+            "Expected ObjectExpression, got {:?}",
+            decl.declarations[0].init
+        );
+    };
+    assert_eq!(obj.properties.len(), 2);
+    assert_eq!(
+        obj.properties[0].key,
+        PropertyName::String("answer".to_string())
+    );
+    assert_eq!(obj.properties[1].key, PropertyName::Number(2.0));
+}
+
+#[test]
 fn test_parse_object_literal_expression_accepts_unary_numeric_computed_property_names() {
     let tokens = lex("const obj = { [-1]: 1, [+2]: 2, [(-0)]: 3 };\n");
     let mut parser = Parser::new(FileId::new(0), tokens);

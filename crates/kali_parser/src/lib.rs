@@ -1973,6 +1973,14 @@ impl Parser {
                 .last()
                 .cloned()
                 .and_then(|expression| self.computed_object_property_name(expression)),
+            Expression::CallExpression(call)
+                if Self::is_object_freeze_call(&call) && call.args.len() == 1 =>
+            {
+                call.args
+                    .first()
+                    .cloned()
+                    .and_then(|expression| self.computed_object_property_name(expression))
+            }
             Expression::UnaryExpression(unary)
                 if unary.operator == "+" || unary.operator == "-" =>
             {
@@ -1999,6 +2007,56 @@ impl Parser {
             Expression::Literal(LiteralValue::Number(value)) => Some(PropertyName::Number(value)),
             _ => None,
         }
+    }
+
+    fn is_object_freeze_call(call: &CallExpression) -> bool {
+        matches!(
+            Self::call_member_access_name(&call.callee).as_deref(),
+            Some("Object.freeze")
+                | Some("globalThis.Object.freeze")
+                | Some(r#"globalThis["Object"].freeze"#)
+                | Some(r#"globalThis["Object"]["freeze"]"#)
+                | Some(r#"globalThis['Object'].freeze"#)
+                | Some(r#"globalThis['Object']['freeze']"#)
+                | Some(r#"Object["freeze"]"#)
+                | Some(r#"Object['freeze']"#)
+                | Some(r#"globalThis.Object["freeze"]"#)
+                | Some(r#"globalThis.Object['freeze']"#)
+        ) && call.args.len() == 1
+    }
+
+    fn call_member_access_name(expression: &Expression) -> Option<String> {
+        match expression {
+            Expression::MemberExpression(member) => Self::member_access_name(member),
+            Expression::ParenthesizedExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => Self::call_member_access_name(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::call_member_access_name(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => Self::call_member_access_name(&expr.expression),
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(Self::call_member_access_name),
+            Expression::AwaitExpression(expr) => Self::call_member_access_name(&expr.argument),
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                kali_ast::OptionalChainInner::NonNull { object, .. } => {
+                    Self::call_member_access_name(object)
+                }
+            },
+            Expression::Identifier(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
+
+    fn member_access_name(member: &MemberExpression) -> Option<String> {
+        let object = Self::call_member_access_name(&member.object)?;
+        Some(format!("{object}.{}", member.property))
     }
 
     fn parse_primary_expression(&mut self) -> Expression {
