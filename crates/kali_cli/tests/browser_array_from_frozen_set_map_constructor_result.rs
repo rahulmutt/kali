@@ -161,6 +161,54 @@ fn assert_browser_harness_array_from_frozen_set_map(
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
 }
 
+fn assert_browser_check_array_from_frozen_set_map(filename: &str, json_output: bool) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, browser_array_from_frozen_set_map_run_source()).expect("write source");
+
+    let mut command = Command::new(kali_bin());
+    command
+        .current_dir(dir.path())
+        .arg("check")
+        .arg("--api")
+        .arg("browser");
+    if json_output {
+        command.arg("--output").arg("json");
+    }
+    let output = command.arg(&source_path).output().expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let envelope: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "check");
+        assert_eq!(envelope["success"], true);
+        assert_eq!(envelope["exitCode"], 0);
+        let payload = envelope["payload"].as_object().expect("payload object");
+        assert_eq!(payload["errorCount"], 0);
+        assert_eq!(payload["filesChecked"], 1);
+        assert_eq!(payload["warningCount"], 0);
+        assert!(envelope["errors"]
+            .as_array()
+            .expect("errors array")
+            .is_empty());
+        assert!(envelope["warnings"]
+            .as_array()
+            .expect("warnings array")
+            .is_empty());
+        assert!(envelope["stdout"].is_null());
+        assert!(envelope["stderr"].is_null());
+    } else {
+        assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+    }
+}
+
 fn assert_browser_bundle_array_from_frozen_set_map(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
@@ -247,6 +295,25 @@ fn assert_browser_bundle_array_from_frozen_set_map(filename: &str, json_output: 
         stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
+}
+
+#[test]
+fn check_supports_array_from_frozen_set_map_constructor_results_in_js_input() {
+    assert_browser_check_array_from_frozen_set_map("main.js", false);
+}
+
+#[test]
+fn check_supports_array_from_frozen_set_map_constructor_results_in_ts_jsx_and_tsx_input() {
+    for filename in ["main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_check_array_from_frozen_set_map(filename, false);
+    }
+}
+
+#[test]
+fn json_check_supports_array_from_frozen_set_map_constructor_results_in_js_ts_jsx_and_tsx_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_check_array_from_frozen_set_map(filename, true);
+    }
 }
 
 #[test]
