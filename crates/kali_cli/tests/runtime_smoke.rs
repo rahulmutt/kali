@@ -27010,10 +27010,14 @@ fn browser_runtime_object_from_entries_has_own_source() -> &'static str {
     r#"function main() {
   const frozen = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
   const awaited = frozen;
+  const frozenHasOwn = Object.freeze(Object.hasOwn);
+  const frozenHasOwnPropertyCall = Object.freeze(Object.prototype.hasOwnProperty.call);
   console.log(Object.hasOwn(frozen, "a"));
   console.log(Object.hasOwn(awaited, "a"));
   console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
   console.log(Object.prototype.hasOwnProperty.call(awaited, "a"));
+  console.log(frozenHasOwn(frozen, "a"));
+  console.log(frozenHasOwnPropertyCall(frozen, "a"));
 }
 main();
 "#
@@ -27023,14 +27027,17 @@ fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
     r#"Kali.test('browser object.fromEntries hasOwn', () => {
     const frozen = Object.freeze(Object.fromEntries([["b", 1], ["a", 2]]));
     const awaited = frozen;
+    const frozenHasOwn = Object.freeze(Object.hasOwn);
+    const frozenHasOwnPropertyCall = Object.freeze(Object.prototype.hasOwnProperty.call);
     console.log(Object.hasOwn(frozen, "a"));
     console.log(Object.hasOwn(awaited, "a"));
     console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
     console.log(Object.prototype.hasOwnProperty.call(awaited, "a"));
+    console.log(frozenHasOwn(frozen, "a"));
+    console.log(frozenHasOwnPropertyCall(frozen, "a"));
 });
 "#
 }
-
 fn browser_runtime_frozen_object_enumeration_spread_source() -> &'static str {
     r#"const frozen = Object.freeze({ "zed": 1, "alpha": 2 });
 for (const value of [...globalThis["Object"]["values"](frozen)]) { console.log(value); }
@@ -27414,7 +27421,10 @@ fn assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
     );
     assert_eq!(output.status.code(), Some(0));
     if assert_stdout {
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n1\n1\n1\n");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            "1\n1\n1\n1\n1\n1\n"
+        );
     }
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
 }
