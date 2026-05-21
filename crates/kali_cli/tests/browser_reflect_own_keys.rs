@@ -57,6 +57,14 @@ let frozenAsyncSequenceCount = 0;
 for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {{
   frozenAsyncSequenceCount += 1;
 }}
+let breakContinueCount = 0;
+for (const key of globalThis.Reflect.ownKeys(obj)) {{
+  if (key === '1') {{
+    continue;
+  }}
+  breakContinueCount += 1;
+  break;
+}}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -138,7 +146,8 @@ if (
   asyncCount !== 4 ||
   frozenAsyncCount !== 4 ||
   asyncSequenceCount !== 4 ||
-  frozenAsyncSequenceCount !== 4
+  frozenAsyncSequenceCount !== 4 ||
+  breakContinueCount !== 1
 ) {{
   throw new Error('unexpected Reflect.ownKeys ordering');
 }}
@@ -199,6 +208,14 @@ const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKey
   for await (const key of (0, globalThis.Reflect.ownKeys(frozenObj))) {
     frozenAsyncSequenceCount += 1;
   }
+  let breakContinueCount = 0;
+  for (const key of globalThis.Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
   if (
     keys.length !== 4 ||
     keys[0] !== '1' ||
@@ -252,7 +269,8 @@ const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKey
     asyncCount !== 4 ||
     frozenAsyncCount !== 4 ||
     asyncSequenceCount !== 4 ||
-    frozenAsyncSequenceCount !== 4
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
@@ -313,6 +331,14 @@ const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKey
   for await (const key of (0, Reflect.ownKeys(frozenObj))) {
     frozenAsyncSequenceCount += 1;
   }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
+  }
   if (
     keys.length !== 4 ||
     keys[0] !== '1' ||
@@ -366,7 +392,8 @@ const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKey
     asyncCount !== 4 ||
     frozenAsyncCount !== 4 ||
     asyncSequenceCount !== 4 ||
-    frozenAsyncSequenceCount !== 4
+    frozenAsyncSequenceCount !== 4 ||
+    breakContinueCount !== 1
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }

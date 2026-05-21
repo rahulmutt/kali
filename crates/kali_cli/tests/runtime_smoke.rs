@@ -4029,6 +4029,17 @@ for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
 for await (const item of frozenBracketedKeys) { console.log(item); }
+let breakContinueCount = 0;
+for (const item of Reflect.ownKeys(obj)) {
+  if (item === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (breakContinueCount !== 1) {
+  throw new Error('unexpected Reflect.ownKeys break/continue semantics');
+}
 console.log(keys.length);
 "#
 }
@@ -4133,6 +4144,17 @@ for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
 for await (const item of frozenBracketedKeys) { console.log(item); }
+let breakContinueCount = 0;
+for (const item of Reflect.ownKeys(obj)) {
+  if (item === '1') {
+    continue;
+  }
+  breakContinueCount += 1;
+  break;
+}
+if (breakContinueCount !== 1) {
+  throw new Error('unexpected Reflect.ownKeys break/continue semantics');
+}
 Kali.test('browser runtime reflect ownKeys', () => {});
 "#
 }

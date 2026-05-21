@@ -32,6 +32,14 @@ let mixedSequenceCount = 0;
 for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {{
   mixedSequenceCount += 1;
 }}
+let breakContinueCount = 0;
+for (const key of Reflect.ownKeys(obj)) {{
+  if (key === '1') {{
+    continue;
+  }}
+  breakContinueCount += 1;
+  break;
+}}
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -65,7 +73,8 @@ if (
   singleQuotedKeys[3] !== 'a' ||
   syncCount !== 4 ||
   sequenceCount !== 4 ||
-  mixedSequenceCount !== 4
+  mixedSequenceCount !== 4 ||
+  breakContinueCount !== 1
 ) {{
   throw new Error('unexpected Reflect.ownKeys ordering');
 }}
@@ -101,6 +110,14 @@ const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
   let mixedSequenceCount = 0;
   for (const key of (0, globalThis["Reflect"]["ownKeys"](obj))) {
     mixedSequenceCount += 1;
+  }
+  let breakContinueCount = 0;
+  for (const key of Reflect.ownKeys(obj)) {
+    if (key === '1') {
+      continue;
+    }
+    breakContinueCount += 1;
+    break;
   }
   if (
     keys.length !== 4 ||
@@ -150,7 +167,8 @@ const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
     parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
     syncCount !== 4 ||
     sequenceCount !== 4 ||
-    mixedSequenceCount !== 4
+    mixedSequenceCount !== 4 ||
+    breakContinueCount !== 1
   ) {
     throw new Error('unexpected Reflect.ownKeys ordering');
   }
