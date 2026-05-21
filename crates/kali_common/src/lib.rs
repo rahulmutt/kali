@@ -1230,6 +1230,8 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
   if (
@@ -1273,6 +1275,16 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     parenthesizedFrozenBracketedSettled[0].value !== 1 ||
     parenthesizedFrozenBracketedSettled[1].status !== 'rejected' ||
     parenthesizedFrozenBracketedSettled[1].reason !== 'boom' ||
+    mixedRootFrozenSettled.length !== 2 ||
+    mixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    mixedRootFrozenSettled[0].value !== 1 ||
+    mixedRootFrozenSettled[1].status !== 'rejected' ||
+    mixedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedMixedRootFrozenSettled.length !== 2 ||
+    parenthesizedMixedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedMixedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||
     rootFrozenSettled.length !== 2 ||
     rootFrozenSettled[0].status !== 'fulfilled' ||
     rootFrozenSettled[0].value !== 1 ||
