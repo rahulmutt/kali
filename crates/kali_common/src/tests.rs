@@ -1376,11 +1376,11 @@ fn test_late_compat_object_has_own_source_lists_representative_aliases_in_order(
 fn test_number_predicates_source_helpers_are_canonical() {
     assert_eq!(
         number_predicates_preamble_source("1"),
-        "const alias = 1; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger);"
+        "const alias = 1; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger); const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]); const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]); const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]);"
     );
     assert_eq!(
         number_predicates_preamble_source("1 as const"),
-        "const alias = 1 as const; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger);"
+        "const alias = 1 as const; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger); const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]); const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]); const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]);"
     );
     assert_eq!(
         number_predicates_console_log_body_source(),
@@ -1408,6 +1408,9 @@ fn test_number_predicates_source_helpers_are_canonical() {
             "console.log(frozenFinite(alias)); ",
             "console.log(frozenInteger(alias)); ",
             "console.log(frozenSafeInteger(alias)); ",
+            "console.log(frozenBracketedFinite(alias)); ",
+            "console.log(frozenBracketedInteger(alias)); ",
+            "console.log(frozenBracketedSafeInteger(alias)); ",
             "console.log(finite(alias)); ",
             "console.log(integer(alias)); ",
             "console.log(safeInteger(alias));"
@@ -1440,6 +1443,8 @@ fn test_number_predicates_source_helpers_are_canonical() {
     assert!(number_predicates_browser_bundle_source("1")
         .contains("Number.isSafeInteger(await alias) !== true"));
     assert!(number_predicates_browser_bundle_source("1").contains("Object.freeze(Number.isFinite)"));
+    assert!(number_predicates_browser_bundle_source("1")
+        .contains("Object.freeze(Number[\"isFinite\"])"));
     assert!(number_predicates_browser_bundle_source("1").ends_with("}\n"));
 }
 

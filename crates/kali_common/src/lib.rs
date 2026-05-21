@@ -851,7 +851,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
 /// Canonical source text for the supported Number predicate slice.
 pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
     format!(
-        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger);"
+        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger); const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]); const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]); const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]);"
     )
 }
 
@@ -881,6 +881,9 @@ pub fn number_predicates_console_log_body_source() -> String {
         r#"console.log(frozenFinite(alias))"#,
         r#"console.log(frozenInteger(alias))"#,
         r#"console.log(frozenSafeInteger(alias))"#,
+        r#"console.log(frozenBracketedFinite(alias))"#,
+        r#"console.log(frozenBracketedInteger(alias))"#,
+        r#"console.log(frozenBracketedSafeInteger(alias))"#,
         r#"console.log(finite(alias))"#,
         r#"console.log(integer(alias))"#,
         r#"console.log(safeInteger(alias))"#,
@@ -909,6 +912,9 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "  const frozenFinite = Object.freeze(Number.isFinite);\n",
             "  const frozenInteger = Object.freeze(Number.isInteger);\n",
             "  const frozenSafeInteger = Object.freeze(Number.isSafeInteger);\n",
+            "  const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]);\n",
+            "  const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]);\n",
+            "  const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]);\n",
             "  if (\n",
             "    Number.isFinite(alias) !== true ||\n",
             "    Number.isSafeInteger(await alias) !== true ||\n",
@@ -934,6 +940,9 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "    frozenFinite(alias) !== true ||\n",
             "    frozenInteger(alias) !== true ||\n",
             "    frozenSafeInteger(alias) !== true ||\n",
+            "    frozenBracketedFinite(alias) !== true ||\n",
+            "    frozenBracketedInteger(alias) !== true ||\n",
+            "    frozenBracketedSafeInteger(alias) !== true ||\n",
             "    safeInteger(alias) !== true ||\n",
             "    finite(alias) !== true\n",
             "  ) {{\n",
