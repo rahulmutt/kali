@@ -1456,6 +1456,8 @@ fn test_math_abs_sign_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis["Math"]["abs"]))"#,
         r#"Object.freeze(globalThis["Math"].abs)"#,
         r#"Object.freeze((globalThis["Math"].abs))"#,
+        r#"Object.freeze(Math.abs)"#,
+        r#"Object.freeze((Math.abs))"#,
         r#"Object.freeze(Math["abs"])"#,
         r#"Object.freeze((Math["abs"]))"#,
         r#"Object.freeze(globalThis.Math["sign"])"#,
@@ -1466,6 +1468,8 @@ fn test_math_abs_sign_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis["Math"]["sign"]))"#,
         r#"Object.freeze(globalThis["Math"].sign)"#,
         r#"Object.freeze((globalThis["Math"].sign))"#,
+        r#"Object.freeze(Math.sign)"#,
+        r#"Object.freeze((Math.sign))"#,
         r#"Object.freeze(Math["sign"])"#,
         r#"Object.freeze((Math["sign"]))"#,
     ] {
