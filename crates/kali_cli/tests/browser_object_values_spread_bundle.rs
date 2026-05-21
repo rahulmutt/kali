@@ -23,6 +23,7 @@ function browserObjectValuesSpreadIteration() {
   const globalCollected = [...globalThis.Object.values(fromEntries)];
   const bracketedCollected = [...Object.values(bracketedFromEntries)];
   const frozenCollected = [...Object.values(frozenFromEntries)];
+  const frozenFromEntriesCollected = [...Object.freeze(Object.values(fromEntries))];
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
@@ -34,6 +35,7 @@ function browserObjectValuesSpreadIteration() {
   assertObjectValuesSpreadIteration(globalCollected);
   assertObjectValuesSpreadIteration(bracketedCollected);
   assertObjectValuesSpreadIteration(frozenCollected);
+  assertObjectValuesSpreadIteration(frozenFromEntriesCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);

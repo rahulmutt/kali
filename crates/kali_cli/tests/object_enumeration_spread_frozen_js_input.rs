@@ -8,9 +8,11 @@ fn kali_bin() -> String {
 }
 
 fn frozen_object_enumeration_spread_source() -> &'static str {
-    r#"const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+    r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const frozenFromEntries = Object.freeze(fromEntries);
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenValues = [...Object.values(frozenFromEntries)];
+const frozenFromEntriesValues = [...Object.freeze(Object.values(fromEntries))];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
 if (
   frozenKeys.length !== 2 ||
@@ -19,6 +21,9 @@ if (
   frozenValues.length !== 2 ||
   frozenValues[0] !== 3 ||
   frozenValues[1] !== 2 ||
+  frozenFromEntriesValues.length !== 2 ||
+  frozenFromEntriesValues[0] !== 3 ||
+  frozenFromEntriesValues[1] !== 2 ||
   frozenEntries.length !== 2 ||
   frozenEntries[0][0] !== 'b' ||
   frozenEntries[0][1] !== 3 ||
@@ -43,9 +48,11 @@ console.log('frozen object enumeration spread ok');
 
 fn frozen_object_enumeration_spread_test_source() -> &'static str {
     r#"Kali.test('frozen object enumeration spread', () => {
-  const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
+  const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+  const frozenFromEntries = Object.freeze(fromEntries);
   const frozenKeys = [...Object.keys(frozenFromEntries)];
   const frozenValues = [...Object.values(frozenFromEntries)];
+  const frozenFromEntriesValues = [...Object.freeze(Object.values(fromEntries))];
   const frozenEntries = [...Object.entries(frozenFromEntries)];
   if (
     frozenKeys.length !== 2 ||
@@ -54,6 +61,9 @@ fn frozen_object_enumeration_spread_test_source() -> &'static str {
     frozenValues.length !== 2 ||
     frozenValues[0] !== 3 ||
     frozenValues[1] !== 2 ||
+    frozenFromEntriesValues.length !== 2 ||
+    frozenFromEntriesValues[0] !== 3 ||
+    frozenFromEntriesValues[1] !== 2 ||
     frozenEntries.length !== 2 ||
     frozenEntries[0][0] !== 'b' ||
     frozenEntries[0][1] !== 3 ||
