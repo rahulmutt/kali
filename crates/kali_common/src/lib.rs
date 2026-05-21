@@ -1492,6 +1492,72 @@ pub fn math_pow_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(&aliases)
 }
 
+/// Canonical frozen callable aliases for the supported `Math.cbrt` helper slice.
+pub const fn math_cbrt_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["cbrt"])"#,
+        r#"Object.freeze((globalThis.Math["cbrt"]))"#,
+        r#"Object.freeze(globalThis.Math['cbrt'])"#,
+        r#"Object.freeze((globalThis.Math['cbrt']))"#,
+        r#"Object.freeze(globalThis.Math.cbrt)"#,
+        r#"Object.freeze((globalThis.Math.cbrt))"#,
+        r#"Object.freeze(globalThis["Math"]["cbrt"])"#,
+        r#"Object.freeze((globalThis["Math"]["cbrt"]))"#,
+        r#"Object.freeze(globalThis["Math"]['cbrt'])"#,
+        r#"Object.freeze((globalThis["Math"]['cbrt']))"#,
+        r#"Object.freeze(globalThis["Math"].cbrt)"#,
+        r#"Object.freeze((globalThis["Math"].cbrt))"#,
+        r#"Object.freeze(globalThis['Math']['cbrt'])"#,
+        r#"Object.freeze((globalThis['Math']['cbrt']))"#,
+        r#"Object.freeze(globalThis['Math'].cbrt)"#,
+        r#"Object.freeze((globalThis['Math'].cbrt))"#,
+        r#"Object.freeze(Math.cbrt)"#,
+        r#"Object.freeze((Math.cbrt))"#,
+        r#"Object.freeze(Math["cbrt"])"#,
+        r#"Object.freeze((Math["cbrt"]))"#,
+        r#"Object.freeze(Math['cbrt'])"#,
+        r#"Object.freeze((Math['cbrt']))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.cbrt` frozen callable aliases.
+pub fn math_cbrt_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_cbrt_frozen_callable_aliases())
+}
+
+/// Canonical frozen callable aliases for the supported `Math.hypot` helper slice.
+pub const fn math_hypot_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["hypot"])"#,
+        r#"Object.freeze((globalThis.Math["hypot"]))"#,
+        r#"Object.freeze(globalThis.Math['hypot'])"#,
+        r#"Object.freeze((globalThis.Math['hypot']))"#,
+        r#"Object.freeze(globalThis.Math.hypot)"#,
+        r#"Object.freeze((globalThis.Math.hypot))"#,
+        r#"Object.freeze(globalThis["Math"]["hypot"])"#,
+        r#"Object.freeze((globalThis["Math"]["hypot"]))"#,
+        r#"Object.freeze(globalThis["Math"]['hypot'])"#,
+        r#"Object.freeze((globalThis["Math"]['hypot']))"#,
+        r#"Object.freeze(globalThis["Math"].hypot)"#,
+        r#"Object.freeze((globalThis["Math"].hypot))"#,
+        r#"Object.freeze(globalThis['Math']['hypot'])"#,
+        r#"Object.freeze((globalThis['Math']['hypot']))"#,
+        r#"Object.freeze(globalThis['Math'].hypot)"#,
+        r#"Object.freeze((globalThis['Math'].hypot))"#,
+        r#"Object.freeze(Math.hypot)"#,
+        r#"Object.freeze((Math.hypot))"#,
+        r#"Object.freeze(Math["hypot"])"#,
+        r#"Object.freeze((Math["hypot"]))"#,
+        r#"Object.freeze(Math['hypot'])"#,
+        r#"Object.freeze((Math['hypot']))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.hypot` frozen callable aliases.
+pub fn math_hypot_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_hypot_frozen_callable_aliases())
+}
+
 /// Canonical aliases for the supported `Array.from` helper slice.
 pub const fn array_from_aliases() -> &'static [&'static str] {
     &[

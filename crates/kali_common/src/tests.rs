@@ -1819,6 +1819,96 @@ fn test_math_pow_browser_alias_inventory_source_reuses_the_canonical_math_pow_al
 }
 
 #[test]
+fn test_math_cbrt_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_cbrt_frozen_callable_aliases();
+    let source = math_cbrt_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze(globalThis.Math["cbrt"])"#,
+            r#"Object.freeze((globalThis.Math["cbrt"]))"#,
+            r#"Object.freeze(globalThis.Math['cbrt'])"#,
+            r#"Object.freeze((globalThis.Math['cbrt']))"#,
+            r#"Object.freeze(globalThis.Math.cbrt)"#,
+            r#"Object.freeze((globalThis.Math.cbrt))"#,
+            r#"Object.freeze(globalThis["Math"]["cbrt"])"#,
+            r#"Object.freeze((globalThis["Math"]["cbrt"]))"#,
+            r#"Object.freeze(globalThis["Math"]['cbrt'])"#,
+            r#"Object.freeze((globalThis["Math"]['cbrt']))"#,
+            r#"Object.freeze(globalThis["Math"].cbrt)"#,
+            r#"Object.freeze((globalThis["Math"].cbrt))"#,
+            r#"Object.freeze(globalThis['Math']['cbrt'])"#,
+            r#"Object.freeze((globalThis['Math']['cbrt']))"#,
+            r#"Object.freeze(globalThis['Math'].cbrt)"#,
+            r#"Object.freeze((globalThis['Math'].cbrt))"#,
+            r#"Object.freeze(Math.cbrt)"#,
+            r#"Object.freeze((Math.cbrt))"#,
+            r#"Object.freeze(Math["cbrt"])"#,
+            r#"Object.freeze((Math["cbrt"]))"#,
+            r#"Object.freeze(Math['cbrt'])"#,
+            r#"Object.freeze((Math['cbrt']))"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.cbrt frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
+}
+
+#[test]
+fn test_math_hypot_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_hypot_frozen_callable_aliases();
+    let source = math_hypot_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze(globalThis.Math["hypot"])"#,
+            r#"Object.freeze((globalThis.Math["hypot"]))"#,
+            r#"Object.freeze(globalThis.Math['hypot'])"#,
+            r#"Object.freeze((globalThis.Math['hypot']))"#,
+            r#"Object.freeze(globalThis.Math.hypot)"#,
+            r#"Object.freeze((globalThis.Math.hypot))"#,
+            r#"Object.freeze(globalThis["Math"]["hypot"])"#,
+            r#"Object.freeze((globalThis["Math"]["hypot"]))"#,
+            r#"Object.freeze(globalThis["Math"]['hypot'])"#,
+            r#"Object.freeze((globalThis["Math"]['hypot']))"#,
+            r#"Object.freeze(globalThis["Math"].hypot)"#,
+            r#"Object.freeze((globalThis["Math"].hypot))"#,
+            r#"Object.freeze(globalThis['Math']['hypot'])"#,
+            r#"Object.freeze((globalThis['Math']['hypot']))"#,
+            r#"Object.freeze(globalThis['Math'].hypot)"#,
+            r#"Object.freeze((globalThis['Math'].hypot))"#,
+            r#"Object.freeze(Math.hypot)"#,
+            r#"Object.freeze((Math.hypot))"#,
+            r#"Object.freeze(Math["hypot"])"#,
+            r#"Object.freeze((Math["hypot"]))"#,
+            r#"Object.freeze(Math['hypot'])"#,
+            r#"Object.freeze((Math['hypot']))"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.hypot frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
+}
+
+#[test]
 fn test_math_pow_browser_alias_inventory_invocation_lines_are_canonical() {
     let source = math_pow_browser_alias_inventory_invocation_lines("");
     let expected = math_pow_invocation_lines_for_aliases(

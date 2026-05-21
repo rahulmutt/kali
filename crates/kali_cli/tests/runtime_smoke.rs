@@ -25,8 +25,9 @@ use wasmparser::{Operator, Parser, Payload};
 
 use kali_common::{
     late_object_model_own_property_source as kali_common_late_object_model_own_property_source,
-    math_abs_sign_frozen_callable_invocation_lines, math_floor_trunc_ceil_frozen_callable_aliases,
-    math_pow_browser_alias_inventory_aliases, math_pow_browser_alias_inventory_invocation_source,
+    math_abs_sign_frozen_callable_invocation_lines, math_cbrt_frozen_callable_aliases,
+    math_floor_trunc_ceil_frozen_callable_aliases, math_pow_browser_alias_inventory_aliases,
+    math_pow_browser_alias_inventory_invocation_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use kali_runtime::split_command_spec;
@@ -31588,6 +31589,93 @@ fn json_run_supports_math_abs_sign_frozen_callable_aliases_in_js_input() {
     let stdout = json["stdout"].as_str().expect("stdout");
     assert!(stdout.contains("3\n"), "json: {json}");
     assert!(stdout.contains("-1\n"), "json: {json}");
+}
+
+#[test]
+fn run_and_test_supports_math_cbrt_frozen_callable_aliases_in_js_ts_jsx_and_tsx_input() {
+    let expected_line_count = math_cbrt_frozen_callable_aliases().len();
+    for (command, source_name, _extension) in [
+        ("run", "main.js", "js"),
+        ("run", "main.ts", "ts"),
+        ("run", "main.jsx", "jsx"),
+        ("run", "main.tsx", "tsx"),
+        ("test", "smoke.test.js", "js"),
+        ("test", "smoke.test.ts", "ts"),
+        ("test", "smoke.test.jsx", "jsx"),
+        ("test", "smoke.test.tsx", "tsx"),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            let body = math_cbrt_frozen_callable_aliases()
+                .iter()
+                .map(|alias| format!("console.log({alias}(alias));"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let source = if command == "test" {
+                format!("Kali.test('cbrt frozen callable aliases', () => {{\nconst value = 27; const alias = value;\n{body}\n}});\n")
+            } else {
+                format!("const value = 27; const alias = value;\n{body}\n")
+            };
+            fs::write(&source_path, source).expect("write source");
+
+            let mut output = Command::new(kali_bin());
+            output
+                .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+                .current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            let output = output
+                .arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg("--max-threads")
+                .arg("0")
+                .arg("--max-spawned-processes")
+                .arg("0")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                assert_eq!(json["payload"]["hostContract"], "browser-requested");
+                assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+                if command == "run" {
+                    assert_eq!(json["exitCode"], 0);
+                    assert_eq!(json["payload"]["exitCode"], 0);
+                } else {
+                    assert_eq!(json["payload"]["total"], 1);
+                    assert_eq!(json["payload"]["passed"], 1);
+                    assert_eq!(json["payload"]["failed"], 0);
+                }
+                let stdout = json["stdout"].as_str().expect("stdout");
+                assert_eq!(
+                    stdout.lines().filter(|line| *line == "3").count(),
+                    expected_line_count,
+                    "json: {json}"
+                );
+                assert_eq!(json["stderr"], "");
+            } else {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                assert_eq!(
+                    stdout.lines().filter(|line| *line == "3").count(),
+                    expected_line_count,
+                    "stdout: {stdout}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
