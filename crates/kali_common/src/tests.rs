@@ -1726,8 +1726,10 @@ fn test_math_pow_source_lists_all_aliases_in_order() {
         r#"globalThis.Math["pow"]"#,
         r#"globalThis['Math'].pow"#,
         r#"globalThis['Math']['pow']"#,
+        r#"globalThis['Math']["pow"]"#,
         r#"globalThis["Math"].pow"#,
         r#"globalThis["Math"]["pow"]"#,
+        r#"globalThis["Math"]['pow']"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
@@ -1786,12 +1788,16 @@ fn test_math_pow_browser_alias_inventory_aliases_list_all_aliases_in_order() {
             r#"globalThis.Math["pow"]"#,
             r#"globalThis['Math'].pow"#,
             r#"globalThis['Math']['pow']"#,
+            r#"globalThis['Math']["pow"]"#,
             r#"globalThis["Math"].pow"#,
             r#"globalThis["Math"]["pow"]"#,
+            r#"globalThis["Math"]['pow']"#,
             r#"Object.freeze(globalThis.Math['pow'])"#,
             r#"Object.freeze(globalThis.Math["pow"])"#,
             r#"Object.freeze(globalThis['Math']['pow'])"#,
+            r#"Object.freeze(globalThis['Math']["pow"])"#,
             r#"Object.freeze(globalThis["Math"]["pow"])"#,
+            r#"Object.freeze(globalThis["Math"]['pow'])"#,
             r#"Object.freeze(globalThis.Math.pow)"#,
             r#"Object.freeze(globalThis['Math'].pow)"#,
             r#"Object.freeze(globalThis["Math"].pow)"#,
@@ -1801,7 +1807,9 @@ fn test_math_pow_browser_alias_inventory_aliases_list_all_aliases_in_order() {
             r#"Object.freeze((globalThis.Math['pow']))"#,
             r#"Object.freeze((globalThis.Math["pow"]))"#,
             r#"Object.freeze((globalThis['Math']['pow']))"#,
+            r#"Object.freeze((globalThis['Math']["pow"]))"#,
             r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+            r#"Object.freeze((globalThis["Math"]['pow']))"#,
             r#"Object.freeze((globalThis.Math.pow))"#,
             r#"Object.freeze((globalThis['Math'].pow))"#,
             r#"Object.freeze((globalThis["Math"].pow))"#,
@@ -2208,8 +2216,10 @@ fn test_math_pow_invocation_lines_are_canonical() {
         "  console.log(globalThis.Math[\"pow\"](2, alias));\n",
         "  console.log(globalThis['Math'].pow(2, alias));\n",
         "  console.log(globalThis['Math']['pow'](2, alias));\n",
+        "  console.log(globalThis['Math'][\"pow\"](2, alias));\n",
         "  console.log(globalThis[\"Math\"].pow(2, alias));\n",
-        "  console.log(globalThis[\"Math\"][\"pow\"](2, alias));"
+        "  console.log(globalThis[\"Math\"][\"pow\"](2, alias));\n",
+        "  console.log(globalThis[\"Math\"]['pow'](2, alias));"
     );
     let expected_entries = concat!(
         "    Math.pow(2, alias),\n",
@@ -2220,8 +2230,10 @@ fn test_math_pow_invocation_lines_are_canonical() {
         "    globalThis.Math[\"pow\"](2, alias),\n",
         "    globalThis['Math'].pow(2, alias),\n",
         "    globalThis['Math']['pow'](2, alias),\n",
+        "    globalThis['Math'][\"pow\"](2, alias),\n",
         "    globalThis[\"Math\"].pow(2, alias),\n",
-        "    globalThis[\"Math\"][\"pow\"](2, alias),"
+        "    globalThis[\"Math\"][\"pow\"](2, alias),\n",
+        "    globalThis[\"Math\"]['pow'](2, alias),"
     );
 
     assert_eq!(source, expected);
