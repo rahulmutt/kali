@@ -2968,6 +2968,18 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_non_object_payloads() {
+    for value in [serde_json::Value::Null, json!("oops"), json!(1)] {
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("non-object package-effects payloads should fail");
+        assert!(
+            err.contains("must be a JSON object"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_non_single_root_reports() {
     for entry_points in [json!([]), json!(["semver", "semver-helpers"])] {
         let value = json!({
