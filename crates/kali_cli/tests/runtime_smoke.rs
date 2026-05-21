@@ -52319,6 +52319,10 @@ fn optimization_benchmark_suite_tracks_compile_time_size_and_speed() {
             "const-object-property-access",
         ),
         ("math-variant-benchmark-v1", "folded-arithmetic-variant"),
+        (
+            "math-variant-benchmark-v1-js",
+            "folded-arithmetic-variant-js",
+        ),
         ("string-concatenation-benchmark-v1", "string-concatenation"),
         (
             "array-literal-arguments-benchmark-v1",
