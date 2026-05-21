@@ -985,6 +985,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         1
     );
     assert_eq!(
+        package_effects["properties"]["package"]["properties"]["version"]["pattern"],
+        "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    );
+    assert_eq!(
         package_effects["properties"]["package"]["properties"]["registry"]["minLength"],
         1
     );

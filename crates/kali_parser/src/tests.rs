@@ -2083,7 +2083,7 @@ fn test_parse_default_export_class_expression_preserves_method_modifiers() {
     match &output.statements[0] {
         Statement::ExportDefault(decl) => match decl {
             kali_ast::ExportDefaultDeclaration::Expression(expr) => {
-                let mut expr = expr.as_ref();
+                let mut expr = expr;
                 loop {
                     match expr {
                         Expression::ParenthesizedExpression(parenthesized) => {

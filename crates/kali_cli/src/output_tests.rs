@@ -3057,6 +3057,37 @@ fn validate_package_effects_payload_value_rejects_unsupported_registry_names() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_non_stable_semver_versions() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3-beta.1",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["semver"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("prerelease package version should fail validation");
+    assert!(
+        err.contains("stable SemVer release string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_non_object_payloads() {
     for value in [serde_json::Value::Null, json!("oops"), json!(1)] {
         let err = validate_package_effects_payload_value(&value)

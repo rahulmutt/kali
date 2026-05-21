@@ -1224,6 +1224,7 @@ dependencies = [
  "kali_runtime",
  "kali_sandbox",
  "kali_types",
+ "semver",
  "serde",
  "serde_json",
  "sha2",

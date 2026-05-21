@@ -49,7 +49,6 @@ fn browser_late_object_model_source_is_composed_from_shared_helpers() {
     let source = late_object_model_source();
     let intl_source = kali_common::broader_intl_source();
     let object_model_source = kali_common::late_object_model_source();
-    let object_model_source: &str = object_model_source.as_ref();
     let has_own_source = kali_common::late_compat_object_has_own_source("{}", r#""a""#);
     let has_own_source: &str = has_own_source.as_ref();
 

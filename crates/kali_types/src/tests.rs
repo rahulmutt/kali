@@ -8496,7 +8496,7 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
 
 #[test]
 fn test_resolution_rejects_generator_class_expression_lowering() {
-    let cases = vec![
+    let cases = [
         (
             Statement::VariableDeclaration(VariableDeclaration {
                 declarations: vec![VariableDeclarator {
@@ -8633,7 +8633,8 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
 
         for (statement, expected_message) in cases.iter() {
             let mut ctx = TypeContext::with_base_path(&source_path);
-            let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement.clone()]);
+            let result =
+                ctx.resolve_statements_at_path(Some(&source_path), std::slice::from_ref(statement));
             assert_eq!(
                 result.diagnostics.len(),
                 1,
@@ -8706,7 +8707,8 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
         let source_path = dir.path().join(format!("main.{extension}"));
 
         let mut ctx = TypeContext::with_base_path(&source_path);
-        let result = ctx.resolve_statements_at_path(Some(&source_path), &[statement.clone()]);
+        let result =
+            ctx.resolve_statements_at_path(Some(&source_path), std::slice::from_ref(&statement));
         assert_eq!(
             result.diagnostics.len(),
             1,

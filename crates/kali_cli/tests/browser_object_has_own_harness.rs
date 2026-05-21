@@ -193,7 +193,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_js_input() 
     assert_browser_harness_object_has_own(
         "run",
         "main.js",
-        &browser_harness_object_has_own_run_source(),
+        browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -203,7 +203,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input()
     assert_browser_harness_object_has_own(
         "run",
         "main.jsx",
-        &browser_harness_object_has_own_run_source(),
+        browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -213,7 +213,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_ts_input() 
     assert_browser_harness_object_has_own(
         "run",
         "main.ts",
-        &browser_harness_object_has_own_run_source(),
+        browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -223,7 +223,7 @@ fn run_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input()
     assert_browser_harness_object_has_own(
         "run",
         "main.tsx",
-        &browser_harness_object_has_own_run_source(),
+        browser_harness_object_has_own_run_source(),
         false,
     );
 }
@@ -233,7 +233,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_js_input()
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.js",
-        &browser_harness_object_has_own_test_source(),
+        browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -243,7 +243,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_jsx_input(
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.jsx",
-        &browser_harness_object_has_own_test_source(),
+        browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -253,7 +253,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_ts_input()
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.ts",
-        &browser_harness_object_has_own_test_source(),
+        browser_harness_object_has_own_test_source(),
         false,
     );
 }
@@ -263,7 +263,7 @@ fn test_supports_object_has_own_when_browser_harness_is_configured_in_tsx_input(
     assert_browser_harness_object_has_own(
         "test",
         "smoke.test.tsx",
-        &browser_harness_object_has_own_test_source(),
+        browser_harness_object_has_own_test_source(),
         false,
     );
 }

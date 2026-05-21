@@ -11,9 +11,8 @@ fn browser_bundle_global_this_math_abs_sign_frozen_source() -> &'static str {
     static SOURCE: OnceLock<String> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
-            format!(
-                r##"// kali-tree-shake: globalThisMathAbsSignFrozenAliases
-function globalThisMathAbsSignFrozenAliases() {{
+            r##"// kali-tree-shake: globalThisMathAbsSignFrozenAliases
+function globalThisMathAbsSignFrozenAliases() {
   const value = -3;
   const alias = value;
   console.log(globalThis.Math.abs(value));
@@ -30,9 +29,9 @@ function globalThisMathAbsSignFrozenAliases() {{
     Object.freeze(Math.abs)(alias),
     Object.freeze(Math.sign)(alias),
   ];
-}}
+}
 "##
-            )
+            .to_string()
         })
         .as_str()
 }

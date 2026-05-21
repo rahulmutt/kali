@@ -4996,9 +4996,7 @@ impl<'a> FunctionEmitter<'a> {
         let callee = node.children.first().copied()?;
         let mut callee_node = self.node(callee);
         if self.is_object_freeze_call(callee_node) {
-            let Some(inner_callee) = callee_node.children.get(1).copied() else {
-                return None;
-            };
+            let inner_callee = callee_node.children.get(1).copied()?;
             callee_node = self.node(inner_callee);
         }
         let mode = match callee_node.text.as_deref() {

@@ -170,7 +170,7 @@ fn build_emits_browser_object_has_own_in_js_input() {
     assert_browser_bundle_object_has_own(
         "app.js",
         false,
-        &browser_bundle_object_has_own_js_source(),
+        browser_bundle_object_has_own_js_source(),
     );
 }
 
@@ -179,7 +179,7 @@ fn build_emits_browser_object_has_own_in_jsx_input() {
     assert_browser_bundle_object_has_own(
         "app.jsx",
         false,
-        &browser_bundle_object_has_own_js_source(),
+        browser_bundle_object_has_own_js_source(),
     );
 }
 
@@ -188,7 +188,7 @@ fn build_emits_browser_object_has_own_in_ts_input() {
     assert_browser_bundle_object_has_own(
         "app.ts",
         false,
-        &browser_bundle_object_has_own_ts_source(),
+        browser_bundle_object_has_own_ts_source(),
     );
 }
 
@@ -197,17 +197,13 @@ fn build_emits_browser_object_has_own_in_tsx_input() {
     assert_browser_bundle_object_has_own(
         "app.tsx",
         false,
-        &browser_bundle_object_has_own_ts_source(),
+        browser_bundle_object_has_own_ts_source(),
     );
 }
 
 #[test]
 fn json_build_emits_browser_object_has_own_in_js_input() {
-    assert_browser_bundle_object_has_own(
-        "app.js",
-        true,
-        &browser_bundle_object_has_own_js_source(),
-    );
+    assert_browser_bundle_object_has_own("app.js", true, browser_bundle_object_has_own_js_source());
 }
 
 #[test]
@@ -215,17 +211,13 @@ fn json_build_emits_browser_object_has_own_in_jsx_input() {
     assert_browser_bundle_object_has_own(
         "app.jsx",
         true,
-        &browser_bundle_object_has_own_js_source(),
+        browser_bundle_object_has_own_js_source(),
     );
 }
 
 #[test]
 fn json_build_emits_browser_object_has_own_in_ts_input() {
-    assert_browser_bundle_object_has_own(
-        "app.ts",
-        true,
-        &browser_bundle_object_has_own_ts_source(),
-    );
+    assert_browser_bundle_object_has_own("app.ts", true, browser_bundle_object_has_own_ts_source());
 }
 
 #[test]
@@ -233,6 +225,6 @@ fn json_build_emits_browser_object_has_own_in_tsx_input() {
     assert_browser_bundle_object_has_own(
         "app.tsx",
         true,
-        &browser_bundle_object_has_own_ts_source(),
+        browser_bundle_object_has_own_ts_source(),
     );
 }

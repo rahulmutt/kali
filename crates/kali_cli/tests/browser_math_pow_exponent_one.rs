@@ -125,8 +125,7 @@ await mod.mathPowExponentOneIdentity();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let expected_stdout = format!(
         "{}\n",
-        std::iter::repeat("2")
-            .take(4 + math_pow_frozen_callable_aliases().len())
+        std::iter::repeat_n("2", 4 + math_pow_frozen_callable_aliases().len())
             .collect::<Vec<_>>()
             .join("\n")
     );
@@ -328,10 +327,10 @@ fn assert_browser_harness_math_pow_exponent_one_identity(
     } else {
         "2"
     };
-    let mut expected_stdout = std::iter::repeat(expected_value)
-        .take(source.matches("console.log(").count())
-        .collect::<Vec<_>>()
-        .join("\n");
+    let mut expected_stdout =
+        std::iter::repeat_n(expected_value, source.matches("console.log(").count())
+            .collect::<Vec<_>>()
+            .join("\n");
     if !json_output && source.contains("Kali.test(") {
         expected_stdout.push_str("\nok 1");
     }

@@ -11,9 +11,8 @@ fn browser_bundle_global_this_math_max_min_frozen_source() -> &'static str {
     static SOURCE: OnceLock<String> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
-            format!(
-                r##"// kali-tree-shake: globalThisMathMaxMinFrozenAliases
-function globalThisMathMaxMinFrozenAliases() {{
+            r##"// kali-tree-shake: globalThisMathMaxMinFrozenAliases
+function globalThisMathMaxMinFrozenAliases() {
   const value = 2;
   const alias = value;
   console.log(globalThis.Math.max(1, alias, 3));
@@ -38,9 +37,9 @@ function globalThisMathMaxMinFrozenAliases() {{
     Object.freeze(Math["max"])(1, alias, 3),
     Object.freeze(Math["min"])(3, alias, 1),
   ];
-}}
+}
 "##
-            )
+            .to_string()
         })
         .as_str()
 }

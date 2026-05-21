@@ -1,4 +1,5 @@
 use kali_error::Diagnostic;
+use semver::Version;
 use serde_json::{json, Map, Value};
 use std::{
     collections::{BTreeSet, HashSet},
@@ -1270,6 +1271,11 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
         }
     }
 
+    validate_stable_semver_version_value(
+        object.get("version"),
+        "package-effects payload package version",
+    )?;
+
     match object.get("name").and_then(Value::as_str) {
         Some(name) if !name.contains(':') => {}
         Some(other) => {
@@ -1288,6 +1294,29 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
             ))
         }
         None => unreachable!("validated above"),
+    }
+
+    Ok(())
+}
+
+fn validate_stable_semver_version_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::String(version)) = value else {
+        return Err(format!(
+            "{context} must be a string, got {}",
+            value.unwrap_or(&Value::Null)
+        ));
+    };
+
+    let parsed = Version::parse(version).map_err(|_| {
+        format!("{context} must be a stable SemVer release string, got `{version}`")
+    })?;
+    if !parsed.pre.is_empty() {
+        return Err(format!(
+            "{context} must be a stable SemVer release string, got `{version}`"
+        ));
     }
 
     Ok(())
