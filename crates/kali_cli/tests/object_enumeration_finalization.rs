@@ -86,6 +86,46 @@ fn object_enumeration_finalization_run_source() -> &'static str {
   if (!valuesThrew || !valuesThrowFinally) {
     throw new Error('unexpected Object.values throw/finally semantics');
   }
+
+  let valuesBreakFinally = false;
+  let valuesBreakSeen = false;
+  function valuesBreakProbe() {
+    try {
+      for (const value of Object.values(values)) {
+        if (value === 1) {
+          continue;
+        }
+        valuesBreakSeen = true;
+        break;
+      }
+    } finally {
+      valuesBreakFinally = true;
+    }
+  }
+  valuesBreakProbe();
+  if (!valuesBreakSeen || !valuesBreakFinally) {
+    throw new Error('unexpected Object.values break/continue semantics');
+  }
+
+  let entriesBreakFinally = false;
+  let entriesBreakSeen = false;
+  function entriesBreakProbe() {
+    try {
+      for (const entry of Object.entries(values)) {
+        if (entry[0] === 'b') {
+          continue;
+        }
+        entriesBreakSeen = true;
+        break;
+      }
+    } finally {
+      entriesBreakFinally = true;
+    }
+  }
+  entriesBreakProbe();
+  if (!entriesBreakSeen || !entriesBreakFinally) {
+    throw new Error('unexpected Object.entries break/continue semantics');
+  }
 }
 
 const asyncValues = { "b": 1, "a": 2 };
@@ -123,6 +163,40 @@ try {
 }
 if (!asyncValuesThrew || !asyncValuesFinallySeen) {
   throw new Error('unexpected async Object.values throw/finally semantics');
+}
+
+let asyncValuesBreakFinally = false;
+let asyncValuesBreakSeen = false;
+try {
+  for await (const value of Object.values(asyncValues)) {
+    if (value === 1) {
+      continue;
+    }
+    asyncValuesBreakSeen = true;
+    break;
+  }
+} finally {
+  asyncValuesBreakFinally = true;
+}
+if (!asyncValuesBreakSeen || !asyncValuesBreakFinally) {
+  throw new Error('unexpected async Object.values break/continue semantics');
+}
+
+let asyncEntriesBreakFinally = false;
+let asyncEntriesBreakSeen = false;
+try {
+  for await (const entry of Object.entries(asyncValues)) {
+    if (entry[0] === 'b') {
+      continue;
+    }
+    asyncEntriesBreakSeen = true;
+    break;
+  }
+} finally {
+  asyncEntriesBreakFinally = true;
+}
+if (!asyncEntriesBreakSeen || !asyncEntriesBreakFinally) {
+  throw new Error('unexpected async Object.entries break/continue semantics');
 }
 
 let asyncEntriesFinallySeen = false;
