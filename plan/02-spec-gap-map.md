@@ -44,7 +44,7 @@ Remaining goals:
 - Grow Node package support only where required Node built-ins and process APIs are explicitly supported or deliberately gated.
 - Grow browser deployability and browser-harness package evidence while keeping standalone browser runtime claims separate.
 - Keep native, binary, bootstrap-heavy, host-mismatched, and published-bin-entrypoint packages rejected by default unless specs introduce a mediated path.
-- Keep registry-analysis commands (`package-effects`, `package-audit`) single-package and registry-identifier based unless a future spec/schema revision defines batch/local/raw-URL behavior.
+- Keep registry-analysis commands (`package-effects`, `package-audit`) single-package and registry-identifier based unless a future spec/schema revision defines batch/local/raw-URL behavior. The `package-effects` smoke now also covers the canonical `jsr:@std/path` label path, so remaining work stays on broader package-shape and support-rung expansion rather than on the basic jsr registry identifier contract.
 
 ## Optimization, PGO, and performance
 

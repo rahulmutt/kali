@@ -63604,6 +63604,50 @@ fn package_effects_command_reports_inherited_browser_and_threaded_context_in_jso
 }
 
 #[test]
+fn package_effects_command_supports_jsr_targets_in_json_payload() {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir.path().join("node_modules/@std/path");
+    fs::create_dir_all(&package_dir).expect("create package dir");
+    fs::write(
+        package_dir.join("package.json"),
+        r#"{
+  "name": "@std/path",
+  "version": "1.0.0",
+  "main": "index.js"
+}"#,
+    )
+    .expect("write package.json");
+    fs::write(package_dir.join("index.js"), "console.log('jsr package');")
+        .expect("write package entry");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("package-effects")
+        .arg("jsr:@std/path")
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["package"]["name"], "@std/path");
+    assert_eq!(json["package"]["version"], "1.0.0");
+    assert_eq!(json["package"]["registry"], "jsr");
+    assert_eq!(json["report"]["entryPoints"], json!(["jsr:@std/path"]));
+    let kinds = json["report"]["effects"]
+        .as_array()
+        .expect("effects array")
+        .iter()
+        .map(|entry| entry["kind"].as_str().expect("kind string"))
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"Console.Write"), "effects: {kinds:?}");
+}
+
+#[test]
 fn package_effects_reports_computed_deno_host_access() {
     let dir = tempdir().expect("tempdir");
     let package_dir = dir.path().join("node_modules/purepkg");
