@@ -12,9 +12,13 @@ fn browser_bundle_math_log2_log10_source() -> &'static str {
 function mathLog2Log10Identities() {
   const log2Value = 8;
   const log10Value = 1000;
+  const frozenLog2 = Object.freeze(Math.log2);
+  const frozenLog10 = Object.freeze(Math.log10);
   console.log(Math.log2(log2Value));
+  console.log(frozenLog2(log2Value));
   console.log(Math.log10(log10Value));
-  return [Math.log2(log2Value), Math.log10(log10Value)];
+  console.log(frozenLog10(log10Value));
+  return [Math.log2(log2Value), Math.log10(log10Value), frozenLog2(log2Value), frozenLog10(log10Value)];
 }
 "##
 }
@@ -104,13 +108,17 @@ await mod.mathLog2Log10Identities();
 }
 
 fn browser_harness_math_log2_log10_run_source() -> &'static str {
-    "console.log(Math.log2(8));\nconsole.log(Math.log10(1000));\n"
+    "const frozenLog2 = Object.freeze(Math.log2); const frozenLog10 = Object.freeze(Math.log10); console.log(Math.log2(8)); console.log(frozenLog2(8)); console.log(Math.log10(1000)); console.log(frozenLog10(1000));\n"
 }
 
 fn browser_harness_math_log2_log10_test_source() -> &'static str {
     r#"Kali.test('math log2/log10', () => {
+  const frozenLog2 = Object.freeze(Math.log2);
+  const frozenLog10 = Object.freeze(Math.log10);
   console.log(Math.log2(8));
+  console.log(frozenLog2(8));
   console.log(Math.log10(1000));
+  console.log(frozenLog10(1000));
 });
 "#
 }

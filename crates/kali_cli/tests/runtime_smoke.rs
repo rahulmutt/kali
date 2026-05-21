@@ -42304,7 +42304,11 @@ fn run_supports_math_sqrt_on_perfect_square_integer_literals_in_js_input() {
 fn run_supports_math_log2_on_positive_power_of_two_integer_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.log2(8));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "console.log(Math.log2(8)); console.log(Object.freeze(Math.log2)(8));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -42326,7 +42330,11 @@ fn run_supports_math_log2_on_positive_power_of_two_integer_literals_in_js_input(
 fn run_supports_math_log10_on_positive_power_of_ten_integer_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Math.log10(1000));\n").expect("write source");
+    fs::write(
+        &source_path,
+        "console.log(Math.log10(1000)); console.log(Object.freeze(Math.log10)(1000));\n",
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -42349,7 +42357,7 @@ fn assert_build_supports_math_log2_and_log10_const_alias_chains(filename: &str) 
     let source_path = dir.path().join(filename);
     fs::write(
         &source_path,
-        "const log2Value = 8; const log2Alias = log2Value; console.log(Math.log2(log2Alias));\nconst log10Value = 1000; const log10Alias = log10Value; console.log(Math.log10(log10Alias));\n",
+        "const log2Value = 8; const log2Alias = log2Value; console.log(Math.log2(log2Alias)); console.log(Object.freeze(Math.log2)(log2Alias));\nconst log10Value = 1000; const log10Alias = log10Value; console.log(Math.log10(log10Alias)); console.log(Object.freeze(Math.log10)(log10Alias));\n",
     )
     .expect("write source");
 

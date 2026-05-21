@@ -12,15 +12,17 @@ fn browser_bundle_bracketed_global_this_math_log2_log10_source() -> &'static str
 function bracketedGlobalThisMathLog2Log10Identities() {
   const log2Value = 8;
   const log10Value = 1000;
+  const frozenLog2 = Object.freeze(globalThis.Math.log2);
+  const frozenLog10 = Object.freeze(globalThis["Math"].log10);
   console.log(globalThis.Math.log2(log2Value));
-  console.log(globalThis.Math.log10(log10Value));
-  console.log(globalThis["Math"].log2(log2Value));
+  console.log(frozenLog2(log2Value));
   console.log(globalThis["Math"].log10(log10Value));
+  console.log(frozenLog10(log10Value));
   return [
     globalThis.Math.log2(log2Value),
     globalThis.Math.log10(log10Value),
-    globalThis["Math"].log2(log2Value),
-    globalThis["Math"].log10(log10Value),
+    frozenLog2(log2Value),
+    frozenLog10(log10Value),
   ];
 }
 "##
@@ -137,49 +139,49 @@ fn run_and_test_supports_bracketed_global_this_math_log2_log10_identities_when_b
         (
             "run",
             "main.js",
-            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));\n",
             "3\n3",
         ),
         (
             "test",
             "smoke.test.js",
-            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });\n",
             "3\nok 1",
         ),
         (
             "run",
             "main.ts",
-            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));\n",
             "3\n3",
         ),
         (
             "test",
             "smoke.test.ts",
-            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });\n",
             "3\nok 1",
         ),
         (
             "run",
             "main.jsx",
-            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));\n",
             "3\n3",
         ),
         (
             "test",
             "smoke.test.jsx",
-            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });\n",
             "3\nok 1",
         ),
         (
             "run",
             "main.tsx",
-            "const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value));\n",
+            "const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value));\n",
             "3\n3",
         ),
         (
             "test",
             "smoke.test.tsx",
-            "Kali.test('bracketed log2/log10 identities', () => { const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(globalThis[\"Math\"].log2(log2Value)); console.log(globalThis[\"Math\"].log10(log10Value)); });\n",
+            "Kali.test('bracketed log2/log10 identities', () => { const frozenLog2 = Object.freeze(globalThis.Math.log2); const frozenLog10 = Object.freeze(globalThis[\"Math\"].log10); const log2Value = 8; const log10Value = 1000; console.log(globalThis.Math.log2(log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis.Math.log10(log10Value)); console.log(frozenLog10(log10Value)); });\n",
             "3\nok 1",
         ),
     ] {

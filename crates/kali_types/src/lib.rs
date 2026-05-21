@@ -1970,7 +1970,7 @@ impl TypeContext {
         }
     }
 
-    fn unwrap_static_callable_expression<'a>(expression: &'a Expression) -> &'a Expression {
+    fn unwrap_static_callable_expression(expression: &Expression) -> &Expression {
         match expression {
             Expression::ParenthesizedExpression(expr) => {
                 Self::unwrap_static_callable_expression(&expr.expression)

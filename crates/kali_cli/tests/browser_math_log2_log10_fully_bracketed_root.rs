@@ -12,23 +12,31 @@ fn browser_bundle_fully_bracketed_global_this_math_log2_log10_source() -> &'stat
 function fullyBracketedGlobalThisMathLog2Log10Identities() {
   const log2Value = 8;
   const log10Value = 1000;
+  const frozenLog2 = Object.freeze(globalThis["Math"]["log2"]);
+  const frozenLog10 = Object.freeze(globalThis["Math"]["log10"]);
   console.log(globalThis["Math"]["log2"](log2Value));
+  console.log(frozenLog2(log2Value));
   console.log(globalThis["Math"]["log10"](log10Value));
-  return [globalThis["Math"]["log2"](log2Value), globalThis["Math"]["log10"](log10Value)];
+  console.log(frozenLog10(log10Value));
+  return [globalThis["Math"]["log2"](log2Value), globalThis["Math"]["log10"](log10Value), frozenLog2(log2Value), frozenLog10(log10Value)];
 }
 "##
 }
 
 fn browser_harness_fully_bracketed_global_this_math_log2_log10_run_source() -> &'static str {
-    "const log2Value = 8; const log10Value = 1000; console.log(globalThis[\"Math\"][\"log2\"](log2Value)); console.log(globalThis[\"Math\"][\"log10\"](log10Value));\n"
+    "const frozenLog2 = Object.freeze(globalThis[\"Math\"][\"log2\"]); const frozenLog10 = Object.freeze(globalThis[\"Math\"][\"log10\"]); const log2Value = 8; const log10Value = 1000; console.log(globalThis[\"Math\"][\"log2\"](log2Value)); console.log(frozenLog2(log2Value)); console.log(globalThis[\"Math\"][\"log10\"](log10Value)); console.log(frozenLog10(log10Value));\n"
 }
 
 fn browser_harness_fully_bracketed_global_this_math_log2_log10_test_source() -> &'static str {
     r#"Kali.test('fully bracketed log2/log10 identities', () => {
+  const frozenLog2 = Object.freeze(globalThis["Math"]["log2"]);
+  const frozenLog10 = Object.freeze(globalThis["Math"]["log10"]);
   const log2Value = 8;
   const log10Value = 1000;
   console.log(globalThis["Math"]["log2"](log2Value));
+  console.log(frozenLog2(log2Value));
   console.log(globalThis["Math"]["log10"](log10Value));
+  console.log(frozenLog10(log10Value));
 });
 "#
 }
