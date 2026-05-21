@@ -42766,26 +42766,26 @@ fn run_and_test_supports_global_this_math_exp_and_log_exact_identity_literals_wh
         (
             "run",
             "main.ts",
-            "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one));\n",
             "1",
         ),
         (
             "run",
             "main.js",
-            "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one));\n",
+            "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one));\n",
             "1",
         ),
         (
             "test",
             "smoke.test.ts",
-            "Kali.test('globalThis math exp/log', () => { const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); });\n",
-            "1\n0\nok 1",
+            "Kali.test('globalThis math exp/log', () => { const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one)); });\n",
+            "ok 1",
         ),
         (
             "test",
             "smoke.test.js",
-            "Kali.test('globalThis math exp/log', () => { const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); });\n",
-            "1\n0\nok 1",
+            "Kali.test('globalThis math exp/log', () => { const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one)); });\n",
+            "ok 1",
         ),
     ] {
         for output_json in [false, true] {

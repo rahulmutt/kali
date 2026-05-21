@@ -3394,7 +3394,7 @@ fn build_source_file_supports_global_this_math_exp_and_log_exact_identity_litera
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one));\n",
+        "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one));\n",
     )
     .expect("write source");
 
@@ -3450,7 +3450,7 @@ fn build_source_file_supports_global_this_math_exp_and_log_exact_identity_litera
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one));\n",
+        "const zero = 0; const one = 1; console.log(globalThis.Math.exp(zero)); console.log(globalThis.Math.log(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one));\n",
     )
     .expect("write source");
 

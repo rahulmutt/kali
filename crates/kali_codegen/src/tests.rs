@@ -2760,7 +2760,7 @@ fn supported_math_and_number_roots_accept_object_freeze_wrappers() {
 #[test]
 fn supported_math_exp_and_log_accept_object_freeze_callable_wrappers() {
     let program = parse_and_lower_lir(
-        "const zero = 0; const one = 1; console.log(Object.freeze(Math.exp)(zero)); console.log(Object.freeze(globalThis[\"Math\"][\"log\"])(one)); console.log(Object.freeze(globalThis.Math.exp)(zero)); console.log(Object.freeze(globalThis.Math[\"log\"])(one));",
+        "const zero = 0; const one = 1; console.log(Object.freeze(Math.exp)(zero)); console.log(Object.freeze(globalThis[\"Math\"][\"log\"])(one)); console.log(Object.freeze(globalThis.Math.exp)(zero)); console.log(Object.freeze(globalThis.Math[\"log\"])(one)); console.log((globalThis.Math.exp)(zero)); console.log(Object.freeze((globalThis.Math.log))(one));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
