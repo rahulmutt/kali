@@ -28,6 +28,7 @@ function globalThisMathRoundIdentity() {
   console.log("frozen-bracketed-dot-root", Object.freeze(globalThis["Math"].round)(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
   console.log(Object.freeze(Math.round)(value));
+  console.log("frozen-parenthesized-direct", Object.freeze((Math.round))(value));
   console.log(Object.freeze(globalThis['Math']['round'])(value));
   return [
     globalThis.Math.round(value),
@@ -49,7 +50,7 @@ function globalThisMathRoundIdentity() {
 "##
 }
 fn browser_harness_global_this_math_round_run_source() -> &'static str {
-    r#"const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math["round"](value)); console.log(globalThis["Math"]["round"](value)); console.log("optional-chain", globalThis?.Math.round(value)); console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value)); const frozenParenthesizedOptionalChain = Object.freeze((globalThis?.Math.round))(value); if (frozenParenthesizedOptionalChain !== 2) { throw new Error("unexpected frozen parenthesized optional-chain identity"); } console.log("frozen-parenthesized-mixed-bracket", Object.freeze((globalThis.Math["round"]))(value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis["Math"]["round"])(value)); console.log("frozen-mixed-bracket-root", Object.freeze(globalThis.Math["round"])(value)); console.log("frozen-bracketed-dot-root", Object.freeze(globalThis["Math"].round)(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value)); console.log(Object.freeze(globalThis['Math']['round'])(value));
+    r#"const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math["round"](value)); console.log(globalThis["Math"]["round"](value)); console.log("optional-chain", globalThis?.Math.round(value)); console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value)); const frozenParenthesizedOptionalChain = Object.freeze((globalThis?.Math.round))(value); if (frozenParenthesizedOptionalChain !== 2) { throw new Error("unexpected frozen parenthesized optional-chain identity"); } console.log("frozen-parenthesized-mixed-bracket", Object.freeze((globalThis.Math["round"]))(value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis["Math"]["round"])(value)); console.log("frozen-mixed-bracket-root", Object.freeze(globalThis.Math["round"])(value)); console.log("frozen-bracketed-dot-root", Object.freeze(globalThis["Math"].round)(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value)); console.log("frozen-parenthesized-direct", Object.freeze((Math.round))(value)); console.log(Object.freeze(globalThis['Math']['round'])(value));
 "#
 }
 fn browser_harness_global_this_math_round_test_source() -> &'static str {
@@ -72,6 +73,7 @@ fn browser_harness_global_this_math_round_test_source() -> &'static str {
   console.log("frozen-bracketed-dot-root", Object.freeze(globalThis["Math"].round)(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
   console.log(Object.freeze(Math.round)(value));
+  console.log("frozen-parenthesized-direct", Object.freeze((Math.round))(value));
   console.log(Object.freeze(globalThis['Math']['round'])(value));
 });
 "#
@@ -161,7 +163,15 @@ await mod.globalThisMathRoundIdentity();
         stdout.contains("frozen-bracketed-dot-root"),
         "stdout: {stdout}"
     );
-    assert!(stdout.contains("2\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("frozen-parenthesized-direct"),
+        "stdout: {stdout}"
+    );
+    assert_eq!(
+        stdout.lines().filter(|line| *line == "2").count(),
+        8,
+        "stdout: {stdout}"
+    );
 }
 
 fn assert_browser_harness_global_this_math_round(
@@ -245,6 +255,10 @@ fn assert_browser_harness_global_this_math_round(
         );
         assert!(
             stdout.contains("frozen-bracketed-dot-root"),
+            "stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("frozen-parenthesized-direct"),
             "stdout: {stdout}"
         );
         assert_eq!(
