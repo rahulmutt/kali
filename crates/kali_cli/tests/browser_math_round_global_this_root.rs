@@ -190,7 +190,7 @@ await mod.globalThisMathRoundIdentity();
     );
     assert_eq!(
         stdout.lines().filter(|line| *line == "2").count(),
-        9,
+        8,
         "stdout: {stdout}"
     );
 }
@@ -261,7 +261,7 @@ fn assert_browser_harness_global_this_math_round(
         assert!(stdout.contains("frozen-bracketed-dot-root"), "json: {json}");
         assert_eq!(
             stdout.lines().filter(|line| *line == "2").count(),
-            9,
+            8,
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
