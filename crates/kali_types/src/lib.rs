@@ -739,6 +739,9 @@ impl TypeContext {
 
     fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                (call.args.first().unwrap_or(&call.callee), &expression.args)
+            }
             Expression::CallExpression(call) if expression.args.is_empty() => {
                 (&call.callee, &call.args)
             }
@@ -760,6 +763,9 @@ impl TypeContext {
 
     fn is_static_map_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
         let (callee_expression, args) = match &expression.callee {
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                (call.args.first().unwrap_or(&call.callee), &expression.args)
+            }
             Expression::CallExpression(call) if expression.args.is_empty() => {
                 (&call.callee, &call.args)
             }
@@ -1952,7 +1958,42 @@ impl TypeContext {
         }
     }
 
+    fn unwrap_static_callable_expression<'a>(expression: &'a Expression) -> &'a Expression {
+        match expression {
+            Expression::ParenthesizedExpression(expr) => {
+                Self::unwrap_static_callable_expression(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                Self::unwrap_static_callable_expression(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                Self::unwrap_static_callable_expression(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => {
+                Self::unwrap_static_callable_expression(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::unwrap_static_callable_expression(&expr.expression)
+            }
+            Expression::AwaitExpression(expr) => {
+                Self::unwrap_static_callable_expression(&expr.argument)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .map(Self::unwrap_static_callable_expression)
+                .unwrap_or(expression),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .map(Self::unwrap_static_callable_expression)
+                .unwrap_or(expression),
+            _ => expression,
+        }
+    }
+
     fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
+        let expression = Self::unwrap_static_callable_expression(expression);
         Self::call_member_access_name(expression)
             .or_else(|| self.resolve_static_reference_root(expression))
     }

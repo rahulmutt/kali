@@ -27,7 +27,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 
 ### 21.2 Iterator and async-iterator protocols
 
-- Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices.
+- Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices, including transparent `Object.freeze(...)` wrappers around direct `Set`/`Map` constructor targets where the iterable shape stays static.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 

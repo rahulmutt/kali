@@ -9343,6 +9343,66 @@ for await (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) {
 }
 
 #[test]
+fn test_resolution_accepts_object_freeze_wrapped_set_constructor_targets_in_js_like_input() {
+    let source = r#"async function main() {
+    for (const value of Object.freeze(new Set([1, 2, 1]))) {
+        console.log(value);
+    }
+}
+main();
+"#;
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_accepts_object_freeze_wrapped_map_constructor_targets_in_js_like_input() {
+    let source = r#"async function main() {
+    for await (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) {
+        console.log(entry[0], entry[1]);
+    }
+}
+main();
+"#;
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_supports_await_wrapped_static_helper_inputs_across_js_like_extensions() {
     let source = r#"async function main() {
     console.log(Object.is(await 1, await 1));
