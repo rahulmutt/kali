@@ -14,6 +14,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 The checked-in repository already includes:
 
 - The browser-harness/browser-bundle `Math.round` smoke matrix now also covers the parenthesized mixed-quoted-bracketed and single-quoted-bracketed-dot aliases.
+- The shared `Array.from` frozen-callable inventory now also covers the parenthesized single-quoted bracket-root aliases, keeping the supported `Array.from` smoke matrix aligned across the shared helper source and the build/runtime/browser harness lanes.
 
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
 
