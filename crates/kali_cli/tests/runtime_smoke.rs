@@ -31739,40 +31739,12 @@ fn run_supports_math_floor_trunc_and_ceil_direct_object_freeze_callable_aliases_
 }
 
 fn math_floor_trunc_ceil_const_numeric_alias_chain_source() -> String {
-    let variable_names = [
-        "frozenFloor",
-        "frozenParenFloor",
-        "frozenDotFloor",
-        "frozenParenDotFloor",
-        "frozenBracketedFloor",
-        "frozenParenBracketedFloor",
-        "frozenMixedFloor",
-        "frozenParenMixedFloor",
-        "frozenBareFloor",
-        "frozenParenBareFloor",
-        "frozenTrunc",
-        "frozenParenTrunc",
-        "frozenDotTrunc",
-        "frozenParenDotTrunc",
-        "frozenBracketedTrunc",
-        "frozenParenBracketedTrunc",
-        "frozenMixedTrunc",
-        "frozenParenMixedTrunc",
-        "frozenBareTrunc",
-        "frozenParenBareTrunc",
-        "frozenCeil",
-        "frozenParenCeil",
-        "frozenDotCeil",
-        "frozenParenDotCeil",
-        "frozenBracketedCeil",
-        "frozenParenBracketedCeil",
-        "frozenMixedCeil",
-        "frozenParenMixedCeil",
-        "frozenBareCeil",
-        "frozenParenBareCeil",
-    ];
     let frozen_callable_aliases = math_floor_trunc_ceil_frozen_callable_aliases();
-    debug_assert_eq!(variable_names.len(), frozen_callable_aliases.len());
+    let variable_names = frozen_callable_aliases
+        .iter()
+        .enumerate()
+        .map(|(index, _)| format!("frozenMathAlias{index}"))
+        .collect::<Vec<_>>();
 
     let declarations = variable_names
         .iter()
