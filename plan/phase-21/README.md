@@ -30,7 +30,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 - Expand `for...of`, `for await...of`, spreads, and iterable consumption beyond current bounded static slices, including transparent `Object.freeze(...)` wrappers around direct `Set`/`Map` constructor targets where the iterable shape stays static.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, and async iterator finalization.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
-- Current browser and checker evidence also keeps the bracketed `globalThis["Array"].from` freeze alias on the static set/map slice aligned across the existing smoke lanes.
+- Current browser and checker evidence also keeps the bracketed `globalThis["Array"].from` freeze alias on the static set/map slice aligned across the existing smoke lanes, the fully bracketed `globalThis["Array"]["from"]` alias now also shares that coverage, and the direct double-quoted `Array["from"]` freeze alias now also joins the standalone and browser-requested smoke lanes.
 
 ### 21.3 Dynamic language and built-in semantics
 
