@@ -5103,6 +5103,61 @@ fn test_resolution_supports_global_this_math_builtin_slices_for_supported_method
 }
 
 #[test]
+fn test_resolution_supports_math_max_and_min_member_calls_through_object_freeze_wrappers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "freeze".to_string(),
+                    })),
+                    args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Math".to_string()),
+                        property: "max".to_string(),
+                    }))],
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "freeze".to_string(),
+                    })),
+                    args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::MemberExpression(Box::new(MemberExpression {
+                            object: Expression::Identifier("globalThis".to_string()),
+                            property: "Math".to_string(),
+                        })),
+                        property: "min".to_string(),
+                    }))],
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                    Expression::Literal(LiteralValue::Number(1.0)),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_cbrt_member_calls_for_perfect_cube_integer_literals() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
