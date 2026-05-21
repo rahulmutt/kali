@@ -43,6 +43,49 @@ fn package_audit_payload_is_null_only() {
 }
 
 #[test]
+fn package_effects_payload_rejects_unsupported_registry_names() {
+    let payload = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "pnpm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "default",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["semver"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let error = output::validate_package_effects_payload_value(&payload)
+        .expect_err("unsupported package registry should be rejected");
+    assert!(
+        error.contains("package registry") && error.contains("`npm` or `jsr`"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn package_effects_payload_rejects_non_object_payloads() {
+    for value in [serde_json::Value::Null, json!("oops"), json!(1)] {
+        let error = output::validate_package_effects_payload_value(&value)
+            .expect_err("non-object package-effects payload should be rejected");
+        assert!(
+            error.contains("must be a JSON object"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn diagnostic_spans_allow_zero_length_ranges() {
     let envelope = diagnostic_envelope_with_span(1, 2);
     output::validate_envelope_value(&envelope).expect("zero-length span should be accepted");
