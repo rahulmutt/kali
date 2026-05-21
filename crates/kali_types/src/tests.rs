@@ -2753,6 +2753,33 @@ Object.prototype.hasOwnProperty.call(alias, "a");
 }
 
 #[test]
+fn test_resolution_supports_object_from_entries_with_conditional_wrapper_in_js_input() {
+    let dir = tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const conditionalEntries = (true ? [[\"b\", 1], [\"a\", 2]] : [[\"x\", 9]]); const fromEntries = Object.fromEntries(conditionalEntries);",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        fs::read_to_string(&source_path).unwrap(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");

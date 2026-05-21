@@ -31,6 +31,7 @@ fn browser_harness_object_from_entries_run_source(include_ts_as_const: bool) -> 
 
 const wrappedEntries = ([["b", 1], ["a", 2]]);
 const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
   __TS_ONLY__const directFromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
 const wrappedFromEntries = Object.fromEntries(wrappedEntries);
 const frozenFromEntries = Object.fromEntries(frozenEntries);
@@ -41,6 +42,7 @@ const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a"
 assertFromEntriesShape(directFromEntries);
 assertFromEntriesShape(wrappedFromEntries);
 assertFromEntriesShape(frozenFromEntries);
+assertFromEntriesShape(Object.fromEntries(conditionalEntries));
 assertFromEntriesShape(dottedFromEntries);
 assertFromEntriesShape(mixedDottedFromEntries);
 assertFromEntriesShape(mixedBracketedFromEntries);
@@ -83,9 +85,11 @@ fn browser_harness_object_from_entries_test_source(include_ts_as_const: bool) ->
 
   const wrappedEntries = ([["b", 1], ["a", 2]]);
   const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+  const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
   __TS_ONLY__  assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(Object.fromEntries(wrappedEntries));
   assertFromEntriesShape(Object.fromEntries(frozenEntries));
+  assertFromEntriesShape(Object.fromEntries(conditionalEntries));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));

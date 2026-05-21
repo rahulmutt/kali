@@ -1906,6 +1906,20 @@ impl TypeContext {
                 .expressions
                 .last()
                 .is_some_and(|expression| self.resolve_static_from_entries_entries(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_from_entries_entries(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_from_entries_entries(&expr.alternate)
+                    }
+                    _ => {
+                        self.resolve_static_from_entries_entries(&expr.consequent)
+                            && self.resolve_static_from_entries_entries(&expr.alternate)
+                    }
+                }
+            }
             Expression::ArrayExpression(entries) => entries.elements.iter().all(|entry| {
                 let Some(ExpressionOrSpread::Expression(Expression::ArrayExpression(pair))) = entry
                 else {
