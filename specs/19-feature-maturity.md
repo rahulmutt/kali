@@ -558,7 +558,7 @@ This appendix separates the broad compatibility story into smaller tables so lan
 | Browser-requested `run` / `test` boolean conjunction / disjunction semantics when the browser API surface is inherited in `.js` input | Phase 1 MVP | Inherited browser API-surface coverage mirrors the same short-circuit semantics on the JS input path, including JSON-output coverage. |
 | Browser bundle basic boolean conjunction / disjunction semantics in `.ts` and `.js` input | Phase 1 MVP | Browser bundle smoke exercises the same short-circuit semantics in both source classes, including JSON-output coverage. |
 | CommonJS lowering with statically resolvable `require("...")` | Phase 1 MVP | Compile-time transform inside the linked-artifact model |
-| Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking |
+| Literal-string `import()` | Phase 3 target | Lower to the already-linked graph rather than runtime WASM module linking; the current repository snapshot also accepts transparent `Object.freeze(...)` wrappers around statically known import specifiers on that same resolution path |
 | Non-literal dynamic loading | Later compatibility | Host-mediated path with dynamic effect boundary |
 | `eval` / `Function()` | Phase 4 compatibility | Explicit `--compat eval` path only. That documented compatibility-gated path is live in the current repository; the label still marks the earliest support boundary. |
 | Weak refs / finalization / proxy-heavy semantics | Later compatibility | Deferred until faithful semantics fit the no-GC, AOT-first design |

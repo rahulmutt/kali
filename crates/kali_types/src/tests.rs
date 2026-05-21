@@ -8067,6 +8067,50 @@ fn test_resolution_accepts_constant_template_dynamic_import_targets() {
 }
 
 #[test]
+fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let chunk_path = dir.path().join("lazy.ts");
+    fs::write(&chunk_path, "export const lazy = true;").unwrap();
+    fs::write(
+        &source_path,
+        "const specifier = Object.freeze(\"./lazy.ts\"); import(specifier);",
+    )
+    .unwrap();
+
+    let statements = vec![
+        Statement::VariableDeclaration(VariableDeclaration {
+            kind: "const".to_string(),
+            declarations: vec![VariableDeclarator {
+                id: "specifier".to_string(),
+                init: Some(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "freeze".to_string(),
+                    })),
+                    args: vec![Expression::Literal(LiteralValue::String(
+                        "./lazy.ts".to_string(),
+                    ))],
+                }))),
+            }],
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                source: Expression::Identifier("specifier".to_string()),
+            }))),
+        }),
+    ];
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_rejects_non_literal_dynamic_import_targets() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.ts");
