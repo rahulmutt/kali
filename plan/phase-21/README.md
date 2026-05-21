@@ -34,7 +34,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 
 ### 21.3 Dynamic language and built-in semantics
 
-- Widen object-model, Math, BigInt, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned; the current smoke also keeps the optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` frozen aliases aligned with the existing helper slices.
+- Widen object-model, Math, BigInt, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned; the current smoke also keeps the optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` frozen aliases aligned with the existing helper slices, including the optional-chain-wrapped property-call bracket forms.
 - Keep non-literal dynamic import, broad reflective APIs, and eval-adjacent forms gated unless their spec rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 
