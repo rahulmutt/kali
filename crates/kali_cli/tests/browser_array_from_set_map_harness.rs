@@ -14,6 +14,9 @@ fn browser_harness_array_from_set_map_run_source() -> &'static str {
   for (const value of Array.from(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze(globalThis["Array"].from)(new Set(setValues))) {
+    console.log(value);
+  }
   for await (const value of Array.from(new Set(setValues))) {
     console.log(value);
   }
@@ -37,6 +40,9 @@ fn browser_harness_array_from_set_map_test_source() -> &'static str {
     const setValues = [1, 2, 1];
     const mapValues = [[1, 2], [1, 3], [4, 5]];
     for (const value of Array.from(new Set(setValues))) {
+      console.log(value);
+    }
+    for (const value of Object.freeze(globalThis["Array"].from)(new Set(setValues))) {
       console.log(value);
     }
     for await (const value of Array.from(new Set(setValues))) {
@@ -115,7 +121,7 @@ fn assert_browser_harness_array_from_set_map(command: &str, filename: &str, json
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(
-            stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+            stdout.contains("1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
@@ -123,7 +129,7 @@ fn assert_browser_harness_array_from_set_map(command: &str, filename: &str, json
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+            stdout.contains("1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
             "stdout: {stdout}"
         );
         if command == "test" {
