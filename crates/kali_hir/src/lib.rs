@@ -552,9 +552,14 @@ impl HirLowerer {
                 is_async,
                 generator,
             }) => {
+                let name = if name.is_empty() {
+                    self.next_synthetic_function_name()
+                } else {
+                    name.clone()
+                };
                 let id = self
                     .builder
-                    .alloc_text(HirNodeKind::FunctionDecl, None, name.clone());
+                    .alloc_text(HirNodeKind::FunctionDecl, None, name);
                 for param in params {
                     push_child!(
                         self,

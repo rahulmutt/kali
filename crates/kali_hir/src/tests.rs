@@ -197,6 +197,31 @@ fn test_lower_statements_records_function_flavor_metadata_for_default_export_asy
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata_for_default_export_anonymous_async_generator_function_declaration(
+) {
+    let statements = parse("export default async function*() { yield 1; }");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let (index, node) = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(index, node)| {
+            node.kind == HirNodeKind::FunctionDecl
+                && result.function_flavor(HirNodeId::new(*index as u32))
+                    == Some(FunctionFlavor::AsyncGenerator)
+        })
+        .expect("anonymous default-export async generator function node");
+
+    assert!(node.text.as_deref().is_some_and(|text| !text.is_empty()));
+    assert_eq!(
+        result.function_flavor(HirNodeId::new(index as u32)),
+        Some(FunctionFlavor::AsyncGenerator)
+    );
+}
+
+#[test]
 fn test_lower_statements_records_function_flavor_metadata_for_class_methods() {
     let statements = parse(
         "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",

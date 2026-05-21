@@ -189,12 +189,12 @@ impl Parser {
             TokenType::LeftBrace => self.parse_block_statement(),
             TokenType::Async => {
                 if self.stream.peek_next_kind() == Some(&TokenType::Function) {
-                    self.parse_function_declaration_with_async(true)
+                    self.parse_function_declaration_with_async(true, false)
                 } else {
                     self.parse_expression_statement()
                 }
             }
-            TokenType::Function => self.parse_function_declaration_with_async(false),
+            TokenType::Function => self.parse_function_declaration_with_async(false, false),
             TokenType::Class => self.parse_class_declaration(),
             TokenType::Export => self.parse_export_declaration(),
             TokenType::If => self.parse_if_statement(),
@@ -290,10 +290,14 @@ impl Parser {
     }
 
     fn parse_function_declaration(&mut self) -> Option<Statement> {
-        self.parse_function_declaration_with_async(false)
+        self.parse_function_declaration_with_async(false, false)
     }
 
-    fn parse_function_declaration_with_async(&mut self, is_async: bool) -> Option<Statement> {
+    fn parse_function_declaration_with_async(
+        &mut self,
+        is_async: bool,
+        allow_anonymous: bool,
+    ) -> Option<Statement> {
         if is_async {
             let _ = self.stream.advance();
         }
@@ -306,9 +310,16 @@ impl Parser {
         } else {
             false
         };
-        let name_token = self.stream.advance()?;
-        let name = name_token.value;
-        let _ = self.stream.advance();
+        let name = if allow_anonymous && self.stream.current_kind() == Some(&TokenType::LeftParen) {
+            String::new()
+        } else {
+            let name_token = self.stream.advance()?;
+            if name_token.kind != TokenType::Identifier {
+                return None;
+            }
+            name_token.value
+        };
+        let _ = self.stream.accept(TokenType::LeftParen);
 
         let mut params = Vec::new();
         if !self.stream.accept(TokenType::RightParen) {
@@ -966,7 +977,7 @@ impl Parser {
                 Some(TokenType::Async)
                     if self.stream.peek_next_kind() == Some(&TokenType::Function) =>
                 {
-                    self.parse_function_declaration_with_async(true)
+                    self.parse_function_declaration_with_async(true, true)
                         .and_then(|statement| match statement {
                             Statement::FunctionDeclaration(function) => {
                                 Some(ExportDefaultDeclaration::FunctionDeclaration(function))
@@ -975,7 +986,7 @@ impl Parser {
                         })
                 }
                 Some(TokenType::Function) => self
-                    .parse_function_declaration_with_async(false)
+                    .parse_function_declaration_with_async(false, true)
                     .and_then(|statement| match statement {
                         Statement::FunctionDeclaration(function) => {
                             Some(ExportDefaultDeclaration::FunctionDeclaration(function))
@@ -1002,7 +1013,7 @@ impl Parser {
         if self.stream.current_kind() == Some(&TokenType::Async)
             && self.stream.peek_next_kind() == Some(&TokenType::Function)
         {
-            return self.parse_function_declaration_with_async(true);
+            return self.parse_function_declaration_with_async(true, false);
         }
 
         if self.stream.current_kind() == Some(&TokenType::Function) {

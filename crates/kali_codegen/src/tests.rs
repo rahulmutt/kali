@@ -233,6 +233,21 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_async_ge
     assert_eq!(main.flavor, Some(FunctionFlavor::AsyncGenerator));
 }
 
+#[test]
+fn function_plans_preserve_generator_flavor_metadata_for_default_export_anonymous_async_generator_function_declarations(
+) {
+    let program = parse_and_lower_lir("export default async function*() { yield 1; }\n");
+    let plans = collect_functions(&program);
+
+    let main = plans
+        .iter()
+        .find(|plan| plan.flavor == Some(FunctionFlavor::AsyncGenerator))
+        .expect("anonymous default-export async generator function plan");
+
+    assert!(!main.name.is_empty());
+    assert_eq!(main.flavor, Some(FunctionFlavor::AsyncGenerator));
+}
+
 fn parse_and_lower_lir(source: &str) -> LirProgram {
     let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
     let tokens = lexer.lex_all().tokens;

@@ -309,6 +309,26 @@ fn test_parse_default_export_async_generator_function_declaration() {
 }
 
 #[test]
+fn test_parse_default_export_anonymous_async_generator_function_declaration() {
+    let tokens = lex("export default async function*() { yield 1; }");
+    let mut parser = Parser::new(FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert_eq!(output.statements.len(), 1);
+
+    match &output.statements[0] {
+        Statement::ExportDefault(decl) => match decl {
+            kali_ast::ExportDefaultDeclaration::FunctionDeclaration(function) => {
+                assert_eq!(function.name, "");
+                assert!(function.is_async);
+                assert!(function.generator);
+            }
+            other => panic!("Expected function declaration export, got {other:?}"),
+        },
+        other => panic!("Expected ExportDefaultDeclaration, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_parse_export_async_function_declaration() {
     let tokens = lex("export async function main() { await value; }");
     let mut parser = Parser::new(FileId::new(0), tokens);
