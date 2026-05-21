@@ -4176,6 +4176,24 @@ fn build_source_file_supports_array_from_new_set_and_new_map_iteration_in_browse
 }
 
 #[test]
+fn build_source_file_supports_array_from_new_set_and_new_map_iteration_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_array_from_new_set_and_new_map_iteration_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_array_from_new_set_and_new_map_iteration_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_array_from_new_set_and_new_map_iteration_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
+#[test]
 fn build_source_file_supports_for_of_identifier_binding_in_js_input() {
     assert_build_source_file_supports_for_of_identifier_binding_in_input("js");
 }
