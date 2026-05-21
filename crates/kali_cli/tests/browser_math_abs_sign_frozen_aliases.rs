@@ -18,11 +18,15 @@ function globalThisMathAbsSignFrozenAliases() {{
   const alias = value;
   console.log(globalThis.Math.abs(value));
   console.log(globalThis.Math.sign(value));
+  console.log(Object.freeze(globalThis.Math.abs)(alias));
+  console.log(Object.freeze(globalThis.Math.sign)(alias));
   console.log(Object.freeze(Math.abs)(alias));
   console.log(Object.freeze(Math.sign)(alias));
   return [
     globalThis.Math.abs(value),
     globalThis.Math.sign(value),
+    Object.freeze(globalThis.Math.abs)(alias),
+    Object.freeze(globalThis.Math.sign)(alias),
     Object.freeze(Math.abs)(alias),
     Object.freeze(Math.sign)(alias),
   ];
@@ -37,7 +41,7 @@ fn browser_harness_global_this_math_abs_sign_run_source() -> &'static str {
     static SOURCE: OnceLock<String> = OnceLock::new();
     SOURCE
         .get_or_init(|| {
-            "const value = -3; const alias = value; console.log(globalThis.Math.abs(value)); console.log(globalThis.Math.sign(value)); console.log(Object.freeze(Math.abs)(alias)); console.log(Object.freeze(Math.sign)(alias));\n".to_string()
+            "const value = -3; const alias = value; console.log(globalThis.Math.abs(value)); console.log(globalThis.Math.sign(value)); console.log(Object.freeze(globalThis.Math.abs)(alias)); console.log(Object.freeze(globalThis.Math.sign)(alias)); console.log(Object.freeze(Math.abs)(alias)); console.log(Object.freeze(Math.sign)(alias));\n".to_string()
         })
         .as_str()
 }
@@ -51,6 +55,8 @@ fn browser_harness_global_this_math_abs_sign_test_source() -> &'static str {
   const alias = value;
   console.log(globalThis.Math.abs(value));
   console.log(globalThis.Math.sign(value));
+  console.log(Object.freeze(globalThis.Math.abs)(alias));
+  console.log(Object.freeze(globalThis.Math.sign)(alias));
   console.log(Object.freeze(Math.abs)(alias));
   console.log(Object.freeze(Math.sign)(alias));
 });
@@ -217,6 +223,14 @@ fn assert_browser_harness_global_this_math_abs_sign_frozen(
 #[test]
 fn browser_bundle_global_this_math_abs_sign_frozen_source_includes_direct_frozen_math_aliases() {
     let source = browser_bundle_global_this_math_abs_sign_frozen_source();
+    assert!(
+        source.contains("Object.freeze(globalThis.Math.abs)"),
+        "source: {source}"
+    );
+    assert!(
+        source.contains("Object.freeze(globalThis.Math.sign)"),
+        "source: {source}"
+    );
     assert!(
         source.contains("Object.freeze(Math.abs)"),
         "source: {source}"
