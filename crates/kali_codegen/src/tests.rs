@@ -2729,6 +2729,36 @@ fn supported_math_and_number_roots_accept_object_freeze_wrappers() {
 }
 
 #[test]
+fn supported_math_exp_and_log_accept_object_freeze_callable_wrappers() {
+    let program = parse_and_lower_lir(
+        "const zero = 0; const one = 1; console.log(Object.freeze(Math.exp)(zero)); console.log(Object.freeze(globalThis[\"Math\"][\"log\"])(one)); console.log(Object.freeze(globalThis.Math.exp)(zero)); console.log(Object.freeze(globalThis.Math[\"log\"])(one));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.is_error()),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn supported_math_expm1_and_log1p_member_lowering_is_available_for_exact_zero_literals() {
     let program = parse_and_lower_lir(
         "const zero = 0; console.log(Math.expm1(zero)); console.log(Math.log1p(zero));",
