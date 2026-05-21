@@ -13,6 +13,8 @@ This file records the planning baseline for the active continuation roadmap. It 
 
 The checked-in repository already includes:
 
+- The browser-harness/browser-bundle `Math.round` smoke matrix now also covers the parenthesized mixed-quoted-bracketed and single-quoted-bracketed-dot aliases.
+
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
