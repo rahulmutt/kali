@@ -1896,6 +1896,27 @@ fn math_round_member_calls_constant_fold_floating_literal() {
 }
 
 #[test]
+fn math_round_member_constant_folding_is_available_through_object_freeze_callable_wrapper() {
+    let program = parse_and_lower_lir(
+        "console.log(Object.freeze(globalThis.Math[\"round\"])(1.6)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(1.6));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+}
+
+#[test]
 fn math_round_member_calls_global_this_root_lower_to_math_host_imports() {
     let program =
         parse_and_lower_lir("function f(value) { console.log(globalThis.Math.round(value)); }");
