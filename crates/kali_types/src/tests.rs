@@ -1821,6 +1821,41 @@ fn test_resolution_reports_late_host_control_globals_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_late_host_control_globals_through_await_wrapped_receivers_as_unavailable(
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "browser");
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::MemberExpression(Box::new(
+            kali_ast::MemberExpression {
+                object: Expression::AwaitExpression(Box::new(AwaitExpression {
+                    argument: Expression::MemberExpression(Box::new(kali_ast::MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "process".to_string(),
+                    })),
+                })),
+                property: "kill".to_string(),
+            },
+        ))),
+    })];
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains("globalThis.process.kill"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![

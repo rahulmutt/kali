@@ -3774,6 +3774,9 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(Self::member_access_bracketed_root_name),
+            Expression::AwaitExpression(expr) => {
+                Self::member_access_bracketed_root_name(&expr.argument)
+            }
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => {
                     Self::member_access_bracketed_root_name(object)
@@ -3808,6 +3811,7 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(Self::member_access_root_name),
+            Expression::AwaitExpression(expr) => Self::member_access_root_name(&expr.argument),
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => Self::member_access_root_name(object),
             },
@@ -3832,6 +3836,7 @@ impl TypeContext {
             Expression::SequenceExpression(expr) => {
                 expr.expressions.last().and_then(Self::member_object_name)
             }
+            Expression::AwaitExpression(expr) => Self::member_object_name(&expr.argument),
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => Self::member_object_name(object),
             },
