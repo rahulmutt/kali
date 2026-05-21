@@ -1830,6 +1830,14 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
         "body: {body}"
     );
     assert!(
+        body.contains("const bracketedRootFrozenSettled = await Object.freeze(Promise[\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise[\"allSettled\"]))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("parenthesizedFrozenBracketedSettled.length !== 2"),
         "body: {body}"
     );

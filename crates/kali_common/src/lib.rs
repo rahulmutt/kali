@@ -1236,6 +1236,8 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const mixedRootFrozenSettled = await Object.freeze(globalThis.Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedMixedRootFrozenSettled = await Object.freeze((globalThis.Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
+  const bracketedRootFrozenSettled = await Object.freeze(Promise["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const parenthesizedBracketedRootFrozenSettled = await Object.freeze((Promise["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const rootFrozenSettled = await Object.freeze(Promise.allSettled)([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedRootFrozenSettled = await Object.freeze((Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
   if (
@@ -1289,6 +1291,16 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     parenthesizedMixedRootFrozenSettled[0].value !== 1 ||
     parenthesizedMixedRootFrozenSettled[1].status !== 'rejected' ||
     parenthesizedMixedRootFrozenSettled[1].reason !== 'boom' ||
+    bracketedRootFrozenSettled.length !== 2 ||
+    bracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    bracketedRootFrozenSettled[0].value !== 1 ||
+    bracketedRootFrozenSettled[1].status !== 'rejected' ||
+    bracketedRootFrozenSettled[1].reason !== 'boom' ||
+    parenthesizedBracketedRootFrozenSettled.length !== 2 ||
+    parenthesizedBracketedRootFrozenSettled[0].status !== 'fulfilled' ||
+    parenthesizedBracketedRootFrozenSettled[0].value !== 1 ||
+    parenthesizedBracketedRootFrozenSettled[1].status !== 'rejected' ||
+    parenthesizedBracketedRootFrozenSettled[1].reason !== 'boom' ||
     rootFrozenSettled.length !== 2 ||
     rootFrozenSettled[0].status !== 'fulfilled' ||
     rootFrozenSettled[0].value !== 1 ||
