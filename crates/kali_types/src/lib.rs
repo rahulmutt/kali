@@ -2070,6 +2070,10 @@ impl TypeContext {
                 | r#"globalThis.Number["isNaN"]"#
                 | r#"globalThis.Number["isInteger"]"#
                 | r#"globalThis.Number["isSafeInteger"]"#
+                | r#"globalThis["Number"]["isFinite"]"#
+                | r#"globalThis["Number"]["isNaN"]"#
+                | r#"globalThis["Number"]["isInteger"]"#
+                | r#"globalThis["Number"]["isSafeInteger"]"#
         )
     }
 
