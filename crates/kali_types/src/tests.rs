@@ -2,10 +2,10 @@ use super::*;
 use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, AssignmentExpression, AssignmentOperator,
     AwaitExpression, BinaryExpression, BlockStatement, CallExpression, ClassBody, ClassDeclaration,
-    ClassExpression, DecoratedExpression, ExportDefaultDeclaration, ExportNamedDeclaration,
-    ExportSpecifier, Expression, ExpressionOrSpread, ExpressionStatement, ForOfLefthand,
-    ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue, MemberExpression,
-    MethodDefinition, ObjectExpression, ObjectProperty, ObjectPropertyKind,
+    ClassExpression, ConditionalExpression, DecoratedExpression, ExportDefaultDeclaration,
+    ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionOrSpread, ExpressionStatement,
+    ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue,
+    MemberExpression, MethodDefinition, ObjectExpression, ObjectProperty, ObjectPropertyKind,
     ParenthesizedExpression, PropertyName, SatisfiesExpression, TemplateElement, TemplateLiteral,
     TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
     VariableDeclaration, VariableDeclarator, YieldExpression,
@@ -5107,6 +5107,40 @@ fn test_resolution_supports_math_round_member_calls_through_sequence_wrappers() 
                 Expression::Literal(LiteralValue::Number(0.0)),
                 Expression::Literal(LiteralValue::Number(1.6)),
             ])],
+        }))),
+    })];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_supports_math_round_member_calls_through_conditional_callable_wrappers() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+            callee: Expression::ConditionalExpression(Box::new(ConditionalExpression {
+                test: Box::new(Expression::Literal(LiteralValue::Boolean(true))),
+                consequent: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Math".to_string()),
+                    property: "round".to_string(),
+                }))),
+                alternate: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "freeze".to_string(),
+                    })),
+                    args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Math".to_string()),
+                        property: "round".to_string(),
+                    }))],
+                }))),
+            })),
+            args: vec![Expression::Literal(LiteralValue::Number(1.6))],
         }))),
     })];
 

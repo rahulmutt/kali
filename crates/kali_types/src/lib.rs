@@ -2102,6 +2102,28 @@ impl TypeContext {
 
     fn resolve_static_callable_name(&self, expression: &Expression) -> Option<String> {
         let expression = Self::unwrap_static_callable_expression(expression);
+        if let Expression::ConditionalExpression(expr) = expression {
+            match self.resolve_static_object_identity_literal_value(&expr.test) {
+                Some(StaticObjectIdentityValue::Boolean(true)) => {
+                    return self.resolve_static_callable_name(&expr.consequent);
+                }
+                Some(StaticObjectIdentityValue::Boolean(false)) => {
+                    return self.resolve_static_callable_name(&expr.alternate);
+                }
+                _ => {
+                    let consequent = Self::unwrap_static_callable_expression(&expr.consequent);
+                    let alternate = Self::unwrap_static_callable_expression(&expr.alternate);
+                    let consequent_name = Self::call_member_access_name(consequent)
+                        .or_else(|| self.resolve_static_reference_root(consequent));
+                    let alternate_name = Self::call_member_access_name(alternate)
+                        .or_else(|| self.resolve_static_reference_root(alternate));
+                    if consequent_name.is_some() && consequent_name == alternate_name {
+                        return consequent_name;
+                    }
+                }
+            }
+        }
+
         Self::call_member_access_name(expression)
             .or_else(|| self.resolve_static_reference_root(expression))
     }

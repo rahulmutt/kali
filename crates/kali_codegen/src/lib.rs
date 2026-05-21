@@ -4429,6 +4429,13 @@ impl<'a> FunctionEmitter<'a> {
         let bound = self.resolve_bound_node(id);
         let bound = self.unwrap_transparent_value_node(bound);
         let node = self.node(bound);
+        if node.kind == LirNodeKind::Value && node.children.len() == 3 {
+            let consequent = self.resolve_bound_member_callable_node(node.children[1])?;
+            let alternate = self.resolve_bound_member_callable_node(node.children[2])?;
+            if self.node(consequent).text.as_deref() == self.node(alternate).text.as_deref() {
+                return Some(consequent);
+            }
+        }
         if node.text.is_some() && !node.children.is_empty() {
             Some(bound)
         } else if self.is_object_freeze_call(node) {
