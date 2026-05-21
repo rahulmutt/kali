@@ -10,7 +10,7 @@ use kali_ast::{
     TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
     VariableDeclaration, VariableDeclarator, YieldExpression,
 };
-use kali_common::process_kill_zero_probe_source;
+use kali_common::{math_round_frozen_callable_invocation_source, process_kill_zero_probe_source};
 use kali_error::_error_codes::{e3, e5};
 use std::fs;
 use tempfile::tempdir;
@@ -9823,6 +9823,33 @@ frozenParenthesizedDotRoot(2, exponent);
         fs::write(&source_path, source).unwrap();
 
         let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_supports_frozen_math_round_callable_aliases_across_js_like_extensions() {
+    let source = format!(
+        "const value = 1.6;\n{}",
+        math_round_frozen_callable_invocation_source()
+    );
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, &source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.clone());
         let tokens = lexer.lex_all().tokens;
         let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
         let statements = parser.parse(None).statements;
