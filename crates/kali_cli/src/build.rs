@@ -2890,6 +2890,13 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
         ));
     }
 
+    fn push_generator_function_diagnostic(diagnostics: &mut Vec<Diagnostic>, is_async: bool) {
+        diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::generator_function_lowering_unavailable_message(is_async),
+        ));
+    }
+
     fn class_body_has_async_method(body: &kali_ast::ClassBody) -> bool {
         body.methods
             .iter()
@@ -3283,8 +3290,12 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
                 collect_expression(&do_while_stmt.test, diagnostics);
             }
             Statement::FunctionDeclaration(function) => {
-                for nested in &function.body.body {
-                    collect_statement(nested, diagnostics);
+                if function.generator {
+                    push_generator_function_diagnostic(diagnostics, function.is_async);
+                } else {
+                    for nested in &function.body.body {
+                        collect_statement(nested, diagnostics);
+                    }
                 }
             }
             Statement::VariableDeclaration(declaration) => {
@@ -3296,6 +3307,15 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
             }
             Statement::ExportDefault(ExportDefaultDeclaration::Expression(expression)) => {
                 collect_expression(expression, diagnostics);
+            }
+            Statement::ExportDefault(ExportDefaultDeclaration::FunctionDeclaration(function)) => {
+                if function.generator {
+                    push_generator_function_diagnostic(diagnostics, function.is_async);
+                } else {
+                    for nested in &function.body.body {
+                        collect_statement(nested, diagnostics);
+                    }
+                }
             }
             Statement::EnumDeclaration(enum_declaration) => {
                 for member in &enum_declaration.members {
