@@ -5293,6 +5293,62 @@ mod tests {
     }
 
     #[test]
+    fn package_effects_report_rejects_whitespace_padded_package_coordinate_fields() {
+        for (field, value, expected) in [
+            (
+                "name",
+                " widget ",
+                "package-effects payload package name must not have leading or trailing whitespace",
+            ),
+            (
+                "version",
+                " 1.2.3 ",
+                "package-effects payload package version must not have leading or trailing whitespace",
+            ),
+            (
+                "registry",
+                " npm ",
+                "package-effects payload package registry must not have leading or trailing whitespace",
+            ),
+        ] {
+            let report = kali_sandbox::EffectReport {
+                schema_version: 1,
+                analysis_context: kali_sandbox::EffectAnalysisContext::new("deno"),
+                entry_points: vec!["widget".to_string()],
+                effects: Vec::new(),
+                dynamic_effects: false,
+                dynamic_reasons: Vec::new(),
+            };
+            let payload = package_effects_report(
+                kali_sandbox::PackageCoordinate {
+                    name: if field == "name" {
+                        value.to_string()
+                    } else {
+                        "widget".to_string()
+                    },
+                    version: if field == "version" {
+                        value.to_string()
+                    } else {
+                        "1.2.3".to_string()
+                    },
+                    registry: if field == "registry" {
+                        value.to_string()
+                    } else {
+                        "npm".to_string()
+                    },
+                },
+                report,
+            );
+            let payload = serde_json::to_value(payload).expect("serialize package-effects payload");
+
+            let err = super::validate_package_effects_payload_value(&payload)
+                .expect_err("whitespace-padded package coordinate should be rejected");
+
+            assert_eq!(err, expected);
+        }
+    }
+
+    #[test]
     fn manifest_compat_features_attach_config_context() {
         let manifest = ProjectManifest {
             compat: Some(json!({"features": ["eval", "future"]})),

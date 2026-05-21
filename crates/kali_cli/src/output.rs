@@ -1026,6 +1026,28 @@ fn validate_non_empty_string_value(value: Option<&Value>, context: &str) -> Resu
     }
 }
 
+fn validate_canonical_non_empty_string_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    let Some(Value::String(value)) = value else {
+        return validate_non_empty_string_value(value, context);
+    };
+
+    if value.trim().is_empty() {
+        return Err(format!(
+            "{context} must be a non-empty, non-whitespace string"
+        ));
+    }
+    if value.trim() != value {
+        return Err(format!(
+            "{context} must not have leading or trailing whitespace"
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_canonical_absolute_url_string_value(
     value: Option<&Value>,
     context: &str,
@@ -1255,20 +1277,10 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
     )?;
 
     for key in ["name", "version", "registry"] {
-        match object.get(key) {
-            Some(Value::String(value)) if !value.trim().is_empty() => {}
-            Some(Value::String(_)) => {
-                return Err(format!(
-                "package-effects payload package {key} must be a non-empty, non-whitespace string"
-            ))
-            }
-            Some(other) => {
-                return Err(format!(
-                    "package-effects payload package {key} must be a string, got {other}"
-                ))
-            }
-            None => unreachable!("validated above"),
-        }
+        validate_canonical_non_empty_string_value(
+            object.get(key),
+            &format!("package-effects payload package {key}"),
+        )?;
     }
 
     validate_stable_semver_version_value(
