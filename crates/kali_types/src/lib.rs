@@ -1481,6 +1481,30 @@ impl TypeContext {
                     self.resolve_static_object_identity_literal_value(expression)
                 })
             }
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_object_identity_literal_value(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_object_identity_literal_value(&expr.alternate)
+                    }
+                    _ => {
+                        let consequent =
+                            self.resolve_static_object_identity_literal_value(&expr.consequent);
+                        let alternate =
+                            self.resolve_static_object_identity_literal_value(&expr.alternate);
+                        match (consequent, alternate) {
+                            (Some(consequent), Some(alternate))
+                                if consequent.same_value(&alternate) =>
+                            {
+                                Some(consequent)
+                            }
+                            _ => None,
+                        }
+                    }
+                }
+            }
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 call.args.first().and_then(|expression| {
                     self.resolve_static_object_identity_literal_value(expression)
@@ -1581,6 +1605,26 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_reference_root(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_reference_root(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_reference_root(&expr.alternate)
+                    }
+                    _ => {
+                        let consequent = self.resolve_static_reference_root(&expr.consequent);
+                        let alternate = self.resolve_static_reference_root(&expr.alternate);
+                        match (consequent, alternate) {
+                            (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                Some(consequent)
+                            }
+                            _ => None,
+                        }
+                    }
+                }
+            }
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => {
                     self.resolve_static_reference_root(object)
@@ -1640,6 +1684,20 @@ impl TypeContext {
                 .expressions
                 .last()
                 .is_some_and(|expression| self.resolve_static_object_model_target(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_object_model_target(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_object_model_target(&expr.alternate)
+                    }
+                    _ => {
+                        self.resolve_static_object_model_target(&expr.consequent)
+                            && self.resolve_static_object_model_target(&expr.alternate)
+                    }
+                }
+            }
             Expression::AwaitExpression(expr) => {
                 self.resolve_static_object_model_target(&expr.argument)
             }
@@ -1693,6 +1751,20 @@ impl TypeContext {
                 .expressions
                 .last()
                 .is_some_and(|expression| self.resolve_static_object_keys_target(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_object_keys_target(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_object_keys_target(&expr.alternate)
+                    }
+                    _ => {
+                        self.resolve_static_object_keys_target(&expr.consequent)
+                            && self.resolve_static_object_keys_target(&expr.alternate)
+                    }
+                }
+            }
             Expression::ObjectExpression(ObjectExpression { properties }) => {
                 properties.iter().all(|property| {
                     matches!(
@@ -3018,6 +3090,27 @@ impl TypeContext {
                 .expressions
                 .last()
                 .and_then(|expression| self.resolve_static_numeric_literal_value(expression)),
+            Expression::ConditionalExpression(expr) => {
+                match self.resolve_static_object_identity_literal_value(&expr.test) {
+                    Some(StaticObjectIdentityValue::Boolean(true)) => {
+                        self.resolve_static_numeric_literal_value(&expr.consequent)
+                    }
+                    Some(StaticObjectIdentityValue::Boolean(false)) => {
+                        self.resolve_static_numeric_literal_value(&expr.alternate)
+                    }
+                    _ => {
+                        let consequent =
+                            self.resolve_static_numeric_literal_value(&expr.consequent);
+                        let alternate = self.resolve_static_numeric_literal_value(&expr.alternate);
+                        match (consequent, alternate) {
+                            (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                Some(consequent)
+                            }
+                            _ => None,
+                        }
+                    }
+                }
+            }
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
                 .args
                 .first()
