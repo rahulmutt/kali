@@ -31454,7 +31454,7 @@ fn run_supports_math_round_builtin_semantics_through_const_alias_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze(Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias));\n",
     )
     .expect("write source");
 
@@ -31472,7 +31472,11 @@ fn run_supports_math_round_builtin_semantics_through_const_alias_in_js_input() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("2"), "stdout: {stdout}");
+    assert_eq!(
+        stdout.lines().filter(|line| *line == "2").count(),
+        5,
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
@@ -31481,7 +31485,7 @@ fn json_run_supports_math_round_builtin_semantics_through_const_alias_in_js_inpu
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze(Math.round)(alias));\n",
+        "const value = 1.6; const alias = value; console.log(Math.round(alias)); console.log(Math.round(Object.freeze(alias))); console.log(Object.freeze(globalThis.Math.round)(alias)); console.log(Object.freeze((globalThis.Math[\"round\"]))(alias)); console.log(Object.freeze(Math.round)(alias));\n",
     )
     .expect("write source");
 
@@ -31508,7 +31512,11 @@ fn json_run_supports_math_round_builtin_semantics_through_const_alias_in_js_inpu
     assert_eq!(json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     let stdout = json["stdout"].as_str().expect("stdout");
-    assert!(stdout.contains("2"), "json: {json}");
+    assert_eq!(
+        stdout.lines().filter(|line| *line == "2").count(),
+        5,
+        "json: {json}"
+    );
 }
 
 #[test]
