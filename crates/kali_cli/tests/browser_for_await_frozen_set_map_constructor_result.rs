@@ -115,6 +115,9 @@ fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
   for await (const key of Object.freeze(Object.keys)(object)) {
     console.log(key);
   }
+  for await (const value of Object.freeze(Object.values)(object)) {
+    console.log(value);
+  }
   for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
     console.log(entry[0]);
     console.log(entry[1]);
@@ -131,6 +134,9 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
     const object = Object.fromEntries([["b", 1], ["a", 2]]);
     for await (const key of Object.freeze(Object.keys)(object)) {
       console.log(key);
+    }
+    for await (const value of Object.freeze(Object.values)(object)) {
+      console.log(value);
     }
     for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
       console.log(entry[0]);
@@ -149,6 +155,9 @@ export async function browserFrozenObjectHelperIterationTargets() {
   const object = Object.fromEntries([["b", 1], ["a", 2]]);
   for await (const key of Object.freeze(Object.keys)(object)) {
     console.log(key);
+  }
+  for await (const value of Object.freeze(Object.values)(object)) {
+    console.log(value);
   }
   for await (const entry of Object.freeze(globalThis["Object"]["entries"])(object)) {
     console.log(entry[0]);
@@ -540,14 +549,17 @@ fn assert_browser_requested_frozen_object_helper_iteration_targets(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("b\na\nb\n1\na\n2\n"), "json: {json}");
+        assert!(stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         return;
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("b\na\nb\n1\na\n2\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"),
+        "stdout: {stdout}"
+    );
     if command == "test" {
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
@@ -635,7 +647,10 @@ fn assert_browser_bundle_frozen_object_helper_iteration_targets(filename: &str, 
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("b\na\nb\n1\na\n2\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"),
+        "stdout: {stdout}"
+    );
 }
 
 #[test]
