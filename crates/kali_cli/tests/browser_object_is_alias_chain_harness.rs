@@ -16,6 +16,7 @@ const arrayAlias = array;
 const frozenArray = Object.freeze(array);
 if (
   Object.is(objectAlias, object) !== true ||
+  globalThis?.Object?.is(objectAlias, object) !== true ||
   globalThis["Object"]["is"](objectAlias, object) !== true ||
   globalThis.Object["is"](objectAlias, object) !== true ||
   globalThis["Object"].is(objectAlias, object) !== true ||
