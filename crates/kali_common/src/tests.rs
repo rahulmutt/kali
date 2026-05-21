@@ -794,6 +794,8 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
     assert_eq!(
         aliases,
         &[
+            r#"Object.freeze(Reflect.ownKeys)"#,
+            r#"Object.freeze((Reflect.ownKeys))"#,
             r#"Object.freeze(globalThis.Reflect.ownKeys)"#,
             r#"Object.freeze(globalThis.Reflect["ownKeys"])"#,
             r#"Object.freeze(globalThis["Reflect"].ownKeys)"#,
@@ -824,6 +826,8 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
 fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
     let source = reflect_own_keys_frozen_callable_source("obj");
     let expected = concat!(
+        "const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj); ",
+        "const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj); ",
         "const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj); ",
         r#"const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj); "#,
         r#"const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(obj); "#,

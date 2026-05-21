@@ -83,7 +83,9 @@ fn reflect_own_keys_test_source() -> &'static str {
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
-  const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
+  const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
+const parenthesizedFrozenBareCallableKeys = Object.freeze((Reflect.ownKeys))(obj);
+const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
   const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(obj);
   const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
   const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
@@ -127,6 +129,8 @@ fn reflect_own_keys_test_source() -> &'static str {
     fullyBracketedKeys[2] !== 'b' ||
     fullyBracketedKeys[3] !== 'a' ||
     singleQuotedKeys.length !== 4 ||
+    frozenBareCallableKeys.length !== 4 ||
+    parenthesizedFrozenBareCallableKeys.length !== 4 ||
     frozenCallableKeys.length !== 4 ||
     frozenMixedBracketedKeys.length !== 4 ||
     frozenBracketedKeys.length !== 4 ||
@@ -136,6 +140,14 @@ fn reflect_own_keys_test_source() -> &'static str {
     singleQuotedKeys[1] !== '2' ||
     singleQuotedKeys[2] !== 'b' ||
     singleQuotedKeys[3] !== 'a' ||
+    frozenBareCallableKeys[0] !== '1' ||
+    frozenBareCallableKeys[1] !== '2' ||
+    frozenBareCallableKeys[2] !== 'b' ||
+    frozenBareCallableKeys[3] !== 'a' ||
+    parenthesizedFrozenBareCallableKeys[0] !== '1' ||
+    parenthesizedFrozenBareCallableKeys[1] !== '2' ||
+    parenthesizedFrozenBareCallableKeys[2] !== 'b' ||
+    parenthesizedFrozenBareCallableKeys[3] !== 'a' ||
     syncCount !== 4 ||
     sequenceCount !== 4 ||
     mixedSequenceCount !== 4
