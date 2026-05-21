@@ -66,5 +66,5 @@ Remaining goals:
 - Widen Lean models for ownership, effects, type-system, and lowering slices in small named increments.
 - Update `proofs/BOUNDARY.md` before any proof-backed wording changes.
 - Expand proof CI triggers only when the published proof boundary claims implementation or spec paths outside the proof tree.
-- Continue hardening JSON payload, artifact-manifest, schema-drift, diagnostics, source spans, and CLI-doc contracts while respecting schema extension posture; the public package-effects validator now also rejects non-object payloads and unsupported registry names, so that emission slice is covered and remaining work stays on the other schema-drift edges.
+- Continue hardening JSON payload, artifact-manifest, schema-drift, diagnostics, source spans, and CLI-doc contracts while respecting schema extension posture; the public package-effects validator now also rejects non-object payloads, unsupported registry names, and registry-prefixed package names, so that emission slice is covered and remaining work stays on the other schema-drift edges.
 - Avoid duplicating theorem inventories in plan files; `proofs/BOUNDARY.md` remains the sole proof-boundary inventory.

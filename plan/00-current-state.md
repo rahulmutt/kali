@@ -49,7 +49,7 @@ The checked-in repository already includes:
 - Host/API lanes: default standalone, browser-targeted check/build/bundle flows, browser harness execution paths, documented Deno and Node API slices, resource budget validation, and late-host/object-model gating, including await-wrapped receiver handling on the late host-control process slice and computed `Deno["Command"]` subprocess aliases.
 - Package lanes: install/lock/materialization, registry and raw-URL workflows, package-shape rejection, package-corpus probes, and single-package registry-analysis commands.
 - Verification lanes: Lean proof project and published proof-backed boundary limited by `proofs/BOUNDARY.md`.
-- Schema-v1 emission hardening now also explicitly rejects non-object `package-effects` payloads and non-canonical package registry names in that payload's package coordinate, mirroring the existing package-audit payload-null boundary in the validation helpers; the public schema-validation helpers now carry matching regressions for those payload-shape checks.
+- Schema-v1 emission hardening now also explicitly rejects non-object `package-effects` payloads, non-canonical package registry names in that payload's package coordinate, and registry-prefixed package names in the coordinate payload, mirroring the existing package-audit payload-null boundary in the validation helpers; the public schema-validation helpers now carry matching regressions for those payload-shape checks.
 
 ## Planning consequence
 

@@ -3253,6 +3253,41 @@ fn validate_package_effects_payload_value_rejects_whitespace_package_coordinate_
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_registry_prefixed_package_names() {
+    for (registry, name) in [("npm", "npm:semver"), ("jsr", "jsr:@std/path")] {
+        let value = json!({
+            "schemaVersion": 1,
+            "package": {
+                "name": name,
+                "version": "7.6.3",
+                "registry": registry,
+            },
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "default",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": ["semver"],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
+
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("registry-prefixed package names should fail validation");
+        assert!(
+            err.contains("registry-native") && err.contains("prefix"),
+            "unexpected error: {err}"
+        );
+        assert!(err.contains(name), "unexpected error: {err}");
+        assert!(err.contains(registry), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_duplicate_analysis_context_sets() {
     let value = json!({
         "schemaVersion": 1,

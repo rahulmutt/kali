@@ -1243,6 +1243,16 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
         }
     }
 
+    match object.get("name").and_then(Value::as_str) {
+        Some(name) if !name.contains(':') => {}
+        Some(other) => {
+            return Err(format!(
+                "package-effects payload package name must be registry-native and must not include a registry prefix, got `{other}`"
+            ))
+        }
+        None => unreachable!("validated above"),
+    }
+
     match object.get("registry").and_then(Value::as_str) {
         Some("npm") | Some("jsr") => {}
         Some(other) => {
