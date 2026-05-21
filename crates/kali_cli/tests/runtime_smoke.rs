@@ -31668,6 +31668,34 @@ stderr: {}",
     assert!(stdout.contains("1"), "json: {json}");
 }
 
+#[test]
+fn run_supports_math_floor_trunc_and_ceil_direct_object_freeze_callable_aliases_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const value = 1.6; const floor = Object.freeze(Math.floor); const trunc = Object.freeze(Math.trunc); const ceil = Object.freeze(Math.ceil); console.log(floor(value)); console.log(trunc(value)); console.log(ceil(value));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n"), "stdout: {stdout}");
+    assert!(stdout.contains("2\n"), "stdout: {stdout}");
+}
+
 fn math_floor_trunc_ceil_const_numeric_alias_chain_source() -> String {
     let variable_names = [
         "frozenFloor",
