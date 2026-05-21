@@ -23,6 +23,12 @@ fn browser_harness_array_from_set_map_run_source() -> &'static str {
   for (const value of Object.freeze(globalThis['Array']['from'])(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze(globalThis.Array['from'])(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze(globalThis['Array'].from)(new Set(setValues))) {
+    console.log(value);
+  }
   for await (const value of Array.from(new Set(setValues))) {
     console.log(value);
   }
