@@ -16,6 +16,7 @@ function globalThisMathRoundIdentity() {
   console.log(globalThis.Math["round"](value));
   console.log(globalThis["Math"]["round"](value));
   console.log("optional-chain", globalThis?.Math.round(value));
+  console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value));
   console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
@@ -25,6 +26,7 @@ function globalThisMathRoundIdentity() {
     globalThis.Math["round"](value),
     globalThis["Math"]["round"](value),
     globalThis?.Math.round(value),
+    Object.freeze(globalThis?.Math.round)(value),
     Math.round(frozenValue),
     Object.freeze(globalThis["Math"]["round"])(value),
     Object.freeze(globalThis.Math.round)(value),
@@ -35,7 +37,7 @@ function globalThisMathRoundIdentity() {
 }
 
 fn browser_harness_global_this_math_round_run_source() -> &'static str {
-    "const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(\"optional-chain\", globalThis?.Math.round(value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
+    "const value = 1.6; const frozenValue = Object.freeze(value); console.log(globalThis.Math.round(value)); console.log(globalThis.Math[\"round\"](value)); console.log(globalThis[\"Math\"][\"round\"](value)); console.log(\"optional-chain\", globalThis?.Math.round(value)); console.log(\"frozen-optional-chain\", Object.freeze(globalThis?.Math.round)(value)); console.log(Math.round(frozenValue)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(value)); console.log(Object.freeze(globalThis.Math.round)(value)); console.log(Object.freeze(Math.round)(value));\n"
 }
 
 fn browser_harness_global_this_math_round_test_source() -> &'static str {
@@ -46,6 +48,7 @@ fn browser_harness_global_this_math_round_test_source() -> &'static str {
   console.log(globalThis.Math["round"](value));
   console.log(globalThis["Math"]["round"](value));
   console.log("optional-chain", globalThis?.Math.round(value));
+  console.log("frozen-optional-chain", Object.freeze(globalThis?.Math.round)(value));
   console.log(Math.round(frozenValue));
   console.log(Object.freeze(globalThis["Math"]["round"])(value));
   console.log(Object.freeze(globalThis.Math.round)(value));
@@ -187,12 +190,17 @@ fn assert_browser_harness_global_this_math_round(
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(stdout.contains("optional-chain\n2"), "json: {json}");
+        assert!(stdout.contains("frozen-optional-chain\n2"), "json: {json}");
         assert!(stdout.contains("2\n"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert_eq!(json["errors"], serde_json::Value::Array(vec![]));
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("optional-chain\n2"), "stdout: {stdout}");
+        assert!(
+            stdout.contains("frozen-optional-chain\n2"),
+            "stdout: {stdout}"
+        );
         assert!(stdout.contains("2\n"), "stdout: {stdout}");
     }
 }
