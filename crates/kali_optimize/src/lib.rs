@@ -2703,6 +2703,13 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
                 Some(ConstantValue::BigInt(left / right))
             }
         }
+        ("%", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
+            if right == 0 {
+                None
+            } else {
+                Some(ConstantValue::BigInt(left % right))
+            }
+        }
         ("==", ConstantValue::BigInt(left), ConstantValue::BigInt(right)) => {
             Some(ConstantValue::Boolean(left == right))
         }
@@ -2724,6 +2731,16 @@ fn fold_binary(op: &str, left: ConstantValue, right: ConstantValue) -> Option<Co
                     None
                 } else {
                     Some(ConstantValue::Number(left / right))
+                }
+            }
+            _ => None,
+        },
+        ("%", left, right) => match (as_number(left), as_number(right)) {
+            (Some(left), Some(right)) => {
+                if right == 0 {
+                    None
+                } else {
+                    Some(ConstantValue::Number(left % right))
                 }
             }
             _ => None,

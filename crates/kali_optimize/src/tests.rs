@@ -687,6 +687,27 @@ fn release_constant_folds_binary_expressions() {
 }
 
 #[test]
+fn release_constant_folds_remainder_expressions() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let rem = builder.alloc_text(LirNodeKind::Value, "%");
+    let lhs = literal(&mut builder, "7");
+    let rhs = literal(&mut builder, "4");
+    builder.node_mut(rem).unwrap().children = vec![lhs, rhs];
+    builder.node_mut(root).unwrap().children = vec![rem];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let node = &program.nodes[rem.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Literal);
+    assert_eq!(node.text.as_deref(), Some("3"));
+}
+
+#[test]
 fn release_constant_folds_string_concatenation() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
@@ -786,6 +807,27 @@ fn release_constant_folds_bigint_multiplication_chain() {
     let node = &program.nodes[add7.0 as usize];
     assert_eq!(node.kind, LirNodeKind::Literal);
     assert_eq!(node.text.as_deref(), Some("36n"));
+}
+
+#[test]
+fn release_constant_folds_bigint_remainder_expression() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let rem = builder.alloc_text(LirNodeKind::Value, "%");
+    let lhs = literal(&mut builder, "7n");
+    let rhs = literal(&mut builder, "4n");
+    builder.node_mut(rem).unwrap().children = vec![lhs, rhs];
+    builder.node_mut(root).unwrap().children = vec![rem];
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let node = &program.nodes[rem.0 as usize];
+    assert_eq!(node.kind, LirNodeKind::Literal);
+    assert_eq!(node.text.as_deref(), Some("3n"));
 }
 
 #[test]
