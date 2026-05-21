@@ -2996,33 +2996,50 @@ fn validate_package_effects_payload_value_accepts_jsr_canonical_report_labels() 
 
 #[test]
 fn validate_package_effects_payload_value_rejects_mismatched_report_labels() {
-    let value = json!({
-        "schemaVersion": 1,
-        "package": {
-            "name": "@std/path",
-            "version": "1.0.8",
-            "registry": "jsr",
-        },
-        "report": {
+    for (package, entry_point, canonical_label) in [
+        (
+            json!({
+                "name": "@std/path",
+                "version": "1.0.8",
+                "registry": "jsr",
+            }),
+            "@std/path",
+            "jsr:@std/path",
+        ),
+        (
+            json!({
+                "name": "semver",
+                "version": "7.6.3",
+                "registry": "npm",
+            }),
+            "npm:semver",
+            "semver",
+        ),
+    ] {
+        let value = json!({
             "schemaVersion": 1,
-            "analysisContext": {
-                "apiSurface": "browser",
-                "runtimeProfiles": [],
-                "compatFeatures": [],
+            "package": package,
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "browser",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": [entry_point],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
             },
-            "entryPoints": ["@std/path"],
-            "effects": [],
-            "dynamicEffects": false,
-            "dynamicReasons": [],
-        },
-    });
+        });
 
-    let err = validate_package_effects_payload_value(&value)
-        .expect_err("mismatched report labels should fail validation");
-    assert!(
-        err.contains("canonical registry package identifier") && err.contains("jsr:@std/path"),
-        "unexpected error: {err}"
-    );
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("mismatched report labels should fail validation");
+        assert!(
+            err.contains("canonical registry package identifier") && err.contains(canonical_label),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]
