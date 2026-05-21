@@ -1327,6 +1327,8 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
   const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedBracketedDotRootFrozenSettled = await Object.freeze((globalThis["Promise"]).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
+  const wrappedSingleBracketedDotRootFrozenSettled = await Object.freeze((globalThis['Promise']).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
   const frozenBracketedSettled = await Object.freeze(globalThis["Promise"]["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const parenthesizedFrozenBracketedSettled = await Object.freeze((globalThis["Promise"]["allSettled"]))([Promise.resolve(1), Promise.reject('boom')]);
   const singleFrozenBracketedSettled = await Object.freeze(globalThis['Promise']['allSettled'])([Promise.resolve(1), Promise.reject('boom')]);
@@ -1378,6 +1380,16 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     bracketedSettled[0].value !== 1 ||
     bracketedSettled[1].status !== 'rejected' ||
     bracketedSettled[1].reason !== 'boom' ||
+    wrappedBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
+    wrappedSingleBracketedDotRootFrozenSettled.length !== 2 ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
+    wrappedSingleBracketedDotRootFrozenSettled[0].value !== 1 ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].status !== 'rejected' ||
+    wrappedSingleBracketedDotRootFrozenSettled[1].reason !== 'boom' ||
     frozenBracketedSettled.length !== 2 ||
     frozenBracketedSettled[0].status !== 'fulfilled' ||
     frozenBracketedSettled[0].value !== 1 ||
