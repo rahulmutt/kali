@@ -205,6 +205,20 @@ fn function_plans_preserve_generator_flavor_metadata_for_default_export_class_de
 }
 
 #[test]
+fn function_plans_preserve_generator_flavor_metadata_for_default_export_generator_function_declarations(
+) {
+    let program = parse_and_lower_lir("export default function* main() { yield* []; }\nmain();");
+    let plans = collect_functions(&program);
+
+    let main = plans
+        .iter()
+        .find(|plan| plan.name == "main")
+        .expect("default-export generator function plan");
+
+    assert_eq!(main.flavor, Some(FunctionFlavor::Generator));
+}
+
+#[test]
 fn function_plans_preserve_generator_flavor_metadata_for_default_export_async_generator_function_declarations(
 ) {
     let program =
