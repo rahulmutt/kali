@@ -2841,12 +2841,13 @@ fn test_resolution_supports_object_from_entries_with_satisfies_wrapper_in_ts_inp
 fn test_resolution_supports_object_has_own_on_object_from_entries_results_in_js_input() {
     let dir = tempdir().unwrap();
     let source_path = dir.path().join("main.js");
-    let source = r#"const fromEntries = Object.fromEntries([["b", 1], ["a", 2]]);
+    let source = r#"const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
+const fromEntries = Object.fromEntries(frozenEntries);
 Object.hasOwn(fromEntries, "a");
 Object.prototype.hasOwnProperty.call(fromEntries, "b");
 Object["hasOwnProperty"]["call"](fromEntries, "b");
-Object.hasOwn(Object.fromEntries([["c", 3], ["d", 4]]), "c");
-Object.prototype.hasOwnProperty.call(Object.fromEntries([["e", 5], ["f", 6]]), "e");
+Object.hasOwn(Object.fromEntries(Object.freeze([["c", 3], ["d", 4]])), "c");
+Object.prototype.hasOwnProperty.call(Object.fromEntries(Object.freeze([["e", 5], ["f", 6]])), "e");
 "#;
     fs::write(&source_path, source).unwrap();
 

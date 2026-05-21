@@ -1933,6 +1933,10 @@ impl TypeContext {
                         .resolve_static_object_identity_literal_value(value)
                         .is_some()
             }),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .is_some_and(|expression| self.resolve_static_from_entries_entries(expression)),
             _ => false,
         }
     }
