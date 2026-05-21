@@ -4954,6 +4954,7 @@ const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
 const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
 const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(object);
+const frozenCallableParenKeys = Object.freeze((Reflect.ownKeys))(object);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(object);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(object);
 for (const item of [...keys]) { console.log(item); }
@@ -4965,6 +4966,7 @@ for (const item of [...mixedKeys]) { console.log(item); }
 for (const item of [...bracketedKeys]) { console.log(item); }
 for (const item of [...frozenBracketedKeys]) { console.log(item); }
 for (const item of [...frozenCallableKeys]) { console.log(item); }
+for (const item of [...frozenCallableParenKeys]) { console.log(item); }
 for (const item of [...frozenCallableGlobalKeys]) { console.log(item); }
 for (const item of [...frozenCallableBracketedKeys]) { console.log(item); }
 for await (const item of keys) { console.log(item); }
@@ -4991,6 +4993,10 @@ const globalKeys = globalThis.Reflect.ownKeys(object);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
 const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
+const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(object);
+const frozenCallableParenKeys = Object.freeze((Reflect.ownKeys))(object);
+const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(object);
+const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(object);
 for (const item of keys) { console.log(item); }
 for (const item of aliasKeys) { console.log(item); }
 for (const item of frozenKeys) { console.log(item); }
@@ -4999,6 +5005,10 @@ for (const item of globalKeys) { console.log(item); }
 for (const item of mixedKeys) { console.log(item); }
 for (const item of bracketedKeys) { console.log(item); }
 for (const item of frozenBracketedKeys) { console.log(item); }
+for (const item of frozenCallableKeys) { console.log(item); }
+for (const item of frozenCallableParenKeys) { console.log(item); }
+for (const item of frozenCallableGlobalKeys) { console.log(item); }
+for (const item of frozenCallableBracketedKeys) { console.log(item); }
 for await (const item of keys) { console.log(item); }
 for await (const item of aliasKeys) { console.log(item); }
 for await (const item of frozenKeys) { console.log(item); }
@@ -5007,6 +5017,10 @@ for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
 for await (const item of frozenBracketedKeys) { console.log(item); }
+for await (const item of frozenCallableKeys) { console.log(item); }
+for await (const item of frozenCallableParenKeys) { console.log(item); }
+for await (const item of frozenCallableGlobalKeys) { console.log(item); }
+for await (const item of frozenCallableBracketedKeys) { console.log(item); }
 "##
 }
 
