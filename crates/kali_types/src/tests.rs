@@ -9797,6 +9797,37 @@ frozenDirectRoot.log1p(zero);
 }
 
 #[test]
+fn test_resolution_supports_frozen_math_pow_callable_aliases_across_js_like_extensions() {
+    let source = r#"const exponent = 3;
+const frozenDotRoot = Object.freeze(Math.pow);
+const frozenGlobalDotRoot = Object.freeze(globalThis.Math.pow);
+const frozenBracketedRoot = Object.freeze(globalThis["Math"]["pow"]);
+frozenDotRoot(2, exponent);
+frozenGlobalDotRoot(2, exponent);
+frozenBracketedRoot(2, exponent);
+"#;
+
+    for extension in ["js", "jsx", "ts", "tsx"] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {extension}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_supports_object_keys_iteration_with_let_binding_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
