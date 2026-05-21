@@ -89,6 +89,61 @@ fn browser_harness_array_from_source(command: &str) -> String {
     }
 }
 
+fn array_from_set_map_break_continue_body() -> &'static str {
+    r#"  const setValues = [0, 1, 1];
+  const setItems = [];
+  for (const value of Array.from(new Set(setValues))) {
+    if (!value) {
+      continue;
+    }
+    setItems.push(value);
+    break;
+  }
+  if (setItems.length !== 1 || setItems[0] !== 1) {
+    throw new Error('unexpected Array.from(new Set(...)) break/continue semantics');
+  }
+
+  const mapValues = [[0, 1], [1, 3], [4, 5]];
+  const mapItems = [];
+  for await (const entry of Array.from(new Map(mapValues))) {
+    if (!entry[0]) {
+      continue;
+    }
+    mapItems.push(entry[0]);
+    mapItems.push(entry[1]);
+    break;
+  }
+  if (mapItems.length !== 2 || mapItems[0] !== 1 || mapItems[1] !== 3) {
+    throw new Error('unexpected Array.from(new Map(...)) break/continue semantics');
+  }
+
+  console.log(1);
+  console.log(2);
+  console.log('array.from set/map break/continue ok');
+"#
+}
+
+fn browser_harness_array_from_set_map_break_continue_source(command: &str) -> String {
+    let body = array_from_set_map_break_continue_body();
+    match command {
+        "test" => format!(
+            "Kali.test('browser Array.from set/map break/continue', () => {{
+  async function browserArrayFromSetMapBreakContinue() {{
+{body}  }}
+  return browserArrayFromSetMapBreakContinue();
+}});
+"
+        ),
+        _ => format!(
+            "async function browserArrayFromSetMapBreakContinue() {{
+{body}}}
+
+browserArrayFromSetMapBreakContinue();
+"
+        ),
+    }
+}
+
 #[test]
 fn browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_loop_sections() {
     let source = browser_harness_array_from_source("test");
@@ -470,6 +525,130 @@ fn json_test_supports_browser_harness_for_of_array_from_iteration_in_js_ts_jsx_a
             filename,
             true,
             browser_harness_array_from_source("test"),
+        );
+    }
+}
+
+#[test]
+fn run_supports_browser_harness_array_from_set_map_break_continue_in_js_input() {
+    assert_browser_harness_array_from_iteration_spread(
+        "run",
+        "main.js",
+        false,
+        browser_harness_array_from_set_map_break_continue_source("run"),
+    );
+}
+
+#[test]
+fn run_supports_browser_harness_array_from_set_map_break_continue_in_ts_input() {
+    assert_browser_harness_array_from_iteration_spread(
+        "run",
+        "main.ts",
+        false,
+        browser_harness_array_from_set_map_break_continue_source("run"),
+    );
+}
+
+#[test]
+fn run_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input() {
+    for filename in ["main.jsx", "main.tsx"] {
+        assert_browser_harness_array_from_iteration_spread(
+            "run",
+            filename,
+            false,
+            browser_harness_array_from_set_map_break_continue_source("run"),
+        );
+    }
+}
+
+#[test]
+fn json_run_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input()
+{
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_array_from_iteration_spread(
+            "run",
+            filename,
+            true,
+            browser_harness_array_from_set_map_break_continue_source("run"),
+        );
+    }
+}
+
+#[test]
+fn test_supports_browser_harness_array_from_set_map_break_continue_in_js_input() {
+    assert_browser_harness_array_from_iteration_spread(
+        "test",
+        "smoke.test.js",
+        false,
+        browser_harness_array_from_set_map_break_continue_source("test"),
+    );
+}
+
+#[test]
+fn test_supports_browser_harness_array_from_set_map_break_continue_in_ts_input() {
+    assert_browser_harness_array_from_iteration_spread(
+        "test",
+        "smoke.test.ts",
+        false,
+        browser_harness_array_from_set_map_break_continue_source("test"),
+    );
+}
+
+#[test]
+fn test_supports_browser_harness_array_from_set_map_break_continue_in_jsx_and_tsx_input() {
+    for filename in ["smoke.test.jsx", "smoke.test.tsx"] {
+        assert_browser_harness_array_from_iteration_spread(
+            "test",
+            filename,
+            false,
+            browser_harness_array_from_set_map_break_continue_source("test"),
+        );
+    }
+}
+
+#[test]
+fn json_test_supports_browser_harness_array_from_set_map_break_continue_in_js_ts_jsx_and_tsx_input()
+{
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_harness_array_from_iteration_spread(
+            "test",
+            filename,
+            true,
+            browser_harness_array_from_set_map_break_continue_source("test"),
+        );
+    }
+}
+
+#[test]
+fn run_supports_array_from_new_set_and_new_map_break_continue_in_js_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_for_of_array_iteration_spread(
+            "run",
+            filename,
+            &browser_harness_array_from_set_map_break_continue_source("run"),
+            "1\n2\n",
+        );
+    }
+}
+
+#[test]
+fn test_supports_array_from_new_set_and_new_map_break_continue_in_js_input() {
+    for filename in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_for_of_array_iteration_spread(
+            "test",
+            filename,
+            &browser_harness_array_from_set_map_break_continue_source("test"),
+            "1\n2\n",
         );
     }
 }
