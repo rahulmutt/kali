@@ -83,6 +83,31 @@ fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_gener
 }
 
 #[test]
+fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_anonymous_generator_function_declaration(
+) {
+    let mir = parse_and_lower("export default function*() { yield* []; }");
+    let lir = LirLowerer::new().lower_program(&mir);
+
+    let default_export = lir
+        .nodes
+        .iter()
+        .find(|node| {
+            node.kind == LirNodeKind::Instruction
+                && node.function_flavor == Some(FunctionFlavor::Generator)
+        })
+        .expect("anonymous default-export generator lir node");
+
+    assert!(default_export
+        .text
+        .as_deref()
+        .is_some_and(|text| !text.is_empty()));
+    assert_eq!(
+        default_export.function_flavor,
+        Some(FunctionFlavor::Generator)
+    );
+}
+
+#[test]
 fn test_lir_lowering_preserves_function_flavor_metadata_for_default_export_async_generator_function_declaration(
 ) {
     let mir = parse_and_lower("export default async function* main() { yield 1; }");

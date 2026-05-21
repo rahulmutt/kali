@@ -222,6 +222,31 @@ fn test_lower_statements_records_function_flavor_metadata_for_default_export_ano
 }
 
 #[test]
+fn test_lower_statements_records_function_flavor_metadata_for_default_export_anonymous_generator_function_declaration(
+) {
+    let statements = parse("export default function*() { yield* []; }");
+    let mut lowerer = HirLowerer::new();
+    let result = lowerer.lower_statements(&statements);
+
+    let (index, node) = result
+        .nodes
+        .iter()
+        .enumerate()
+        .find(|(index, node)| {
+            node.kind == HirNodeKind::FunctionDecl
+                && result.function_flavor(HirNodeId::new(*index as u32))
+                    == Some(FunctionFlavor::Generator)
+        })
+        .expect("anonymous default-export generator function node");
+
+    assert!(node.text.as_deref().is_some_and(|text| !text.is_empty()));
+    assert_eq!(
+        result.function_flavor(HirNodeId::new(index as u32)),
+        Some(FunctionFlavor::Generator)
+    );
+}
+
+#[test]
 fn test_lower_statements_records_function_flavor_metadata_for_class_methods() {
     let statements = parse(
         "class Example { async *outer() { yield 1; } *inner() { yield* other(); } plain() { return 0; } }",

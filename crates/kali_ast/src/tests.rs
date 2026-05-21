@@ -175,3 +175,24 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         default_export_async_generator
     );
 }
+
+#[test]
+fn test_ast_roundtrips_default_export_anonymous_generator_function_declaration() {
+    let default_export_generator = Statement::ExportDefault(
+        ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
+            name: "".to_string(),
+            params: vec![],
+            body: Box::new(BlockStatement { body: vec![] }),
+            is_async: false,
+            generator: true,
+        }),
+    );
+
+    let round_tripped_default_export_generator: Statement =
+        serde_json::from_str(&serde_json::to_string(&default_export_generator).unwrap()).unwrap();
+
+    assert_eq!(
+        round_tripped_default_export_generator,
+        default_export_generator
+    );
+}

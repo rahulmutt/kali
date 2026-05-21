@@ -173,6 +173,30 @@ fn test_mir_lowering_preserves_function_flavor_metadata_for_default_export_gener
 }
 
 #[test]
+fn test_mir_lowering_preserves_function_flavor_metadata_for_default_export_anonymous_generator_function_declaration(
+) {
+    let hir = parse_and_lower_hir("export default function*() { yield* []; }");
+    let mir = MirLowerer::new().lower_hir_result(&hir);
+
+    let default_export = mir
+        .nodes
+        .iter()
+        .find(|node| {
+            node.kind == MirNodeKind::Function
+                && node.function_flavor == Some(FunctionFlavor::Generator)
+        })
+        .expect("anonymous default-export generator function node");
+    assert!(default_export
+        .text
+        .as_deref()
+        .is_some_and(|text| !text.is_empty()));
+    assert_eq!(
+        default_export.function_flavor,
+        Some(FunctionFlavor::Generator)
+    );
+}
+
+#[test]
 fn test_mir_lowering_preserves_function_flavor_metadata_for_default_export_class_expressions() {
     let hir = parse_and_lower_hir(
         "export default (class DefaultExample { async *outer() { yield* other(); } *inner() { yield* other(); } plain() { return 0; } });",
