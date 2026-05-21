@@ -2968,6 +2968,64 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_accepts_jsr_canonical_report_labels() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "@std/path",
+            "version": "1.0.8",
+            "registry": "jsr",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["jsr:@std/path"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    validate_package_effects_payload_value(&value)
+        .expect("jsr package-effects payload should validate");
+}
+
+#[test]
+fn validate_package_effects_payload_value_rejects_mismatched_report_labels() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "@std/path",
+            "version": "1.0.8",
+            "registry": "jsr",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["@std/path"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("mismatched report labels should fail validation");
+    assert!(
+        err.contains("canonical registry package identifier") && err.contains("jsr:@std/path"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_unsupported_registry_names() {
     let value = json!({
         "schemaVersion": 1,

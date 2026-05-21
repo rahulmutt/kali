@@ -313,6 +313,33 @@ pub fn validate_package_effects_payload_value(value: &Value) -> Result<(), Strin
             "package-effects payload report entryPoints must contain exactly one item".to_string(),
         );
     }
+
+    let expected_entry_point = match (
+        object
+            .get("package")
+            .and_then(Value::as_object)
+            .and_then(|package| package.get("registry"))
+            .and_then(Value::as_str),
+        object
+            .get("package")
+            .and_then(Value::as_object)
+            .and_then(|package| package.get("name"))
+            .and_then(Value::as_str),
+    ) {
+        (Some("jsr"), Some(name)) => format!("jsr:{name}"),
+        (Some(_), Some(name)) => name.to_string(),
+        _ => unreachable!("validated package coordinate should contain registry and name"),
+    };
+
+    let actual_entry_point = entry_points[0]
+        .as_str()
+        .expect("validated entryPoints item should be a string");
+    if actual_entry_point != expected_entry_point {
+        return Err(format!(
+            "package-effects payload report entryPoints[0] must match the canonical registry package identifier `{expected_entry_point}`, got `{actual_entry_point}`"
+        ));
+    }
+
     Ok(())
 }
 
