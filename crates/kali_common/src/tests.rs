@@ -385,6 +385,12 @@ fn test_array_from_frozen_callable_aliases_list_all_supported_aliases_in_order()
             r#"Object.freeze((null ?? globalThis["Array"].from))"#,
             r#"Object.freeze((true && globalThis["Array"].from))"#,
             r#"Object.freeze((false || globalThis["Array"].from))"#,
+            r#"Object.freeze((null ?? globalThis["Array"]["from"]))"#,
+            r#"Object.freeze((true && globalThis["Array"]["from"]))"#,
+            r#"Object.freeze((false || globalThis["Array"]["from"]))"#,
+            r#"Object.freeze((null ?? globalThis['Array']['from']))"#,
+            r#"Object.freeze((true && globalThis['Array']['from']))"#,
+            r#"Object.freeze((false || globalThis['Array']['from']))"#,
         ]
     );
 

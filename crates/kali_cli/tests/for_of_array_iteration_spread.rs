@@ -103,9 +103,47 @@ fn array_from_set_map_break_continue_body() -> &'static str {
     throw new Error('unexpected Array.from(new Set(...)) break/continue semantics');
   }
 
-  const mapValues = [[0, 1], [1, 3], [4, 5]];
+  let setReturnFinally = false;
+  async function setReturnProbe() {
+    try {
+      for (const value of Array.from(new Set(setValues))) {
+        return value;
+      }
+      throw new Error('unexpected empty Array.from(new Set(...)) iteration');
+    } finally {
+      setReturnFinally = true;
+    }
+  }
+  const setReturnValue = await setReturnProbe();
+  if (setReturnValue !== 1 || !setReturnFinally) {
+    throw new Error('unexpected Array.from(new Set(...)) return/finally semantics');
+  }
+
+  let setThrowFinally = false;
+  async function setThrowProbe() {
+    try {
+      for (const value of Array.from(new Set(setValues))) {
+        if (value === 1) {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Array.from(new Set(...)) iteration');
+    } finally {
+      setThrowFinally = true;
+    }
+  }
+  let setThrew = false;
+  try {
+    await setThrowProbe();
+  } catch {
+    setThrew = true;
+  }
+  if (!setThrew || !setThrowFinally) {
+    throw new Error('unexpected Array.from(new Set(...)) throw/finally semantics');
+  }
+
   const mapItems = [];
-  for await (const entry of Array.from(new Map(mapValues))) {
+  for await (const entry of Array.from(new Map([[0, 1], [1, 3], [4, 5]]))) {
     if (!entry[0]) {
       continue;
     }
@@ -166,6 +204,12 @@ fn browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_l
         r#"Object.freeze((null ?? globalThis["Array"].from))"#,
         r#"Object.freeze((true && globalThis["Array"].from))"#,
         r#"Object.freeze((false || globalThis["Array"].from))"#,
+        r#"Object.freeze((null ?? globalThis["Array"]["from"]))"#,
+        r#"Object.freeze((true && globalThis["Array"]["from"]))"#,
+        r#"Object.freeze((false || globalThis["Array"]["from"]))"#,
+        r#"Object.freeze((null ?? globalThis['Array']['from']))"#,
+        r#"Object.freeze((true && globalThis['Array']['from']))"#,
+        r#"Object.freeze((false || globalThis['Array']['from']))"#,
     ] {
         assert_eq!(source.matches(alias).count(), 2, "alias {alias}: {source}");
     }

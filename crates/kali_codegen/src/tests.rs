@@ -4010,6 +4010,30 @@ fn supported_for_of_array_iteration_accepts_logical_or_wrapped_array_from_calls(
 }
 
 #[test]
+fn supported_for_of_array_iteration_accepts_nullish_wrapped_fully_bracketed_global_this_array_from_calls(
+) {
+    let program = parse_and_lower_lir(
+        "for (const item of Object.freeze((null ?? globalThis[\"Array\"][\"from\"]))([1, 2])) { console.log(item); }\nfor (const item of Object.freeze((null ?? globalThis['Array']['from']))([1, 2])) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_of_array_iteration_accepts_direct_array_from_calls() {
     let program =
         parse_and_lower_lir("for (const item of Array.from([1, 2])) { console.log(item); }");
