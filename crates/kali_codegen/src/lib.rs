@@ -5711,6 +5711,78 @@ impl<'a> FunctionEmitter<'a> {
             return self.resolve_set_constructor_call(self.node(node.children[0]));
         }
 
+        if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+            match node.text.as_deref() {
+                Some("??") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    let selected = if left.is_nullish() {
+                        node.children[1]
+                    } else {
+                        node.children[0]
+                    };
+                    return self.resolve_set_constructor_call(self.node(selected));
+                }
+                Some("&&") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_set_constructor_call(self.node(node.children[1]));
+                        }
+                        Some(false) => {
+                            return self.resolve_set_constructor_call(self.node(node.children[0]));
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_set_constructor_call(self.node(node.children[0]));
+                            let alternate =
+                                self.resolve_set_constructor_call(self.node(node.children[1]));
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_set_constructor_call(self.node(node.children[0]));
+                        }
+                        Some(false) => {
+                            return self.resolve_set_constructor_call(self.node(node.children[1]));
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_set_constructor_call(self.node(node.children[0]));
+                            let alternate =
+                                self.resolve_set_constructor_call(self.node(node.children[1]));
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.len() == 3 {
+            if let Some(test) = self.resolve_static_object_identity_value(node.children[0]) {
+                let selected = if test.truthiness() == Some(true) {
+                    node.children[1]
+                } else {
+                    node.children[2]
+                };
+                return self.resolve_set_constructor_call(self.node(selected));
+            }
+
+            let consequent = self.resolve_set_constructor_call(self.node(node.children[1]));
+            let alternate = self.resolve_set_constructor_call(self.node(node.children[2]));
+            if consequent.is_some() && consequent == alternate {
+                return consequent;
+            }
+        }
+
         None
     }
 
@@ -5842,6 +5914,78 @@ impl<'a> FunctionEmitter<'a> {
 
         if node.kind == LirNodeKind::Value && node.text.is_none() && node.children.len() == 1 {
             return self.resolve_map_constructor_call(self.node(node.children[0]));
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+            match node.text.as_deref() {
+                Some("??") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    let selected = if left.is_nullish() {
+                        node.children[1]
+                    } else {
+                        node.children[0]
+                    };
+                    return self.resolve_map_constructor_call(self.node(selected));
+                }
+                Some("&&") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_map_constructor_call(self.node(node.children[1]));
+                        }
+                        Some(false) => {
+                            return self.resolve_map_constructor_call(self.node(node.children[0]));
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_map_constructor_call(self.node(node.children[0]));
+                            let alternate =
+                                self.resolve_map_constructor_call(self.node(node.children[1]));
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_map_constructor_call(self.node(node.children[0]));
+                        }
+                        Some(false) => {
+                            return self.resolve_map_constructor_call(self.node(node.children[1]));
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_map_constructor_call(self.node(node.children[0]));
+                            let alternate =
+                                self.resolve_map_constructor_call(self.node(node.children[1]));
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.len() == 3 {
+            if let Some(test) = self.resolve_static_object_identity_value(node.children[0]) {
+                let selected = if test.truthiness() == Some(true) {
+                    node.children[1]
+                } else {
+                    node.children[2]
+                };
+                return self.resolve_map_constructor_call(self.node(selected));
+            }
+
+            let consequent = self.resolve_map_constructor_call(self.node(node.children[1]));
+            let alternate = self.resolve_map_constructor_call(self.node(node.children[2]));
+            if consequent.is_some() && consequent == alternate {
+                return consequent;
+            }
         }
 
         None

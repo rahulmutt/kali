@@ -710,6 +710,79 @@ impl TypeContext {
                 {
                     &call.args[0]
                 }
+                Expression::LogicalExpression(expr) => match expr.operator {
+                    LogicalOperator::Coalesce => {
+                        let Some(left) =
+                            self.resolve_static_object_identity_literal_value(&expr.left)
+                        else {
+                            return current;
+                        };
+                        if left.is_nullish() {
+                            &expr.right
+                        } else {
+                            &expr.left
+                        }
+                    }
+                    LogicalOperator::And => {
+                        let Some(left) =
+                            self.resolve_static_object_identity_literal_value(&expr.left)
+                        else {
+                            return current;
+                        };
+                        match left.truthiness() {
+                            Some(true) => &expr.right,
+                            Some(false) => &expr.left,
+                            None => return current,
+                        }
+                    }
+                    LogicalOperator::Or => {
+                        let Some(left) =
+                            self.resolve_static_object_identity_literal_value(&expr.left)
+                        else {
+                            return current;
+                        };
+                        match left.truthiness() {
+                            Some(true) => &expr.left,
+                            Some(false) => &expr.right,
+                            None => return current,
+                        }
+                    }
+                },
+                Expression::BinaryExpression(expr)
+                    if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
+                {
+                    let Some(left) = self.resolve_static_object_identity_literal_value(&expr.left)
+                    else {
+                        return current;
+                    };
+                    match expr.operator.as_str() {
+                        "??" => {
+                            if left.is_nullish() {
+                                &expr.right
+                            } else {
+                                &expr.left
+                            }
+                        }
+                        "&&" => match left.truthiness() {
+                            Some(true) => &expr.right,
+                            Some(false) => &expr.left,
+                            None => return current,
+                        },
+                        "||" => match left.truthiness() {
+                            Some(true) => &expr.left,
+                            Some(false) => &expr.right,
+                            None => return current,
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+                Expression::ConditionalExpression(expr) => {
+                    match self.resolve_static_object_identity_literal_value(&expr.test) {
+                        Some(StaticObjectIdentityValue::Boolean(true)) => &expr.consequent,
+                        Some(StaticObjectIdentityValue::Boolean(false)) => &expr.alternate,
+                        _ => return current,
+                    }
+                }
                 Expression::SequenceExpression(expr) => match expr.expressions.last() {
                     Some(expression) => expression,
                     None => return current,
