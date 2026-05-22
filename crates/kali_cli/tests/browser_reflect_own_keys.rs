@@ -176,6 +176,9 @@ const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(ob
 const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
 const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
   let syncCount = 0;
   for (const key of globalThis.Reflect.ownKeys(obj)) {
     syncCount += 1;
@@ -299,6 +302,9 @@ const frozenMixedBracketedKeys = Object.freeze(globalThis.Reflect["ownKeys"])(ob
 const frozenBracketedKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(obj);
 const parenthesizedFrozenBracketedKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(obj);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);
+const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj);
   let syncCount = 0;
   for (const key of Reflect.ownKeys(obj)) {
     syncCount += 1;
@@ -385,6 +391,21 @@ const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKey
     parenthesizedFrozenMixedBracketedKeys[1] !== '2' ||
     parenthesizedFrozenMixedBracketedKeys[2] !== 'b' ||
     parenthesizedFrozenMixedBracketedKeys[3] !== 'a' ||
+    frozenNullishCallableKeys.length !== 4 ||
+    frozenNullishCallableKeys[0] !== '1' ||
+    frozenNullishCallableKeys[1] !== '2' ||
+    frozenNullishCallableKeys[2] !== 'b' ||
+    frozenNullishCallableKeys[3] !== 'a' ||
+    frozenLogicalAndCallableKeys.length !== 4 ||
+    frozenLogicalAndCallableKeys[0] !== '1' ||
+    frozenLogicalAndCallableKeys[1] !== '2' ||
+    frozenLogicalAndCallableKeys[2] !== 'b' ||
+    frozenLogicalAndCallableKeys[3] !== 'a' ||
+    frozenLogicalOrCallableKeys.length !== 4 ||
+    frozenLogicalOrCallableKeys[0] !== '1' ||
+    frozenLogicalOrCallableKeys[1] !== '2' ||
+    frozenLogicalOrCallableKeys[2] !== 'b' ||
+    frozenLogicalOrCallableKeys[3] !== 'a' ||
     syncCount !== 4 ||
     frozenSyncCount !== 4 ||
     sequenceCount !== 4 ||
