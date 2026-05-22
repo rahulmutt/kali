@@ -17,6 +17,7 @@ The checked-in repository already includes:
 - The shared `Array.from` frozen-callable inventory now also covers the parenthesized single-quoted bracket-root aliases, and the callable-resolution layer now also accepts nullish / logical wrappers around that supported slice such as `Object.freeze((null ?? Array.from))`, keeping the supported `Array.from` smoke matrix aligned across the shared helper source and the build/runtime/browser harness lanes.
 
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
+- The shared `Reflect.ownKeys` smoke inventory now also includes the parenthesized single-quoted bracket-root `Object.freeze((globalThis['Reflect'])['ownKeys'])` alias, keeping the single-quoted wrapper path aligned across the common helper inventory and the runtime/build smoke lanes.
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
 - Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.

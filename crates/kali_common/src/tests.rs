@@ -850,6 +850,7 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
         r#"const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(obj);"#,
         r#"const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj);"#,
         r#"const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))(obj);"#,
+        r#"const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj);"#,
         r#"const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);"#,
     ] {
         assert!(

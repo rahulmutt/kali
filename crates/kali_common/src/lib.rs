@@ -756,6 +756,7 @@ pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
         format!("const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))({object_source})"),
         format!(r#"const frozenSingleQuotedRootKeys = Object.freeze(globalThis['Reflect'].ownKeys)({object_source})"#),
         format!(r#"const frozenParenthesizedSingleQuotedRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)({object_source})"#),
+        format!(r#"const frozenParenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])({object_source})"#),
         format!(r#"const frozenSingleQuotedBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])({object_source})"#),
         format!(r#"const parenthesizedFrozenSingleQuotedRootKeys = Object.freeze((globalThis['Reflect'].ownKeys))({object_source})"#),
         format!(r#"const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))({object_source})"#),
