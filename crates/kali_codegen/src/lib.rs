@@ -804,7 +804,7 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "length" => {
-                if self.is_process_argv(arg) {
+                if self.is_process_argv(arg) || self.is_deno_args(arg) {
                     function.instruction(&Instruction::Call(ARGS_LEN_IMPORT_INDEX));
                     function.instruction(&Instruction::I64ExtendI32U);
                     return EmittedValue {
@@ -4564,6 +4564,26 @@ impl<'a> FunctionEmitter<'a> {
                 .is_some_and(|child| self.node(*child).text.as_deref() == Some("process"))
     }
 
+    fn is_deno_args(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent_value_node(id);
+        let node = self.node(id);
+        if node.text.as_deref() != Some("args") || node.children.len() != 1 {
+            return false;
+        }
+
+        let object = self.unwrap_transparent_value_node(node.children[0]);
+        let object = self.node(object);
+        if object.text.as_deref() == Some("Deno") {
+            return true;
+        }
+
+        object.text.as_deref() == Some("globalThis")
+            && object
+                .children
+                .first()
+                .is_some_and(|child| self.node(*child).text.as_deref() == Some("Deno"))
+    }
+
     fn is_supported_callable_reference(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Value || node.children.len() != 1 {
             return false;
@@ -4790,7 +4810,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let object = callee_node.children.first().copied()?;
-        if !self.is_process_argv(object) {
+        if !(self.is_process_argv(object) || self.is_deno_args(object)) {
             return None;
         }
 

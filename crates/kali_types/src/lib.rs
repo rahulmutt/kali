@@ -2562,6 +2562,10 @@ impl TypeContext {
             return;
         }
 
+        if self.resolve_deno_args_member(expr) {
+            return;
+        }
+
         if self.resolve_late_env_object_member(expr) {
             return;
         }
@@ -3971,6 +3975,32 @@ impl TypeContext {
             format!(
                 "permission escalation API '{}' (aka {}) is unavailable in the Phase-1 Deno permission facade",
                 dotted, bracketed
+            ),
+        ));
+        true
+    }
+
+    fn resolve_deno_args_member(&mut self, expr: &MemberExpression) -> bool {
+        let Some(object_name) = Self::member_object_name(&expr.object) else {
+            return false;
+        };
+
+        if object_name != "Deno" || expr.property != "args" {
+            return false;
+        }
+
+        if self.api_surface == "deno" {
+            return false;
+        }
+
+        let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
+        let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "invocation arguments API '{}' (aka {}) is unavailable on the {} API surface until the Deno runtime surface is enabled",
+                dotted, bracketed, self.api_surface
             ),
         ));
         true

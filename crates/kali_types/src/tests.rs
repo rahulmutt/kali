@@ -1859,6 +1859,35 @@ fn test_resolution_reports_late_host_control_globals_through_await_wrapped_recei
 }
 
 #[test]
+fn test_resolution_reports_deno_args_as_unavailable_on_browser_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let mut ctx = TypeContext::with_base_path_and_api_surface(&source_path, "browser");
+    let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(Expression::MemberExpression(Box::new(
+            kali_ast::MemberExpression {
+                object: Expression::Identifier("Deno".to_string()),
+                property: "args".to_string(),
+            },
+        ))),
+    })];
+
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains("Deno.args"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_reports_late_subprocess_and_network_globals_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
