@@ -143,7 +143,7 @@ fn test_late_object_model_own_property_aliases_and_source_are_canonical() {
 fn test_late_threaded_runtime_source_lists_bracketed_spellings() {
     assert_eq!(
         late_threaded_runtime_source(),
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze((globalThis.SharedArrayBuffer)); globalThis.Atomics; globalThis[\"Atomics\"]; Object.freeze(globalThis.Atomics); Object.freeze((globalThis.Atomics));"
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze(globalThis[\"SharedArrayBuffer\"]); Object.freeze(globalThis['SharedArrayBuffer']); Object.freeze((globalThis.SharedArrayBuffer)); Object.freeze((globalThis[\"SharedArrayBuffer\"])); Object.freeze((globalThis['SharedArrayBuffer'])); globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics']; Object.freeze(globalThis.Atomics); Object.freeze(globalThis[\"Atomics\"]); Object.freeze(globalThis['Atomics']); Object.freeze((globalThis.Atomics)); Object.freeze((globalThis[\"Atomics\"])); Object.freeze((globalThis['Atomics']));"
     );
 }
 

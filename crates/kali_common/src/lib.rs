@@ -2346,7 +2346,7 @@ pub const fn late_object_model_own_property_source() -> &'static str {
 
 /// Canonical late-threaded-runtime source text used by the browser and runtime smoke.
 pub const fn late_threaded_runtime_source() -> &'static str {
-    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze((globalThis.SharedArrayBuffer)); globalThis.Atomics; globalThis[\"Atomics\"]; Object.freeze(globalThis.Atomics); Object.freeze((globalThis.Atomics));"
+    "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze(globalThis[\"SharedArrayBuffer\"]); Object.freeze(globalThis['SharedArrayBuffer']); Object.freeze((globalThis.SharedArrayBuffer)); Object.freeze((globalThis[\"SharedArrayBuffer\"])); Object.freeze((globalThis['SharedArrayBuffer'])); globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics']; Object.freeze(globalThis.Atomics); Object.freeze(globalThis[\"Atomics\"]); Object.freeze(globalThis['Atomics']); Object.freeze((globalThis.Atomics)); Object.freeze((globalThis[\"Atomics\"])); Object.freeze((globalThis['Atomics']));"
 }
 
 const LATE_PERMISSION_ESCALATION_SEGMENTS: &[&str] = &[
