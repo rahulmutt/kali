@@ -6,10 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use kali_common::{
-    generator_function_lowering_unavailable_message,
-    generator_function_yield_lowering_unavailable_message,
-};
+use kali_common::generator_function_yield_lowering_unavailable_message;
 use kali_error::{
     _error_codes::{e3, e5, e8},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
@@ -68,6 +65,20 @@ impl StaticObjectIdentityValue {
                         && (left != &0.0 || left.is_sign_positive() == right.is_sign_positive()))
             }
             _ => false,
+        }
+    }
+
+    fn is_nullish(&self) -> bool {
+        matches!(self, Self::Null | Self::Undefined)
+    }
+
+    fn truthiness(&self) -> Option<bool> {
+        match self {
+            Self::Boolean(value) => Some(*value),
+            Self::Number(value) => Some(!value.is_nan() && *value != 0.0),
+            Self::String(value) => Some(!value.is_empty()),
+            Self::BigInt(value) => Some(*value != 0),
+            Self::Null | Self::Undefined => Some(false),
         }
     }
 }
@@ -1026,6 +1037,67 @@ impl<'a> FunctionEmitter<'a> {
                 let argument = node.children.get(1).copied()?;
                 id = argument;
                 continue;
+            }
+
+            if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+                match node.text.as_deref() {
+                    Some("??") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        id = if left.is_nullish() {
+                            node.children[1]
+                        } else {
+                            node.children[0]
+                        };
+                        continue;
+                    }
+                    Some("&&") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        match left.truthiness() {
+                            Some(true) => {
+                                id = node.children[1];
+                                continue;
+                            }
+                            Some(false) => {
+                                id = node.children[0];
+                                continue;
+                            }
+                            None => {
+                                let left_aggregate =
+                                    self.resolve_literal_aggregate(node.children[0]);
+                                let right_aggregate =
+                                    self.resolve_literal_aggregate(node.children[1]);
+                                if left_aggregate.is_some() && left_aggregate == right_aggregate {
+                                    id = left_aggregate?;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    Some("||") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        match left.truthiness() {
+                            Some(true) => {
+                                id = node.children[0];
+                                continue;
+                            }
+                            Some(false) => {
+                                id = node.children[1];
+                                continue;
+                            }
+                            None => {
+                                let left_aggregate =
+                                    self.resolve_literal_aggregate(node.children[0]);
+                                let right_aggregate =
+                                    self.resolve_literal_aggregate(node.children[1]);
+                                if left_aggregate.is_some() && left_aggregate == right_aggregate {
+                                    id = left_aggregate?;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
             }
 
             return Some(id);
@@ -3239,6 +3311,49 @@ impl<'a> FunctionEmitter<'a> {
                     }),
                 None => None,
             },
+            LirNodeKind::Value if node.children.len() == 2 => match node.text.as_deref() {
+                Some("??") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    if left.is_nullish() {
+                        self.resolve_static_object_identity_value(node.children[1])
+                    } else {
+                        Some(left)
+                    }
+                }
+                Some("&&") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => self.resolve_static_object_identity_value(node.children[1]),
+                        Some(false) => Some(left),
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_value(node.children[1])?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => Some(left),
+                        Some(false) => self.resolve_static_object_identity_value(node.children[1]),
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_value(node.children[1])?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                }
+                _ => None,
+            },
             LirNodeKind::Value if node.children.is_empty() => {
                 let text = node.text.as_deref()?;
                 if let Some(bound) = self.bindings.get(text).copied() {
@@ -3289,6 +3404,59 @@ impl<'a> FunctionEmitter<'a> {
                 .get(1)
                 .copied()
                 .and_then(|child| self.resolve_static_reference_root_name(child));
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+            match node.text.as_deref() {
+                Some("??") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    if left.is_nullish() {
+                        return self.resolve_static_reference_root_name(node.children[1]);
+                    }
+                    return self.resolve_static_reference_root_name(node.children[0]);
+                }
+                Some("&&") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_static_reference_root_name(node.children[1]);
+                        }
+                        Some(false) => {
+                            return self.resolve_static_reference_root_name(node.children[0]);
+                        }
+                        None => {
+                            let left_root =
+                                self.resolve_static_reference_root_name(node.children[0]);
+                            let right_root =
+                                self.resolve_static_reference_root_name(node.children[1]);
+                            if left_root.is_some() && left_root == right_root {
+                                return left_root;
+                            }
+                        }
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_static_reference_root_name(node.children[0]);
+                        }
+                        Some(false) => {
+                            return self.resolve_static_reference_root_name(node.children[1]);
+                        }
+                        None => {
+                            let left_root =
+                                self.resolve_static_reference_root_name(node.children[0]);
+                            let right_root =
+                                self.resolve_static_reference_root_name(node.children[1]);
+                            if left_root.is_some() && left_root == right_root {
+                                return left_root;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
 
         match node.kind {
@@ -4436,6 +4604,58 @@ impl<'a> FunctionEmitter<'a> {
         let bound = self.resolve_bound_node(id);
         let bound = self.unwrap_transparent_value_node(bound);
         let node = self.node(bound);
+        if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+            match node.text.as_deref() {
+                Some("??") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    if left.is_nullish() {
+                        return self.resolve_bound_member_callable_node(node.children[1]);
+                    }
+                    return self.resolve_bound_member_callable_node(node.children[0]);
+                }
+                Some("&&") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_bound_member_callable_node(node.children[1])
+                        }
+                        Some(false) => {
+                            return self.resolve_bound_member_callable_node(node.children[0])
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_bound_member_callable_node(node.children[0]);
+                            let alternate =
+                                self.resolve_bound_member_callable_node(node.children[1]);
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_object_identity_value(node.children[0])?;
+                    match left.truthiness() {
+                        Some(true) => {
+                            return self.resolve_bound_member_callable_node(node.children[0])
+                        }
+                        Some(false) => {
+                            return self.resolve_bound_member_callable_node(node.children[1])
+                        }
+                        None => {
+                            let consequent =
+                                self.resolve_bound_member_callable_node(node.children[0]);
+                            let alternate =
+                                self.resolve_bound_member_callable_node(node.children[1]);
+                            if consequent.is_some() && consequent == alternate {
+                                return consequent;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
         if node.kind == LirNodeKind::Value && node.children.len() == 3 {
             let consequent = self.resolve_bound_member_callable_node(node.children[1])?;
             let alternate = self.resolve_bound_member_callable_node(node.children[2])?;

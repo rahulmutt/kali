@@ -10403,6 +10403,108 @@ fn test_resolution_supports_parenthesized_frozen_array_from_iteration_in_js_inpu
 }
 
 #[test]
+fn test_resolution_recognizes_nullish_wrapped_array_from_callable_name_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of Object.freeze((null ?? Array.from))([1, 2])) { console.log(value); }",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        "for (const value of Object.freeze((null ?? Array.from))([1, 2])) { console.log(value); }"
+            .to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::ForOfStatement(ForOfStatement { right, .. }) = &statements[0] else {
+        panic!("expected for-of statement");
+    };
+
+    let ctx = TypeContext::with_base_path(&source_path);
+    let Expression::CallExpression(call) = right else {
+        panic!("unexpected right expression: {right:?}");
+    };
+
+    assert_eq!(
+        ctx.resolve_static_callable_name(&call.callee).as_deref(),
+        Some("Array.from")
+    );
+}
+
+#[test]
+fn test_resolution_recognizes_and_wrapped_array_from_callable_name_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of Object.freeze((true && Array.from))([1, 2])) { console.log(value); }",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        "for (const value of Object.freeze((true && Array.from))([1, 2])) { console.log(value); }"
+            .to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::ForOfStatement(ForOfStatement { right, .. }) = &statements[0] else {
+        panic!("expected for-of statement");
+    };
+
+    let ctx = TypeContext::with_base_path(&source_path);
+    let Expression::CallExpression(call) = right else {
+        panic!("unexpected right expression: {right:?}");
+    };
+
+    assert_eq!(
+        ctx.resolve_static_callable_name(&call.callee).as_deref(),
+        Some("Array.from")
+    );
+}
+
+#[test]
+fn test_resolution_recognizes_or_wrapped_array_from_callable_name_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "for (const value of Object.freeze((false || Array.from))([1, 2])) { console.log(value); }",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        "for (const value of Object.freeze((false || Array.from))([1, 2])) { console.log(value); }"
+            .to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::ForOfStatement(ForOfStatement { right, .. }) = &statements[0] else {
+        panic!("expected for-of statement");
+    };
+
+    let ctx = TypeContext::with_base_path(&source_path);
+    let Expression::CallExpression(call) = right else {
+        panic!("unexpected right expression: {right:?}");
+    };
+
+    assert_eq!(
+        ctx.resolve_static_callable_name(&call.callee).as_deref(),
+        Some("Array.from")
+    );
+}
+
+#[test]
 fn test_resolution_recognizes_array_from_callable_name_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");

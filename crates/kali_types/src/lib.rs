@@ -13,15 +13,14 @@ use kali_ast::{
     ForInLefthand, ForInStatement, ForInit, ForOfLefthand, ForOfStatement, ForStatement,
     FunctionDeclaration, FunctionExpression, FunctionParam, IfStatement, ImportDeclaration,
     ImportExpression, ImportSpecifier, InterfaceDeclaration, JsxChild, JsxElement, JsxFragment,
-    LabeledStatement, LiteralValue, MemberExpression, NewExpression, NodeId, ObjectExpression,
-    ObjectProperty, ObjectPropertyKind, OptionalChainExpression, OptionalChainInner, PropertyName,
-    ReturnStatement, Statement, SwitchCase, SwitchStatement, TemplateLiteral, ThrowStatement,
-    TryStatement, TypeAliasDeclaration, TypeAssertion, UpdateExpression, VariableDeclaration,
-    WhileStatement, WithStatement,
+    LabeledStatement, LiteralValue, LogicalOperator, MemberExpression, NewExpression, NodeId,
+    ObjectExpression, ObjectProperty, ObjectPropertyKind, OptionalChainExpression,
+    OptionalChainInner, PropertyName, ReturnStatement, Statement, SwitchCase, SwitchStatement,
+    TemplateLiteral, ThrowStatement, TryStatement, TypeAliasDeclaration, TypeAssertion,
+    UpdateExpression, VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_common::{
     generator_class_method_lowering_unavailable_message_for_flavors,
-    generator_function_lowering_unavailable_message,
     generator_function_lowering_unavailable_message_for_flavors,
     generator_function_yield_lowering_unavailable_message,
     process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
@@ -140,6 +139,21 @@ impl StaticObjectIdentityValue {
             }
             (Self::Reference(left), Self::Reference(right)) => left == right,
             _ => false,
+        }
+    }
+
+    fn is_nullish(&self) -> bool {
+        matches!(self, Self::Null | Self::Undefined)
+    }
+
+    fn truthiness(&self) -> Option<bool> {
+        match self {
+            Self::Boolean(value) => Some(*value),
+            Self::Number(value) => Some(!value.is_nan() && *value != 0.0),
+            Self::String(value) => Some(!value.is_empty()),
+            Self::BigInt(value) => Some(*value != 0),
+            Self::Null | Self::Undefined => Some(false),
+            Self::Reference(_) => None,
         }
     }
 }
@@ -1530,6 +1544,95 @@ impl TypeContext {
                     }
                 }
             }
+            Expression::LogicalExpression(expr) => {
+                let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+                let selected = match expr.operator {
+                    LogicalOperator::Coalesce => {
+                        if left.is_nullish() {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        } else {
+                            Some(left)
+                        }
+                    }
+                    LogicalOperator::And => match left.truthiness() {
+                        Some(true) => {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        }
+                        Some(false) => Some(left),
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_literal_value(&expr.right)?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                    LogicalOperator::Or => match left.truthiness() {
+                        Some(true) => Some(left),
+                        Some(false) => {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        }
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_literal_value(&expr.right)?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                };
+                selected
+            }
+            Expression::BinaryExpression(expr)
+                if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
+            {
+                let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+                let selected = match expr.operator.as_str() {
+                    "??" => {
+                        if left.is_nullish() {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        } else {
+                            Some(left)
+                        }
+                    }
+                    "&&" => match left.truthiness() {
+                        Some(true) => {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        }
+                        Some(false) => Some(left),
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_literal_value(&expr.right)?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                    "||" => match left.truthiness() {
+                        Some(true) => Some(left),
+                        Some(false) => {
+                            self.resolve_static_object_identity_literal_value(&expr.right)
+                        }
+                        None => {
+                            let right =
+                                self.resolve_static_object_identity_literal_value(&expr.right)?;
+                            if left.same_value(&right) {
+                                Some(left)
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                    _ => unreachable!(),
+                };
+                selected
+            }
             Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
                 call.args.first().and_then(|expression| {
                     self.resolve_static_object_identity_literal_value(expression)
@@ -1649,6 +1752,91 @@ impl TypeContext {
                         }
                     }
                 }
+            }
+            Expression::LogicalExpression(expr) => {
+                let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+                let selected = match expr.operator {
+                    LogicalOperator::Coalesce => {
+                        if left.is_nullish() {
+                            self.resolve_static_reference_root(&expr.right)
+                        } else {
+                            self.resolve_static_reference_root(&expr.left)
+                        }
+                    }
+                    LogicalOperator::And => match left.truthiness() {
+                        Some(true) => self.resolve_static_reference_root(&expr.right),
+                        Some(false) => self.resolve_static_reference_root(&expr.left),
+                        None => {
+                            let consequent = self.resolve_static_reference_root(&expr.left);
+                            let alternate = self.resolve_static_reference_root(&expr.right);
+                            match (consequent, alternate) {
+                                (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                    Some(consequent)
+                                }
+                                _ => None,
+                            }
+                        }
+                    },
+                    LogicalOperator::Or => match left.truthiness() {
+                        Some(true) => self.resolve_static_reference_root(&expr.left),
+                        Some(false) => self.resolve_static_reference_root(&expr.right),
+                        None => {
+                            let consequent = self.resolve_static_reference_root(&expr.left);
+                            let alternate = self.resolve_static_reference_root(&expr.right);
+                            match (consequent, alternate) {
+                                (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                    Some(consequent)
+                                }
+                                _ => None,
+                            }
+                        }
+                    },
+                };
+                selected
+            }
+            Expression::BinaryExpression(expr)
+                if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
+            {
+                let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+                let selected = match expr.operator.as_str() {
+                    "??" => {
+                        if left.is_nullish() {
+                            self.resolve_static_reference_root(&expr.right)
+                        } else {
+                            self.resolve_static_reference_root(&expr.left)
+                        }
+                    }
+                    "&&" => match left.truthiness() {
+                        Some(true) => self.resolve_static_reference_root(&expr.right),
+                        Some(false) => self.resolve_static_reference_root(&expr.left),
+                        None => {
+                            let consequent = self.resolve_static_reference_root(&expr.left);
+                            let alternate = self.resolve_static_reference_root(&expr.right);
+                            match (consequent, alternate) {
+                                (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                    Some(consequent)
+                                }
+                                _ => None,
+                            }
+                        }
+                    },
+                    "||" => match left.truthiness() {
+                        Some(true) => self.resolve_static_reference_root(&expr.left),
+                        Some(false) => self.resolve_static_reference_root(&expr.right),
+                        None => {
+                            let consequent = self.resolve_static_reference_root(&expr.left);
+                            let alternate = self.resolve_static_reference_root(&expr.right);
+                            match (consequent, alternate) {
+                                (Some(consequent), Some(alternate)) if consequent == alternate => {
+                                    Some(consequent)
+                                }
+                                _ => None,
+                            }
+                        }
+                    },
+                    _ => unreachable!(),
+                };
+                selected
             }
             Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
                 OptionalChainInner::NonNull { object, .. } => {
@@ -2141,6 +2329,112 @@ impl TypeContext {
                     }
                 }
             }
+        }
+
+        if let Expression::LogicalExpression(expr) = expression {
+            let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+            let selected = match expr.operator {
+                LogicalOperator::Coalesce => {
+                    if left.is_nullish() {
+                        self.resolve_static_callable_name(&expr.right)
+                    } else {
+                        self.resolve_static_callable_name(&expr.left)
+                    }
+                }
+                LogicalOperator::And => match left.truthiness() {
+                    Some(true) => self.resolve_static_callable_name(&expr.right),
+                    Some(false) => self.resolve_static_callable_name(&expr.left),
+                    None => {
+                        let consequent = Self::unwrap_static_callable_expression(&expr.left);
+                        let alternate = Self::unwrap_static_callable_expression(&expr.right);
+                        let consequent_name = Self::call_member_access_name(consequent)
+                            .or_else(|| self.resolve_static_reference_root(consequent));
+                        let alternate_name = Self::call_member_access_name(alternate)
+                            .or_else(|| self.resolve_static_reference_root(alternate));
+                        if consequent_name.is_some() && consequent_name == alternate_name {
+                            consequent_name
+                        } else {
+                            None
+                        }
+                    }
+                },
+                LogicalOperator::Or => match left.truthiness() {
+                    Some(true) => self.resolve_static_callable_name(&expr.left),
+                    Some(false) => self.resolve_static_callable_name(&expr.right),
+                    None => {
+                        let consequent = Self::unwrap_static_callable_expression(&expr.left);
+                        let alternate = Self::unwrap_static_callable_expression(&expr.right);
+                        let consequent_name = Self::call_member_access_name(consequent)
+                            .or_else(|| self.resolve_static_reference_root(consequent));
+                        let alternate_name = Self::call_member_access_name(alternate)
+                            .or_else(|| self.resolve_static_reference_root(alternate));
+                        if consequent_name.is_some() && consequent_name == alternate_name {
+                            consequent_name
+                        } else {
+                            None
+                        }
+                    }
+                },
+            };
+            if selected.is_some() {
+                return selected;
+            }
+        }
+
+        match expression {
+            Expression::BinaryExpression(expr)
+                if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
+            {
+                let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
+                let selected = match expr.operator.as_str() {
+                    "??" => {
+                        if left.is_nullish() {
+                            self.resolve_static_callable_name(&expr.right)
+                        } else {
+                            self.resolve_static_callable_name(&expr.left)
+                        }
+                    }
+                    "&&" => match left.truthiness() {
+                        Some(true) => self.resolve_static_callable_name(&expr.right),
+                        Some(false) => self.resolve_static_callable_name(&expr.left),
+                        None => {
+                            let consequent = Self::unwrap_static_callable_expression(&expr.left);
+                            let alternate = Self::unwrap_static_callable_expression(&expr.right);
+                            let consequent_name = Self::call_member_access_name(consequent)
+                                .or_else(|| self.resolve_static_reference_root(consequent));
+                            let alternate_name = Self::call_member_access_name(alternate)
+                                .or_else(|| self.resolve_static_reference_root(alternate));
+                            if consequent_name.is_some() && consequent_name == alternate_name {
+                                consequent_name
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                    "||" => match left.truthiness() {
+                        Some(true) => self.resolve_static_callable_name(&expr.left),
+                        Some(false) => self.resolve_static_callable_name(&expr.right),
+                        None => {
+                            let consequent = Self::unwrap_static_callable_expression(&expr.left);
+                            let alternate = Self::unwrap_static_callable_expression(&expr.right);
+                            let consequent_name = Self::call_member_access_name(consequent)
+                                .or_else(|| self.resolve_static_reference_root(consequent));
+                            let alternate_name = Self::call_member_access_name(alternate)
+                                .or_else(|| self.resolve_static_reference_root(alternate));
+                            if consequent_name.is_some() && consequent_name == alternate_name {
+                                consequent_name
+                            } else {
+                                None
+                            }
+                        }
+                    },
+                    _ => unreachable!(),
+                };
+                if selected.is_some() {
+                    return selected;
+                }
+            }
+            _ => {}
         }
 
         Self::call_member_access_name(expression)
