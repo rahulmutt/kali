@@ -16,11 +16,18 @@ fn array_from_frozen_set_map_constructor_result_source() -> &'static str {
   for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
     console.log(value);
   }
+  for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+    console.log(value);
+  }
   for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
   for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -41,11 +48,18 @@ fn array_from_frozen_set_map_constructor_result_test_source() -> &'static str {
     for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
       console.log(value);
     }
+    for (const value of Array.from(Object.freeze((new (true && Set)(setValues))))) {
+      console.log(value);
+    }
     for (const entry of Array.from(Object.freeze(new Map(mapValues)))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
     for await (const entry of Array.from(Object.freeze((new Map(mapValues))))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze((new (true && Map)(mapValues))))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -81,7 +95,7 @@ fn assert_run_supports_array_from_frozen_set_map_constructor_results_in_input(ex
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(
-        stdout, "1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n",
+        stdout, "1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n",
         "stdout: {stdout}"
     );
 }
@@ -111,7 +125,7 @@ fn assert_test_supports_array_from_frozen_set_map_constructor_results_in_input(e
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");
