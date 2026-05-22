@@ -5162,6 +5162,31 @@ mod tests {
     }
 
     #[test]
+    fn package_analysis_target_parser_rejects_whitespace_and_non_registry_forms() {
+        for (command, target, expected_fragment) in [
+            ("package-effects", " widget ", "without whitespace"),
+            (
+                "package-audit",
+                "npm:lodash",
+                "bare npm package names or `jsr:` identifiers",
+            ),
+            (
+                "package-effects",
+                "jsr:",
+                "requires a package name after `jsr:`",
+            ),
+        ] {
+            let err = super::parse_registry_package_target(command, target)
+                .expect_err("invalid registry package target should fail");
+            assert_eq!(err.code, Some(e5::INVALID_CLI_USAGE as u32));
+            assert!(
+                err.message.contains(expected_fragment),
+                "unexpected error: {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn package_audit_preview_rejects_before_target_validation() {
         for (output, target) in [
             (
