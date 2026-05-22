@@ -1657,6 +1657,24 @@ pub const fn math_pow_frozen_callable_parenthesized_aliases() -> &'static [&'sta
     ]
 }
 
+/// Canonical nullish/logical frozen callable aliases for the supported `Math.pow` helper slice.
+pub const fn math_pow_frozen_callable_nullish_logical_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze((null ?? Math.pow))"#,
+        r#"Object.freeze((true && Math.pow))"#,
+        r#"Object.freeze((false || Math.pow))"#,
+        r#"Object.freeze((null ?? globalThis.Math.pow))"#,
+        r#"Object.freeze((true && globalThis.Math.pow))"#,
+        r#"Object.freeze((false || globalThis.Math.pow))"#,
+        r#"Object.freeze((null ?? globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((true && globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((false || globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((null ?? globalThis['Math']['pow']))"#,
+        r#"Object.freeze((true && globalThis['Math']['pow']))"#,
+        r#"Object.freeze((false || globalThis['Math']['pow']))"#,
+    ]
+}
+
 /// Canonical bracketed-root frozen callable aliases for the supported `Math.pow` helper slice.
 pub const fn math_pow_bracketed_frozen_callable_aliases() -> &'static [&'static str] {
     &[
@@ -1695,6 +1713,7 @@ pub fn math_pow_frozen_callable_aliases() -> Vec<&'static str> {
     ordered_unique_union(&[
         math_pow_frozen_callable_direct_aliases(),
         math_pow_frozen_callable_parenthesized_aliases(),
+        math_pow_frozen_callable_nullish_logical_aliases(),
     ])
 }
 

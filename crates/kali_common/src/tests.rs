@@ -1881,6 +1881,18 @@ fn test_math_pow_browser_alias_inventory_aliases_list_all_aliases_in_order() {
             r#"Object.freeze((Math.pow))"#,
             r#"Object.freeze((Math['pow']))"#,
             r#"Object.freeze((Math["pow"]))"#,
+            r#"Object.freeze((null ?? Math.pow))"#,
+            r#"Object.freeze((true && Math.pow))"#,
+            r#"Object.freeze((false || Math.pow))"#,
+            r#"Object.freeze((null ?? globalThis.Math.pow))"#,
+            r#"Object.freeze((true && globalThis.Math.pow))"#,
+            r#"Object.freeze((false || globalThis.Math.pow))"#,
+            r#"Object.freeze((null ?? globalThis["Math"]["pow"]))"#,
+            r#"Object.freeze((true && globalThis["Math"]["pow"]))"#,
+            r#"Object.freeze((false || globalThis["Math"]["pow"]))"#,
+            r#"Object.freeze((null ?? globalThis['Math']['pow']))"#,
+            r#"Object.freeze((true && globalThis['Math']['pow']))"#,
+            r#"Object.freeze((false || globalThis['Math']['pow']))"#,
         ]
     );
 
@@ -2201,6 +2213,7 @@ fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_alias
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let direct_aliases = math_pow_frozen_callable_direct_aliases();
     let parenthesized_aliases = math_pow_frozen_callable_parenthesized_aliases();
+    let nullish_logical_aliases = math_pow_frozen_callable_nullish_logical_aliases();
     let aliases = math_pow_frozen_callable_aliases();
     let source = math_pow_frozen_callable_source();
     let expected = format!("{};", aliases.join("; "));
@@ -2241,6 +2254,26 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
         );
     }
 
+    for expected_alias in [
+        r#"Object.freeze((null ?? Math.pow))"#,
+        r#"Object.freeze((true && Math.pow))"#,
+        r#"Object.freeze((false || Math.pow))"#,
+        r#"Object.freeze((null ?? globalThis.Math.pow))"#,
+        r#"Object.freeze((true && globalThis.Math.pow))"#,
+        r#"Object.freeze((false || globalThis.Math.pow))"#,
+        r#"Object.freeze((null ?? globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((true && globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((false || globalThis["Math"]["pow"]))"#,
+        r#"Object.freeze((null ?? globalThis['Math']['pow']))"#,
+        r#"Object.freeze((true && globalThis['Math']['pow']))"#,
+        r#"Object.freeze((false || globalThis['Math']['pow']))"#,
+    ] {
+        assert!(
+            nullish_logical_aliases.contains(&expected_alias),
+            "missing nullish/logical alias: {expected_alias}"
+        );
+    }
+
     let mut unique_aliases = std::collections::HashSet::new();
     for alias in aliases.iter().copied() {
         assert!(
@@ -2252,7 +2285,7 @@ fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     assert_eq!(aliases.len(), unique_aliases.len());
     assert_eq!(
         aliases.len(),
-        direct_aliases.len() + parenthesized_aliases.len()
+        direct_aliases.len() + parenthesized_aliases.len() + nullish_logical_aliases.len()
     );
     assert_eq!(source, expected);
 }
