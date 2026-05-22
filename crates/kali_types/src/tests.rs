@@ -10437,6 +10437,39 @@ fn test_resolution_recognizes_nullish_wrapped_array_from_callable_name_in_js_inp
 }
 
 #[test]
+fn test_resolution_recognizes_frozen_array_from_callable_name_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const alias = Object.freeze((Array.from)); alias([1, 2]);",
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        "const alias = Object.freeze((Array.from)); alias([1, 2]);".to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let Statement::VariableDeclaration(variable) = &statements[0] else {
+        panic!("expected variable declaration");
+    };
+    let declarator = variable.declarations.first().expect("declarator");
+    let Some(initializer) = declarator.init.as_ref() else {
+        panic!("expected variable initializer");
+    };
+    let ctx = TypeContext::with_base_path(&source_path);
+
+    assert_eq!(
+        ctx.resolve_static_callable_name(initializer).as_deref(),
+        Some("Array.from")
+    );
+}
+
+#[test]
 fn test_resolution_recognizes_and_wrapped_array_from_callable_name_in_js_input() {
     let dir = tempfile::tempdir().unwrap();
     let source_path = dir.path().join("main.js");
