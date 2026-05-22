@@ -27080,12 +27080,20 @@ fn browser_runtime_object_from_entries_has_own_source() -> &'static str {
   const awaited = frozen;
   const frozenHasOwn = Object.freeze(Object.hasOwn);
   const frozenHasOwnPropertyCall = Object.freeze(Object.prototype.hasOwnProperty.call);
+  const frozenOptionalChainHasOwn = Object.freeze(globalThis?.Object.hasOwn);
+  const frozenOptionalChainBracketedHasOwn = Object.freeze(globalThis?.Object["hasOwn"]);
+  const frozenOptionalChainHasOwnPropertyCall = Object.freeze(globalThis?.Object.prototype.hasOwnProperty.call);
+  const frozenOptionalChainBracketedHasOwnPropertyCall = Object.freeze(globalThis?.Object.prototype.hasOwnProperty["call"]);
   console.log(Object.hasOwn(frozen, "a"));
   console.log(Object.hasOwn(awaited, "a"));
   console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
   console.log(Object.prototype.hasOwnProperty.call(awaited, "a"));
   console.log(frozenHasOwn(frozen, "a"));
   console.log(frozenHasOwnPropertyCall(frozen, "a"));
+  console.log(frozenOptionalChainHasOwn(frozen, "a"));
+  console.log(frozenOptionalChainBracketedHasOwn(frozen, "a"));
+  console.log(frozenOptionalChainHasOwnPropertyCall(frozen, "a"));
+  console.log(frozenOptionalChainBracketedHasOwnPropertyCall(frozen, "a"));
 }
 main();
 "#
@@ -27097,12 +27105,20 @@ fn browser_runtime_object_from_entries_has_own_test_source() -> &'static str {
     const awaited = frozen;
     const frozenHasOwn = Object.freeze(Object.hasOwn);
     const frozenHasOwnPropertyCall = Object.freeze(Object.prototype.hasOwnProperty.call);
+    const frozenOptionalChainHasOwn = Object.freeze(globalThis?.Object.hasOwn);
+    const frozenOptionalChainBracketedHasOwn = Object.freeze(globalThis?.Object["hasOwn"]);
+    const frozenOptionalChainHasOwnPropertyCall = Object.freeze(globalThis?.Object.prototype.hasOwnProperty.call);
+    const frozenOptionalChainBracketedHasOwnPropertyCall = Object.freeze(globalThis?.Object.prototype.hasOwnProperty["call"]);
     console.log(Object.hasOwn(frozen, "a"));
     console.log(Object.hasOwn(awaited, "a"));
     console.log(Object.prototype.hasOwnProperty.call(frozen, "a"));
     console.log(Object.prototype.hasOwnProperty.call(awaited, "a"));
     console.log(frozenHasOwn(frozen, "a"));
     console.log(frozenHasOwnPropertyCall(frozen, "a"));
+    console.log(frozenOptionalChainHasOwn(frozen, "a"));
+    console.log(frozenOptionalChainBracketedHasOwn(frozen, "a"));
+    console.log(frozenOptionalChainHasOwnPropertyCall(frozen, "a"));
+    console.log(frozenOptionalChainBracketedHasOwnPropertyCall(frozen, "a"));
 });
 "#
 }
@@ -27491,7 +27507,7 @@ fn assert_browser_runtime_object_from_entries_has_own_semantics_in_input(
     if assert_stdout {
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
-            "1\n1\n1\n1\n1\n1\n"
+            "1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n"
         );
     }
     assert_eq!(String::from_utf8_lossy(&output.stderr), "");
