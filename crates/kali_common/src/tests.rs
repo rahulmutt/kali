@@ -2148,6 +2148,30 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
 }
 
 #[test]
+fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_aliases() {
+    let body = promise_all_browser_body_source();
+
+    assert!(
+        body.contains(
+            "const singleMixed = await Promise['all']([Promise.resolve(1), Promise.resolve(2)]);"
+        ),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("throw new Error(\"unexpected Promise.all results\");"),
+        "body: {body}"
+    );
+}
+
+#[test]
 fn test_math_pow_frozen_callable_source_lists_all_aliases_in_order() {
     let direct_aliases = math_pow_frozen_callable_direct_aliases();
     let parenthesized_aliases = math_pow_frozen_callable_parenthesized_aliases();

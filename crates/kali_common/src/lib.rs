@@ -1504,6 +1504,71 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
 "#
 }
 
+/// Canonical browser smoke body for the supported `Promise.all` slice.
+pub const fn promise_all_browser_body_source() -> &'static str {
+    r#"  const direct = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixed = await Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixed = await Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const dotted = await globalThis.Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedDotted = await globalThis.Promise["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleDotted = await globalThis.Promise['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketed = await globalThis["Promise"].all([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketed = await globalThis["Promise"]["all"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleBracketed = await globalThis['Promise']['all']([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketed = await globalThis['Promise'].all([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  if (
+    direct.length !== 2 ||
+    direct[0] !== 1 ||
+    direct[1] !== 2 ||
+    mixed.length !== 2 ||
+    mixed[0] !== 1 ||
+    mixed[1] !== 2 ||
+    singleMixed.length !== 2 ||
+    singleMixed[0] !== 1 ||
+    singleMixed[1] !== 2 ||
+    dotted.length !== 2 ||
+    dotted[0] !== 1 ||
+    dotted[1] !== 2 ||
+    mixedDotted.length !== 2 ||
+    mixedDotted[0] !== 1 ||
+    mixedDotted[1] !== 2 ||
+    singleDotted.length !== 2 ||
+    singleDotted[0] !== 1 ||
+    singleDotted[1] !== 2 ||
+    bracketed.length !== 2 ||
+    bracketed[0] !== 1 ||
+    bracketed[1] !== 2 ||
+    mixedBracketed.length !== 2 ||
+    mixedBracketed[0] !== 1 ||
+    mixedBracketed[1] !== 2 ||
+    singleBracketed.length !== 2 ||
+    singleBracketed[0] !== 1 ||
+    singleBracketed[1] !== 2 ||
+    singleMixedBracketed.length !== 2 ||
+    singleMixedBracketed[0] !== 1 ||
+    singleMixedBracketed[1] !== 2 ||
+    frozenRoot.length !== 2 ||
+    frozenRoot[0] !== 1 ||
+    frozenRoot[1] !== 2 ||
+    parenthesizedFrozenRoot.length !== 2 ||
+    parenthesizedFrozenRoot[0] !== 1 ||
+    parenthesizedFrozenRoot[1] !== 2 ||
+    frozenGlobal.length !== 2 ||
+    frozenGlobal[0] !== 1 ||
+    frozenGlobal[1] !== 2 ||
+    parenthesizedFrozenGlobal.length !== 2 ||
+    parenthesizedFrozenGlobal[0] !== 1 ||
+    parenthesizedFrozenGlobal[1] !== 2
+  ) {
+    throw new Error("unexpected Promise.all results");
+  }
+"#
+}
+
 /// Canonical `console.log(...)` invocation lines for the supported `Math.pow` helper slice.
 pub fn math_pow_invocation_lines(source: &str, indentation: &str) -> String {
     source
