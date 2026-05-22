@@ -248,6 +248,19 @@ pub const fn generator_function_lowering_unavailable_message(is_async: bool) -> 
     }
 }
 
+/// Canonical feature-unavailable wording for yield-delegation slices.
+pub const fn generator_function_yield_lowering_unavailable_message(
+    is_async: bool,
+    is_delegate: bool,
+) -> &'static str {
+    match (is_async, is_delegate) {
+        (true, true) => "async-generator function lowering is unavailable in the current phase for yield* delegation; use a synchronous function or the later compatibility path",
+        (true, false) => generator_function_lowering_unavailable_message(true),
+        (false, true) => "generator function lowering is unavailable in the current phase for yield* delegation; use a synchronous function or the later compatibility path",
+        (false, false) => generator_function_lowering_unavailable_message(false),
+    }
+}
+
 /// Canonical feature-unavailable wording for mixed generator/async-generator function lowering slices.
 pub const fn generator_function_lowering_unavailable_message_for_flavors(
     has_generator: bool,

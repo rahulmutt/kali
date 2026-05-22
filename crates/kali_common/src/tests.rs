@@ -260,6 +260,26 @@ fn test_generator_function_lowering_unavailable_message_lists_async_and_sync_var
 }
 
 #[test]
+fn test_generator_function_lowering_unavailable_message_for_yield_delegation_is_stable() {
+    assert_eq!(
+        generator_function_yield_lowering_unavailable_message(false, true),
+        "generator function lowering is unavailable in the current phase for yield* delegation; use a synchronous function or the later compatibility path"
+    );
+    assert_eq!(
+        generator_function_yield_lowering_unavailable_message(true, true),
+        "async-generator function lowering is unavailable in the current phase for yield* delegation; use a synchronous function or the later compatibility path"
+    );
+    assert_eq!(
+        generator_function_yield_lowering_unavailable_message(false, false),
+        generator_function_lowering_unavailable_message(false)
+    );
+    assert_eq!(
+        generator_function_yield_lowering_unavailable_message(true, false),
+        generator_function_lowering_unavailable_message(true)
+    );
+}
+
+#[test]
 fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() {
     const BOTH: &str = generator_function_lowering_unavailable_message_for_flavors(true, true);
 

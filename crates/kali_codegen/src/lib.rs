@@ -6,7 +6,10 @@ use std::{
     path::PathBuf,
 };
 
-use kali_common::generator_function_lowering_unavailable_message;
+use kali_common::{
+    generator_function_lowering_unavailable_message,
+    generator_function_yield_lowering_unavailable_message,
+};
 use kali_error::{
     _error_codes::{e3, e5, e8},
     Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
@@ -904,12 +907,16 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             "yield" | "yield*" | "delegate" => {
+                let is_delegate = matches!(op, "yield*" | "delegate");
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    generator_function_lowering_unavailable_message(matches!(
-                        self.current_function_flavor,
-                        Some(FunctionFlavor::AsyncGenerator)
-                    )),
+                    generator_function_yield_lowering_unavailable_message(
+                        matches!(
+                            self.current_function_flavor,
+                            Some(FunctionFlavor::AsyncGenerator)
+                        ),
+                        is_delegate,
+                    ),
                 ));
                 function.instruction(&Instruction::Unreachable);
                 EmittedValue {

@@ -23,6 +23,7 @@ use kali_common::{
     generator_class_method_lowering_unavailable_message_for_flavors,
     generator_function_lowering_unavailable_message,
     generator_function_lowering_unavailable_message_for_flavors,
+    generator_function_yield_lowering_unavailable_message,
     process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
 };
 use kali_error::{
@@ -1172,7 +1173,7 @@ impl TypeContext {
                 if !self.in_generator_function {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        generator_function_lowering_unavailable_message(false),
+                        generator_function_yield_lowering_unavailable_message(false, expr.delegate),
                     ));
                 }
                 if let Some(argument) = &expr.argument {
