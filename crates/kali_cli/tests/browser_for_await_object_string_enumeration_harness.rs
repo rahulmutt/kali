@@ -61,6 +61,10 @@ async function browserObjectStringEnumeration() {
   for await (const key of globalThis['Object']['keys']('ab')) {
     singleBracketedKeys.push(key);
   }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
 
   const values = [];
   for await (const value of Object.values('ab')) {
@@ -89,6 +93,10 @@ async function browserObjectStringEnumeration() {
   const singleBracketedValues = [];
   for await (const value of globalThis['Object']['values']('ab')) {
     singleBracketedValues.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
   }
 
   const entries = [];
@@ -119,6 +127,10 @@ async function browserObjectStringEnumeration() {
   for await (const entry of globalThis['Object']['entries']('ab')) {
     singleBracketedEntries.push(entry);
   }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(frozenKeys);
@@ -127,6 +139,7 @@ async function browserObjectStringEnumeration() {
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(nullishKeys);
   assertObjectValuesIteration(values);
   assertObjectValuesIteration(frozenValues);
   assertObjectValuesIteration(globalValues);
@@ -134,6 +147,7 @@ async function browserObjectStringEnumeration() {
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(nullishValues);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(globalEntries);
@@ -141,6 +155,7 @@ async function browserObjectStringEnumeration() {
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
   assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(nullishEntries);
   console.log('browser object string enumeration ok');
 }
 
@@ -202,6 +217,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for await (const key of globalThis['Object']['keys']('ab')) {
     singleBracketedKeys.push(key);
   }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
 
   const values = [];
   for await (const value of Object.values('ab')) {
@@ -230,6 +249,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   const singleBracketedValues = [];
   for await (const value of globalThis['Object']['values']('ab')) {
     singleBracketedValues.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
   }
 
   const entries = [];
@@ -260,6 +283,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for await (const entry of globalThis['Object']['entries']('ab')) {
     singleBracketedEntries.push(entry);
   }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(frozenKeys);
@@ -268,6 +295,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(nullishKeys);
   assertObjectValuesIteration(values);
   assertObjectValuesIteration(frozenValues);
   assertObjectValuesIteration(globalValues);
@@ -275,6 +303,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(nullishValues);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(globalEntries);
@@ -282,6 +311,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
   assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(nullishEntries);
   console.log('browser object string enumeration ok');
 }
 

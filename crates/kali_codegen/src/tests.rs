@@ -4886,6 +4886,29 @@ fn supported_for_await_object_enumeration_accepts_string_literals() {
 }
 
 #[test]
+fn supported_for_await_object_enumeration_accepts_nullish_and_logical_wrapped_callable_aliases() {
+    let program = parse_and_lower_lir(
+        "for await (const key of Object.freeze((null ?? Object.keys))('ab')) { console.log(key); } for await (const value of Object.freeze((true && Object.values))('ab')) { console.log(value); } for await (const entry of Object.freeze((false || Object.entries))('ab')) { console.log(entry[0]); console.log(entry[1]); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_await_string_concatenation_iteration_accepts_static_string_operands() {
     let program = parse_and_lower_lir(
         "const prefix = 'he'; const suffix = 'llo'; for await (const ch of prefix + suffix) { console.log(ch); } for await (const ch of (`${prefix}${suffix}`)) { console.log(ch); }",
