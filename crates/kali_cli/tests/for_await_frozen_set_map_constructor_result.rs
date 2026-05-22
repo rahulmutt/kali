@@ -93,7 +93,10 @@ fn assert_run_supports_frozen_object_helper_iteration_targets_in_input(extension
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout, "b\na\n1\n2\nb\n1\na\n2\n", "stdout: {stdout}");
+    assert_eq!(
+        stdout, "b\na\nb\na\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\n",
+        "stdout: {stdout}"
+    );
 }
 
 fn assert_test_supports_frozen_object_helper_iteration_targets_in_input(extension: &str) {
@@ -117,7 +120,7 @@ fn assert_test_supports_frozen_object_helper_iteration_targets_in_input(extensio
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"),
+        stdout.contains("b\na\nb\na\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
         "stdout: {stdout}"
     );
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");

@@ -579,7 +579,10 @@ fn assert_browser_requested_frozen_object_helper_iteration_targets(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"), "json: {json}");
+        assert!(
+            stdout.contains("b\na\nb\na\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
+            "json: {json}"
+        );
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         return;
@@ -587,7 +590,7 @@ fn assert_browser_requested_frozen_object_helper_iteration_targets(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"),
+        stdout.contains("b\na\nb\na\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
         "stdout: {stdout}"
     );
     if command == "test" {
@@ -678,7 +681,7 @@ fn assert_browser_bundle_frozen_object_helper_iteration_targets(filename: &str, 
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("b\na\n1\n2\nb\n1\na\n2\n"),
+        stdout.contains("b\na\nb\na\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
         "stdout: {stdout}"
     );
 }
