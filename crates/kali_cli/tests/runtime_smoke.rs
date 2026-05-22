@@ -31399,6 +31399,33 @@ fn run_supports_bracketed_global_this_math_atan2_zero_slice_in_js_input() {
 }
 
 #[test]
+fn run_supports_frozen_math_atan2_zero_slice_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "const zero = 0; const one = 1; const frozenDotRoot = Object.freeze(globalThis.Math.atan2); const frozenBracketedRoot = Object.freeze(globalThis[\"Math\"][\"atan2\"]); const frozenSingleQuotedRoot = Object.freeze(globalThis['Math']['atan2']); const frozenDirect = Object.freeze(Math.atan2); console.log(frozenDotRoot(zero, one)); console.log(frozenBracketedRoot(zero, one)); console.log(frozenSingleQuotedRoot(zero, one)); console.log(frozenDirect(zero, one));\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("0\n0\n0\n0\n"), "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_math_min_builtin_semantics() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
