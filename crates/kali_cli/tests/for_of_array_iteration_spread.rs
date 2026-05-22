@@ -162,6 +162,9 @@ fn browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_l
         r#"Object.freeze((null ?? Array.from))"#,
         r#"Object.freeze((true && Array.from))"#,
         r#"Object.freeze((false || Array.from))"#,
+        r#"Object.freeze((null ?? globalThis["Array"].from))"#,
+        r#"Object.freeze((true && globalThis["Array"].from))"#,
+        r#"Object.freeze((false || globalThis["Array"].from))"#,
     ] {
         assert_eq!(source.matches(alias).count(), 2, "alias {alias}: {source}");
     }
