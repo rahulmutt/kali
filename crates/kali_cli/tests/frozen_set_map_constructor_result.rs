@@ -11,11 +11,11 @@ fn frozen_set_map_constructor_result_source() -> &'static str {
 }
 
 fn parenthesized_frozen_set_map_constructor_result_source() -> &'static str {
-    "const values = [1, 2, 1]; for (const value of Object.freeze((new Set(values)))) { console.log(value); } for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new globalThis[\"Set\"](values)))) { console.log(value); } for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); }\n"
+    "const values = [1, 2, 1]; for (const value of Object.freeze((new Set(values)))) { console.log(value); } for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new globalThis[\"Set\"](values)))) { console.log(value); } for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new (null ?? Set)(values)))) { console.log(value); } for (const value of Object.freeze((new (false || Set)(values)))) { console.log(value); } for (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); }\n"
 }
 
 fn parenthesized_frozen_set_map_constructor_result_test_source() -> &'static str {
-    "Kali.test('parenthesized frozen set and map constructor results', () => { const values = [1, 2, 1]; for (const value of Object.freeze((new Set(values)))) { console.log(value); } for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new globalThis[\"Set\"](values)))) { console.log(value); } for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } });\n"
+    "Kali.test('parenthesized frozen set and map constructor results', () => { const values = [1, 2, 1]; for (const value of Object.freeze((new Set(values)))) { console.log(value); } for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new globalThis[\"Set\"](values)))) { console.log(value); } for (const entry of Object.freeze((new globalThis['Map']([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const value of Object.freeze((new (null ?? Set)(values)))) { console.log(value); } for (const value of Object.freeze((new (false || Set)(values)))) { console.log(value); } for (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0]); console.log(entry[1]); } });\n"
 }
 
 fn frozen_object_helper_iteration_source() -> &'static str {
@@ -165,7 +165,7 @@ fn run_supports_parenthesized_frozen_set_map_constructor_results_in_js_input() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(
-        stdout, "1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n",
+        stdout, "1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n",
         "stdout: {stdout}"
     );
 }
@@ -204,7 +204,7 @@ fn run_supports_parenthesized_frozen_set_map_constructor_results_in_ts_jsx_and_t
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert_eq!(
-            stdout, "1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n",
+            stdout, "1\n2\n1\n3\n4\n5\n1\n2\n1\n3\n4\n5\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n",
             "stdout: {stdout}"
         );
     }

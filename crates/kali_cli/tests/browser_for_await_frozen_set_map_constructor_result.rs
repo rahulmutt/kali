@@ -70,6 +70,20 @@ fn browser_parenthesized_frozen_set_map_constructor_result_run_source() -> &'sta
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((new (false || Set)(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
 }
 
 browserParenthesizedFrozenSetMapConstructorResult();
@@ -84,6 +98,20 @@ fn browser_parenthesized_frozen_set_map_constructor_result_test_source() -> &'st
       console.log(value);
     }
     for await (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((new (false || Set)(values)))) {
+      console.log(value);
+    }
+    for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -102,6 +130,20 @@ export async function browserParenthesizedFrozenSetMapConstructorResult() {
     console.log(value);
   }
   for await (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const value of Object.freeze((new (null ?? Set)(values)))) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((new (false || Set)(values)))) {
+    console.log(value);
+  }
+  for await (const entry of Object.freeze((new (null ?? Map)([[1, 2], [1, 3], [4, 5]])))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((new (false || Map)([[1, 2], [1, 3], [4, 5]])))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
