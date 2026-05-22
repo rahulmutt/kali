@@ -49,6 +49,13 @@ fn browser_harness_array_from_set_map_run_source() -> &'static str {
     console.log(entry[0]);
     console.log(entry[1]);
   }
+  for (const value of globalThis["Array"]["from"](new Set(setValues))) {
+    console.log(value);
+  }
+  for await (const entry of globalThis["Array"]["from"](new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
 }
 
 browserArrayFromSetMapWrappers();
