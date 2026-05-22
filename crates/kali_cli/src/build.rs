@@ -759,6 +759,19 @@ impl EvalConst {
             EvalConst::Null => "null".to_string(),
         }
     }
+
+    fn is_nullish(&self) -> bool {
+        matches!(self, EvalConst::Null)
+    }
+
+    fn is_truthy(&self) -> bool {
+        match self {
+            EvalConst::String(value) => !value.is_empty(),
+            EvalConst::Number(value) => *value != 0,
+            EvalConst::Boolean(value) => *value,
+            EvalConst::Null => false,
+        }
+    }
 }
 
 fn rewrite_eval_compat_source(source: &str) -> String {
@@ -1177,6 +1190,62 @@ fn parse_eval_source_snippet(source: &str) -> Option<EvalConst> {
 }
 
 fn parse_constant_expression(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    parse_constant_nullish(tokens, index, env)
+}
+
+fn parse_constant_nullish(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    let (mut left, mut index) = parse_constant_logical_or(tokens, index, env)?;
+    while matches!(tokens.get(index), Some(token) if token.kind == TokenType::NullCoalesce) {
+        let (right, next_index) = parse_constant_logical_or(tokens, index + 1, env)?;
+        if left.is_nullish() {
+            left = right;
+        }
+        index = next_index;
+    }
+    Some((left, index))
+}
+
+fn parse_constant_logical_or(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    let (mut left, mut index) = parse_constant_logical_and(tokens, index, env)?;
+    while matches!(tokens.get(index), Some(token) if token.kind == TokenType::OrOr) {
+        let (right, next_index) = parse_constant_logical_and(tokens, index + 1, env)?;
+        if !left.is_truthy() {
+            left = right;
+        }
+        index = next_index;
+    }
+    Some((left, index))
+}
+
+fn parse_constant_logical_and(
+    tokens: &[Token],
+    index: usize,
+    env: &BTreeMap<String, EvalConst>,
+) -> Option<(EvalConst, usize)> {
+    let (mut left, mut index) = parse_constant_additive(tokens, index, env)?;
+    while matches!(tokens.get(index), Some(token) if token.kind == TokenType::AndAnd) {
+        let (right, next_index) = parse_constant_additive(tokens, index + 1, env)?;
+        if left.is_truthy() {
+            left = right;
+        }
+        index = next_index;
+    }
+    Some((left, index))
+}
+
+fn parse_constant_additive(
     tokens: &[Token],
     index: usize,
     env: &BTreeMap<String, EvalConst>,
