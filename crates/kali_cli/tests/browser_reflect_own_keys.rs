@@ -21,6 +21,7 @@ const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
 const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
 const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(obj);
 const parenthesizedFrozenSingleQuotedFrozenKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(frozenObj);
@@ -101,6 +102,11 @@ if (
   singleQuotedKeys[1] !== '2' ||
   singleQuotedKeys[2] !== 'b' ||
   singleQuotedKeys[3] !== 'a' ||
+  singleQuotedMixedBracketedKeys.length !== 4 ||
+  singleQuotedMixedBracketedKeys[0] !== '1' ||
+  singleQuotedMixedBracketedKeys[1] !== '2' ||
+  singleQuotedMixedBracketedKeys[2] !== 'b' ||
+  singleQuotedMixedBracketedKeys[3] !== 'a' ||
   parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
   parenthesizedFrozenSingleQuotedKeys[0] !== '1' ||
   parenthesizedFrozenSingleQuotedKeys[1] !== '2' ||
@@ -167,6 +173,7 @@ fn reflect_own_keys_test_source() -> &'static str {
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
   const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
 const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
@@ -293,6 +300,7 @@ async function reflectOwnKeysSmoke(left, right) {
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
+const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
   const frozenSingleQuotedKeys = globalThis['Reflect']['ownKeys'](frozenObj);
   const parenthesizedFrozenMixedBracketedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(obj);
 const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);

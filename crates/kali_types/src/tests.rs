@@ -5,10 +5,10 @@ use kali_ast::{
     ClassExpression, ConditionalExpression, DecoratedExpression, ExportDefaultDeclaration,
     ExportNamedDeclaration, ExportSpecifier, Expression, ExpressionOrSpread, ExpressionStatement,
     ForOfLefthand, ForOfStatement, FunctionDeclaration, FunctionExpression, LiteralValue,
-    MemberExpression, MethodDefinition, ObjectExpression, ObjectProperty, ObjectPropertyKind,
-    ParenthesizedExpression, PropertyName, SatisfiesExpression, TemplateElement, TemplateLiteral,
-    TypeAliasDeclaration, TypeAssertion, UnaryExpression, UpdateExpression, UpdateOperator,
-    VariableDeclaration, VariableDeclarator, YieldExpression,
+    LogicalExpression, LogicalOperator, MemberExpression, MethodDefinition, ObjectExpression,
+    ObjectProperty, ObjectPropertyKind, ParenthesizedExpression, PropertyName, SatisfiesExpression,
+    TemplateElement, TemplateLiteral, TypeAliasDeclaration, TypeAssertion, UnaryExpression,
+    UpdateExpression, UpdateOperator, VariableDeclaration, VariableDeclarator, YieldExpression,
 };
 use kali_common::{
     math_abs_sign_frozen_callable_invocation_source, math_round_frozen_callable_invocation_source,
@@ -8173,6 +8173,66 @@ fn test_resolution_accepts_object_freeze_wrapped_dynamic_import_targets() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_accepts_logical_wrapped_dynamic_import_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.ts");
+    let chunk_path = dir.path().join("lazy.ts");
+    fs::write(&chunk_path, "export const lazy = true;").unwrap();
+    fs::write(
+        &source_path,
+        "const specifier = true && './lazy.ts'; import(specifier);",
+    )
+    .unwrap();
+
+    for (operator, left, source) in [
+        (
+            LogicalOperator::And,
+            Expression::Literal(LiteralValue::Boolean(true)),
+            "true && './lazy.ts'",
+        ),
+        (
+            LogicalOperator::Or,
+            Expression::Literal(LiteralValue::Boolean(false)),
+            "false || './lazy.ts'",
+        ),
+        (
+            LogicalOperator::Coalesce,
+            Expression::Literal(LiteralValue::Null),
+            "null ?? './lazy.ts'",
+        ),
+    ] {
+        let statements = vec![
+            Statement::VariableDeclaration(VariableDeclaration {
+                kind: "const".to_string(),
+                declarations: vec![VariableDeclarator {
+                    id: "specifier".to_string(),
+                    init: Some(Expression::LogicalExpression(Box::new(LogicalExpression {
+                        operator: operator.clone(),
+                        left: Box::new(left.clone()),
+                        right: Box::new(Expression::Literal(LiteralValue::String(
+                            "./lazy.ts".to_string(),
+                        ))),
+                    }))),
+                }],
+            }),
+            Statement::ExpressionStatement(ExpressionStatement {
+                expression: Box::new(Expression::ImportExpression(Box::new(ImportExpression {
+                    source: Expression::Identifier("specifier".to_string()),
+                }))),
+            }),
+        ];
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]
