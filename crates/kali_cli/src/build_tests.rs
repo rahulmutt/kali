@@ -4950,6 +4950,7 @@ const aliasKeys = Reflect.ownKeys(alias);
 const frozenKeys = Reflect.ownKeys(frozenObject);
 const frozenAliasKeys = Reflect.ownKeys(frozenAlias);
 const globalKeys = globalThis.Reflect.ownKeys(object);
+const bracketedRootKeys = globalThis["Reflect"].ownKeys(object);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
 const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
@@ -4966,6 +4967,7 @@ for (const item of [...aliasKeys]) { console.log(item); }
 for (const item of [...frozenKeys]) { console.log(item); }
 for (const item of [...frozenAliasKeys]) { console.log(item); }
 for (const item of [...globalKeys]) { console.log(item); }
+for (const item of [...bracketedRootKeys]) { console.log(item); }
 for (const item of [...mixedKeys]) { console.log(item); }
 for (const item of [...bracketedKeys]) { console.log(item); }
 for (const item of [...frozenBracketedKeys]) { console.log(item); }
@@ -4994,6 +4996,7 @@ const aliasKeys = Reflect.ownKeys(alias);
 const frozenKeys = Reflect.ownKeys(frozenObject);
 const frozenAliasKeys = Reflect.ownKeys(frozenAlias);
 const globalKeys = globalThis.Reflect.ownKeys(object);
+const bracketedRootKeys = globalThis["Reflect"].ownKeys(object);
 const mixedKeys = globalThis.Reflect["ownKeys"](alias);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](object);
 const frozenBracketedKeys = globalThis['Reflect']['ownKeys'](frozenObject);
@@ -5010,6 +5013,7 @@ for (const item of aliasKeys) { console.log(item); }
 for (const item of frozenKeys) { console.log(item); }
 for (const item of frozenAliasKeys) { console.log(item); }
 for (const item of globalKeys) { console.log(item); }
+for (const item of bracketedRootKeys) { console.log(item); }
 for (const item of mixedKeys) { console.log(item); }
 for (const item of bracketedKeys) { console.log(item); }
 for (const item of frozenBracketedKeys) { console.log(item); }

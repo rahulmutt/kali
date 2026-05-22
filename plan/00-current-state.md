@@ -18,6 +18,7 @@ The checked-in repository already includes:
 
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
 - The shared `Reflect.ownKeys` smoke inventory now also includes the parenthesized single-quoted bracket-root `Object.freeze((globalThis['Reflect'])['ownKeys'])` alias, keeping the single-quoted wrapper path aligned across the common helper inventory and the runtime/build smoke lanes.
+- The shared `Reflect.ownKeys` smoke inventory now also covers the direct `globalThis["Reflect"].ownKeys` alias, keeping the bracket-root path aligned with the existing frozen and mixed-root variants.
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
 - Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.
