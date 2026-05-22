@@ -6880,7 +6880,9 @@ fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
-    let expected_message = if source.contains("async function*") {
+    let expected_message = if source.contains("yield*") {
+        "yield* delegation"
+    } else if source.contains("async function*") {
         "async-generator function lowering is unavailable in the current phase"
     } else {
         "generator function lowering is unavailable in the current phase"
@@ -6929,7 +6931,9 @@ fn assert_runtime_entrypoint_rejects_generator_function_declaration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
-    let expected_message = if source.contains("async function*") {
+    let expected_message = if source.contains("yield*") {
+        "yield* delegation"
+    } else if source.contains("async function*") {
         "async-generator function lowering is unavailable in the current phase"
     } else {
         "generator function lowering is unavailable in the current phase"
@@ -7410,10 +7414,9 @@ fn assert_build_source_file_rejects_generator_lowering_in_browser_input(extensio
     assert!(error.iter().any(|diagnostic| diagnostic.code
         == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
     assert!(
-        error.iter().any(
-            |diagnostic| diagnostic.message.contains("generator function lowering")
-                || diagnostic.message.contains("yield expressions")
-        ),
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("yield* delegation")),
         "unexpected diagnostics: {error:?}"
     );
 }

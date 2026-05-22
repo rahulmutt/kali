@@ -174,6 +174,7 @@ pub struct TypeContext {
     in_generator_function: bool,
     has_generator_function: bool,
     has_async_generator_function: bool,
+    has_generator_yield_delegation: bool,
 }
 
 impl TypeContext {
@@ -204,6 +205,7 @@ impl TypeContext {
             in_generator_function: false,
             has_generator_function: false,
             has_async_generator_function: false,
+            has_generator_yield_delegation: false,
         }
     }
 
@@ -353,6 +355,7 @@ impl TypeContext {
         self.diagnostics.clear();
         self.has_generator_function = false;
         self.has_async_generator_function = false;
+        self.has_generator_yield_delegation = false;
     }
 
     pub fn check_type_annotation(&mut self, _node_id: NodeId, annotation: &str) {
@@ -456,13 +459,22 @@ impl TypeContext {
             return;
         }
 
-        self.diagnostics.push(Diagnostic::error(
-            e5::FEATURE_UNAVAILABLE as u32,
+        let message = if self.has_generator_yield_delegation
+            && (self.has_generator_function ^ self.has_async_generator_function)
+        {
+            generator_function_yield_lowering_unavailable_message(
+                self.has_async_generator_function,
+                true,
+            )
+        } else {
             generator_function_lowering_unavailable_message_for_flavors(
                 self.has_generator_function,
                 self.has_async_generator_function,
-            ),
-        ));
+            )
+        };
+
+        self.diagnostics
+            .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
         self.has_generator_function = false;
         self.has_async_generator_function = false;
     }
@@ -1184,6 +1196,9 @@ impl TypeContext {
             }
             Expression::ParenthesizedExpression(expr) => self.resolve_expression(&expr.expression),
             Expression::YieldExpression(expr) => {
+                if self.in_generator_function && expr.delegate {
+                    self.has_generator_yield_delegation = true;
+                }
                 if !self.in_generator_function {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,

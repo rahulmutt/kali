@@ -8334,9 +8334,7 @@ fn test_resolution_rejects_generator_function_lowering() {
         result.diagnostics[0].code,
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
-    assert!(result.diagnostics[0]
-        .message
-        .contains("generator function lowering is unavailable"));
+    assert!(result.diagnostics[0].message.contains("yield* delegation"));
 }
 
 #[test]

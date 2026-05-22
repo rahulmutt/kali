@@ -29,6 +29,343 @@ use crate::{
     BundleFormat,
 };
 
+fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
+    block.body.iter().any(statement_contains_yield_delegation)
+}
+
+fn statement_contains_yield_delegation(statement: &Statement) -> bool {
+    match statement {
+        Statement::ExpressionStatement(expression) => {
+            expression_contains_yield_delegation(&expression.expression)
+        }
+        Statement::BreakStatement(_)
+        | Statement::ContinueStatement(_)
+        | Statement::DebuggerStatement(_)
+        | Statement::ImportDeclaration(_)
+        | Statement::InterfaceDeclaration(_)
+        | Statement::TypeAliasDeclaration(_)
+        | Statement::ClassDeclaration(_)
+        | Statement::FunctionDeclaration(_) => false,
+        Statement::WithStatement(with_stmt) => {
+            expression_contains_yield_delegation(&with_stmt.object)
+                || statement_contains_yield_delegation(&with_stmt.body)
+        }
+        Statement::ReturnStatement(return_stmt) => return_stmt
+            .argument
+            .as_ref()
+            .is_some_and(expression_contains_yield_delegation),
+        Statement::LabeledStatement(labeled_stmt) => {
+            statement_contains_yield_delegation(&labeled_stmt.body)
+        }
+        Statement::IfStatement(if_stmt) => {
+            expression_contains_yield_delegation(&if_stmt.test)
+                || block_contains_yield_delegation(&if_stmt.consequent)
+                || if_stmt
+                    .alternate
+                    .as_deref()
+                    .is_some_and(block_contains_yield_delegation)
+        }
+        Statement::SwitchStatement(switch_stmt) => {
+            expression_contains_yield_delegation(&switch_stmt.discriminant)
+                || switch_stmt.cases.iter().any(|case| {
+                    case.test
+                        .as_ref()
+                        .is_some_and(expression_contains_yield_delegation)
+                        || case
+                            .consequent
+                            .iter()
+                            .any(statement_contains_yield_delegation)
+                })
+        }
+        Statement::ThrowStatement(throw_stmt) => {
+            expression_contains_yield_delegation(&throw_stmt.argument)
+        }
+        Statement::TryStatement(try_stmt) => {
+            block_contains_yield_delegation(&try_stmt.block)
+                || try_stmt
+                    .handler
+                    .as_ref()
+                    .is_some_and(|handler| block_contains_yield_delegation(&handler.body))
+                || try_stmt
+                    .finalizer
+                    .as_ref()
+                    .is_some_and(block_contains_yield_delegation)
+        }
+        Statement::BlockStatement(block) => block_contains_yield_delegation(block),
+        Statement::ForStatement(for_stmt) => {
+            for_stmt.init.as_ref().is_some_and(|init| match init {
+                kali_ast::ForInit::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                kali_ast::ForInit::Expression(expression) => {
+                    expression_contains_yield_delegation(expression)
+                }
+            }) || for_stmt
+                .test
+                .as_ref()
+                .is_some_and(expression_contains_yield_delegation)
+                || for_stmt
+                    .update
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+                || block_contains_yield_delegation(&for_stmt.body)
+        }
+        Statement::ForInStatement(for_in_stmt) => {
+            let left_has_yield_delegation = match &for_in_stmt.left {
+                kali_ast::ForInLefthand::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                kali_ast::ForInLefthand::Expression(expression) => {
+                    expression_contains_yield_delegation(expression)
+                }
+            };
+            left_has_yield_delegation
+                || expression_contains_yield_delegation(&for_in_stmt.right)
+                || statement_contains_yield_delegation(&for_in_stmt.body)
+        }
+        Statement::ForOfStatement(for_of_stmt) => {
+            let left_has_yield_delegation = match &for_of_stmt.left {
+                kali_ast::ForOfLefthand::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                kali_ast::ForOfLefthand::Expression(expression) => {
+                    expression_contains_yield_delegation(expression)
+                }
+            };
+            left_has_yield_delegation
+                || expression_contains_yield_delegation(&for_of_stmt.right)
+                || statement_contains_yield_delegation(&for_of_stmt.body)
+        }
+        Statement::WhileStatement(while_stmt) => {
+            expression_contains_yield_delegation(&while_stmt.test)
+                || block_contains_yield_delegation(&while_stmt.body)
+        }
+        Statement::DoWhileStatement(do_while_stmt) => {
+            block_contains_yield_delegation(&do_while_stmt.body)
+                || expression_contains_yield_delegation(&do_while_stmt.test)
+        }
+        Statement::VariableDeclaration(declaration) => {
+            declaration.declarations.iter().any(|declarator| {
+                declarator
+                    .init
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+            })
+        }
+        Statement::ExportAll(_) | Statement::ExportNamed(_) => false,
+        Statement::ExportDefault(default_decl) => match default_decl {
+            ExportDefaultDeclaration::Expression(expression) => {
+                expression_contains_yield_delegation(expression)
+            }
+            ExportDefaultDeclaration::FunctionDeclaration(_)
+            | ExportDefaultDeclaration::ClassDeclaration(_) => false,
+        },
+        Statement::EnumDeclaration(enum_declaration) => {
+            enum_declaration.members.iter().any(|member| {
+                member
+                    .value
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+            })
+        }
+    }
+}
+
+fn expression_contains_yield_delegation(expression: &Expression) -> bool {
+    match expression {
+        Expression::YieldExpression(yield_expression) => {
+            yield_expression.delegate
+                || yield_expression
+                    .argument
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+        }
+        Expression::BinaryExpression(binary) => {
+            expression_contains_yield_delegation(&binary.left)
+                || expression_contains_yield_delegation(&binary.right)
+        }
+        Expression::UnaryExpression(unary) => expression_contains_yield_delegation(&unary.argument),
+        Expression::CallExpression(call) => {
+            expression_contains_yield_delegation(&call.callee)
+                || call.args.iter().any(expression_contains_yield_delegation)
+        }
+        Expression::MemberExpression(member) => {
+            expression_contains_yield_delegation(&member.object)
+        }
+        Expression::ArrayExpression(array) => array.elements.iter().any(|element| match element {
+            Some(kali_ast::ExpressionOrSpread::Expression(expression)) => {
+                expression_contains_yield_delegation(expression)
+            }
+            Some(kali_ast::ExpressionOrSpread::Spread(spread)) => {
+                expression_contains_yield_delegation(&spread.argument)
+            }
+            Some(kali_ast::ExpressionOrSpread::Empty) | None => false,
+        }),
+        Expression::ObjectExpression(object) => object
+            .properties
+            .iter()
+            .any(|property| expression_contains_yield_delegation(&property.value)),
+        Expression::FunctionExpression(_) | Expression::ClassExpression(_) => false,
+        Expression::ArrowFunctionExpression(arrow) => {
+            expression_contains_yield_delegation(&arrow.body)
+        }
+        Expression::NewExpression(new_expression) => {
+            expression_contains_yield_delegation(&new_expression.callee)
+                || new_expression
+                    .args
+                    .iter()
+                    .any(expression_contains_yield_delegation)
+        }
+        Expression::MetaProperty(_)
+        | Expression::Identifier(_)
+        | Expression::Literal(_)
+        | Expression::ThisExpression
+        | Expression::SuperExpression
+        | Expression::PrivateIdentifier(_)
+        | Expression::BigIntLiteral(_) => false,
+        Expression::TemplateLiteral(template) => template
+            .expressions
+            .iter()
+            .any(expression_contains_yield_delegation),
+        Expression::TaggedTemplateExpression(tagged) => {
+            expression_contains_yield_delegation(&tagged.tag)
+                || tagged
+                    .template
+                    .expressions
+                    .iter()
+                    .any(expression_contains_yield_delegation)
+        }
+        Expression::UpdateExpression(update) => {
+            expression_contains_yield_delegation(&update.argument)
+        }
+        Expression::AssignmentExpression(assignment) => {
+            expression_contains_yield_delegation(&assignment.left)
+                || expression_contains_yield_delegation(&assignment.right)
+        }
+        Expression::LogicalExpression(logical) => {
+            expression_contains_yield_delegation(&logical.left)
+                || expression_contains_yield_delegation(&logical.right)
+        }
+        Expression::ConditionalExpression(conditional) => {
+            expression_contains_yield_delegation(&conditional.test)
+                || expression_contains_yield_delegation(&conditional.consequent)
+                || expression_contains_yield_delegation(&conditional.alternate)
+        }
+        Expression::SequenceExpression(sequence) => sequence
+            .expressions
+            .iter()
+            .any(expression_contains_yield_delegation),
+        Expression::ParenthesizedExpression(parenthesized) => {
+            expression_contains_yield_delegation(&parenthesized.expression)
+        }
+        Expression::AwaitExpression(await_expression) => {
+            expression_contains_yield_delegation(&await_expression.argument)
+        }
+        Expression::OptionalChainExpression(optional_chain) => {
+            match optional_chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    expression_contains_yield_delegation(object)
+                }
+            }
+        }
+        Expression::ChainExpression(chain) => {
+            expression_contains_yield_delegation(&chain.expression)
+        }
+        Expression::SpreadElement(spread) => expression_contains_yield_delegation(&spread.argument),
+        Expression::RestElement(rest) => expression_contains_yield_delegation(&rest.argument),
+        Expression::ImportExpression(import_expression) => {
+            expression_contains_yield_delegation(&import_expression.source)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            expression_contains_yield_delegation(&decorated.expression)
+        }
+        Expression::JsxElement(element) => {
+            element
+                .opening_element
+                .attributes
+                .iter()
+                .any(|attribute| match attribute {
+                    kali_ast::JsxAttributeItem::JsxAttribute(attribute) => match &attribute.value {
+                        kali_ast::JsxAttributeValue::String(_) => false,
+                        kali_ast::JsxAttributeValue::JsxElement(child) => {
+                            expression_contains_yield_delegation(&Expression::JsxElement(
+                                (**child).clone(),
+                            ))
+                        }
+                        kali_ast::JsxAttributeValue::JsxExpression(container) => container
+                            .expression
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation),
+                    },
+                    kali_ast::JsxAttributeItem::JsxSpreadAttribute(spread) => {
+                        expression_contains_yield_delegation(&spread.argument)
+                    }
+                })
+                || element.children.iter().any(|child| match child {
+                    kali_ast::JsxChild::JsxText(_) => false,
+                    kali_ast::JsxChild::JsxExpression(container) => container
+                        .expression
+                        .as_ref()
+                        .is_some_and(expression_contains_yield_delegation),
+                    kali_ast::JsxChild::JsxElement(child) => expression_contains_yield_delegation(
+                        &Expression::JsxElement((**child).clone()),
+                    ),
+                    kali_ast::JsxChild::JsxFragment(fragment) => {
+                        expression_contains_yield_delegation(&Expression::JsxFragment(
+                            (**fragment).clone(),
+                        ))
+                    }
+                })
+        }
+        Expression::JsxFragment(fragment) => fragment.children.iter().any(|child| match child {
+            kali_ast::JsxChild::JsxText(_) => false,
+            kali_ast::JsxChild::JsxExpression(container) => container
+                .expression
+                .as_ref()
+                .is_some_and(expression_contains_yield_delegation),
+            kali_ast::JsxChild::JsxElement(child) => {
+                expression_contains_yield_delegation(&Expression::JsxElement((**child).clone()))
+            }
+            kali_ast::JsxChild::JsxFragment(fragment) => {
+                expression_contains_yield_delegation(&Expression::JsxFragment((**fragment).clone()))
+            }
+        }),
+        Expression::JsxEmptyExpression => false,
+        Expression::TypeAssertion(assertion) => {
+            expression_contains_yield_delegation(&assertion.expression)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            expression_contains_yield_delegation(&satisfies.expression)
+        }
+    }
+}
+
+fn generator_function_unavailable_message(
+    is_async: bool,
+    body: Option<&BlockStatement>,
+) -> &'static str {
+    if body.is_some_and(block_contains_yield_delegation) {
+        kali_common::generator_function_yield_lowering_unavailable_message(is_async, true)
+    } else {
+        generator_function_unavailable_message(is_async, None)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildMode {
     Fast,
@@ -2706,8 +3043,9 @@ fn collect_library_exports_from_statements_with_context(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            kali_common::generator_function_lowering_unavailable_message(
+                            generator_function_unavailable_message(
                                 func.is_async,
+                                Some(func.body.as_ref()),
                             ),
                         ));
                     } else {
@@ -2959,10 +3297,14 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
         ));
     }
 
-    fn push_generator_function_diagnostic(diagnostics: &mut Vec<Diagnostic>, is_async: bool) {
+    fn push_generator_function_diagnostic(
+        diagnostics: &mut Vec<Diagnostic>,
+        is_async: bool,
+        body: Option<&BlockStatement>,
+    ) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            kali_common::generator_function_lowering_unavailable_message(is_async),
+            generator_function_unavailable_message(is_async, body),
         ));
     }
 
@@ -3051,8 +3393,9 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
                 if function.generator {
                     diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        kali_common::generator_function_lowering_unavailable_message(
+                        generator_function_unavailable_message(
                             function.is_async,
+                            function.body.as_deref(),
                         ),
                     ));
                 } else if let Some(body) = &function.body {
@@ -3360,7 +3703,11 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
             }
             Statement::FunctionDeclaration(function) => {
                 if function.generator {
-                    push_generator_function_diagnostic(diagnostics, function.is_async);
+                    push_generator_function_diagnostic(
+                        diagnostics,
+                        function.is_async,
+                        Some(function.body.as_ref()),
+                    );
                 } else {
                     for nested in &function.body.body {
                         collect_statement(nested, diagnostics);
@@ -3379,7 +3726,11 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
             }
             Statement::ExportDefault(ExportDefaultDeclaration::FunctionDeclaration(function)) => {
                 if function.generator {
-                    push_generator_function_diagnostic(diagnostics, function.is_async);
+                    push_generator_function_diagnostic(
+                        diagnostics,
+                        function.is_async,
+                        Some(function.body.as_ref()),
+                    );
                 } else {
                     for nested in &function.body.body {
                         collect_statement(nested, diagnostics);
@@ -3553,8 +3904,9 @@ fn collect_library_exports_from_statements(
                     if func.generator {
                         diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
-                            kali_common::generator_function_lowering_unavailable_message(
+                            generator_function_unavailable_message(
                                 func.is_async,
+                                Some(func.body.as_ref()),
                             ),
                         ));
                     } else {
@@ -4131,7 +4483,10 @@ fn collect_declared_function_signatures(
                 if func.generator {
                     diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        kali_common::generator_function_lowering_unavailable_message(func.is_async),
+                        generator_function_unavailable_message(
+                            func.is_async,
+                            Some(func.body.as_ref()),
+                        ),
                     ));
                     continue;
                 }
@@ -4211,7 +4566,7 @@ fn infer_function_binding_signature(
             if func.generator {
                 diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
-                    kali_common::generator_function_lowering_unavailable_message(func.is_async),
+                    generator_function_unavailable_message(func.is_async, func.body.as_deref()),
                 ));
                 return None;
             }
