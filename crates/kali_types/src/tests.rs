@@ -9636,6 +9636,7 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
     const frozenOwnKeys = Object.freeze(Reflect.ownKeys)(obj);
     const frozenParenOwnKeys = Object.freeze((Reflect.ownKeys))(obj);
     const frozenBracketedRootOwnKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj);
+    const frozenDoubleQuotedBracketedRootOwnKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
     const frozenSingleQuotedBracketedRootOwnKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj);
     for (const key of frozenKeys) {
         console.log(key);
