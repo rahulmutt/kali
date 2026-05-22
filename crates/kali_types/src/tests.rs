@@ -1879,9 +1879,7 @@ fn test_resolution_reports_deno_args_as_unavailable_on_browser_surface() {
         Some(e5::FEATURE_UNAVAILABLE as u32)
     );
     assert!(
-        result.diagnostics[0]
-            .message
-            .contains("Deno.args"),
+        result.diagnostics[0].message.contains("Deno.args"),
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
