@@ -3941,6 +3941,7 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(alias);
+const parenthesizedFrozenBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(alias);
 const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(alias);
 const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(alias);
 const parenthesizedFrozenMixedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(alias);
@@ -3988,6 +3989,7 @@ if (
   fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
   frozenMixedRootKeys.length !== 4 ||
+  parenthesizedFrozenBracketedRootKeys.length !== 4 ||
   frozenMixedBracketedCallableKeys.length !== 4 ||
   frozenBracketedCallableKeys.length !== 4 ||
   parenthesizedFrozenSingleQuotedKeys.length !== 4 ||
@@ -4057,6 +4059,7 @@ const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const frozenBracketedKeys = globalThis["Reflect"]["ownKeys"](alias);
 const frozenMixedRootKeys = Object.freeze(globalThis["Reflect"].ownKeys)(alias);
+const parenthesizedFrozenBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(alias);
 const parenthesizedFrozenSingleQuotedKeys = Object.freeze((globalThis['Reflect']['ownKeys']))(alias);
 const parenthesizedFrozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(alias);
 const parenthesizedFrozenMixedKeys = Object.freeze((globalThis.Reflect["ownKeys"]))(alias);
@@ -4104,6 +4107,7 @@ if (
   fullyBracketedKeys[3] !== 'a' ||
   frozenBracketedKeys.length !== 4 ||
   frozenMixedRootKeys.length !== 4 ||
+  parenthesizedFrozenBracketedRootKeys.length !== 4 ||
   frozenMixedBracketedCallableKeys.length !== 4 ||
   frozenBracketedCallableKeys.length !== 4 ||
   parenthesizedFrozenSingleQuotedKeys.length !== 4 ||

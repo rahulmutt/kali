@@ -1546,7 +1546,7 @@ impl TypeContext {
             }
             Expression::LogicalExpression(expr) => {
                 let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
-                let selected = match expr.operator {
+                match expr.operator {
                     LogicalOperator::Coalesce => {
                         if left.is_nullish() {
                             self.resolve_static_object_identity_literal_value(&expr.right)
@@ -1584,8 +1584,7 @@ impl TypeContext {
                             }
                         }
                     },
-                };
-                selected
+                }
             }
             Expression::BinaryExpression(expr)
                 if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
@@ -1755,7 +1754,7 @@ impl TypeContext {
             }
             Expression::LogicalExpression(expr) => {
                 let left = self.resolve_static_object_identity_literal_value(&expr.left)?;
-                let selected = match expr.operator {
+                match expr.operator {
                     LogicalOperator::Coalesce => {
                         if left.is_nullish() {
                             self.resolve_static_reference_root(&expr.right)
@@ -1791,8 +1790,7 @@ impl TypeContext {
                             }
                         }
                     },
-                };
-                selected
+                }
             }
             Expression::BinaryExpression(expr)
                 if matches!(expr.operator.as_str(), "??" | "&&" | "||") =>
