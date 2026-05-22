@@ -5229,6 +5229,7 @@ impl<'a> FunctionEmitter<'a> {
 
         let callee = node.children.first().copied()?;
         let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee = self.resolve_literal_aggregate(callee).unwrap_or(callee);
         let callee_node = self.node(callee);
         let mode = match callee_node.text.as_deref() {
             Some(text)
