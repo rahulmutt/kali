@@ -3359,6 +3359,41 @@ fn validate_package_effects_payload_value_rejects_whitespace_package_coordinate_
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_registry_package_names_with_internal_whitespace()
+{
+    for name in ["semi ver", "@types/ node"] {
+        let value = json!({
+            "schemaVersion": 1,
+            "package": {
+                "name": name,
+                "version": "7.6.3",
+                "registry": "npm",
+            },
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "default",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": ["semver"],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
+
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("internal whitespace package names should fail validation");
+        assert!(
+            err.contains("package-effects payload package name")
+                && err.contains("without whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_registry_prefixed_package_names() {
     for (registry, name) in [("npm", "npm:semver"), ("jsr", "jsr:@std/path")] {
         let value = json!({

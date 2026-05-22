@@ -1054,6 +1054,25 @@ fn validate_canonical_non_empty_string_value(
     Ok(())
 }
 
+fn validate_registry_package_name_value(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    validate_canonical_non_empty_string_value(value, context)?;
+
+    let Some(Value::String(value)) = value else {
+        unreachable!("validated above")
+    };
+
+    if value.chars().any(char::is_whitespace) {
+        return Err(format!(
+            "{context} must be a registry-native package name without whitespace"
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_canonical_absolute_url_string_value(
     value: Option<&Value>,
     context: &str,
@@ -1282,7 +1301,11 @@ fn validate_package_coordinate_value(value: Option<&Value>) -> Result<(), String
         "package-effects payload package",
     )?;
 
-    for key in ["name", "version", "registry"] {
+    validate_registry_package_name_value(
+        object.get("name"),
+        "package-effects payload package name",
+    )?;
+    for key in ["version", "registry"] {
         validate_canonical_non_empty_string_value(
             object.get(key),
             &format!("package-effects payload package {key}"),

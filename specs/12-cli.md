@@ -692,7 +692,7 @@ Analysis rule:
 - inherited `compilerOptions.apiSurface = node` is honored for `package-effects` in the current repository, so the package-effect report can record the Node analysis context through the inherited axis without opening a second explicit semantic flag family
 - documentation/examples that need a browser, Node, threaded-profile, or `eval` package-analysis case should therefore use inherited-context examples and tables, not imaginary per-command semantic flags that schema v1 intentionally rejects for `package-effects`
 - representative inherited browser / Node / threaded-profile / compatibility rows stay centralized in [19 — Feature Maturity](19-feature-maturity.md) so the CLI chapter does not grow a second shadow matrix
-- the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path
+- the nested `report.entryPoints` field should name the package-analysis logical root using the same canonical registry identifier spelling the user targeted rather than an opaque tarball URL or cache path, and the decomposed `package.name` field in the payload must stay registry-native and whitespace-free rather than carrying a prefixed or display-only spelling
 - the nested `report.analysisContext` field records that inherited context explicitly so tools do not have to infer it from ambient project state
 
 ### `kali package-audit <package>`
