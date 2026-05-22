@@ -460,6 +460,13 @@ impl SandboxPolicy {
             self.resources.max_spawned_processes,
             "resources.maxSpawnedProcesses",
         );
+        if self
+            .resources
+            .max_spawned_processes
+            .is_some_and(|count| count > 0)
+        {
+            diagnostics.push(unavailable_capability("resources.maxSpawnedProcesses"));
+        }
         validate_zero_capable_u64(
             &mut diagnostics,
             self.resources.max_threads,

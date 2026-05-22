@@ -55,7 +55,7 @@ fn valid_policy() -> SandboxPolicy {
             max_memory_mb: Some(256),
             max_cpu_time_ms: Some(10_000),
             max_open_files: Some(16),
-            max_spawned_processes: Some(1),
+            max_spawned_processes: Some(0),
             max_threads: Some(0),
         },
         base_dir: PathBuf::from("/workspace"),
@@ -106,6 +106,21 @@ fn policy_rejects_thread_spawn_when_the_budget_is_zero() {
 
     assert_eq!(diagnostic.code, Some(e4::RESOURCE_LIMIT_EXCEEDED as u32));
     assert!(diagnostic.message.contains("active thread count 1"));
+}
+
+#[test]
+fn policy_rejects_positive_spawn_budget_before_subprocess_support_exists() {
+    let mut policy = valid_policy();
+    policy.resources.max_spawned_processes = Some(1);
+
+    let diagnostics = policy
+        .validate()
+        .expect_err("positive spawned-process budgets should remain gated in the current phase");
+
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.code, Some(e5::FEATURE_UNAVAILABLE as u32));
+    assert!(diagnostic.message.contains("resources.maxSpawnedProcesses"));
 }
 
 #[test]
