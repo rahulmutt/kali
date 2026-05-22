@@ -18,6 +18,7 @@ const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
 const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
 {frozen_callable_lines}
@@ -67,6 +68,11 @@ if (
   fullyBracketedKeys[1] !== '2' ||
   fullyBracketedKeys[2] !== 'b' ||
   fullyBracketedKeys[3] !== 'a' ||
+  parenthesizedBracketRootKeys.length !== 4 ||
+  parenthesizedBracketRootKeys[0] !== '1' ||
+  parenthesizedBracketRootKeys[1] !== '2' ||
+  parenthesizedBracketRootKeys[2] !== 'b' ||
+  parenthesizedBracketRootKeys[3] !== 'a' ||
   singleQuotedKeys.length !== 4 ||
   singleQuotedKeys[0] !== '1' ||
   singleQuotedKeys[1] !== '2' ||
@@ -97,6 +103,7 @@ fn reflect_own_keys_test_source() -> &'static str {
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
+  const parenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
   const singleQuotedKeys = globalThis['Reflect']['ownKeys'](obj);
 const singleQuotedMixedBracketedKeys = globalThis.Reflect['ownKeys'](obj);
   const frozenBareCallableKeys = Object.freeze(Reflect.ownKeys)(obj);
@@ -152,6 +159,11 @@ const frozenCallableKeys = Object.freeze(globalThis.Reflect.ownKeys)(obj);
     fullyBracketedKeys[1] !== '2' ||
     fullyBracketedKeys[2] !== 'b' ||
     fullyBracketedKeys[3] !== 'a' ||
+    parenthesizedBracketRootKeys.length !== 4 ||
+    parenthesizedBracketRootKeys[0] !== '1' ||
+    parenthesizedBracketRootKeys[1] !== '2' ||
+    parenthesizedBracketRootKeys[2] !== 'b' ||
+    parenthesizedBracketRootKeys[3] !== 'a' ||
     singleQuotedKeys.length !== 4 ||
     frozenBareCallableKeys.length !== 4 ||
     parenthesizedFrozenBareCallableKeys.length !== 4 ||
