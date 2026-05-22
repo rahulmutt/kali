@@ -91,6 +91,42 @@ Kali.test('template literal dynamic import sequence', () => {{}});
     )
 }
 
+fn object_freeze_literal_dynamic_import_wrappers_source() -> &'static str {
+    r#"async function main() {
+  const nullishChunk = await import(Object.freeze((null ?? "./lazy.js")));
+  if (typeof nullishChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const nullishValue = await nullishChunk.lazyValue();
+  if (nullishValue !== 0n) {
+    throw new Error(`unexpected nullish chunk result ${nullishValue}`);
+  }
+  console.log(String(nullishValue));
+  const andChunk = await import(Object.freeze((true && "./lazy.js")));
+  if (typeof andChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const andValue = await andChunk.lazyValue();
+  if (andValue !== 0n) {
+    throw new Error(`unexpected and chunk result ${andValue}`);
+  }
+  console.log(String(andValue));
+  const orChunk = await import(Object.freeze((false || "./lazy.js")));
+  if (typeof orChunk.lazyValue !== 'function') {
+    throw new Error('missing lazyValue export');
+  }
+  const orValue = await orChunk.lazyValue();
+  if (orValue !== 0n) {
+    throw new Error(`unexpected or chunk result ${orValue}`);
+  }
+  console.log(String(orValue));
+  console.log('main loaded');
+}
+main();
+Kali.test('object.freeze logical literal dynamic import', () => {});
+"#
+}
+
 fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
@@ -442,4 +478,56 @@ fn test_supports_sequence_wrapped_template_literal_dynamic_import_targets_in_bro
             true,
         );
     }
+}
+
+#[test]
+fn run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.js",
+        "lazy.js",
+        object_freeze_literal_dynamic_import_wrappers_source(),
+        false,
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "run",
+        "main.js",
+        "lazy.js",
+        object_freeze_literal_dynamic_import_wrappers_source(),
+        true,
+        false,
+    );
+}
+
+#[test]
+fn test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.js",
+        "lazy.js",
+        object_freeze_literal_dynamic_import_wrappers_source(),
+        false,
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_js_input(
+) {
+    assert_browser_requested_template_literal_dynamic_import(
+        "test",
+        "smoke.test.js",
+        "lazy.js",
+        object_freeze_literal_dynamic_import_wrappers_source(),
+        true,
+        true,
+    );
 }
