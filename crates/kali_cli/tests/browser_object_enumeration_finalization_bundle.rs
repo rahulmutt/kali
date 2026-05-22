@@ -129,6 +129,45 @@ async function browserObjectEnumerationFinalizationWrapper() {
     throw new Error('unexpected Object.entries break/continue semantics');
   }
 
+  let reflectReturnFinally = false;
+  function reflectReturnProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        return key;
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectReturnFinally = true;
+    }
+  }
+  const reflectReturnValue = reflectReturnProbe();
+  if (reflectReturnValue !== 'b' || !reflectReturnFinally) {
+    throw new Error('unexpected Reflect.ownKeys return/finally semantics');
+  }
+
+  let reflectThrowFinally = false;
+  function reflectThrowProbe() {
+    try {
+      for (const key of Reflect.ownKeys(values)) {
+        if (key === 'b') {
+          throw new Error('boom');
+        }
+      }
+      throw new Error('unexpected empty Reflect.ownKeys iteration');
+    } finally {
+      reflectThrowFinally = true;
+    }
+  }
+  let reflectThrew = false;
+  try {
+    reflectThrowProbe();
+  } catch {
+    reflectThrew = true;
+  }
+  if (!reflectThrew || !reflectThrowFinally) {
+    throw new Error('unexpected Reflect.ownKeys throw/finally semantics');
+  }
+
   const asyncValues = { "b": 1, "a": 2 };
   let asyncFinallySeen = false;
   let asyncThrew = false;
@@ -216,6 +255,40 @@ async function browserObjectEnumerationFinalizationWrapper() {
   }
   if (!asyncEntriesThrew || !asyncEntriesFinallySeen) {
     throw new Error('unexpected async Object.entries throw/finally semantics');
+  }
+
+  let asyncReflectReturnFinallySeen = false;
+  function asyncReflectReturnProbe() {
+    try {
+      for await (const key of Reflect.ownKeys(asyncValues)) {
+        return key;
+      }
+      throw new Error('unexpected empty async Reflect.ownKeys iteration');
+    } finally {
+      asyncReflectReturnFinallySeen = true;
+    }
+  }
+  const asyncReflectReturnValue = asyncReflectReturnProbe();
+  if (asyncReflectReturnValue !== 'b' || !asyncReflectReturnFinallySeen) {
+    throw new Error('unexpected async Reflect.ownKeys return/finally semantics');
+  }
+
+  let asyncReflectThrowFinallySeen = false;
+  let asyncReflectThrew = false;
+  try {
+    for await (const key of Reflect.ownKeys(asyncValues)) {
+      if (key === 'b') {
+        throw new Error('boom');
+      }
+    }
+    throw new Error('unexpected empty async Reflect.ownKeys iteration');
+  } catch {
+    asyncReflectThrew = true;
+  } finally {
+    asyncReflectThrowFinallySeen = true;
+  }
+  if (!asyncReflectThrew || !asyncReflectThrowFinallySeen) {
+    throw new Error('unexpected async Reflect.ownKeys throw/finally semantics');
   }
 
   console.log('browser object enumeration finalization ok');
