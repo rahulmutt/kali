@@ -14,13 +14,16 @@ function browserMathImulClz32Aliases() {
   const imulRight = 2;
   const clz32Value = 1;
   const frozenImul = Object.freeze(globalThis.Math.imul);
+  const frozenBracketedImul = Object.freeze(globalThis["Math"]["imul"]);
   const frozenClz32 = Object.freeze(globalThis["Math"]["clz32"]);
+  const frozenBracketedClz32 = Object.freeze(globalThis.Math["clz32"]);
   console.log(globalThis.Math.imul(imulLeft, imulRight));
   console.log(globalThis.Math["imul"](imulLeft, imulRight));
   console.log(globalThis["Math"].imul(imulLeft, imulRight));
   console.log(globalThis["Math"]["imul"](imulLeft, imulRight));
   console.log(Math["imul"](imulLeft, imulRight));
   console.log(frozenImul(imulLeft, imulRight));
+  console.log(frozenBracketedImul(imulLeft, imulRight));
   console.log(Object.freeze(Math.imul)(imulLeft, imulRight));
   console.log(Object.freeze(Math["imul"])(imulLeft, imulRight));
   console.log(globalThis.Math.clz32(clz32Value));
@@ -29,6 +32,7 @@ function browserMathImulClz32Aliases() {
   console.log(globalThis["Math"]["clz32"](clz32Value));
   console.log(Math["clz32"](clz32Value));
   console.log(frozenClz32(clz32Value));
+  console.log(frozenBracketedClz32(clz32Value));
   console.log(Object.freeze(Math.clz32)(clz32Value));
   console.log(Object.freeze(Math["clz32"])(clz32Value));
   return [
@@ -38,6 +42,7 @@ function browserMathImulClz32Aliases() {
     globalThis["Math"]["imul"](imulLeft, imulRight),
     Math["imul"](imulLeft, imulRight),
     frozenImul(imulLeft, imulRight),
+    frozenBracketedImul(imulLeft, imulRight),
     Object.freeze(Math.imul)(imulLeft, imulRight),
     Object.freeze(Math["imul"])(imulLeft, imulRight),
     globalThis.Math.clz32(clz32Value),
@@ -46,6 +51,7 @@ function browserMathImulClz32Aliases() {
     globalThis["Math"]["clz32"](clz32Value),
     Math["clz32"](clz32Value),
     frozenClz32(clz32Value),
+    frozenBracketedClz32(clz32Value),
     Object.freeze(Math.clz32)(clz32Value),
     Object.freeze(Math["clz32"])(clz32Value),
   ];
