@@ -153,6 +153,7 @@ fn browser_harness_test_wrapper_reuses_the_shared_array_from_inventory_in_both_l
         r#"Object.freeze((globalThis.Array.from))"#,
         r#"Object.freeze((globalThis["Array"].from))"#,
         r#"Object.freeze((globalThis["Array"]["from"]))"#,
+        r#"Object.freeze((globalThis["Array"])["from"])"#,
         r#"Object.freeze((globalThis['Array']).from)"#,
         r#"Object.freeze((globalThis['Array'])["from"])"#,
         r#"Object.freeze((globalThis.Array).from)"#,
