@@ -21,6 +21,7 @@ The checked-in repository already includes:
 - The shared `Reflect.ownKeys` smoke inventory now also covers the direct `globalThis["Reflect"].ownKeys` alias, keeping the bracket-root path aligned with the existing frozen and mixed-root variants.
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
+- The envelope-only `package-audit` JSON contract now also hard-fails standalone `--pretty` before registry lookup, keeping the JSON-mode gate explicit.
 - Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.
 - Static string-key resolution now also accepts same-branch conditional expressions in the bounded-literal path, keeping `Object.hasOwn` and related static-key helpers aligned with the other deterministic wrapper slices.
 - Static dynamic-import resolution now also accepts transparent `Object.freeze(...)` wrappers plus statically decidable logical/nullish wrappers around statically known import specifiers, keeping the linked-graph import slice aligned with the existing literal and template-literal targets; the discovery regressions now also cover nullish and logical import-specifier wrappers in the JS and TS lanes.

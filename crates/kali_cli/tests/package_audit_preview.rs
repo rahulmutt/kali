@@ -171,3 +171,40 @@ fn package_audit_preview_short_circuits_before_registry_lookup_in_json_mode_with
     assert_eq!(errors[0]["context"]["requestedValue"], "true");
     assert_eq!(errors[0]["context"]["effectiveValue"], "true");
 }
+
+#[test]
+fn package_audit_pretty_without_json_short_circuits_before_registry_lookup() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+    let dir = tempdir().expect("tempdir");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry should not be queried"
+    );
+    assert_eq!(output.status.code(), Some(5));
+    assert!(output.stdout.is_empty(), "stdout: {:?}", output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("`--pretty` is only meaningful when JSON output is active"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("lodash"),
+        "pretty should short-circuit before target validation: {stderr}"
+    );
+}
