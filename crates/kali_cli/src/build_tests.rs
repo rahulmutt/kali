@@ -7286,6 +7286,36 @@ fn collect_library_exports_rejects_async_generator_default_export_expression() {
 }
 
 #[test]
+fn collect_library_exports_rejects_generator_default_export_declaration() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::FunctionDeclaration(kali_ast::FunctionDeclaration {
+            name: "main".to_string(),
+            params: vec![],
+            body: Box::new(kali_ast::BlockStatement { body: vec![] }),
+            is_async: false,
+            generator: true,
+        }),
+    )];
+
+    let error = collect_library_exports_from_statements(&statements, &source_path)
+        .expect_err("generator default export declarations should fail");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn collect_library_exports_rejects_async_generator_default_export_declaration() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
