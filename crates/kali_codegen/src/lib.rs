@@ -4700,6 +4700,74 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
 
+            if node.kind == LirNodeKind::Value && node.children.len() == 2 {
+                match node.text.as_deref() {
+                    Some("??") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        if left.is_nullish() {
+                            id = node.children[1];
+                            continue;
+                        }
+
+                        id = node.children[0];
+                        continue;
+                    }
+                    Some("&&") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        match left.truthiness() {
+                            Some(true) => {
+                                id = node.children[1];
+                                continue;
+                            }
+                            Some(false) => {
+                                id = node.children[0];
+                                continue;
+                            }
+                            None => {
+                                let consequent =
+                                    self.resolve_transparent_callable_node(node.children[0]);
+                                let alternate =
+                                    self.resolve_transparent_callable_node(node.children[1]);
+                                if consequent.is_some() && consequent == alternate {
+                                    return consequent;
+                                }
+                            }
+                        }
+                    }
+                    Some("||") => {
+                        let left = self.resolve_static_object_identity_value(node.children[0])?;
+                        match left.truthiness() {
+                            Some(true) => {
+                                id = node.children[0];
+                                continue;
+                            }
+                            Some(false) => {
+                                id = node.children[1];
+                                continue;
+                            }
+                            None => {
+                                let consequent =
+                                    self.resolve_transparent_callable_node(node.children[0]);
+                                let alternate =
+                                    self.resolve_transparent_callable_node(node.children[1]);
+                                if consequent.is_some() && consequent == alternate {
+                                    return consequent;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if node.kind == LirNodeKind::Value && node.children.len() == 3 {
+                let consequent = self.resolve_transparent_callable_node(node.children[1])?;
+                let alternate = self.resolve_transparent_callable_node(node.children[2])?;
+                if self.node(consequent).text.as_deref() == self.node(alternate).text.as_deref() {
+                    return Some(consequent);
+                }
+            }
+
             if node.text.is_some() {
                 return Some(id);
             }

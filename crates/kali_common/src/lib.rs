@@ -1846,7 +1846,10 @@ pub fn set_constructor_iteration_source() -> String {
         "for (const value of Object.freeze(new Set([1, 2, 1]))) { console.log(value); } ",
         "for (const value of Object.freeze((new Set([1, 2, 1])))) { console.log(value); } ",
         "for (const value of Object.freeze(new globalThis[\"Set\"]([1, 2, 1]))) { console.log(value); } ",
-        "for (const value of Object.freeze((new globalThis[\"Set\"]([1, 2, 1])))) { console.log(value); }"
+        "for (const value of Object.freeze((new globalThis[\"Set\"]([1, 2, 1])))) { console.log(value); } ",
+        "for (const value of new (null ?? Set)([1, 2, 1])) { console.log(value); } ",
+        "for (const value of new (true && Set)([1, 2, 1])) { console.log(value); } ",
+        "for (const value of new (false || Set)([1, 2, 1])) { console.log(value); }"
     )
     .to_string()
 }
@@ -1901,7 +1904,10 @@ pub fn map_constructor_iteration_source() -> String {
         "for (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
         "for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
         "for (const entry of Object.freeze(new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
-        "for (const entry of Object.freeze((new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); }"
+        "for (const entry of Object.freeze((new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+        "for (const entry of new (null ?? Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+        "for (const entry of new (true && Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+        "for (const entry of new (false || Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }"
     )
     .to_string()
 }
