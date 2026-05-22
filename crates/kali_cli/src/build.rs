@@ -4239,6 +4239,79 @@ fn infer_function_binding_signature(
             declared_function_signatures,
             diagnostics,
         ),
+        Expression::LogicalExpression(logical_expression) => {
+            let left = infer_function_binding_signature(
+                Some(&logical_expression.left),
+                source_path,
+                declared_function_signatures,
+                diagnostics,
+            );
+            match logical_expression.operator {
+                kali_ast::LogicalOperator::Coalesce => {
+                    if matches!(
+                        infer_expression_type(&logical_expression.left),
+                        Some("null" | "undefined" | "void")
+                    ) {
+                        infer_function_binding_signature(
+                            Some(&logical_expression.right),
+                            source_path,
+                            declared_function_signatures,
+                            diagnostics,
+                        )
+                    } else {
+                        left
+                    }
+                }
+                kali_ast::LogicalOperator::And => {
+                    match infer_static_truthiness(&logical_expression.left) {
+                        Some(true) => infer_function_binding_signature(
+                            Some(&logical_expression.right),
+                            source_path,
+                            declared_function_signatures,
+                            diagnostics,
+                        ),
+                        Some(false) => None,
+                        None => {
+                            let right = infer_function_binding_signature(
+                                Some(&logical_expression.right),
+                                source_path,
+                                declared_function_signatures,
+                                diagnostics,
+                            );
+                            if left.is_some() && left == right {
+                                left
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                }
+                kali_ast::LogicalOperator::Or => {
+                    match infer_static_truthiness(&logical_expression.left) {
+                        Some(true) => None,
+                        Some(false) => infer_function_binding_signature(
+                            Some(&logical_expression.right),
+                            source_path,
+                            declared_function_signatures,
+                            diagnostics,
+                        ),
+                        None => {
+                            let right = infer_function_binding_signature(
+                                Some(&logical_expression.right),
+                                source_path,
+                                declared_function_signatures,
+                                diagnostics,
+                            );
+                            if left.is_some() && left == right {
+                                left
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Expression::BinaryExpression(binary) if binary.operator == "??" => {
             let left = infer_function_binding_signature(
                 Some(&binary.left),
@@ -4338,6 +4411,51 @@ fn infer_block_return_type(body: &BlockStatement) -> Option<&'static str> {
     match &return_statement.argument {
         Some(expression) => infer_expression_type(expression),
         None => Some("void"),
+    }
+}
+
+fn infer_static_truthiness(expression: &Expression) -> Option<bool> {
+    match expression {
+        Expression::Literal(kali_ast::LiteralValue::Boolean(value)) => Some(*value),
+        Expression::Literal(kali_ast::LiteralValue::Number(value)) => {
+            Some(*value != 0.0 && !value.is_nan())
+        }
+        Expression::Literal(kali_ast::LiteralValue::String(value)) => Some(!value.is_empty()),
+        Expression::Literal(kali_ast::LiteralValue::Regex { .. }) => Some(true),
+        Expression::Literal(kali_ast::LiteralValue::Null) => Some(false),
+        Expression::Identifier(name) if name == "undefined" => Some(false),
+        Expression::UnaryExpression(unary) if unary.operator == "void" => Some(false),
+        Expression::UnaryExpression(unary) if unary.operator == "!" => {
+            infer_static_truthiness(&unary.argument).map(|value| !value)
+        }
+        Expression::ParenthesizedExpression(parenthesized) => {
+            infer_static_truthiness(&parenthesized.expression)
+        }
+        Expression::AwaitExpression(await_expression) => {
+            infer_static_truthiness(&await_expression.argument)
+        }
+        Expression::TypeAssertion(type_assertion) => {
+            infer_static_truthiness(&type_assertion.expression)
+        }
+        Expression::SatisfiesExpression(satisfies_expression) => {
+            infer_static_truthiness(&satisfies_expression.expression)
+        }
+        Expression::OptionalChainExpression(optional_chain) => {
+            match optional_chain.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => infer_static_truthiness(object),
+            }
+        }
+        Expression::ChainExpression(chain_expression) => {
+            infer_static_truthiness(&chain_expression.expression)
+        }
+        Expression::SequenceExpression(sequence) => sequence
+            .expressions
+            .last()
+            .and_then(infer_static_truthiness),
+        Expression::DecoratedExpression(decorated_expression) => {
+            infer_static_truthiness(&decorated_expression.expression)
+        }
+        _ => None,
     }
 }
 

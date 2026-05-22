@@ -10837,6 +10837,103 @@ fn collect_library_exports_infers_default_async_function_expression_exports_thro
 }
 
 #[test]
+fn collect_library_exports_infers_default_function_expression_exports_through_logical_or_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "export default false || (async (input) => 1);",
+    )
+    .expect("write source");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::LogicalExpression(Box::new(
+            kali_ast::LogicalExpression {
+                operator: kali_ast::LogicalOperator::Or,
+                left: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(false))),
+                right: Box::new(Expression::ParenthesizedExpression(Box::new(
+                    kali_ast::ParenthesizedExpression {
+                        expression: Box::new(Expression::ArrowFunctionExpression(Box::new(
+                            kali_ast::ArrowFunctionExpression {
+                                params: vec![kali_ast::FunctionParam {
+                                    name: "input".to_string(),
+                                }],
+                                body: Expression::Literal(kali_ast::LiteralValue::Number(1.0)),
+                                is_async: true,
+                                returnType: None,
+                            },
+                        ))),
+                    },
+                ))),
+            },
+        ))),
+    )];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => Promise<number>");
+}
+
+#[test]
+fn collect_library_exports_infers_const_function_expression_bindings_through_logical_and_wrapper() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(
+        &source_path,
+        "const logicalWrapped = true && ((input) => 1); export { logicalWrapped as default };",
+    )
+    .expect("write source");
+
+    let statements = vec![
+        Statement::VariableDeclaration(kali_ast::VariableDeclaration {
+            declarations: vec![kali_ast::VariableDeclarator {
+                id: "logicalWrapped".to_string(),
+                init: Some(Expression::LogicalExpression(Box::new(
+                    kali_ast::LogicalExpression {
+                        operator: kali_ast::LogicalOperator::And,
+                        left: Box::new(Expression::Literal(kali_ast::LiteralValue::Boolean(true))),
+                        right: Box::new(Expression::ParenthesizedExpression(Box::new(
+                            kali_ast::ParenthesizedExpression {
+                                expression: Box::new(Expression::ArrowFunctionExpression(
+                                    Box::new(kali_ast::ArrowFunctionExpression {
+                                        params: vec![kali_ast::FunctionParam {
+                                            name: "input".to_string(),
+                                        }],
+                                        body: Expression::Literal(kali_ast::LiteralValue::Number(
+                                            1.0,
+                                        )),
+                                        is_async: false,
+                                        returnType: None,
+                                    }),
+                                )),
+                            },
+                        ))),
+                    },
+                ))),
+            }],
+            kind: "const".to_string(),
+        }),
+        Statement::ExportNamed(kali_ast::ExportNamedDeclaration {
+            specifiers: vec![kali_ast::ExportSpecifier {
+                local: "logicalWrapped".to_string(),
+                exported: "default".to_string(),
+            }],
+            source: None,
+        }),
+    ];
+
+    let exports = collect_library_exports_from_statements(&statements, &source_path)
+        .expect("library exports should collect");
+
+    assert_eq!(exports.len(), 1, "exports: {exports:?}");
+    assert_eq!(exports[0].name, "default");
+    assert_eq!(exports[0].signature, "(input) => number");
+}
+
+#[test]
 fn collect_library_exports_infers_default_async_function_expression_exports_through_await_wrapper()
 {
     let dir = tempdir().expect("tempdir");
