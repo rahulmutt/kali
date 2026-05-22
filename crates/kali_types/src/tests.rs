@@ -9638,6 +9638,9 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
     const frozenBracketedRootOwnKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj);
     const frozenDoubleQuotedBracketedRootOwnKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj);
     const frozenSingleQuotedBracketedRootOwnKeys = Object.freeze((globalThis['Reflect'])['ownKeys'])(obj);
+    const frozenNullishCallableOwnKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+    const frozenLogicalAndCallableOwnKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+    const frozenLogicalOrCallableOwnKeys = Object.freeze((false || Reflect.ownKeys))(obj);
     for (const key of frozenKeys) {
         console.log(key);
     }
@@ -9657,6 +9660,15 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
         console.log(key);
     }
     for (const key of frozenSingleQuotedBracketedRootOwnKeys) {
+        console.log(key);
+    }
+    for (const key of frozenNullishCallableOwnKeys) {
+        console.log(key);
+    }
+    for (const key of frozenLogicalAndCallableOwnKeys) {
+        console.log(key);
+    }
+    for (const key of frozenLogicalOrCallableOwnKeys) {
         console.log(key);
     }
 }
