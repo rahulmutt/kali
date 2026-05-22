@@ -53,28 +53,21 @@ export async function browserArrayFromWrappers() {
 #[test]
 fn browser_bundle_test_reuses_the_shared_array_from_inventory_in_both_loop_sections() {
     let source = browser_bundle_array_from_source();
-    for alias in [
-        "Array.from",
-        "globalThis.Array.from",
-        r#"Object.freeze(Array.from)"#,
-        r#"Object.freeze((globalThis['Array']).from)"#,
-        r#"Object.freeze((globalThis['Array'])["from"])"#,
-        r#"Object.freeze((globalThis['Array']))["from"]"#,
-        r#"Object.freeze((globalThis.Array).from)"#,
-        r#"Object.freeze((globalThis.Array)["from"])"#,
-        r#"Object.freeze((globalThis.Array))["from"]"#,
-        r#"Object.freeze((globalThis.Array)['from'])"#,
-    ] {
+    let alias_inventory = array_from_alias_inventory_source();
+
+    for alias in alias_inventory.trim_end_matches(';').split("; ") {
         assert_eq!(
             source
-                .matches(&format!("for (const value of {alias}(values))"))
+                .lines()
+                .filter(|line| line.contains(&format!("for (const value of {alias}(values))")))
                 .count(),
             1,
             "browser bundle Array.from source should embed {alias} in the for-of loop section"
         );
         assert_eq!(
             source
-                .matches(&format!("for await (const value of {alias}(values))"))
+                .lines()
+                .filter(|line| line.contains(&format!("for await (const value of {alias}(values))")))
                 .count(),
             1,
             "browser bundle Array.from source should embed {alias} in the for-await loop section"
