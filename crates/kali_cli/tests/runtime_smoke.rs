@@ -49308,16 +49308,28 @@ fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_confi
 }
 
 #[test]
-fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_configured_in_ts_jsx_and_tsx_input(
-) {
-    for extension in ["ts", "jsx", "tsx"] {
+fn run_and_test_reject_generator_function_expression_lowering_in_js_ts_jsx_and_tsx_input() {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         for command in ["run", "test"] {
             for json_output in [false, true] {
-                assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
-                    command,
-                    extension,
-                    json_output,
-                );
+                for (source, expected_message) in [
+                    (
+                        "const generatorExpr = function* generatorExpr() { yield 1; };\ngeneratorExpr;\n",
+                        "generator function lowering is unavailable",
+                    ),
+                    (
+                        "const asyncGeneratorExpr = async function* asyncGeneratorExpr() { yield 1; };\nasyncGeneratorExpr;\n",
+                        "async-generator function lowering is unavailable",
+                    ),
+                ] {
+                    assert_runtime_entrypoint_rejection(
+                        command,
+                        json_output,
+                        extension,
+                        source,
+                        expected_message,
+                    );
+                }
             }
         }
     }
