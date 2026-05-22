@@ -15,19 +15,23 @@ function mathImulOmittedOperands() {
   console.log(globalThis.Math["imul"]());
   console.log(globalThis["Math"].imul());
   console.log(globalThis["Math"]["imul"]());
+  console.log(Object.freeze(Math.imul)());
+  console.log(Object.freeze(globalThis.Math.imul)());
   return [
     Math.imul(),
     globalThis.Math.imul(),
     globalThis.Math["imul"](),
     globalThis["Math"].imul(),
     globalThis["Math"]["imul"](),
+    Object.freeze(Math.imul)(),
+    Object.freeze(globalThis.Math.imul)(),
   ];
 }
 "##
 }
 
 fn browser_harness_math_imul_omitted_operands_run_source() -> &'static str {
-    "console.log(Math.imul()); console.log(globalThis.Math.imul()); console.log(globalThis.Math[\"imul\"]()); console.log(globalThis[\"Math\"].imul()); console.log(globalThis[\"Math\"][\"imul\"]());\n"
+    "console.log(Math.imul()); console.log(globalThis.Math.imul()); console.log(globalThis.Math[\"imul\"]()); console.log(globalThis[\"Math\"].imul()); console.log(globalThis[\"Math\"][\"imul\"]()); console.log(Object.freeze(Math.imul)()); console.log(Object.freeze(globalThis.Math.imul)());\n"
 }
 
 fn browser_harness_math_imul_omitted_operands_test_source() -> &'static str {
@@ -37,6 +41,8 @@ fn browser_harness_math_imul_omitted_operands_test_source() -> &'static str {
   console.log(globalThis.Math["imul"]());
   console.log(globalThis["Math"].imul());
   console.log(globalThis["Math"]["imul"]());
+  console.log(Object.freeze(Math.imul)());
+  console.log(Object.freeze(globalThis.Math.imul)());
 });
 "#
 }
@@ -121,7 +127,7 @@ await mod.mathImulOmittedOperands();
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("0\n0\n0\n0\n0\n"), "stdout: {stdout}");
+    assert!(stdout.contains("0\n0\n0\n0\n0\n0\n0\n"), "stdout: {stdout}");
 }
 
 fn assert_browser_harness_math_imul_omitted_operands(
