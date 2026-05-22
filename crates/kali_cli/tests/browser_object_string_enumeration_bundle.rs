@@ -38,6 +38,18 @@ function browserObjectStringEnumeration() {
   for (const key of Object.keys('ab')) {
     keys.push(key);
   }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
   const globalKeys = [];
   for (const key of globalThis.Object.keys('ab')) {
     globalKeys.push(key);
@@ -66,6 +78,18 @@ function browserObjectStringEnumeration() {
   const values = [];
   for (const value of Object.values('ab')) {
     values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
   }
   const globalValues = [];
   for (const value of globalThis.Object.values('ab')) {
@@ -96,6 +120,18 @@ function browserObjectStringEnumeration() {
   for (const entry of Object.entries('ab')) {
     entries.push(entry);
   }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
   const globalEntries = [];
   for (const entry of globalThis.Object.entries('ab')) {
     globalEntries.push(entry);
@@ -122,6 +158,9 @@ function browserObjectStringEnumeration() {
   }
 
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
   assertObjectKeysIteration(globalKeys);
   assertObjectKeysIteration(bracketedRootKeys);
   assertObjectKeysIteration(mixedKeys);
@@ -129,6 +168,9 @@ function browserObjectStringEnumeration() {
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
   assertObjectValuesIteration(globalValues);
   assertObjectValuesIteration(bracketedRootValues);
   assertObjectValuesIteration(mixedValues);
@@ -136,6 +178,9 @@ function browserObjectStringEnumeration() {
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(bracketedRootEntries);
   assertObjectEntriesIteration(mixedEntries);
@@ -303,6 +348,18 @@ export async function browserObjectStringEnumerationAwait() {
   for await (const key of Object.keys('ab')) {
     keys.push(key);
   }
+  const nullishKeys = [];
+  for await (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for await (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for await (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
   const globalKeys = [];
   for await (const key of globalThis.Object.keys('ab')) {
     globalKeys.push(key);
@@ -331,6 +388,18 @@ export async function browserObjectStringEnumerationAwait() {
   const values = [];
   for await (const value of Object.values('ab')) {
     values.push(value);
+  }
+  const nullishValues = [];
+  for await (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for await (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for await (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
   }
   const globalValues = [];
   for await (const value of globalThis.Object.values('ab')) {
@@ -361,6 +430,18 @@ export async function browserObjectStringEnumerationAwait() {
   for await (const entry of Object.entries('ab')) {
     entries.push(entry);
   }
+  const nullishEntries = [];
+  for await (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for await (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
   const globalEntries = [];
   for await (const entry of globalThis.Object.entries('ab')) {
     globalEntries.push(entry);
@@ -387,6 +468,9 @@ export async function browserObjectStringEnumerationAwait() {
   }
 
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
   assertObjectKeysIteration(globalKeys);
   assertObjectKeysIteration(bracketedRootKeys);
   assertObjectKeysIteration(mixedKeys);
@@ -394,6 +478,9 @@ export async function browserObjectStringEnumerationAwait() {
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
   assertObjectValuesIteration(globalValues);
   assertObjectValuesIteration(bracketedRootValues);
   assertObjectValuesIteration(mixedValues);
@@ -401,6 +488,9 @@ export async function browserObjectStringEnumerationAwait() {
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(bracketedRootEntries);
   assertObjectEntriesIteration(mixedEntries);

@@ -37,17 +37,62 @@ function objectStringEnumeration() {
   for (const key of Object.keys('ab')) {
     keys.push(key);
   }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
   const values = [];
   for (const value of Object.values('ab')) {
     values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
   }
   const entries = [];
   for (const entry of Object.entries('ab')) {
     entries.push(entry);
   }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   console.log('object string enumeration ok');
 }
 
@@ -85,17 +130,62 @@ fn object_string_enumeration_test_source() -> &'static str {
   for (const key of Object.keys('ab')) {
     keys.push(key);
   }
+  const nullishKeys = [];
+  for (const key of Object.freeze((null ?? Object.keys))('ab')) {
+    nullishKeys.push(key);
+  }
+  const logicalAndKeys = [];
+  for (const key of Object.freeze((true && Object.keys))('ab')) {
+    logicalAndKeys.push(key);
+  }
+  const logicalOrKeys = [];
+  for (const key of Object.freeze((false || Object.keys))('ab')) {
+    logicalOrKeys.push(key);
+  }
   const values = [];
   for (const value of Object.values('ab')) {
     values.push(value);
+  }
+  const nullishValues = [];
+  for (const value of Object.freeze((null ?? Object.values))('ab')) {
+    nullishValues.push(value);
+  }
+  const logicalAndValues = [];
+  for (const value of Object.freeze((true && Object.values))('ab')) {
+    logicalAndValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of Object.freeze((false || Object.values))('ab')) {
+    logicalOrValues.push(value);
   }
   const entries = [];
   for (const entry of Object.entries('ab')) {
     entries.push(entry);
   }
+  const nullishEntries = [];
+  for (const entry of Object.freeze((null ?? Object.entries))('ab')) {
+    nullishEntries.push(entry);
+  }
+  const logicalAndEntries = [];
+  for (const entry of Object.freeze((true && Object.entries))('ab')) {
+    logicalAndEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(nullishKeys);
+  assertObjectKeysIteration(logicalAndKeys);
+  assertObjectKeysIteration(logicalOrKeys);
   assertObjectValuesIteration(values);
+  assertObjectValuesIteration(nullishValues);
+  assertObjectValuesIteration(logicalAndValues);
+  assertObjectValuesIteration(logicalOrValues);
   assertObjectEntriesIteration(entries);
+  assertObjectEntriesIteration(nullishEntries);
+  assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   console.log('object string enumeration ok');
 });
 "#
