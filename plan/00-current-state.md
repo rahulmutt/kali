@@ -14,7 +14,7 @@ This file records the planning baseline for the active continuation roadmap. It 
 The checked-in repository already includes:
 
 - The browser-harness/browser-bundle `Math.round` smoke matrix now also covers the parenthesized mixed-quoted-bracketed and single-quoted-bracketed-dot aliases.
-- The shared `Array.from` frozen-callable inventory now also covers the parenthesized single-quoted bracket-root aliases, and the callable-resolution layer now also accepts nullish / logical wrappers around that supported slice such as `Object.freeze((null ?? Array.from))`, keeping the supported `Array.from` smoke matrix aligned across the shared helper source and the build/runtime/browser harness lanes.
+- The shared `Array.from` frozen-callable inventory now also covers the parenthesized single-quoted bracket-root aliases, and the callable-resolution layer now also accepts nullish / logical wrappers around that supported slice such as `Object.freeze((null ?? Array.from))`, `Object.freeze((true && Array.from))`, and `Object.freeze((false || Array.from))`, keeping the supported `Array.from` smoke matrix aligned across the shared helper source and the build/runtime/browser harness lanes.
 
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
 - The shared `Reflect.ownKeys` smoke inventory now also includes the parenthesized single-quoted bracket-root `Object.freeze((globalThis['Reflect'])['ownKeys'])` alias, keeping the single-quoted wrapper path aligned across the common helper inventory and the runtime/build smoke lanes.

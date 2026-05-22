@@ -1734,6 +1734,9 @@ pub const fn array_from_frozen_callable_aliases() -> &'static [&'static str] {
         r#"Object.freeze((globalThis.Array)["from"])"#,
         r#"Object.freeze((globalThis.Array))["from"]"#,
         r#"Object.freeze((globalThis.Array)['from'])"#,
+        r#"Object.freeze((null ?? Array.from))"#,
+        r#"Object.freeze((true && Array.from))"#,
+        r#"Object.freeze((false || Array.from))"#,
     ]
 }
 
