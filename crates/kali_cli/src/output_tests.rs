@@ -253,6 +253,35 @@ fn emitted_cli_envelopes_reject_unrecognized_artifact_roles() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_whitespace_padded_artifact_roles() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.wasm", "kind": "wasm-module", "role": " browser-glue ", "bytes": 42},
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7}
+        ]),
+    );
+
+    let error =
+        validate_envelope_value(&value).expect_err("whitespace padded artifact roles should fail");
+    assert!(error.contains("role"), "unexpected error: {error}");
+    assert!(
+        error.contains("leading or trailing whitespace"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_unexpected_artifact_keys() {
     let mut value = emit_envelope_value(
         "build",

@@ -1938,6 +1938,11 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
         if let Some(role) = object.get("role") {
             match role {
                 Value::String(role) => {
+                    let role_value = Value::String(role.clone());
+                    validate_canonical_non_empty_string_value(
+                        Some(&role_value),
+                        &format!("CLI envelope artifacts[{index}].role"),
+                    )?;
                     if !is_canonical_artifact_role(role) {
                         return Err(format!(
                             "CLI envelope artifacts[{index}].role must be a canonical schema-v1 role, got `{role}`"
