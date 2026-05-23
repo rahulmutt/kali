@@ -362,7 +362,7 @@ fn generator_function_unavailable_message(
     if body.is_some_and(block_contains_yield_delegation) {
         kali_common::generator_function_yield_lowering_unavailable_message(is_async, true)
     } else {
-        generator_function_unavailable_message(is_async, None)
+        kali_common::generator_function_lowering_unavailable_message(is_async)
     }
 }
 

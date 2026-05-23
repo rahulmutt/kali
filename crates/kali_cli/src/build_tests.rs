@@ -7374,9 +7374,9 @@ fn collect_library_exports_rejects_async_generator_default_export_expression() {
         "unexpected diagnostics: {error:?}"
     );
     assert!(
-        error
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("async-generator function lowering")),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -7479,9 +7479,9 @@ fn collect_library_exports_rejects_async_generator_exported_binding() {
         "unexpected diagnostics: {error:?}"
     );
     assert!(
-        error
-            .iter()
-            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        error.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("async-generator function lowering")),
         "unexpected diagnostics: {error:?}"
     );
 }
