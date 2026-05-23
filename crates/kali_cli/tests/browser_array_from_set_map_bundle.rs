@@ -27,7 +27,7 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze((globalThis['Array']).from)(new Set(setValues))) {
     console.log(value);
   }
-  for (const value of Object.freeze(globalThis["Array"]['from'])(new Set(setValues))) {
+  for (const value of Object.freeze((globalThis['Array'])["from"])(new Set(setValues))) {
     console.log(value);
   }
   for (const value of Object.freeze((null ?? globalThis["Array"].from))(new Set(setValues))) {
@@ -54,7 +54,7 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze(globalThis.Array['from'])(new Set(setValues))) {
     console.log(value);
   }
-  for (const value of Object.freeze(globalThis['Array'].from)(new Set(setValues))) {
+  for (const value of Object.freeze(globalThis["Array"]['from'])(new Set(setValues))) {
     console.log(value);
   }
   for (const value of Object.freeze((null ?? globalThis['Array']['from']))(new Set(setValues))) {
@@ -112,6 +112,7 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     let source = browser_bundle_array_from_set_map_source();
     assert!(source.contains(r#"Object.freeze((globalThis["Array"])["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis['Array']).from)"#));
+    assert!(source.contains(r#"Object.freeze((globalThis['Array'])["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array).from)"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array)["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array)['from'])"#));
