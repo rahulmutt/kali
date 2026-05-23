@@ -2284,6 +2284,30 @@ fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains("const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenBracketedRoot = await Object.freeze(Promise[\"all\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenBracketedRoot = await Object.freeze((Promise[\"all\"]))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenSingleBracketedRoot = await Object.freeze(Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenSingleBracketedRoot = await Object.freeze((Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );

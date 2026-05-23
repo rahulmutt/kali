@@ -1615,6 +1615,10 @@ pub const fn promise_all_browser_body_source() -> &'static str {
   const singleMixedBracketed = await globalThis['Promise'].all([Promise.resolve(1), Promise.resolve(2)]);
   const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenBracketedRoot = await Object.freeze(Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenBracketedRoot = await Object.freeze((Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenSingleBracketedRoot = await Object.freeze(Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenSingleBracketedRoot = await Object.freeze((Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
   if (
@@ -1654,6 +1658,18 @@ pub const fn promise_all_browser_body_source() -> &'static str {
     parenthesizedFrozenRoot.length !== 2 ||
     parenthesizedFrozenRoot[0] !== 1 ||
     parenthesizedFrozenRoot[1] !== 2 ||
+    frozenBracketedRoot.length !== 2 ||
+    frozenBracketedRoot[0] !== 1 ||
+    frozenBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenBracketedRoot.length !== 2 ||
+    parenthesizedFrozenBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenBracketedRoot[1] !== 2 ||
+    frozenSingleBracketedRoot.length !== 2 ||
+    frozenSingleBracketedRoot[0] !== 1 ||
+    frozenSingleBracketedRoot[1] !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot.length !== 2 ||
+    parenthesizedFrozenSingleBracketedRoot[0] !== 1 ||
+    parenthesizedFrozenSingleBracketedRoot[1] !== 2 ||
     frozenGlobal.length !== 2 ||
     frozenGlobal[0] !== 1 ||
     frozenGlobal[1] !== 2 ||
