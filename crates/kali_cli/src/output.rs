@@ -869,6 +869,10 @@ fn validate_test_payload_coverage_value(value: Option<&Value>) -> Result<(), Str
                 None => unreachable!("validated above"),
             }
         };
+        validate_non_empty_string_value(
+            file.get("file"),
+            &format!("test payload coverage files[{index}].file"),
+        )?;
         if !seen_files.insert(file_path.clone()) {
             return Err(format!(
                 "test payload coverage files[{index}].file must be unique, got `{file_path}` twice"

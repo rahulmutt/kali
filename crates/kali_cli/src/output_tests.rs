@@ -2437,6 +2437,47 @@ fn validate_test_payload_value_rejects_malformed_coverage_files() {
 }
 
 #[test]
+fn validate_test_payload_value_rejects_empty_or_whitespace_coverage_file_paths() {
+    for file in ["", "  \t "] {
+        let value = json!({
+            "total": 4,
+            "passed": 3,
+            "failed": 1,
+            "skipped": 0,
+            "runtimeMs": 27,
+            "coverage": {
+                "mode": "function",
+                "files": [
+                    {
+                        "file": file,
+                        "functionsTotal": 4,
+                        "functionsCovered": 3,
+                        "functionsMissed": 1,
+                    }
+                ],
+                "summary": {
+                    "functionsTotal": 4,
+                    "functionsCovered": 3,
+                    "functionsMissed": 1,
+                    "coveragePercent": 75.0,
+                },
+            },
+        });
+
+        let err = validate_test_payload_value(&value)
+            .expect_err("empty or whitespace coverage file path should fail validation");
+        assert!(
+            err.contains("coverage files[0].file"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_test_payload_value_rejects_duplicate_coverage_file_rows() {
     let value = json!({
         "total": 4,
