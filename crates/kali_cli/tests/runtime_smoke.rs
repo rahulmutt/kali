@@ -3974,6 +3974,9 @@ const frozenMixedBracketedCallableKeys = Object.freeze(globalThis.Reflect["ownKe
 const frozenBracketedCallableKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(alias);
 const parenthesizedFrozenBracketedCallableKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(alias);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
+const nullishKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const logicalAndKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const logicalOrKeys = Object.freeze((false || Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -4039,7 +4042,10 @@ if (
   frozenCallableKeys[0] !== '1' ||
   frozenCallableKeys[1] !== '2' ||
   frozenCallableKeys[2] !== 'b' ||
-  frozenCallableKeys[3] !== 'a'
+  frozenCallableKeys[3] !== 'a' ||
+  nullishKeys.length !== 4 ||
+  logicalAndKeys.length !== 4 ||
+  logicalOrKeys.length !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -4055,6 +4061,9 @@ for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
 for await (const item of frozenBracketedKeys) { console.log(item); }
+for (const item of nullishKeys) { console.log(item); }
+for (const item of logicalAndKeys) { console.log(item); }
+for (const item of logicalOrKeys) { console.log(item); }
 let breakContinueCount = 0;
 for (const item of Reflect.ownKeys(obj)) {
   if (item === '1') {
@@ -4093,6 +4102,9 @@ const frozenMixedBracketedCallableKeys = Object.freeze(globalThis.Reflect["ownKe
 const frozenBracketedCallableKeys = Object.freeze(globalThis["Reflect"]["ownKeys"])(alias);
 const parenthesizedFrozenBracketedCallableKeys = Object.freeze((globalThis["Reflect"]["ownKeys"]))(alias);
 const parenthesizedFrozenCallableKeys = Object.freeze((globalThis.Reflect.ownKeys))(alias);
+const nullishKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
+const logicalAndKeys = Object.freeze((true && Reflect.ownKeys))(obj);
+const logicalOrKeys = Object.freeze((false || Reflect.ownKeys))(alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -4158,7 +4170,10 @@ if (
   frozenCallableKeys[0] !== '1' ||
   frozenCallableKeys[1] !== '2' ||
   frozenCallableKeys[2] !== 'b' ||
-  frozenCallableKeys[3] !== 'a'
+  frozenCallableKeys[3] !== 'a' ||
+  nullishKeys.length !== 4 ||
+  logicalAndKeys.length !== 4 ||
+  logicalOrKeys.length !== 4
 ) {
   throw new Error('unexpected Reflect.ownKeys ordering');
 }
@@ -4174,6 +4189,9 @@ for await (const item of globalKeys) { console.log(item); }
 for await (const item of mixedKeys) { console.log(item); }
 for await (const item of bracketedKeys) { console.log(item); }
 for await (const item of frozenBracketedKeys) { console.log(item); }
+for (const item of nullishKeys) { console.log(item); }
+for (const item of logicalAndKeys) { console.log(item); }
+for (const item of logicalOrKeys) { console.log(item); }
 let breakContinueCount = 0;
 for (const item of Reflect.ownKeys(obj)) {
   if (item === '1') {
