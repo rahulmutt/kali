@@ -21,6 +21,9 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze((globalThis["Array"]).from)(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze((globalThis['Array']).from)(new Set(setValues))) {
+    console.log(value);
+  }
   for (const value of Object.freeze(globalThis["Array"]["from"])(new Set(setValues))) {
     console.log(value);
   }
@@ -37,6 +40,15 @@ export async function browserArrayFromSetMapWrappers() {
     console.log(value);
   }
   for (const value of Object.freeze((globalThis['Array']))["from"](new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array).from)(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array)["from"])(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((globalThis.Array)['from'])(new Set(setValues))) {
     console.log(value);
   }
   for (const value of Object.freeze((globalThis.Array))["from"](new Set(setValues))) {
@@ -68,10 +80,14 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     let source = browser_bundle_array_from_set_map_source();
-    assert!(source.contains("Object.freeze((globalThis[\"Array\"]).from)"));
-    assert!(source.contains("Object.freeze((globalThis[\"Array\"]))[\"from\"]"));
-    assert!(source.contains("Object.freeze((globalThis['Array']))[\"from\"]"));
-    assert!(source.contains("Object.freeze((globalThis.Array))[\"from\"]"));
+    assert!(source.contains(r#"Object.freeze((globalThis["Array"]).from)"#));
+    assert!(source.contains(r#"Object.freeze((globalThis['Array']).from)"#));
+    assert!(source.contains(r#"Object.freeze((globalThis.Array).from)"#));
+    assert!(source.contains(r#"Object.freeze((globalThis.Array)["from"])"#));
+    assert!(source.contains(r#"Object.freeze((globalThis.Array)['from'])"#));
+    assert!(source.contains(r#"Object.freeze((globalThis["Array"]))["from"]"#));
+    assert!(source.contains(r#"Object.freeze((globalThis['Array']))["from"]"#));
+    assert!(source.contains(r#"Object.freeze((globalThis.Array))["from"]"#));
     fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
