@@ -4063,7 +4063,6 @@ fn package_effects_command(
     sandbox: Option<PathBuf>,
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
-    let target = require_single_registry_package_target("package-effects", target, output)?;
     reject_package_analysis_specific_flags(
         "package-effects",
         api,
@@ -4072,6 +4071,7 @@ fn package_effects_command(
         sandbox,
         output,
     )?;
+    let target = require_single_registry_package_target("package-effects", target, output)?;
 
     let parsed = match parse_registry_package_target("package-effects", &target) {
         Ok(parsed) => parsed,
@@ -4311,8 +4311,6 @@ fn package_audit_command(
         return emit_diagnostics_and_exit("package-audit", vec![diagnostic], 5, output, None, None);
     }
 
-    let target = require_single_registry_package_target("package-audit", target, output)?;
-
     reject_package_analysis_specific_flags(
         "package-audit",
         api,
@@ -4321,6 +4319,7 @@ fn package_audit_command(
         sandbox,
         output,
     )?;
+    let target = require_single_registry_package_target("package-audit", target, output)?;
 
     let parsed = match parse_registry_package_target("package-audit", &target) {
         Ok(parsed) => parsed,
