@@ -2101,6 +2101,30 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
         "body: {body}"
     );
     assert!(
+        body.contains("const nullishRootSettled = await Object.freeze((null ?? Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalAndRootSettled = await Object.freeze((true && Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalOrRootSettled = await Object.freeze((false || Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const nullishDottedSettled = await Object.freeze((null ?? globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalAndDottedSettled = await Object.freeze((true && globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalOrDottedSettled = await Object.freeze((false || globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)[\"allSettled\"])([Promise.resolve(1), Promise.reject('boom')]);"),
         "body: {body}"
     );

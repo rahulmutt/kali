@@ -1379,6 +1379,12 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
   const bracketedSettled = await globalThis["Promise"]["allSettled"]([Promise.resolve(1), Promise.reject('boom')]);
   const singleBracketedSettled = await globalThis['Promise']['allSettled']([Promise.resolve(1), Promise.reject('boom')]);
   const singleMixedBracketedSettled = await globalThis['Promise'].allSettled([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishRootSettled = await Object.freeze((null ?? Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndRootSettled = await Object.freeze((true && Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrRootSettled = await Object.freeze((false || Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const nullishDottedSettled = await Object.freeze((null ?? globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalAndDottedSettled = await Object.freeze((true && globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
+  const logicalOrDottedSettled = await Object.freeze((false || globalThis.Promise.allSettled))([Promise.resolve(1), Promise.reject('boom')]);
   const wrappedDottedRootFrozenSettled = await Object.freeze((globalThis.Promise)["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const wrappedBracketedRootFrozenSettled = await Object.freeze((globalThis["Promise"])["allSettled"])([Promise.resolve(1), Promise.reject('boom')]);
   const wrappedBracketedDotRootFrozenSettled = await Object.freeze((globalThis["Promise"]).allSettled)([Promise.resolve(1), Promise.reject('boom')]);
@@ -1434,6 +1440,36 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
     bracketedSettled[0].value !== 1 ||
     bracketedSettled[1].status !== 'rejected' ||
     bracketedSettled[1].reason !== 'boom' ||
+    nullishRootSettled.length !== 2 ||
+    nullishRootSettled[0].status !== 'fulfilled' ||
+    nullishRootSettled[0].value !== 1 ||
+    nullishRootSettled[1].status !== 'rejected' ||
+    nullishRootSettled[1].reason !== 'boom' ||
+    logicalAndRootSettled.length !== 2 ||
+    logicalAndRootSettled[0].status !== 'fulfilled' ||
+    logicalAndRootSettled[0].value !== 1 ||
+    logicalAndRootSettled[1].status !== 'rejected' ||
+    logicalAndRootSettled[1].reason !== 'boom' ||
+    logicalOrRootSettled.length !== 2 ||
+    logicalOrRootSettled[0].status !== 'fulfilled' ||
+    logicalOrRootSettled[0].value !== 1 ||
+    logicalOrRootSettled[1].status !== 'rejected' ||
+    logicalOrRootSettled[1].reason !== 'boom' ||
+    nullishDottedSettled.length !== 2 ||
+    nullishDottedSettled[0].status !== 'fulfilled' ||
+    nullishDottedSettled[0].value !== 1 ||
+    nullishDottedSettled[1].status !== 'rejected' ||
+    nullishDottedSettled[1].reason !== 'boom' ||
+    logicalAndDottedSettled.length !== 2 ||
+    logicalAndDottedSettled[0].status !== 'fulfilled' ||
+    logicalAndDottedSettled[0].value !== 1 ||
+    logicalAndDottedSettled[1].status !== 'rejected' ||
+    logicalAndDottedSettled[1].reason !== 'boom' ||
+    logicalOrDottedSettled.length !== 2 ||
+    logicalOrDottedSettled[0].status !== 'fulfilled' ||
+    logicalOrDottedSettled[0].value !== 1 ||
+    logicalOrDottedSettled[1].status !== 'rejected' ||
+    logicalOrDottedSettled[1].reason !== 'boom' ||
     wrappedBracketedDotRootFrozenSettled.length !== 2 ||
     wrappedBracketedDotRootFrozenSettled[0].status !== 'fulfilled' ||
     wrappedBracketedDotRootFrozenSettled[0].value !== 1 ||
