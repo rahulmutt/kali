@@ -23,7 +23,9 @@ use kali_common::{
     generator_class_method_yield_lowering_unavailable_message_for_flavors,
     generator_function_lowering_unavailable_message_for_flavors,
     generator_function_yield_lowering_unavailable_message,
-    process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
+    late_process_control_single_quoted_exit_aliases,
+    late_process_control_single_quoted_kill_aliases, process_kill_zero_probe_wrapped_zero_aliases,
+    template::resolve_interpolated_template_literal,
 };
 use kali_error::{
     _error_codes::e3, _error_codes::e4, _error_codes::e5, _error_codes::e6, diagnostic::Diagnostic,
@@ -4199,7 +4201,20 @@ impl TypeContext {
             ];
             if expr.property == "kill" {
                 aliases.extend(
+                    late_process_control_single_quoted_kill_aliases()
+                        .iter()
+                        .copied()
+                        .map(String::from),
+                );
+                aliases.extend(
                     process_kill_zero_probe_wrapped_zero_aliases()
+                        .iter()
+                        .copied()
+                        .map(String::from),
+                );
+            } else if expr.property == "exit" {
+                aliases.extend(
+                    late_process_control_single_quoted_exit_aliases()
                         .iter()
                         .copied()
                         .map(String::from),

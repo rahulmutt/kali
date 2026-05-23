@@ -170,6 +170,7 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
         r#"process["exit"]"#,
         r#"globalThis.process["exit"]"#,
         r#"globalThis["process"]["exit"]"#,
+        "undefined identifier 'process'",
     ] {
         assert!(
             stderr.contains(expected),
@@ -181,6 +182,17 @@ fn assert_browser_late_process_control_rejection(stderr: &str) {
 #[test]
 fn browser_late_process_control_source_includes_single_quoted_process_root_forms() {
     let source = kali_common::late_process_control_single_quoted_process_source();
+    let single_quoted_process_source =
+        kali_common::late_process_control_single_quoted_process_aliases_source();
+    assert!(
+        source.contains(single_quoted_process_source.as_str()),
+        "source: {source}"
+    );
+    assert_eq!(
+        source.matches(single_quoted_process_source.as_str()).count(),
+        1,
+        "browser JS late-compat source should embed the shared single-quoted process inventory exactly once"
+    );
     assert!(
         source.contains(r#"globalThis['process'].kill(0)"#),
         "source: {source}"
