@@ -2280,6 +2280,22 @@ fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains("const nullishRoot = await Object.freeze((null ?? Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalAndRoot = await Object.freeze((true && Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const nullishDotted = await Object.freeze((null ?? globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalOrDotted = await Object.freeze((false || globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );

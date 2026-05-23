@@ -1613,6 +1613,12 @@ pub const fn promise_all_browser_body_source() -> &'static str {
   const mixedBracketed = await globalThis["Promise"]["all"]([Promise.resolve(1), Promise.resolve(2)]);
   const singleBracketed = await globalThis['Promise']['all']([Promise.resolve(1), Promise.resolve(2)]);
   const singleMixedBracketed = await globalThis['Promise'].all([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishRoot = await Object.freeze((null ?? Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndRoot = await Object.freeze((true && Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrRoot = await Object.freeze((false || Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const nullishDotted = await Object.freeze((null ?? globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalAndDotted = await Object.freeze((true && globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
+  const logicalOrDotted = await Object.freeze((false || globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenRoot = await Object.freeze(Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenRoot = await Object.freeze((Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenBracketedRoot = await Object.freeze(Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
@@ -1652,6 +1658,24 @@ pub const fn promise_all_browser_body_source() -> &'static str {
     singleMixedBracketed.length !== 2 ||
     singleMixedBracketed[0] !== 1 ||
     singleMixedBracketed[1] !== 2 ||
+    nullishRoot.length !== 2 ||
+    nullishRoot[0] !== 1 ||
+    nullishRoot[1] !== 2 ||
+    logicalAndRoot.length !== 2 ||
+    logicalAndRoot[0] !== 1 ||
+    logicalAndRoot[1] !== 2 ||
+    logicalOrRoot.length !== 2 ||
+    logicalOrRoot[0] !== 1 ||
+    logicalOrRoot[1] !== 2 ||
+    nullishDotted.length !== 2 ||
+    nullishDotted[0] !== 1 ||
+    nullishDotted[1] !== 2 ||
+    logicalAndDotted.length !== 2 ||
+    logicalAndDotted[0] !== 1 ||
+    logicalAndDotted[1] !== 2 ||
+    logicalOrDotted.length !== 2 ||
+    logicalOrDotted[0] !== 1 ||
+    logicalOrDotted[1] !== 2 ||
     frozenRoot.length !== 2 ||
     frozenRoot[0] !== 1 ||
     frozenRoot[1] !== 2 ||
