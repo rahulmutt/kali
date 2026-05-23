@@ -232,9 +232,18 @@ await mod.globalThisMathRoundIdentity();
         stdout.contains("frozen-parenthesized-direct"),
         "stdout: {stdout}"
     );
+    assert!(stdout.contains("frozen-nullish-direct"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("frozen-logical-and-root"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("frozen-logical-or-bracket"),
+        "stdout: {stdout}"
+    );
     assert_eq!(
         stdout.lines().filter(|line| *line == "2").count(),
-        16,
+        13,
         "stdout: {stdout}"
     );
 }
@@ -311,9 +320,12 @@ fn assert_browser_harness_global_this_math_round(
             "json: {json}"
         );
         assert!(stdout.contains("frozen-bracketed-dot-root"), "json: {json}");
+        assert!(stdout.contains("frozen-nullish-direct"), "json: {json}");
+        assert!(stdout.contains("frozen-logical-and-root"), "json: {json}");
+        assert!(stdout.contains("frozen-logical-or-bracket"), "json: {json}");
         assert_eq!(
             stdout.lines().filter(|line| *line == "2").count(),
-            16,
+            13,
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
@@ -350,9 +362,18 @@ fn assert_browser_harness_global_this_math_round(
             stdout.contains("frozen-parenthesized-direct"),
             "stdout: {stdout}"
         );
+        assert!(stdout.contains("frozen-nullish-direct"), "stdout: {stdout}");
+        assert!(
+            stdout.contains("frozen-logical-and-root"),
+            "stdout: {stdout}"
+        );
+        assert!(
+            stdout.contains("frozen-logical-or-bracket"),
+            "stdout: {stdout}"
+        );
         assert_eq!(
             stdout.lines().filter(|line| *line == "2").count(),
-            16,
+            13,
             "stdout: {stdout}"
         );
     }
