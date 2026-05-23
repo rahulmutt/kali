@@ -6878,7 +6878,7 @@ fn assert_runtime_entrypoint_rejects_mixed_generator_class_expression_in_input(
     );
     assert!(
         error.iter().any(|diagnostic| diagnostic.message.contains(
-            "generator and async-generator class method lowering is unavailable in the direct runtime path"
+            "generator and async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
         )),
         "unexpected diagnostics: {error:?}"
     );
@@ -7350,15 +7350,26 @@ fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface
             "const Example = class NamedExample { async *main() { yield 1; } };\nnew Example();\n",
             "export default (class NamedExample { *main() { yield 1; } });\n",
             "export default (class NamedExample { async *main() { yield 1; } });\n",
+            "class Example { *main() { yield* []; } }\nnew Example();\n",
+            "class Example { async *main() { yield* []; } }\nnew Example();\n",
         ] {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
             fs::write(&source_path, source).expect("write source");
 
-            let expected_message = if source.contains("async *") {
-                "async-generator class method lowering is unavailable"
-            } else {
-                "generator class method lowering is unavailable"
+            let expected_message = match (source.contains("async *"), source.contains("yield*")) {
+                (true, true) => {
+                    "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+                }
+                (true, false) => {
+                    "async-generator class method lowering is unavailable in the direct runtime path"
+                }
+                (false, true) => {
+                    "generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+                }
+                (false, false) => {
+                    "generator class method lowering is unavailable in the direct runtime path"
+                }
             };
 
             let error = check_source_file(&source_path, api_surface, &[], false, false)
@@ -7701,15 +7712,26 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
             "const Example = class NamedExample { async *main() { yield 1; } };\nnew Example();\n",
             "export default (class NamedExample { *main() { yield 1; } });\n",
             "export default (class NamedExample { async *main() { yield 1; } });\n",
+            "class Example { *main() { yield* []; } }\nnew Example();\n",
+            "class Example { async *main() { yield* []; } }\nnew Example();\n",
         ] {
             let dir = tempdir().expect("tempdir");
             let source_path = dir.path().join(format!("main.{extension}"));
             fs::write(&source_path, source).expect("write source");
 
-            let expected_message = if source.contains("async *") {
-                "async-generator class method lowering is unavailable"
-            } else {
-                "generator class method lowering is unavailable"
+            let expected_message = match (source.contains("async *"), source.contains("yield*")) {
+                (true, true) => {
+                    "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+                }
+                (true, false) => {
+                    "async-generator class method lowering is unavailable in the direct runtime path"
+                }
+                (false, true) => {
+                    "generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+                }
+                (false, false) => {
+                    "generator class method lowering is unavailable in the direct runtime path"
+                }
             };
 
             let error = build_source_file(

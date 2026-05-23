@@ -49408,10 +49408,22 @@ fn assert_class_generator_method_lowering_rejection(
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
-    let expected_message = if source_contents.contains("async *") {
-        "async-generator class method lowering is unavailable"
-    } else {
-        "generator class method lowering is unavailable"
+    let expected_message = match (
+        source_contents.contains("async *"),
+        source_contents.contains("yield*"),
+    ) {
+        (true, true) => {
+            "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (true, false) => {
+            "async-generator class method lowering is unavailable in the direct runtime path"
+        }
+        (false, true) => {
+            "generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (false, false) => {
+            "generator class method lowering is unavailable in the direct runtime path"
+        }
     };
 
     if json_output {
@@ -49459,10 +49471,22 @@ fn assert_class_generator_method_lowering_rejection_in_browser_context(
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
-    let expected_message = if source_contents.contains("async *") {
-        "async-generator class method lowering is unavailable"
-    } else {
-        "generator class method lowering is unavailable"
+    let expected_message = match (
+        source_contents.contains("async *"),
+        source_contents.contains("yield*"),
+    ) {
+        (true, true) => {
+            "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (true, false) => {
+            "async-generator class method lowering is unavailable in the direct runtime path"
+        }
+        (false, true) => {
+            "generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (false, false) => {
+            "generator class method lowering is unavailable in the direct runtime path"
+        }
     };
 
     if json_output {
@@ -49509,10 +49533,22 @@ fn assert_class_generator_method_lowering_rejection_when_browser_harness_is_conf
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
-    let expected_message = if source_contents.contains("async *") {
-        "async-generator class method lowering is unavailable"
-    } else {
-        "generator class method lowering is unavailable"
+    let expected_message = match (
+        source_contents.contains("async *"),
+        source_contents.contains("yield*"),
+    ) {
+        (true, true) => {
+            "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (true, false) => {
+            "async-generator class method lowering is unavailable in the direct runtime path"
+        }
+        (false, true) => {
+            "generator class method lowering is unavailable in the direct runtime path for yield* delegation"
+        }
+        (false, false) => {
+            "generator class method lowering is unavailable in the direct runtime path"
+        }
     };
 
     if json_output {
@@ -49585,6 +49621,8 @@ fn check_rejects_class_generator_and_async_generator_method_lowering_in_js_input
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
         "class Example { async *main() { yield 1; } }\nnew Example();",
+        "class Example { *main() { yield* []; } }\nnew Example();",
+        "class Example { async *main() { yield* []; } }\nnew Example();",
     ] {
         assert_class_generator_method_lowering_rejection("check", false, "js", source);
     }
@@ -49769,6 +49807,8 @@ fn run_rejects_class_generator_and_async_generator_method_lowering_in_js_input()
     for source in [
         "class Example { *main() { yield 1; } }\nnew Example();",
         "class Example { async *main() { yield 1; } }\nnew Example();",
+        "class Example { *main() { yield* []; } }\nnew Example();",
+        "class Example { async *main() { yield* []; } }\nnew Example();",
     ] {
         assert_class_generator_method_lowering_rejection("run", false, "js", source);
     }

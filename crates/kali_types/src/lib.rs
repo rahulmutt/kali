@@ -20,7 +20,7 @@ use kali_ast::{
     UpdateExpression, VariableDeclaration, WhileStatement, WithStatement,
 };
 use kali_common::{
-    generator_class_method_lowering_unavailable_message_for_flavors,
+    generator_class_method_yield_lowering_unavailable_message_for_flavors,
     generator_function_lowering_unavailable_message_for_flavors,
     generator_function_yield_lowering_unavailable_message,
     process_kill_zero_probe_wrapped_zero_aliases, template::resolve_interpolated_template_literal,
@@ -155,6 +155,246 @@ impl StaticObjectIdentityValue {
             Self::Null | Self::Undefined => Some(false),
             Self::Reference(_) => None,
         }
+    }
+}
+
+fn block_contains_yield_delegation(block: &BlockStatement) -> bool {
+    block.body.iter().any(statement_contains_yield_delegation)
+}
+
+fn statement_contains_yield_delegation(statement: &Statement) -> bool {
+    match statement {
+        Statement::ExpressionStatement(expression) => {
+            expression_contains_yield_delegation(&expression.expression)
+        }
+        Statement::BreakStatement(_)
+        | Statement::ContinueStatement(_)
+        | Statement::DebuggerStatement(_)
+        | Statement::ImportDeclaration(_)
+        | Statement::InterfaceDeclaration(_)
+        | Statement::TypeAliasDeclaration(_)
+        | Statement::ClassDeclaration(_)
+        | Statement::FunctionDeclaration(_) => false,
+        Statement::WithStatement(with_stmt) => {
+            expression_contains_yield_delegation(&with_stmt.object)
+                || statement_contains_yield_delegation(&with_stmt.body)
+        }
+        Statement::ReturnStatement(return_stmt) => return_stmt
+            .argument
+            .as_ref()
+            .is_some_and(expression_contains_yield_delegation),
+        Statement::LabeledStatement(labeled_stmt) => {
+            statement_contains_yield_delegation(&labeled_stmt.body)
+        }
+        Statement::IfStatement(if_stmt) => {
+            expression_contains_yield_delegation(&if_stmt.test)
+                || block_contains_yield_delegation(&if_stmt.consequent)
+                || if_stmt
+                    .alternate
+                    .as_deref()
+                    .is_some_and(block_contains_yield_delegation)
+        }
+        Statement::SwitchStatement(switch_stmt) => {
+            expression_contains_yield_delegation(&switch_stmt.discriminant)
+                || switch_stmt.cases.iter().any(|case| {
+                    case.test
+                        .as_ref()
+                        .is_some_and(expression_contains_yield_delegation)
+                        || case
+                            .consequent
+                            .iter()
+                            .any(statement_contains_yield_delegation)
+                })
+        }
+        Statement::ThrowStatement(throw_stmt) => {
+            expression_contains_yield_delegation(&throw_stmt.argument)
+        }
+        Statement::TryStatement(try_stmt) => {
+            block_contains_yield_delegation(&try_stmt.block)
+                || try_stmt
+                    .handler
+                    .as_ref()
+                    .is_some_and(|handler| block_contains_yield_delegation(&handler.body))
+                || try_stmt
+                    .finalizer
+                    .as_ref()
+                    .is_some_and(block_contains_yield_delegation)
+        }
+        Statement::BlockStatement(block) => block_contains_yield_delegation(block),
+        Statement::ForStatement(for_stmt) => {
+            for_stmt.init.as_ref().is_some_and(|init| match init {
+                ForInit::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                ForInit::Expression(expression) => expression_contains_yield_delegation(expression),
+            }) || for_stmt
+                .test
+                .as_ref()
+                .is_some_and(expression_contains_yield_delegation)
+                || for_stmt
+                    .update
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+                || block_contains_yield_delegation(&for_stmt.body)
+        }
+        Statement::ForInStatement(for_in_stmt) => {
+            let left_has_yield_delegation = match &for_in_stmt.left {
+                ForInLefthand::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                ForInLefthand::Expression(expression) => {
+                    expression_contains_yield_delegation(expression)
+                }
+            };
+            left_has_yield_delegation
+                || expression_contains_yield_delegation(&for_in_stmt.right)
+                || statement_contains_yield_delegation(&for_in_stmt.body)
+        }
+        Statement::ForOfStatement(for_of_stmt) => {
+            let left_has_yield_delegation = match &for_of_stmt.left {
+                ForOfLefthand::VariableDeclaration(declaration) => {
+                    declaration.declarations.iter().any(|declarator| {
+                        declarator
+                            .init
+                            .as_ref()
+                            .is_some_and(expression_contains_yield_delegation)
+                    })
+                }
+                ForOfLefthand::Expression(expression) => {
+                    expression_contains_yield_delegation(expression)
+                }
+            };
+            left_has_yield_delegation
+                || expression_contains_yield_delegation(&for_of_stmt.right)
+                || statement_contains_yield_delegation(&for_of_stmt.body)
+        }
+        Statement::WhileStatement(while_stmt) => {
+            expression_contains_yield_delegation(&while_stmt.test)
+                || block_contains_yield_delegation(&while_stmt.body)
+        }
+        Statement::DoWhileStatement(do_while_stmt) => {
+            expression_contains_yield_delegation(&do_while_stmt.test)
+                || block_contains_yield_delegation(&do_while_stmt.body)
+        }
+        Statement::VariableDeclaration(VariableDeclaration { declarations, .. }) => {
+            declarations.iter().any(|declarator| {
+                declarator
+                    .init
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+            })
+        }
+        Statement::EnumDeclaration(EnumDeclaration { members, .. }) => {
+            members.iter().any(|member| {
+                member
+                    .value
+                    .as_ref()
+                    .is_some_and(expression_contains_yield_delegation)
+            })
+        }
+        Statement::ExportAll(_) | Statement::ExportNamed(_) | Statement::ExportDefault(_) => false,
+    }
+}
+
+fn expression_contains_yield_delegation(expression: &Expression) -> bool {
+    match expression {
+        Expression::YieldExpression(yield_expr) => yield_expr.delegate,
+        Expression::ParenthesizedExpression(parenthesized) => {
+            expression_contains_yield_delegation(&parenthesized.expression)
+        }
+        Expression::ConditionalExpression(conditional) => {
+            expression_contains_yield_delegation(&conditional.test)
+                || expression_contains_yield_delegation(&conditional.consequent)
+                || expression_contains_yield_delegation(&conditional.alternate)
+        }
+        Expression::LogicalExpression(logical) => {
+            expression_contains_yield_delegation(&logical.left)
+                || expression_contains_yield_delegation(&logical.right)
+        }
+        Expression::BinaryExpression(binary) => {
+            expression_contains_yield_delegation(&binary.left)
+                || expression_contains_yield_delegation(&binary.right)
+        }
+        Expression::UnaryExpression(unary) => expression_contains_yield_delegation(&unary.argument),
+        Expression::AssignmentExpression(assignment) => {
+            expression_contains_yield_delegation(&assignment.right)
+        }
+        Expression::CallExpression(call) => {
+            expression_contains_yield_delegation(&call.callee)
+                || call
+                    .args
+                    .iter()
+                    .any(|arg| expression_contains_yield_delegation(arg))
+        }
+        Expression::MemberExpression(member) => {
+            expression_contains_yield_delegation(&member.object)
+        }
+        Expression::AwaitExpression(await_expr) => {
+            expression_contains_yield_delegation(&await_expr.argument)
+        }
+        Expression::SequenceExpression(sequence) => sequence
+            .expressions
+            .iter()
+            .any(expression_contains_yield_delegation),
+        Expression::OptionalChainExpression(optional) => match optional.inner.as_ref() {
+            OptionalChainInner::NonNull { object, .. } => {
+                expression_contains_yield_delegation(object)
+            }
+        },
+        Expression::ChainExpression(chain) => {
+            expression_contains_yield_delegation(&chain.expression)
+        }
+        Expression::SpreadElement(spread) => expression_contains_yield_delegation(&spread.argument),
+        Expression::RestElement(rest) => expression_contains_yield_delegation(&rest.argument),
+        Expression::ImportExpression(import) => {
+            expression_contains_yield_delegation(&import.source)
+        }
+        Expression::DecoratedExpression(decorated) => {
+            expression_contains_yield_delegation(&decorated.expression)
+        }
+        Expression::JsxElement(element) => element.children.iter().any(|child| match child {
+            JsxChild::JsxText(_) => false,
+            JsxChild::JsxExpression(container) => container
+                .expression
+                .as_ref()
+                .is_some_and(expression_contains_yield_delegation),
+            JsxChild::JsxElement(child) => {
+                expression_contains_yield_delegation(&Expression::JsxElement((**child).clone()))
+            }
+            JsxChild::JsxFragment(fragment) => {
+                expression_contains_yield_delegation(&Expression::JsxFragment((**fragment).clone()))
+            }
+        }),
+        Expression::JsxFragment(fragment) => fragment.children.iter().any(|child| match child {
+            JsxChild::JsxText(_) => false,
+            JsxChild::JsxExpression(container) => container
+                .expression
+                .as_ref()
+                .is_some_and(expression_contains_yield_delegation),
+            JsxChild::JsxElement(child) => {
+                expression_contains_yield_delegation(&Expression::JsxElement((**child).clone()))
+            }
+            JsxChild::JsxFragment(child_fragment) => expression_contains_yield_delegation(
+                &Expression::JsxFragment((**child_fragment).clone()),
+            ),
+        }),
+        Expression::TypeAssertion(assertion) => {
+            expression_contains_yield_delegation(&assertion.expression)
+        }
+        Expression::SatisfiesExpression(satisfies) => {
+            expression_contains_yield_delegation(&satisfies.expression)
+        }
+        _ => false,
     }
 }
 
@@ -4504,11 +4744,19 @@ impl TypeContext {
         self.push_scope(ScopeType::Class);
         let mut has_generator = false;
         let mut has_async_generator = false;
+        let mut has_yield_delegation = false;
         for method in &body.methods {
             if method.generator {
                 has_generator = true;
                 if method.is_async {
                     has_async_generator = true;
+                }
+                if method
+                    .body
+                    .as_deref()
+                    .is_some_and(block_contains_yield_delegation)
+                {
+                    has_yield_delegation = true;
                 }
                 continue;
             }
@@ -4523,9 +4771,10 @@ impl TypeContext {
         if has_generator || has_async_generator {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                generator_class_method_lowering_unavailable_message_for_flavors(
+                generator_class_method_yield_lowering_unavailable_message_for_flavors(
                     has_generator,
                     has_async_generator,
+                    has_yield_delegation,
                 ),
             ));
         }

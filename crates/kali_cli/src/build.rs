@@ -9,7 +9,10 @@ use kali_ast::{
     OptionalChainInner, Statement, VariableDeclaration,
 };
 use kali_codegen::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
-use kali_common::{template::resolve_interpolated_template_literal, FileId};
+use kali_common::{
+    generator_class_method_yield_lowering_unavailable_message_for_flavors,
+    template::resolve_interpolated_template_literal, FileId,
+};
 use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
 use kali_hir::HirLowerer;
 use kali_lexer::{Lexer, Token, TokenType};
@@ -3292,12 +3295,14 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
         diagnostics: &mut Vec<Diagnostic>,
         has_generator: bool,
         has_async_generator: bool,
+        is_delegate: bool,
     ) {
         diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            kali_common::generator_class_method_lowering_unavailable_message_for_flavors(
+            generator_class_method_yield_lowering_unavailable_message_for_flavors(
                 has_generator,
                 has_async_generator,
+                is_delegate,
             ),
         ));
     }
@@ -3328,16 +3333,28 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
         (has_generator, has_async_generator)
     }
 
+    fn class_body_has_generator_yield_delegation(body: &kali_ast::ClassBody) -> bool {
+        body.methods.iter().any(|method| {
+            method.generator
+                && method
+                    .body
+                    .as_deref()
+                    .is_some_and(block_contains_yield_delegation)
+        })
+    }
+
     fn collect_expression(expression: &Expression, diagnostics: &mut Vec<Diagnostic>) {
         match expression {
             Expression::ClassExpression(class) => {
                 let (has_generator, has_async_generator) =
                     class_body_has_generator_flavors(&class.body);
+                let is_delegate = class_body_has_generator_yield_delegation(&class.body);
                 if has_generator || has_async_generator {
                     push_generator_class_method_diagnostic(
                         diagnostics,
                         has_generator,
                         has_async_generator,
+                        is_delegate,
                     );
                 } else if class_body_has_async_method(&class.body) {
                     push_async_class_method_diagnostic(diagnostics);
@@ -3560,11 +3577,13 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
             Statement::ClassDeclaration(class) => {
                 let (has_generator, has_async_generator) =
                     class_body_has_generator_flavors(&class.body);
+                let is_delegate = class_body_has_generator_yield_delegation(&class.body);
                 if has_generator || has_async_generator {
                     push_generator_class_method_diagnostic(
                         diagnostics,
                         has_generator,
                         has_async_generator,
+                        is_delegate,
                     );
                 } else if class_body_has_async_method(&class.body) {
                     push_async_class_method_diagnostic(diagnostics);
@@ -3574,11 +3593,13 @@ pub fn reject_async_and_generator_class_methods_in_runtime_entrypoint(
                 ClassDeclaration { body, .. },
             )) => {
                 let (has_generator, has_async_generator) = class_body_has_generator_flavors(body);
+                let is_delegate = class_body_has_generator_yield_delegation(body);
                 if has_generator || has_async_generator {
                     push_generator_class_method_diagnostic(
                         diagnostics,
                         has_generator,
                         has_async_generator,
+                        is_delegate,
                     );
                 } else if class_body_has_async_method(body) {
                     push_async_class_method_diagnostic(diagnostics);
