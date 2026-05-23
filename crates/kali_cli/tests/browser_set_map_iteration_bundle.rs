@@ -174,6 +174,16 @@ export async function browserMapIteration() {
   for (const entry of new globalThis['Map'](values)) {
     singleBracketed.push(JSON.stringify(entry));
   }
+  const nullishEntries = [];
+  for (const entry of new (null ?? Map)(values)) {
+    nullishEntries.push(JSON.stringify(entry));
+  }
+  const logicalOrEntries = [];
+  for (const entry of new (false || Map)(values)) {
+    logicalOrEntries.push(JSON.stringify(entry));
+  }
+  assertMapIteration(nullishEntries);
+  assertMapIteration(logicalOrEntries);
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
   const frozenGlobalThisMap = Object.freeze(globalThis.Map);

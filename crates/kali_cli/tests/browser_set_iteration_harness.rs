@@ -43,6 +43,16 @@ fn browser_harness_set_iteration_run_source() -> &'static str {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const nullishValues = [];
+  for (const value of new (null ?? Set)(aliasValues)) {
+    nullishValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of new (false || Set)(aliasValues)) {
+    logicalOrValues.push(value);
+  }
+  assertSetIteration(nullishValues);
+  assertSetIteration(logicalOrValues);
   const frozenValues = Object.freeze(aliasValues);
   const frozenSet = Object.freeze(Set);
   const frozenGlobalThisSet = Object.freeze(globalThis.Set);
@@ -174,6 +184,16 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const nullishValues = [];
+  for (const value of new (null ?? Set)(aliasValues)) {
+    nullishValues.push(value);
+  }
+  const logicalOrValues = [];
+  for (const value of new (false || Set)(aliasValues)) {
+    logicalOrValues.push(value);
+  }
+  assertSetIteration(nullishValues);
+  assertSetIteration(logicalOrValues);
   const frozenValues = Object.freeze(aliasValues);
   const frozenSet = Object.freeze(Set);
   const frozenGlobalThisSet = Object.freeze(globalThis.Set);

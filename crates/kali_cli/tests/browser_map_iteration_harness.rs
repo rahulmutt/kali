@@ -49,6 +49,16 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   for (const entry of new globalThis['Map'](values)) {
     singleBracketed.push(entry);
   }
+  const nullishEntries = [];
+  for (const entry of new (null ?? Map)(aliasValues)) {
+    nullishEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of new (false || Map)(aliasValues)) {
+    logicalOrEntries.push(entry);
+  }
+  assertMapIteration(nullishEntries);
+  assertMapIteration(logicalOrEntries);
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
   const frozenGlobalThisMap = Object.freeze(globalThis.Map);
@@ -191,6 +201,16 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   for (const entry of new globalThis['Map'](values)) {
     singleBracketed.push(entry);
   }
+  const nullishEntries = [];
+  for (const entry of new (null ?? Map)(aliasValues)) {
+    nullishEntries.push(entry);
+  }
+  const logicalOrEntries = [];
+  for (const entry of new (false || Map)(aliasValues)) {
+    logicalOrEntries.push(entry);
+  }
+  assertMapIteration(nullishEntries);
+  assertMapIteration(logicalOrEntries);
   const frozenMapValues = Object.freeze(aliasValues);
   const frozenMap = Object.freeze(Map);
   const frozenGlobalThisMap = Object.freeze(globalThis.Map);
