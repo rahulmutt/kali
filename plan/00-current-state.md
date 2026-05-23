@@ -20,6 +20,7 @@ The checked-in repository already includes:
 
 - The bracketed `globalThis["Array"].from` / `globalThis['Array'].from` nullish/logical wrapper smoke now also has dedicated standalone, browser-requested, and browser-bundle coverage, keeping that bracket-root alias family aligned with the shared Array.from inventory.
 - The fully bracketed single-quoted `globalThis['Array']['from']` alias now also has nullish, `true &&`, and `false ||` wrapper coverage in the standalone, browser-requested, and browser-bundle smoke lanes, keeping that alias family aligned with the rest of the Array.from wrapper inventory.
+- The `Array.from` regression matrix now also validates the parenthesized mixed-quote bracket-root property-access aliases `Object.freeze((globalThis["Array"])["from"])` and `Object.freeze((globalThis['Array'])['from'])` in the type-resolution and codegen smoke lanes, keeping that mixed-quote property-access slice pinned alongside the existing dot-call coverage.
 
 - The browser-harness/browser-bundle `Math.round` smoke inventory now also covers the parenthesized single-quoted bracketed `globalThis['Math']['round']` alias.
 - The shared `Set`/`Map` constructor-iteration smoke now also accepts nullish/logical wrappers around frozen constructor results such as `Object.freeze((null ?? new Set(...)))` and `Object.freeze((false || new Map(...)))`, keeping the build/lowering smoke aligned with the transparent-wrapper path.
