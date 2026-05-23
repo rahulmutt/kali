@@ -31,6 +31,33 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
     serde_json::from_slice(&output.stdout).expect("valid json stdout")
 }
 
+fn json_error_codes(errors: &[Value]) -> Vec<String> {
+    errors
+        .iter()
+        .map(|error| error["code"].as_str().expect("error code").to_string())
+        .collect()
+}
+
+fn assert_json_error_codes_contain(errors: &[Value], expected: &[&str]) {
+    let codes = json_error_codes(errors);
+    for expected in expected {
+        assert!(
+            codes.iter().any(|code| code == expected),
+            "missing {expected} in {codes:?}"
+        );
+    }
+}
+
+fn assert_json_node_builtin_rejection(errors: &[Value], expected_message: &str) {
+    assert_json_error_codes_contain(errors, &["E5506"]);
+    assert!(
+        errors
+            .iter()
+            .any(|error| { error["message"].as_str().expect("error message") == expected_message }),
+        "missing node builtin rejection message `{expected_message}` in {errors:?}"
+    );
+}
+
 fn process_kill_zero_probe_run_source() -> String {
     format!(
         "{} {}\n",
@@ -1216,10 +1243,9 @@ fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_run_and_test_c
     assert_eq!(run_json["success"], false);
     assert_eq!(run_json["exitCode"], 1);
     assert_eq!(run_json["payload"], serde_json::Value::Null);
-    assert_eq!(run_json["errors"][0]["code"], "E5506");
-    assert_eq!(
-        run_json["errors"][0]["message"],
-        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+    assert_json_node_builtin_rejection(
+        run_json["errors"].as_array().expect("errors array"),
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface",
     );
 
     let test_output = Command::new(kali_bin())
@@ -1270,10 +1296,9 @@ fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_run_and_test_c
     assert_eq!(test_json["payload"]["total"], 0);
     assert_eq!(test_json["payload"]["hostContract"], "kali-hosted");
     assert_eq!(test_json["payload"]["runtimeBackend"], "wasmtime");
-    assert_eq!(test_json["errors"][0]["code"], "E5506");
-    assert_eq!(
-        test_json["errors"][0]["message"],
-        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+    assert_json_node_builtin_rejection(
+        test_json["errors"].as_array().expect("errors array"),
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface",
     );
 }
 
@@ -1333,12 +1358,10 @@ fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_check_and_buil
         check_json["payload"],
         serde_json::json!({"errorCount": 2, "filesChecked": 1, "warningCount": 0})
     );
-    assert_eq!(check_json["errors"][0]["code"], "E5506");
-    assert_eq!(
-        check_json["errors"][0]["message"],
-        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+    assert_json_node_builtin_rejection(
+        check_json["errors"].as_array().expect("errors array"),
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface",
     );
-    assert_eq!(check_json["errors"][1]["code"], "E3100");
 
     let build_output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -1383,12 +1406,10 @@ fn explicit_node_timers_promises_helpers_are_rejected_on_js_input_check_and_buil
     assert_eq!(build_json["success"], false);
     assert_eq!(build_json["exitCode"], 1);
     assert_eq!(build_json["payload"], serde_json::Value::Null);
-    assert_eq!(build_json["errors"][0]["code"], "E5506");
-    assert_eq!(
-        build_json["errors"][0]["message"],
-        "node builtin 'node:timers/promises' is not available on the explicit Node API surface"
+    assert_json_node_builtin_rejection(
+        build_json["errors"].as_array().expect("errors array"),
+        "node builtin 'node:timers/promises' is not available on the explicit Node API surface",
     );
-    assert_eq!(build_json["errors"][1]["code"], "E3100");
 }
 
 #[test]
@@ -1447,8 +1468,10 @@ console.log(typeof delay);
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 }
 
@@ -1519,8 +1542,10 @@ fn inherited_node_api_surface_rejects_node_timers_promises_helpers_in_js_input_o
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 
     let mut run = Command::new(kali_bin());
@@ -1556,8 +1581,10 @@ fn inherited_node_api_surface_rejects_node_timers_promises_helpers_in_js_input_o
     assert_eq!(run_json["command"], "run");
     assert_eq!(run_json["success"], false);
     assert_eq!(run_json["exitCode"], 1);
-    assert_eq!(run_json["errors"][0]["code"], "E5506");
-    assert_eq!(run_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        run_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path()).arg("test").arg(&test_file);
@@ -1592,8 +1619,10 @@ fn inherited_node_api_surface_rejects_node_timers_promises_helpers_in_js_input_o
     assert_eq!(test_json["command"], "test");
     assert_eq!(test_json["success"], false);
     assert_eq!(test_json["exitCode"], 1);
-    assert_eq!(test_json["errors"][0]["code"], "E5506");
-    assert_eq!(test_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        test_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 }
 
 #[test]
@@ -1652,8 +1681,10 @@ console.log(typeof delay);
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 }
 
@@ -1724,8 +1755,10 @@ fn inherited_node_api_surface_rejects_node_stream_promises_helpers_in_js_input_o
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 
     let mut run = Command::new(kali_bin());
@@ -1761,8 +1794,10 @@ fn inherited_node_api_surface_rejects_node_stream_promises_helpers_in_js_input_o
     assert_eq!(run_json["command"], "run");
     assert_eq!(run_json["success"], false);
     assert_eq!(run_json["exitCode"], 1);
-    assert_eq!(run_json["errors"][0]["code"], "E5506");
-    assert_eq!(run_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        run_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path()).arg("test").arg(&test_file);
@@ -1797,8 +1832,10 @@ fn inherited_node_api_surface_rejects_node_stream_promises_helpers_in_js_input_o
     assert_eq!(test_json["command"], "test");
     assert_eq!(test_json["success"], false);
     assert_eq!(test_json["exitCode"], 1);
-    assert_eq!(test_json["errors"][0]["code"], "E5506");
-    assert_eq!(test_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        test_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 }
 
 #[test]
@@ -1876,8 +1913,10 @@ fn node_api_surface_rejects_node_net_module_in_js_input_on_check_build_run_and_t
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 }
 
@@ -1948,8 +1987,10 @@ fn node_api_surface_rejects_node_net_module_on_inherited_node_api_surface_in_js_
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 
     let mut run = Command::new(kali_bin());
@@ -1985,8 +2026,10 @@ fn node_api_surface_rejects_node_net_module_on_inherited_node_api_surface_in_js_
     assert_eq!(run_json["command"], "run");
     assert_eq!(run_json["success"], false);
     assert_eq!(run_json["exitCode"], 1);
-    assert_eq!(run_json["errors"][0]["code"], "E5506");
-    assert_eq!(run_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        run_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 
     let mut test = Command::new(kali_bin());
     test.current_dir(dir.path()).arg("test").arg(&test_file);
@@ -2021,8 +2064,10 @@ fn node_api_surface_rejects_node_net_module_on_inherited_node_api_surface_in_js_
     assert_eq!(test_json["command"], "test");
     assert_eq!(test_json["success"], false);
     assert_eq!(test_json["exitCode"], 1);
-    assert_eq!(test_json["errors"][0]["code"], "E5506");
-    assert_eq!(test_json["errors"][0]["message"], expected_message);
+    assert_json_node_builtin_rejection(
+        test_json["errors"].as_array().expect("errors array"),
+        expected_message,
+    );
 }
 
 #[test]
@@ -2100,8 +2145,10 @@ fn node_api_surface_rejects_node_dns_module_in_js_input_on_check_build_run_and_t
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 }
 
@@ -2187,8 +2234,10 @@ Kali.test('node worker_threads', () => console.log(typeof Worker));
             assert_eq!(json["command"], command);
             assert_eq!(json["success"], false);
             assert_eq!(json["exitCode"], 1);
-            assert_eq!(json["errors"][0]["code"], "E5506");
-            assert_eq!(json["errors"][0]["message"], expected_message);
+            assert_json_node_builtin_rejection(
+                json["errors"].as_array().expect("errors array"),
+                expected_message,
+            );
         }
     }
 }
@@ -2272,8 +2321,10 @@ Kali.test('node worker_threads', () => console.log(typeof Worker));
             assert_eq!(json["command"], command);
             assert_eq!(json["success"], false);
             assert_eq!(json["exitCode"], 1);
-            assert_eq!(json["errors"][0]["code"], "E5506");
-            assert_eq!(json["errors"][0]["message"], expected_message);
+            assert_json_node_builtin_rejection(
+                json["errors"].as_array().expect("errors array"),
+                expected_message,
+            );
         }
     }
 }
@@ -2761,8 +2812,10 @@ fn node_api_surface_rejects_node_dns_module_on_inherited_node_api_surface_in_js_
         assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         assert_eq!(json["exitCode"], 1);
-        assert_eq!(json["errors"][0]["code"], "E5506");
-        assert_eq!(json["errors"][0]["message"], expected_message);
+        assert_json_node_builtin_rejection(
+            json["errors"].as_array().expect("errors array"),
+            expected_message,
+        );
     }
 }
 

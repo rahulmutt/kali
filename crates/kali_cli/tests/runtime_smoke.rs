@@ -7094,7 +7094,7 @@ fn run_rejects_frozen_late_object_model_revocable_calls() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis[\"Proxy\"][\"revocable\"])({}, {}); Object.freeze((globalThis[\"Proxy\"][\"revocable\"]))({}, {}); Object.freeze(globalThis[\"Proxy\"].revocable)({}, {}); Object.freeze(globalThis.Proxy[\"revocable\"])({}, {});",
+        "Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis[\"Proxy\"][\"revocable\"])({}, {}); Object.freeze((globalThis[\"Proxy\"][\"revocable\"]))({}, {}); Object.freeze(globalThis[\"Proxy\"].revocable)({}, {}); Object.freeze(globalThis.Proxy[\"revocable\"])({}, {}); Object.freeze(globalThis?.Proxy.revocable)({}, {}); Object.freeze((globalThis?.Proxy.revocable))({}, {});",
     )
     .expect("write source");
 
@@ -7126,7 +7126,7 @@ fn run_rejects_late_object_model_revocable_calls_in_json() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {});",
+        "Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis[\"Proxy\"][\"revocable\"]({}, {}); globalThis[\"Proxy\"].revocable({}, {}); globalThis.Proxy[\"revocable\"]({}, {}); Object.freeze(globalThis?.Proxy.revocable)({}, {}); Object.freeze((globalThis?.Proxy.revocable))({}, {});",
     )
     .expect("write source");
 

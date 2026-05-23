@@ -7439,6 +7439,73 @@ fn test_resolution_reports_frozen_proxy_revocable_aliases_as_unavailable() {
 }
 
 #[test]
+fn test_resolution_reports_frozen_optional_chain_proxy_revocable_aliases_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "freeze".to_string(),
+                })),
+                args: vec![Expression::OptionalChainExpression(Box::new(
+                    OptionalChainExpression {
+                        inner: Box::new(OptionalChainInner::NonNull {
+                            object: Box::new(Expression::MemberExpression(Box::new(
+                                MemberExpression {
+                                    object: Expression::Identifier("globalThis".to_string()),
+                                    property: "Proxy".to_string(),
+                                },
+                            ))),
+                            optional: true,
+                        }),
+                    },
+                ))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Object".to_string()),
+                    property: "freeze".to_string(),
+                })),
+                args: vec![Expression::OptionalChainExpression(Box::new(
+                    OptionalChainExpression {
+                        inner: Box::new(OptionalChainInner::NonNull {
+                            object: Box::new(Expression::MemberExpression(Box::new(
+                                MemberExpression {
+                                    object: Expression::MemberExpression(Box::new(
+                                        MemberExpression {
+                                            object: Expression::Identifier(
+                                                "globalThis".to_string(),
+                                            ),
+                                            property: "Proxy".to_string(),
+                                        },
+                                    )),
+                                    property: "revocable".to_string(),
+                                },
+                            ))),
+                            optional: true,
+                        }),
+                    },
+                ))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("globalThis.Proxy.revocable")));
+}
+
+#[test]
 fn test_resolution_supports_object_has_own_helpers_for_static_object_literals_and_alias_chains() {
     let mut ctx = TypeContext::new();
     let statements = vec![

@@ -3037,6 +3037,9 @@ impl TypeContext {
                     current = last;
                 }
                 Expression::AwaitExpression(expr) => current = &expr.argument,
+                Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                    OptionalChainInner::NonNull { object, .. } => current = object,
+                },
                 Expression::MemberExpression(member) => {
                     let dotted = Self::member_access_name(member)?;
                     let bracketed = Self::member_access_name_bracketed(member)?;
