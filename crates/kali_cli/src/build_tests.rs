@@ -13009,6 +13009,101 @@ fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields()
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_padded_provenance_fields() {
+    for (field, invalid_metadata) in [
+        (
+            "profileDataHash",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef",
+                "profileDataHash": " sha256-feedface "
+            }),
+        ),
+        (
+            "hostContract",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": " kali-hosted ",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "runtimeBackend",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": " wasmtime ",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "kaliVersion",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": " 1.2.3 ",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "sourceHash",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": 24,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": " sha256-deadbeef "
+            }),
+        ),
+    ] {
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("padded provenance field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_duplicate_runtime_profiles() {
     let invalid_metadata = serde_json::json!({
         "schemaVersion": 1,
@@ -13556,6 +13651,77 @@ fn validate_build_result_value_rejects_whitespace_source_hash() {
     let err = validate_build_result_value(&invalid_bundle)
         .expect_err("whitespace sourceHash should fail validation");
     assert!(err.contains("sourceHash"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_build_result_value_rejects_padded_provenance_fields() {
+    for (field, invalid_bundle) in [
+        (
+            "hostContract",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "hostContract": " kali-hosted ",
+                "runtimeBackend": "wasmtime",
+                "profileDataHash": "sha256-feedface",
+                "artifacts": [
+                    { "kind": "js-glue", "path": "browser.js" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": "esm"
+            }),
+        ),
+        (
+            "runtimeBackend",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "hostContract": "kali-hosted",
+                "runtimeBackend": " wasmtime ",
+                "profileDataHash": "sha256-feedface",
+                "artifacts": [
+                    { "kind": "js-glue", "path": "browser.js" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": "esm"
+            }),
+        ),
+        (
+            "profileDataHash",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "profileDataHash": " sha256-feedface ",
+                "artifacts": [
+                    { "kind": "js-glue", "path": "browser.js" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": "esm"
+            }),
+        ),
+    ] {
+        let err = validate_build_result_value(&invalid_bundle)
+            .expect_err("padded provenance field should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]

@@ -2166,37 +2166,18 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
     }
 
     for key in ["kaliVersion", "sourceHash"] {
-        match object.get(key) {
-            Some(Value::String(value)) if !value.trim().is_empty() => {}
-            Some(Value::String(_)) => {
-                return Err(format!(
-                    "artifact metadata {key} must be a non-empty, non-whitespace string"
-                ));
-            }
-            Some(other) => {
-                return Err(format!(
-                    "artifact metadata {key} must be a string, got {other}"
-                ));
-            }
-            None => unreachable!("validated above"),
-        }
+        validate_canonical_non_empty_string_field(
+            object.get(key),
+            &format!("artifact metadata {key}"),
+        )?;
     }
 
     for key in ["hostContract", "runtimeBackend", "profileDataHash"] {
-        if let Some(value) = object.get(key) {
-            match value {
-                Value::String(value) if !value.trim().is_empty() => {}
-                Value::String(_) => {
-                    return Err(format!(
-                        "artifact metadata {key} must be a non-empty, non-whitespace string"
-                    ));
-                }
-                _ => {
-                    return Err(format!(
-                        "artifact metadata {key} must be a string, got {value}"
-                    ));
-                }
-            }
+        if object.get(key).is_some() {
+            validate_canonical_non_empty_string_field(
+                object.get(key),
+                &format!("artifact metadata {key}"),
+            )?;
         }
     }
 
@@ -2308,32 +2289,14 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         None => unreachable!("validated above"),
     }
 
-    match object.get("sourceHash") {
-        Some(Value::String(value)) if !value.trim().is_empty() => {}
-        Some(Value::String(_)) => {
-            return Err(
-                "build result sourceHash must be a non-empty, non-whitespace string".to_string(),
-            )
-        }
-        Some(other) => {
-            return Err(format!(
-                "build result sourceHash must be a string, got {other}"
-            ))
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_canonical_non_empty_string_field(object.get("sourceHash"), "build result sourceHash")?;
 
     for key in ["hostContract", "runtimeBackend", "profileDataHash"] {
-        if let Some(value) = object.get(key) {
-            match value {
-                Value::String(value) if !value.trim().is_empty() => {}
-                Value::String(_) => {
-                    return Err(format!(
-                        "build result {key} must be a non-empty, non-whitespace string"
-                    ));
-                }
-                other => return Err(format!("build result {key} must be a string, got {other}")),
-            }
+        if object.get(key).is_some() {
+            validate_canonical_non_empty_string_field(
+                object.get(key),
+                &format!("build result {key}"),
+            )?;
         }
     }
 
