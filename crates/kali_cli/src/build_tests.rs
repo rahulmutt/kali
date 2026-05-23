@@ -6599,6 +6599,47 @@ fn assert_build_source_file_rejects_async_generator_lowering_in_input(extension:
     );
 }
 
+fn assert_build_source_file_rejects_generator_lowering_for_source_in_input(
+    extension: &str,
+    source: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source).expect("write source");
+
+    let expected_messages: &[&str] = if source.contains("yield*") {
+        &["yield* delegation"]
+    } else if source.contains("async function*") {
+        &[
+            "async-generator function lowering is unavailable in the current phase",
+            "generator function lowering is unavailable in the current phase",
+        ]
+    } else {
+        &["generator function lowering is unavailable in the current phase"]
+    };
+
+    let error = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect_err("generator lowering should fail");
+
+    assert!(error.iter().any(|diagnostic| diagnostic.code
+        == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(
+        error.iter().any(|diagnostic| expected_messages
+            .iter()
+            .any(|expected| diagnostic.message.contains(expected))),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
 fn assert_build_source_file_supports_async_class_method_in_input(
     api_surface: ApiSurface,
     bundle: bool,
@@ -6872,6 +6913,17 @@ fn runtime_entrypoint_rejects_async_generator_default_export_class_expressions_i
     );
 }
 
+#[test]
+fn runtime_entrypoint_rejects_anonymous_default_export_generator_function_declarations_in_supported_input_matrix(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_runtime_entrypoint_rejects_generator_function_declaration_in_input(
+            extension,
+            "export default function*() { yield* []; }\n",
+        );
+    }
+}
+
 fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
     extension: &str,
     source: &str,
@@ -6880,12 +6932,15 @@ fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
-    let expected_message = if source.contains("yield*") {
-        "yield* delegation"
+    let expected_messages: &[&str] = if source.contains("yield*") {
+        &["yield* delegation"]
     } else if source.contains("async function*") {
-        "async-generator function lowering is unavailable in the current phase"
+        &[
+            "async-generator function lowering is unavailable in the current phase",
+            "generator function lowering is unavailable in the current phase",
+        ]
     } else {
-        "generator function lowering is unavailable in the current phase"
+        &["generator function lowering is unavailable in the current phase"]
     };
 
     let error = reject_async_and_generator_class_methods_in_runtime_entrypoint(&source_path)
@@ -6896,9 +6951,9 @@ fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
         "expected an E5506 diagnostic: {error:?}"
     );
     assert!(
-        error
+        error.iter().any(|diagnostic| expected_messages
             .iter()
-            .any(|diagnostic| diagnostic.message.contains(expected_message)),
+            .any(|expected| diagnostic.message.contains(expected))),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -6931,12 +6986,15 @@ fn assert_runtime_entrypoint_rejects_generator_function_declaration_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(&source_path, source).expect("write source");
 
-    let expected_message = if source.contains("yield*") {
-        "yield* delegation"
+    let expected_messages: &[&str] = if source.contains("yield*") {
+        &["yield* delegation"]
     } else if source.contains("async function*") {
-        "async-generator function lowering is unavailable in the current phase"
+        &[
+            "async-generator function lowering is unavailable in the current phase",
+            "generator function lowering is unavailable in the current phase",
+        ]
     } else {
-        "generator function lowering is unavailable in the current phase"
+        &["generator function lowering is unavailable in the current phase"]
     };
 
     let error = reject_async_and_generator_class_methods_in_runtime_entrypoint(&source_path)
@@ -6947,9 +7005,9 @@ fn assert_runtime_entrypoint_rejects_generator_function_declaration_in_input(
         "expected an E5506 diagnostic: {error:?}"
     );
     assert!(
-        error
+        error.iter().any(|diagnostic| expected_messages
             .iter()
-            .any(|diagnostic| diagnostic.message.contains(expected_message)),
+            .any(|expected| diagnostic.message.contains(expected))),
         "unexpected diagnostics: {error:?}"
     );
 }
@@ -7012,6 +7070,28 @@ fn build_source_file_rejects_async_generator_functions_in_jsx_input() {
 #[test]
 fn build_source_file_rejects_async_generator_functions_in_tsx_input() {
     assert_build_source_file_rejects_async_generator_lowering_in_input("tsx");
+}
+
+#[test]
+fn build_source_file_rejects_anonymous_default_export_generator_function_declarations_in_supported_input_matrix(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_rejects_generator_lowering_for_source_in_input(
+            extension,
+            "export default function*() { yield* []; }\n",
+        );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_anonymous_default_export_async_generator_function_declarations_in_supported_input_matrix(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_rejects_generator_lowering_for_source_in_input(
+            extension,
+            "export default async function*() { yield 1; }\n",
+        );
+    }
 }
 
 fn assert_check_source_file_rejects_generator_lowering_in_input(
