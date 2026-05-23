@@ -34,10 +34,16 @@ function browserObjectFromEntries() {
   const wrappedEntries = ([["b", 1], ["a", 2]]);
   const frozenEntries = Object.freeze([["b", 1], ["a", 2]]);
   const conditionalEntries = (true ? [["b", 1], ["a", 2]] : [["x", 9]]);
+  const frozenObjectFromEntries = Object.freeze(Object.fromEntries);
+  const frozenBracketedObjectFromEntries = Object.freeze(globalThis["Object"]["fromEntries"]);
+  const parenthesizedFrozenBracketedObjectFromEntries = Object.freeze((globalThis["Object"]["fromEntries"]));
   assertFromEntriesShape(Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(Object.fromEntries(wrappedEntries));
   assertFromEntriesShape(Object.fromEntries(frozenEntries));
   assertFromEntriesShape(Object.fromEntries(conditionalEntries));
+  assertFromEntriesShape(frozenObjectFromEntries(wrappedEntries));
+  assertFromEntriesShape(frozenBracketedObjectFromEntries(wrappedEntries));
+  assertFromEntriesShape(parenthesizedFrozenBracketedObjectFromEntries(wrappedEntries));
   assertFromEntriesShape(globalThis.Object.fromEntries([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis.Object["fromEntries"]([["b", 1], ["a", 2]]));
   assertFromEntriesShape(globalThis["Object"].fromEntries([["b", 1], ["a", 2]]));
