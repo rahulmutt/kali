@@ -1018,7 +1018,7 @@ Simplification rule:
 - build-like commands should use these canonical artifact kinds instead of inventing near-synonyms such as `wasm`, `header`, or `metadata-json`
 - they should also prefer the canonical `role` values above instead of per-command ad hoc labels
 - within one emitted artifact list, the `(kind, path)` pair should be unique; producers should not emit duplicate artifact entries and consumers should not silently deduplicate them away
-- export arrays attached to build-result payloads and artifact-metadata sidecars should be unique by export `name`, and each exported `name` / `signature` string should be non-empty and non-whitespace so the machine contract stays deterministic
+- export arrays attached to build-result payloads and artifact-metadata sidecars should be unique by export `name`, and each exported `name` / `signature` string should be canonical, non-empty, and non-whitespace so the machine contract stays deterministic
 - adding a new stable artifact `kind` or `role` value is a schema-contract change and should get the same review discipline as other enum-like machine strings in this file
 
 ## C ABI Metadata Schema (schema v1)

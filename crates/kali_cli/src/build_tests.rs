@@ -12713,6 +12713,70 @@ fn validate_artifact_metadata_value_rejects_padded_canonical_labels() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_padded_export_names_and_signatures() {
+    for (field, invalid_value) in [("name", " main "), ("signature", " (input) => number ")] {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": "component",
+            "entrypoint": "src/main.ts",
+            "buildMode": "release",
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": [
+                {
+                    "name": if field == "name" { invalid_value } else { "main" },
+                    "signature": if field == "signature" { invalid_value } else { "(input) => number" }
+                }
+            ]
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("padded export metadata should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
+fn validate_build_result_value_rejects_padded_export_names_and_signatures() {
+    for (field, invalid_value) in [("name", " main "), ("signature", " (input) => number ")] {
+        let invalid_result = serde_json::json!({
+            "artifactKind": "component",
+            "outputPath": "/workspace/dist/component",
+            "sizeBytes": 42,
+            "buildMode": "release",
+            "sourceHash": "sha256-deadbeef",
+            "metadataPath": "/workspace/dist/component.cabi.json",
+            "witPath": "/workspace/dist/component.wit",
+            "bindingPackagePath": "/workspace/dist/component.binding.json",
+            "artifacts": [],
+            "exports": [
+                {
+                    "name": if field == "name" { invalid_value } else { "main" },
+                    "signature": if field == "signature" { invalid_value } else { "(input) => number" }
+                }
+            ]
+        });
+
+        let err = validate_build_result_value(&invalid_result)
+            .expect_err("padded build-result export metadata should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_empty_or_whitespace_entrypoint_and_api_surface() {
     for (field, invalid_value) in [
         ("entrypoint", ""),
