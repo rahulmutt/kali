@@ -37,6 +37,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
+- Current progress: CLI envelope and build-result artifact entries now also reject empty artifact `path` / `kind` labels.
 
 ## Exit gate
 

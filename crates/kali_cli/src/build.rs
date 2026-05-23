@@ -2548,7 +2548,12 @@ fn validate_build_result_artifacts_array(
         )?;
 
         match object.get("kind") {
-            Some(Value::String(_)) => {}
+            Some(Value::String(_)) => {
+                validate_non_empty_string_field(
+                    object.get("kind"),
+                    &format!("{context}[{index}].kind"),
+                )?;
+            }
             Some(other) => {
                 return Err(format!(
                     "{context}[{index}].kind must be a string, got {other}"

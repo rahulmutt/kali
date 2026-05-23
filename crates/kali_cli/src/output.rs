@@ -1782,7 +1782,12 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
         )?;
 
         match object.get("path") {
-            Some(Value::String(_)) => {}
+            Some(Value::String(_)) => {
+                validate_non_empty_string_value(
+                    object.get("path"),
+                    &format!("CLI envelope artifacts[{index}].path"),
+                )?;
+            }
             Some(other) => {
                 return Err(format!(
                     "CLI envelope artifacts[{index}].path must be a string, got {other}"
@@ -1795,7 +1800,12 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
             }
         }
         match object.get("kind") {
-            Some(Value::String(_)) => {}
+            Some(Value::String(_)) => {
+                validate_non_empty_string_value(
+                    object.get("kind"),
+                    &format!("CLI envelope artifacts[{index}].kind"),
+                )?;
+            }
             Some(other) => {
                 return Err(format!(
                     "CLI envelope artifacts[{index}].kind must be a string, got {other}"

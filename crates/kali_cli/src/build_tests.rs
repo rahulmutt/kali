@@ -12977,7 +12977,7 @@ fn validate_artifact_metadata_value_rejects_empty_or_whitespace_runtime_profiles
 }
 
 #[test]
-fn validate_build_result_value_rejects_empty_or_whitespace_path_fields() {
+fn validate_build_result_value_rejects_empty_or_whitespace_path_and_kind_fields() {
     for (field, invalid_result) in [
         (
             "outputPath",
@@ -13049,9 +13049,26 @@ fn validate_build_result_value_rejects_empty_or_whitespace_path_fields() {
                 "bundleFormat": "esm"
             }),
         ),
+        (
+            "artifacts[0].kind",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "artifacts": [
+                    { "kind": "", "path": "browser.js" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": "esm"
+            }),
+        ),
     ] {
-        let err = validate_build_result_value(&invalid_result)
-            .expect_err("empty or whitespace build result path fields should fail validation");
+        let err = validate_build_result_value(&invalid_result).expect_err(
+            "empty or whitespace build result path and kind fields should fail validation",
+        );
         assert!(err.contains(field), "unexpected error: {err}");
         assert!(err.contains("non-empty"), "unexpected error: {err}");
     }

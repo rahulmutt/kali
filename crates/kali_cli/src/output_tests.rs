@@ -265,6 +265,46 @@ fn emitted_cli_envelopes_reject_invalid_artifact_bytes() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_empty_or_whitespace_artifact_paths_and_kinds() {
+    for (field, invalid_artifact) in [
+        (
+            "artifacts[0].path",
+            json!({"path": "", "kind": "wasm-module", "role": "primary-executable", "bytes": 42}),
+        ),
+        (
+            "artifacts[0].kind",
+            json!({"path": "main.js", "kind": "   ", "role": "browser-glue", "bytes": 7}),
+        ),
+    ] {
+        let mut value = emit_envelope_value(
+            "build",
+            true,
+            json!([]),
+            json!([]),
+            json!({"result": "ok"}),
+            None,
+            None,
+            0,
+        );
+        value.as_object_mut().expect("envelope object").insert(
+            "artifacts".to_string(),
+            json!([
+                invalid_artifact,
+                {"path": "main.wasm", "kind": "wasm-module", "role": "primary-executable", "bytes": 42}
+            ]),
+        );
+
+        let error = validate_envelope_value(&value)
+            .expect_err("empty or whitespace artifact fields should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_duplicate_artifact_kind_path_pairs() {
     let mut value = emit_envelope_value(
         "build",
