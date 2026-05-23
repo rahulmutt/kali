@@ -3126,6 +3126,37 @@ fn validate_package_effects_payload_value_rejects_unknown_analysis_context_api_s
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_whitespace_padded_analysis_context_api_surface() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": " browser ",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["semver"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("whitespace-padded analysisContext apiSurface should fail validation");
+    assert!(
+        err.contains("must not have leading or trailing whitespace"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_accepts_jsr_canonical_report_labels() {
     let value = json!({
         "schemaVersion": 1,
