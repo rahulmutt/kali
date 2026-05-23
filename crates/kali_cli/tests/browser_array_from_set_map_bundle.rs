@@ -30,6 +30,9 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze((globalThis['Array'])["from"])(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze((globalThis['Array'])['from'])(new Set(setValues))) {
+    console.log(value);
+  }
   for (const value of Object.freeze((null ?? globalThis["Array"].from))(new Set(setValues))) {
     console.log(value);
   }
@@ -113,6 +116,7 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     assert!(source.contains(r#"Object.freeze((globalThis["Array"])["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis['Array']).from)"#));
     assert!(source.contains(r#"Object.freeze((globalThis['Array'])["from"])"#));
+    assert!(source.contains(r#"Object.freeze((globalThis['Array'])['from'])"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array).from)"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array)["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array)['from'])"#));
