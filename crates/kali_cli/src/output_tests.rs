@@ -3091,6 +3091,41 @@ fn validate_package_effects_payload_value_accepts_the_current_contract_shape() {
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_unknown_analysis_context_api_surface() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "semver",
+            "version": "7.6.3",
+            "registry": "npm",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "desktop",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": ["semver"],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("unknown analysisContext apiSurface should fail validation");
+    assert!(err.contains("apiSurface"), "unexpected error: {err}");
+    assert!(
+        err.contains("default")
+            && err.contains("deno")
+            && err.contains("node")
+            && err.contains("browser"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_accepts_jsr_canonical_report_labels() {
     let value = json!({
         "schemaVersion": 1,

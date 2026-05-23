@@ -1179,7 +1179,18 @@ fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Resu
         context,
     )?;
 
-    validate_non_empty_string_value(object.get("apiSurface"), &format!("{context} apiSurface"))?;
+    validate_canonical_non_empty_string_value(
+        object.get("apiSurface"),
+        &format!("{context} apiSurface"),
+    )?;
+
+    match object.get("apiSurface").and_then(Value::as_str) {
+        Some("default") | Some("deno") | Some("node") | Some("browser") => {}
+        Some(other) => return Err(format!(
+            "{context} apiSurface must be `default`, `deno`, `node`, or `browser`, got `{other}`"
+        )),
+        None => unreachable!("validated above"),
+    }
 
     validate_sorted_string_array_value(
         object.get("runtimeProfiles"),
