@@ -12660,6 +12660,34 @@ fn validate_artifact_metadata_value_rejects_empty_or_whitespace_build_mode() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_padded_canonical_labels() {
+    for (field, invalid_value) in [("artifactKind", " component "), ("buildMode", " release ")] {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": if field == "artifactKind" { invalid_value } else { "component" },
+            "entrypoint": "src/main.ts",
+            "buildMode": if field == "buildMode" { invalid_value } else { "release" },
+            "apiSurface": "browser",
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": []
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("padded canonical labels should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_empty_or_whitespace_entrypoint_and_api_surface() {
     for (field, invalid_value) in [
         ("entrypoint", ""),
@@ -13519,6 +13547,56 @@ fn validate_build_result_value_rejects_empty_artifact_kind() {
         let err = validate_build_result_value(&invalid_result)
             .expect_err("empty artifact kind should fail validation");
         assert!(err.contains("artifactKind"), "unexpected error: {err}");
+    }
+}
+
+#[test]
+fn validate_build_result_value_rejects_padded_canonical_labels() {
+    for (field, invalid_result) in [
+        (
+            "artifactKind",
+            serde_json::json!({
+                "artifactKind": " bundle ",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+            }),
+        ),
+        (
+            "buildMode",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": " release-advanced ",
+                "sourceHash": "sha256-deadbeef",
+            }),
+        ),
+        (
+            "bundleFormat",
+            serde_json::json!({
+                "artifactKind": "bundle",
+                "outputPath": "/workspace/dist/browser",
+                "sizeBytes": 42,
+                "buildMode": "release-advanced",
+                "sourceHash": "sha256-deadbeef",
+                "artifacts": [
+                    { "kind": "js-glue", "path": "browser.js" },
+                    { "kind": "wasm-module", "path": "browser.wasm" }
+                ],
+                "exports": [],
+                "bundleFormat": " esm "
+            }),
+        ),
+    ] {
+        let err = validate_build_result_value(&invalid_result)
+            .expect_err("padded canonical labels should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
     }
 }
 

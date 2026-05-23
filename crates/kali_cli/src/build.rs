@@ -2083,13 +2083,11 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => unreachable!("validated above"),
     }
 
+    validate_canonical_non_empty_string_field(
+        object.get("artifactKind"),
+        "artifact metadata artifactKind",
+    )?;
     match object.get("artifactKind") {
-        Some(Value::String(kind)) if kind.trim().is_empty() => {
-            return Err(
-                "artifact metadata artifactKind must be a non-empty, non-whitespace string"
-                    .to_string(),
-            )
-        }
         Some(Value::String(kind)) if VALID_ARTIFACT_KINDS.contains(&kind.as_str()) => {}
         Some(Value::String(kind)) => {
             return Err(format!("unsupported artifact metadata kind '{kind}'"));
@@ -2118,13 +2116,11 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => unreachable!("validated above"),
     }
 
+    validate_canonical_non_empty_string_field(
+        object.get("buildMode"),
+        "artifact metadata buildMode",
+    )?;
     match object.get("buildMode") {
-        Some(Value::String(mode)) if mode.trim().is_empty() => {
-            return Err(
-                "artifact metadata buildMode must be a non-empty, non-whitespace string"
-                    .to_string(),
-            );
-        }
         Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
         Some(Value::String(mode)) => {
             return Err(format!("unsupported artifact metadata buildMode '{mode}'"));
@@ -2263,16 +2259,6 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         return Err("build result must be a JSON object".to_string());
     };
 
-    let artifact_kind = object
-        .get("artifactKind")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "build result field 'artifactKind' must be a string".to_string())?;
-    if artifact_kind.trim().is_empty() {
-        return Err(
-            "build result artifactKind must be a non-empty, non-whitespace string".to_string(),
-        );
-    }
-
     for key in [
         "artifactKind",
         "outputPath",
@@ -2284,6 +2270,15 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
             return Err(format!("build result is missing required key `{key}`"));
         }
     }
+
+    validate_canonical_non_empty_string_field(
+        object.get("artifactKind"),
+        "build result artifactKind",
+    )?;
+    let artifact_kind = object
+        .get("artifactKind")
+        .and_then(Value::as_str)
+        .expect("validated above");
 
     validate_non_empty_string_field(object.get("outputPath"), "build result outputPath")?;
 
@@ -2299,12 +2294,8 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
 
     const VALID_BUILD_MODES: [&str; 3] = ["fast", "release", "release-advanced"];
 
+    validate_canonical_non_empty_string_field(object.get("buildMode"), "build result buildMode")?;
     match object.get("buildMode") {
-        Some(Value::String(mode)) if mode.trim().is_empty() => {
-            return Err(
-                "build result buildMode must be a non-empty, non-whitespace string".to_string(),
-            );
-        }
         Some(Value::String(mode)) if VALID_BUILD_MODES.contains(&mode.as_str()) => {}
         Some(Value::String(mode)) => {
             return Err(format!("unsupported build result buildMode '{mode}'"));
@@ -2448,13 +2439,11 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                 "build result artifacts",
             )?;
             validate_build_result_exports_array(object.get("exports"), "build result exports")?;
+            validate_canonical_non_empty_string_field(
+                object.get("bundleFormat"),
+                "build result bundleFormat",
+            )?;
             match object.get("bundleFormat") {
-                Some(Value::String(format)) if format.trim().is_empty() => {
-                    return Err(
-                        "build result bundleFormat must be a non-empty, non-whitespace string"
-                            .to_string(),
-                    );
-                }
                 Some(Value::String(format)) if matches!(format.as_str(), "esm" | "cjs") => {}
                 Some(Value::String(format)) => {
                     return Err(format!("unsupported build result bundleFormat '{format}'"));
@@ -2775,6 +2764,29 @@ fn validate_non_empty_string_field(value: Option<&Value>, context: &str) -> Resu
         Some(Value::String(_)) => Err(format!(
             "{context} must be a non-empty, non-whitespace string"
         )),
+        Some(other) => Err(format!("{context} must be a string, got {other}")),
+        None => Err(format!("{context} is missing required key")),
+    }
+}
+
+fn validate_canonical_non_empty_string_field(
+    value: Option<&Value>,
+    context: &str,
+) -> Result<(), String> {
+    match value {
+        Some(Value::String(value)) => {
+            if value.trim().is_empty() {
+                Err(format!(
+                    "{context} must be a non-empty, non-whitespace string"
+                ))
+            } else if value.trim() != value {
+                Err(format!(
+                    "{context} must not have leading or trailing whitespace"
+                ))
+            } else {
+                Ok(())
+            }
+        }
         Some(other) => Err(format!("{context} must be a string, got {other}")),
         None => Err(format!("{context} is missing required key")),
     }
