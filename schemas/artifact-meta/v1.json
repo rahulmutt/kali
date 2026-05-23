@@ -29,7 +29,8 @@
     },
     "entrypoint": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "buildMode": {
       "type": "string",
@@ -41,7 +42,8 @@
     },
     "apiSurface": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "runtimeProfiles": {
       "type": "array",
@@ -54,23 +56,28 @@
     },
     "hostContract": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "runtimeBackend": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "kaliVersion": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "sourceHash": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "profileDataHash": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
     },
     "exports": {
       "type": "array",
@@ -84,11 +91,13 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
           },
           "signature": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
           }
         }
       }

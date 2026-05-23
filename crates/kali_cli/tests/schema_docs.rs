@@ -258,12 +258,12 @@ fn core_schema_documents_match_current_cli_contracts() {
         );
         assert_eq!(
             build_variants[variant_index]["properties"]["exports"]["items"]["properties"]["name"],
-            serde_json::json!({"type": "string", "minLength": 1})
+            serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
         );
         assert_eq!(
             build_variants[variant_index]["properties"]["exports"]["items"]["properties"]
                 ["signature"],
-            serde_json::json!({"type": "string", "minLength": 1})
+            serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
         );
     }
 
@@ -568,7 +568,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         artifact_meta["properties"]["entrypoint"],
-        serde_json::json!({"type": "string", "minLength": 1})
+        serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
     );
     assert_eq!(artifact_meta["properties"]["buildMode"]["type"], "string");
     assert_eq!(
@@ -577,7 +577,7 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         artifact_meta["properties"]["apiSurface"],
-        serde_json::json!({"type": "string", "minLength": 1})
+        serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
     );
     assert_eq!(
         artifact_meta["properties"]["runtimeProfiles"]["type"],
@@ -620,11 +620,11 @@ fn core_schema_documents_match_current_cli_contracts() {
     );
     assert_eq!(
         artifact_meta["properties"]["exports"]["items"]["properties"]["name"],
-        serde_json::json!({"type": "string", "minLength": 1})
+        serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
     );
     assert_eq!(
         artifact_meta["properties"]["exports"]["items"]["properties"]["signature"],
-        serde_json::json!({"type": "string", "minLength": 1})
+        serde_json::json!({"type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$"})
     );
 
     let schemas_18 =

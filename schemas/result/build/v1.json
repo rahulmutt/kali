@@ -19,7 +19,8 @@
         },
         "outputPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "sizeBytes": {
           "type": "integer",
@@ -35,19 +36,23 @@
         },
         "sourceHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "hostContract": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "runtimeBackend": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "profileDataHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         }
       }
     },
@@ -71,7 +76,8 @@
         },
         "outputPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "sizeBytes": {
           "type": "integer",
@@ -87,27 +93,33 @@
         },
         "sourceHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "hostContract": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "runtimeBackend": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "metadataPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "witPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "profileDataHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "exports": {
           "type": "array",
@@ -121,11 +133,13 @@
             "properties": {
               "name": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               },
               "signature": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               }
             }
           }
@@ -157,7 +171,8 @@
         },
         "outputPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "sizeBytes": {
           "type": "integer",
@@ -173,19 +188,23 @@
         },
         "sourceHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "hostContract": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "runtimeBackend": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "profileDataHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "bundleFormat": {
           "type": "string",
@@ -212,11 +231,13 @@
             "properties": {
               "name": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               },
               "signature": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               }
             }
           }
@@ -244,7 +265,8 @@
         },
         "outputPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "sizeBytes": {
           "type": "integer",
@@ -260,31 +282,38 @@
         },
         "sourceHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "hostContract": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "runtimeBackend": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "metadataPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "witPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "headerPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "profileDataHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "artifacts": {
           "type": "array",
@@ -304,11 +333,13 @@
             "properties": {
               "name": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               },
               "signature": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               }
             }
           }
@@ -336,7 +367,8 @@
         },
         "outputPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "sizeBytes": {
           "type": "integer",
@@ -352,31 +384,38 @@
         },
         "sourceHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "hostContract": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "runtimeBackend": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "metadataPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "witPath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "bindingPackagePath": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "profileDataHash": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "artifacts": {
           "type": "array",
@@ -396,11 +435,13 @@
             "properties": {
               "name": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               },
               "signature": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "pattern": "^\\S(?:.*\\S)?$"
               }
             }
           }
@@ -437,7 +478,8 @@
         },
         "path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
         },
         "role": {
           "type": "string"
