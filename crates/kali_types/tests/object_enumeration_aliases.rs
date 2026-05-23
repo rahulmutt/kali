@@ -46,7 +46,7 @@ fn parenthesized_object_enumeration_aliases_are_accepted_in_js_like_input() {
     const obj = Object.fromEntries([["b", 1], ["a", 2]]);
     const frozenKeys = Object.freeze((globalThis.Object.keys))(obj);
     const frozenValues = Object.freeze((globalThis.Object.values))(obj);
-    const frozenEntries = Object.freeze((globalThis["Object"].entries))(obj);
+    const frozenEntries = Object.freeze((globalThis.Object.entries))(obj);
     for (const key of frozenKeys) {
         console.log(key);
     }
