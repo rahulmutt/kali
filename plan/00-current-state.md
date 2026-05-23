@@ -25,6 +25,7 @@ The checked-in repository already includes:
 - The shared `Reflect.ownKeys` smoke inventory now also covers the parenthesized dot-root bracketed alias `Object.freeze((globalThis.Reflect)["ownKeys"])`, and the runtime smoke lanes mirror that same wrapper form.
 
 - CLI commands: `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
+- The README command reference now also includes the canonical `jsr:@std/path` `package-effects` / `package-audit` examples that match the CLI chapter's registry-analysis contract.
 - The envelope-only `package-audit` JSON contract now also hard-fails standalone `--pretty` before registry lookup, keeping the JSON-mode gate explicit.
 - Static-literal analysis now also unwraps await-wrapped numeric literals in the bounded inference path, keeping cheap wrapper handling consistent across the checker.
 - Static string-key resolution now also accepts same-branch conditional expressions in the bounded-literal path, keeping `Object.hasOwn` and related static-key helpers aligned with the other deterministic wrapper slices.
