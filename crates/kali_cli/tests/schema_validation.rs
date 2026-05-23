@@ -167,3 +167,56 @@ fn build_result_artifacts_reject_duplicate_kind_path_pairs() {
         "unexpected error: {error}"
     );
 }
+
+#[test]
+fn build_result_artifacts_reject_whitespace_padded_kind_and_path() {
+    let build_result = json!({
+        "artifactKind": "lib",
+        "outputPath": "out/lib.wasm",
+        "sizeBytes": 42,
+        "buildMode": "release",
+        "sourceHash": "sha256-test",
+        "metadataPath": "out/lib.json",
+        "witPath": "out/lib.wit",
+        "artifacts": [
+            {"kind": " first", "path": "out/a.wasm"},
+            {"kind": "second", "path": "out/b.wasm "}
+        ],
+        "exports": [
+            {"name": "foo", "signature": "func()"}
+        ]
+    });
+
+    let error = build::validate_build_result_value(&build_result)
+        .expect_err("whitespace-padded artifact entries should be rejected");
+    assert!(
+        error.contains("must not have leading or trailing whitespace"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn cli_envelope_artifacts_reject_whitespace_padded_kind_and_path() {
+    let envelope = json!({
+        "schemaVersion": 1,
+        "command": "build",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": {"artifactKind": "executable"},
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "artifacts": [
+            {"kind": " first", "path": "out/a.wasm", "bytes": 1},
+            {"kind": "second", "path": "out/b.wasm ", "bytes": 2}
+        ],
+    });
+
+    let error = output::validate_envelope_value(&envelope)
+        .expect_err("whitespace-padded CLI envelope artifacts should be rejected");
+    assert!(
+        error.contains("must not have leading or trailing whitespace"),
+        "unexpected error: {error}"
+    );
+}

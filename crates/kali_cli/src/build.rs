@@ -2541,7 +2541,7 @@ fn validate_build_result_artifacts_array(
 
         match object.get("kind") {
             Some(Value::String(_)) => {
-                validate_non_empty_string_field(
+                validate_canonical_non_empty_string_field(
                     object.get("kind"),
                     &format!("{context}[{index}].kind"),
                 )?;
@@ -2553,7 +2553,10 @@ fn validate_build_result_artifacts_array(
             }
             None => return Err(format!("{context}[{index}] is missing required key `kind`")),
         }
-        validate_non_empty_string_field(object.get("path"), &format!("{context}[{index}].path"))?;
+        validate_canonical_non_empty_string_field(
+            object.get("path"),
+            &format!("{context}[{index}].path"),
+        )?;
 
         let kind = object
             .get("kind")

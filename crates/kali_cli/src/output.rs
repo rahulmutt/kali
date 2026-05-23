@@ -1871,7 +1871,7 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
 
         match object.get("path") {
             Some(Value::String(_)) => {
-                validate_non_empty_string_value(
+                validate_canonical_non_empty_string_value(
                     object.get("path"),
                     &format!("CLI envelope artifacts[{index}].path"),
                 )?;
@@ -1889,7 +1889,7 @@ fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {
         }
         match object.get("kind") {
             Some(Value::String(_)) => {
-                validate_non_empty_string_value(
+                validate_canonical_non_empty_string_value(
                     object.get("kind"),
                     &format!("CLI envelope artifacts[{index}].kind"),
                 )?;
