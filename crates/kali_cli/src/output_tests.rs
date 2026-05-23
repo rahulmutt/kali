@@ -3644,6 +3644,29 @@ fn validate_install_payload_value_rejects_whitespace_manifest_and_lock_paths() {
 }
 
 #[test]
+fn validate_install_payload_value_rejects_empty_manifest_and_lock_paths() {
+    for (field, value) in [("manifestPath", json!("")), ("lockPath", json!(""))] {
+        let payload = json!({
+            "manifestPath": "/workspace/example/kali.json",
+            "lockPath": null,
+            "installed": [],
+            "updated": [],
+            "removed": [],
+        });
+        let mut payload = payload.as_object().expect("install payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_install_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("empty install payload path should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_package_audit_payload_value_accepts_null() {
     validate_package_audit_payload_value(&serde_json::Value::Null)
         .expect("package-audit payload should validate");
