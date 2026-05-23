@@ -2100,21 +2100,10 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => unreachable!("validated above"),
     }
 
-    match object.get("entrypoint") {
-        Some(Value::String(value)) if !value.trim().is_empty() => {}
-        Some(Value::String(_)) => {
-            return Err(
-                "artifact metadata entrypoint must be a non-empty, non-whitespace string"
-                    .to_string(),
-            )
-        }
-        Some(other) => {
-            return Err(format!(
-                "artifact metadata entrypoint must be a string, got {other}"
-            ));
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_canonical_non_empty_string_field(
+        object.get("entrypoint"),
+        "artifact metadata entrypoint",
+    )?;
 
     validate_canonical_non_empty_string_field(
         object.get("buildMode"),
@@ -2133,21 +2122,10 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         None => unreachable!("validated above"),
     }
 
-    match object.get("apiSurface") {
-        Some(Value::String(value)) if !value.trim().is_empty() => {}
-        Some(Value::String(_)) => {
-            return Err(
-                "artifact metadata apiSurface must be a non-empty, non-whitespace string"
-                    .to_string(),
-            )
-        }
-        Some(other) => {
-            return Err(format!(
-                "artifact metadata apiSurface must be a string, got {other}"
-            ));
-        }
-        None => unreachable!("validated above"),
-    }
+    validate_canonical_non_empty_string_field(
+        object.get("apiSurface"),
+        "artifact metadata apiSurface",
+    )?;
 
     validate_sorted_string_array_value(
         object.get("runtimeProfiles"),

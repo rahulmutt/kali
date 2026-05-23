@@ -12713,6 +12713,34 @@ fn validate_artifact_metadata_value_rejects_padded_canonical_labels() {
 }
 
 #[test]
+fn validate_artifact_metadata_value_rejects_padded_entrypoint_and_api_surface() {
+    for (field, invalid_value) in [("entrypoint", " src/main.ts "), ("apiSurface", " browser ")] {
+        let invalid_metadata = serde_json::json!({
+            "schemaVersion": 1,
+            "artifactKind": "component",
+            "entrypoint": if field == "entrypoint" { invalid_value } else { "src/main.ts" },
+            "buildMode": "release",
+            "apiSurface": if field == "apiSurface" { invalid_value } else { "browser" },
+            "runtimeProfiles": ["wasm-threads"],
+            "maxSpecializations": 24,
+            "hostContract": "kali-hosted",
+            "runtimeBackend": "wasmtime",
+            "kaliVersion": "1.2.3",
+            "sourceHash": "sha256-deadbeef",
+            "exports": []
+        });
+
+        let err = validate_artifact_metadata_value(&invalid_metadata)
+            .expect_err("padded artifact metadata fields should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_artifact_metadata_value_rejects_padded_export_names_and_signatures() {
     for (field, invalid_value) in [("name", " main "), ("signature", " (input) => number ")] {
         let invalid_metadata = serde_json::json!({
