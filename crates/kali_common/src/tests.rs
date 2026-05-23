@@ -1329,6 +1329,9 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis['Object'])['hasOwn'])"#,
         r#"Object.freeze(globalThis['Object']['hasOwn'])"#,
         r#"Object.freeze((globalThis['Object']['hasOwn']))"#,
+        r#"Object.freeze((null ?? Object.hasOwn))"#,
+        r#"Object.freeze((true && Object.hasOwn))"#,
+        r#"Object.freeze((false || Object.hasOwn))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
@@ -1435,6 +1438,9 @@ fn test_object_has_own_property_call_frozen_callable_source_lists_all_aliases_in
         r#"Object.freeze((Object["prototype"].hasOwnProperty.call))"#,
         r#"Object.freeze(Object["prototype"]["hasOwnProperty"]["call"])"#,
         r#"Object.freeze((Object["prototype"]["hasOwnProperty"]["call"]))"#,
+        r#"Object.freeze((null ?? Object.prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze((true && Object.prototype.hasOwnProperty.call))"#,
+        r#"Object.freeze((false || Object.prototype.hasOwnProperty.call))"#,
         r#"Object.freeze(Object.prototype.hasOwnProperty["call"])"#,
         r#"Object.freeze((Object.prototype.hasOwnProperty["call"]))"#,
         r#"Object.freeze(Object["prototype"].hasOwnProperty["call"])"#,
