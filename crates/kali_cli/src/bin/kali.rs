@@ -1160,7 +1160,10 @@ fn reject_unavailable_runtime_profiles(
 }
 
 fn browser_runtime_harness_command_available() -> bool {
-    std::env::var_os(BROWSER_HARNESS_COMMAND_ENV).is_some()
+    std::env::var(BROWSER_HARNESS_COMMAND_ENV)
+        .ok()
+        .as_deref()
+        .is_some_and(|command| browser_harness_command_parts_checked(Some(command)).is_ok())
 }
 
 fn reject_unavailable_browser_runtime(
