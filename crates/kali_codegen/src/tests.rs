@@ -4453,6 +4453,30 @@ fn supported_for_of_array_iteration_accepts_frozen_single_quoted_global_this_arr
 }
 
 #[test]
+fn supported_for_of_array_iteration_accepts_frozen_parenthesized_global_this_array_single_quoted_from_calls(
+) {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for (const item of Object.freeze((globalThis.Array))['from'](values)) { console.log(item); } for (const item of Object.freeze((globalThis[\"Array\"]))['from'](values)) { console.log(item); } for (const item of Object.freeze((globalThis['Array']))[\"from\"](values)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_of_array_iteration_accepts_parenthesized_frozen_array_from_calls() {
     let program = parse_and_lower_lir(
         "const values = [1, 2]; for (const item of Object.freeze((Array.from))(values)) { console.log(item); }",
