@@ -1186,9 +1186,11 @@ fn validate_analysis_context_value(value: Option<&Value>, context: &str) -> Resu
 
     match object.get("apiSurface").and_then(Value::as_str) {
         Some("default") | Some("deno") | Some("node") | Some("browser") => {}
-        Some(other) => return Err(format!(
+        Some(other) => {
+            return Err(format!(
             "{context} apiSurface must be `default`, `deno`, `node`, or `browser`, got `{other}`"
-        )),
+        ))
+        }
         None => unreachable!("validated above"),
     }
 

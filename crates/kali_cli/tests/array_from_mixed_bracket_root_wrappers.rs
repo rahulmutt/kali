@@ -12,11 +12,11 @@ fn kali_bin() -> String {
 }
 
 fn mixed_bracket_array_from_source() -> &'static str {
-    r##"const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']); const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]); for (const value of mixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of mixedRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of mixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of mixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }"##
+    r##"const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']); const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]); const parenthesizedMixedBracketArrayFrom = Object.freeze((globalThis["Array"]['from'])); const parenthesizedMixedRootArrayFrom = Object.freeze((globalThis['Array']["from"])); for (const value of mixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of mixedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of parenthesizedMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of parenthesizedMixedRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of mixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of mixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of parenthesizedMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of parenthesizedMixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }"##
 }
 
 fn mixed_bracket_array_from_test_source() -> &'static str {
-    r##"Kali.test('mixed-quote bracketed Array.from aliases', () => { const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']); const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]); for (const value of mixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of mixedRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of mixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of mixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } });"##
+    r##"Kali.test('mixed-quote bracketed Array.from aliases', () => { const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']); const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]); const parenthesizedMixedBracketArrayFrom = Object.freeze((globalThis["Array"]['from'])); const parenthesizedMixedRootArrayFrom = Object.freeze((globalThis['Array']["from"])); for (const value of mixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of mixedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of parenthesizedMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of parenthesizedMixedRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of mixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of mixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of parenthesizedMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of parenthesizedMixedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } });"##
 }
 
 fn browser_requested_mixed_bracket_array_from_run_source() -> &'static str {
@@ -25,10 +25,18 @@ fn browser_requested_mixed_bracket_array_from_run_source() -> &'static str {
   const mapValues = [[1, 2], [1, 3], [4, 5]];
   const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']);
   const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]);
+  const parenthesizedMixedBracketArrayFrom = Object.freeze((globalThis["Array"]['from']));
+  const parenthesizedMixedRootArrayFrom = Object.freeze((globalThis['Array']["from"]));
   for (const value of mixedBracketArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const value of mixedRootArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of parenthesizedMixedBracketArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of parenthesizedMixedRootArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const entry of mixedBracketArrayFrom(new Map(mapValues))) {
@@ -36,6 +44,14 @@ fn browser_requested_mixed_bracket_array_from_run_source() -> &'static str {
     console.log(entry[1]);
   }
   for (const entry of mixedRootArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of parenthesizedMixedBracketArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of parenthesizedMixedRootArrayFrom(new Map(mapValues))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -52,10 +68,18 @@ fn browser_requested_mixed_bracket_array_from_test_source() -> &'static str {
     const mapValues = [[1, 2], [1, 3], [4, 5]];
     const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']);
     const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]);
+    const parenthesizedMixedBracketArrayFrom = Object.freeze((globalThis["Array"]['from']));
+    const parenthesizedMixedRootArrayFrom = Object.freeze((globalThis['Array']["from"]));
     for (const value of mixedBracketArrayFrom(new Set(values))) {
       console.log(value);
     }
     for (const value of mixedRootArrayFrom(new Set(values))) {
+      console.log(value);
+    }
+    for (const value of parenthesizedMixedBracketArrayFrom(new Set(values))) {
+      console.log(value);
+    }
+    for (const value of parenthesizedMixedRootArrayFrom(new Set(values))) {
       console.log(value);
     }
     for (const entry of mixedBracketArrayFrom(new Map(mapValues))) {
@@ -63,6 +87,14 @@ fn browser_requested_mixed_bracket_array_from_test_source() -> &'static str {
       console.log(entry[1]);
     }
     for (const entry of mixedRootArrayFrom(new Map(mapValues))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of parenthesizedMixedBracketArrayFrom(new Map(mapValues))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of parenthesizedMixedRootArrayFrom(new Map(mapValues))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -80,10 +112,18 @@ export async function mixedBracketArrayFromWrappers() {
   const mapValues = [[1, 2], [1, 3], [4, 5]];
   const mixedBracketArrayFrom = Object.freeze(globalThis["Array"]['from']);
   const mixedRootArrayFrom = Object.freeze(globalThis['Array']["from"]);
+  const parenthesizedMixedBracketArrayFrom = Object.freeze((globalThis["Array"]['from']));
+  const parenthesizedMixedRootArrayFrom = Object.freeze((globalThis['Array']["from"]));
   for (const value of mixedBracketArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const value of mixedRootArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of parenthesizedMixedBracketArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of parenthesizedMixedRootArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const entry of mixedBracketArrayFrom(new Map(mapValues))) {
@@ -91,6 +131,14 @@ export async function mixedBracketArrayFromWrappers() {
     console.log(entry[1]);
   }
   for (const entry of mixedRootArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of parenthesizedMixedBracketArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of parenthesizedMixedRootArrayFrom(new Map(mapValues))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -124,7 +172,7 @@ fn assert_standalone_mixed_bracket_array_from(command: &str, filename: &str) {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
     if command == "test" {
@@ -194,7 +242,9 @@ fn assert_browser_requested_mixed_bracket_array_from(
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(
-            stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+            stdout.contains(
+                "1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+            ),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
@@ -202,7 +252,9 @@ fn assert_browser_requested_mixed_bracket_array_from(
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+            stdout.contains(
+                "1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
+            ),
             "stdout: {stdout}"
         );
         if command == "test" {
