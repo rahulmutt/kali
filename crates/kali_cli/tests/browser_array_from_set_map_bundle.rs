@@ -27,6 +27,24 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze(globalThis["Array"]["from"])(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze((null ?? globalThis["Array"].from))(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis["Array"].from))(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis["Array"].from))(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((null ?? globalThis["Array"]["from"]))(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((true && globalThis["Array"]["from"]))(new Set(setValues))) {
+    console.log(value);
+  }
+  for (const value of Object.freeze((false || globalThis["Array"]["from"]))(new Set(setValues))) {
+    console.log(value);
+  }
   for (const value of Object.freeze(globalThis['Array']['from'])(new Set(setValues))) {
     console.log(value);
   }
@@ -88,6 +106,12 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     assert!(source.contains(r#"Object.freeze((globalThis["Array"]))["from"]"#));
     assert!(source.contains(r#"Object.freeze((globalThis['Array']))["from"]"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array))["from"]"#));
+    assert!(source.contains(r#"Object.freeze((null ?? globalThis["Array"].from))"#));
+    assert!(source.contains(r#"Object.freeze((true && globalThis["Array"].from))"#));
+    assert!(source.contains(r#"Object.freeze((false || globalThis["Array"].from))"#));
+    assert!(source.contains(r#"Object.freeze((null ?? globalThis["Array"]["from"]))"#));
+    assert!(source.contains(r#"Object.freeze((true && globalThis["Array"]["from"]))"#));
+    assert!(source.contains(r#"Object.freeze((false || globalThis["Array"]["from"]))"#));
     fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
