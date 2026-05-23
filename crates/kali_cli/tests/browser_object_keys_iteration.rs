@@ -22,6 +22,16 @@ function browserObjectKeysIteration() {
   for (const key of Object.keys(alias)) {
     keys.push(key);
   }
+  const mixedBracketed = [];
+  for (const key of globalThis["Object"].keys(alias)) {
+    mixedBracketed.push(key);
+  }
+  const mixedSingleQuoted = [];
+  for (const key of globalThis['Object']["keys"](alias)) {
+    mixedSingleQuoted.push(key);
+  }
+  assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(mixedSingleQuoted);
   assertObjectKeysIteration(keys);
 }
 "##
@@ -72,14 +82,23 @@ function browserGlobalObjectKeysIteration() {
   for (const key of globalThis["Object"]["keys"](alias)) {
     bracketed.push(key);
   }
+  const mixedSingleQuoted = [];
+  for (const key of globalThis['Object']["keys"](alias)) {
+    mixedSingleQuoted.push(key);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const key of globalThis['Object']['keys'](alias)) {
+    mixedSingleQuotedBracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(mixed);
   assertObjectKeysIteration(mixedBracketed);
   assertObjectKeysIteration(bracketed);
+  assertObjectKeysIteration(mixedSingleQuoted);
+  assertObjectKeysIteration(mixedSingleQuotedBracketed);
 }
 "##
 }
-
 fn browser_bundle_await_wrapped_static_object_helpers_source() -> &'static str {
     r##"// kali-tree-shake: browserAwaitWrappedStaticObjectHelpers
 async function browserAwaitWrappedStaticObjectHelpers() {

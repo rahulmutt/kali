@@ -1182,16 +1182,22 @@ impl TypeContext {
                 | "globalThis.Object['entries']"
                 | r#"globalThis["Object"].keys"#
                 | r#"globalThis["Object"]["keys"]"#
+                | r#"globalThis["Object"]['keys']"#
                 | r#"globalThis['Object'].keys"#
                 | r#"globalThis['Object']['keys']"#
+                | r#"globalThis['Object']["keys"]"#
                 | r#"globalThis["Object"].values"#
                 | r#"globalThis["Object"]["values"]"#
+                | r#"globalThis["Object"]['values']"#
                 | r#"globalThis['Object'].values"#
                 | r#"globalThis['Object']['values']"#
+                | r#"globalThis['Object']["values"]"#
                 | r#"globalThis["Object"].entries"#
                 | r#"globalThis["Object"]["entries"]"#
+                | r#"globalThis["Object"]['entries']"#
                 | r#"globalThis['Object'].entries"#
                 | r#"globalThis['Object']['entries']"#
+                | r#"globalThis['Object']["entries"]"#
                 | "Reflect.ownKeys"
                 | "Reflect[\"ownKeys\"]"
                 | "Reflect['ownKeys']"
@@ -2410,8 +2416,10 @@ impl TypeContext {
                 | Some("globalThis.Reflect['ownKeys']")
                 | Some(r#"globalThis["Reflect"].ownKeys"#)
                 | Some(r#"globalThis["Reflect"]["ownKeys"]"#)
+                | Some(r#"globalThis["Reflect"]['ownKeys']"#)
                 | Some(r#"globalThis['Reflect'].ownKeys"#)
                 | Some(r#"globalThis['Reflect']['ownKeys']"#)
+                | Some(r#"globalThis['Reflect']["ownKeys"]"#)
         ) && call.args.len() == 1
     }
 

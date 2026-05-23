@@ -11,6 +11,8 @@ This file records the planning baseline for the active continuation roadmap. It 
 
 ## Live surface at a glance
 
+- The supported object-enumeration helper alias inventory now also accepts mixed-quote bracket-root `globalThis["Object"]['keys']` / `globalThis['Object']["keys"]` spellings, plus dot-root bracket/quote `globalThis["Object"].keys` / `globalThis['Object'].keys` and `globalThis["Reflect"].ownKeys` / `globalThis['Reflect'].ownKeys` spellings, with matching `values` / `entries` / `Reflect.ownKeys` coverage in the checker, codegen, and browser-bundle smoke lanes.
+
 The checked-in repository already includes:
 
 - The browser-harness/browser-bundle `Math.round` smoke matrix now also covers the parenthesized mixed-quoted-bracketed, single-quoted-bracketed-dot, and parenthesized double-quoted bracket-root aliases, and the shared browser-harness source now also exercises nullish/logical wrappers around the direct, dot-root, and bracket-root `Math.round` aliases.

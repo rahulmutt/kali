@@ -5333,8 +5333,10 @@ impl<'a> FunctionEmitter<'a> {
                     || text == "globalThis.Object['keys']"
                     || text == r#"globalThis["Object"].keys"#
                     || text == r#"globalThis["Object"]["keys"]"#
+                    || text == r#"globalThis["Object"]['keys']"#
                     || text == r#"globalThis['Object'].keys"#
-                    || text == r#"globalThis['Object']['keys']"# =>
+                    || text == r#"globalThis['Object']['keys']"#
+                    || text == r#"globalThis['Object']["keys"]"# =>
             {
                 ObjectEnumerationMode::Keys
             }
@@ -5351,8 +5353,10 @@ impl<'a> FunctionEmitter<'a> {
                     || text == "globalThis.Reflect['ownKeys']"
                     || text == r#"globalThis["Reflect"].ownKeys"#
                     || text == r#"globalThis["Reflect"]["ownKeys"]"#
+                    || text == r#"globalThis["Reflect"]['ownKeys']"#
                     || text == r#"globalThis['Reflect'].ownKeys"#
-                    || text == r#"globalThis['Reflect']['ownKeys']"# =>
+                    || text == r#"globalThis['Reflect']['ownKeys']"#
+                    || text == r#"globalThis['Reflect']["ownKeys"]"# =>
             {
                 ObjectEnumerationMode::ReflectOwnKeys
             }
@@ -5369,8 +5373,10 @@ impl<'a> FunctionEmitter<'a> {
                     || text == "globalThis.Object['values']"
                     || text == r#"globalThis["Object"].values"#
                     || text == r#"globalThis["Object"]["values"]"#
+                    || text == r#"globalThis["Object"]['values']"#
                     || text == r#"globalThis['Object'].values"#
-                    || text == r#"globalThis['Object']['values']"# =>
+                    || text == r#"globalThis['Object']['values']"#
+                    || text == r#"globalThis['Object']["values"]"# =>
             {
                 ObjectEnumerationMode::Values
             }
@@ -5387,8 +5393,10 @@ impl<'a> FunctionEmitter<'a> {
                     || text == "globalThis.Object['entries']"
                     || text == r#"globalThis["Object"].entries"#
                     || text == r#"globalThis["Object"]["entries"]"#
+                    || text == r#"globalThis["Object"]['entries']"#
                     || text == r#"globalThis['Object'].entries"#
-                    || text == r#"globalThis['Object']['entries']"# =>
+                    || text == r#"globalThis['Object']['entries']"#
+                    || text == r#"globalThis['Object']["entries"]"# =>
             {
                 ObjectEnumerationMode::Entries
             }

@@ -182,6 +182,18 @@ fn test_resolution_supports_bracketed_reflect_own_keys_iteration_target_in_js_in
     let source = r#"for (const key of globalThis["Reflect"]["ownKeys"]({ a: 1 })) {
     console.log(key);
 }
+for (const key of globalThis["Reflect"].ownKeys({ a: 1 })) {
+    console.log(key);
+}
+for (const key of globalThis["Reflect"]['ownKeys']({ a: 1 })) {
+    console.log(key);
+}
+for (const key of globalThis['Reflect'].ownKeys({ a: 1 })) {
+    console.log(key);
+}
+for (const key of globalThis['Reflect']["ownKeys"]({ a: 1 })) {
+    console.log(key);
+}
 for (const key of globalThis['Reflect']['ownKeys']({ a: 1 })) {
     console.log(key);
 }
@@ -9782,6 +9794,14 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
     const obj = Object.fromEntries([["b", 1], ["a", 2]]);
     const frozenKeys = Object.freeze(Object["keys"])(obj);
     const frozenValues = Object.freeze(globalThis.Object["values"])(obj);
+    const mixedBracketedKeys = Object.freeze(globalThis["Object"]['keys'])(obj);
+    const mixedSingleQuotedKeys = Object.freeze(globalThis['Object']["keys"])(obj);
+    const mixedBracketedValues = Object.freeze(globalThis["Object"]['values'])(obj);
+    const mixedSingleQuotedValues = Object.freeze(globalThis['Object']["values"])(obj);
+    const mixedBracketedEntries = Object.freeze(globalThis["Object"]['entries'])(obj);
+    const mixedSingleQuotedEntries = Object.freeze(globalThis['Object']["entries"])(obj);
+    const mixedBracketedOwnKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj);
+    const mixedSingleQuotedOwnKeys = Object.freeze(globalThis['Reflect']["ownKeys"])(obj);
     const frozenBracketedKeys = Object.freeze(globalThis["Object"]["keys"])(obj);
     const frozenBracketedValues = Object.freeze(globalThis["Object"]["values"])(obj);
     const frozenEntries = Object.freeze(globalThis["Object"]["entries"])(obj);
@@ -9800,6 +9820,30 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
     const frozenNullishCallableOwnKeys = Object.freeze((null ?? Reflect.ownKeys))(obj);
     const frozenLogicalAndCallableOwnKeys = Object.freeze((true && Reflect.ownKeys))(obj);
     const frozenLogicalOrCallableOwnKeys = Object.freeze((false || Reflect.ownKeys))(obj);
+    for (const key of mixedBracketedKeys) {
+        console.log(key);
+    }
+    for (const key of mixedSingleQuotedKeys) {
+        console.log(key);
+    }
+    for (const value of mixedBracketedValues) {
+        console.log(value);
+    }
+    for (const value of mixedSingleQuotedValues) {
+        console.log(value);
+    }
+    for (const entry of mixedBracketedEntries) {
+        console.log(entry[0], entry[1]);
+    }
+    for (const entry of mixedSingleQuotedEntries) {
+        console.log(entry[0], entry[1]);
+    }
+    for (const key of mixedBracketedOwnKeys) {
+        console.log(key);
+    }
+    for (const key of mixedSingleQuotedOwnKeys) {
+        console.log(key);
+    }
     for (const key of frozenKeys) {
         console.log(key);
     }
