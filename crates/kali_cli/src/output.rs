@@ -338,6 +338,12 @@ pub fn validate_package_effects_payload_value(value: &Value) -> Result<(), Strin
     let actual_entry_point = entry_points[0]
         .as_str()
         .expect("validated entryPoints item should be a string");
+    if actual_entry_point.trim() != actual_entry_point {
+        return Err(
+            "package-effects payload report entryPoints[0] must not have leading or trailing whitespace"
+                .to_string(),
+        );
+    }
     if actual_entry_point != expected_entry_point {
         return Err(format!(
             "package-effects payload report entryPoints[0] must match the canonical registry package identifier `{expected_entry_point}`, got `{actual_entry_point}`"

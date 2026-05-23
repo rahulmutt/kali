@@ -333,10 +333,7 @@ fn expression_contains_yield_delegation(expression: &Expression) -> bool {
         }
         Expression::CallExpression(call) => {
             expression_contains_yield_delegation(&call.callee)
-                || call
-                    .args
-                    .iter()
-                    .any(|arg| expression_contains_yield_delegation(arg))
+                || call.args.iter().any(expression_contains_yield_delegation)
         }
         Expression::MemberExpression(member) => {
             expression_contains_yield_delegation(&member.object)
