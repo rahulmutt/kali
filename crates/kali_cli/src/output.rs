@@ -28,8 +28,8 @@ impl CliOutputOptions {
 pub fn emit_envelope_value(
     command: &str,
     success: bool,
-    errors: Value,
-    warnings: Value,
+    mut errors: Value,
+    mut warnings: Value,
     payload: Value,
     stdout: Option<String>,
     stderr: Option<String>,
@@ -41,6 +41,9 @@ pub fn emit_envelope_value(
     if !success && exit_code == 0 {
         panic!("CLI envelope success=false requires a non-zero exitCode");
     }
+
+    sort_diagnostic_array_value(&mut errors);
+    sort_diagnostic_array_value(&mut warnings);
 
     let mut envelope = Map::new();
     envelope.insert("schemaVersion".to_string(), json!(1));
@@ -1771,6 +1774,20 @@ fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), S
     }
 
     Ok(())
+}
+
+fn sort_diagnostic_array_value(value: &mut Value) {
+    let Some(items) = value.as_array_mut() else {
+        return;
+    };
+
+    if items.iter().all(|item| diagnostic_sort_key(item).is_ok()) {
+        items.sort_by(|left, right| {
+            diagnostic_sort_key(left)
+                .expect("validated above")
+                .cmp(&diagnostic_sort_key(right).expect("validated above"))
+        });
+    }
 }
 
 fn diagnostic_sort_key(value: &Value) -> Result<(String, u64, u64, String), String> {

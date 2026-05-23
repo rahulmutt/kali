@@ -52,6 +52,48 @@ fn emitted_cli_envelopes_satisfy_the_schema_v1_top_level_shape() {
 }
 
 #[test]
+fn emitted_cli_envelopes_sort_diagnostics_before_validation() {
+    let source_path = Path::new("/tmp/example.ts");
+    let source_text = "first\nsecond\nthird\n";
+
+    let later = diagnostic_to_json(
+        &Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "later finding").with_span(Span::new(
+            FileId::new(0),
+            12,
+            13,
+        )),
+        Some(source_path),
+        Some(source_text),
+        "error",
+    );
+    let earlier =
+        diagnostic_to_json(
+            &Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "earlier finding")
+                .with_span(Span::new(FileId::new(0), 0, 1)),
+            Some(source_path),
+            Some(source_text),
+            "error",
+        );
+
+    let value = emit_envelope_value(
+        "check",
+        false,
+        json!([later, earlier]),
+        json!([]),
+        serde_json::Value::Null,
+        None,
+        None,
+        1,
+    );
+
+    validate_envelope_value(&value).expect("sorted diagnostics should validate");
+
+    let errors = value["errors"].as_array().expect("errors array");
+    assert_eq!(errors[0]["message"], json!("earlier finding"));
+    assert_eq!(errors[1]["message"], json!("later finding"));
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_empty_or_whitespace_command() {
     for command in ["", " \n\t "] {
         let mut value = emit_envelope_value(
