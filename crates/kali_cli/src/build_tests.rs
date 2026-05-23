@@ -13359,6 +13359,89 @@ fn validate_build_result_value_rejects_empty_or_whitespace_path_and_kind_fields(
 }
 
 #[test]
+fn validate_build_result_value_rejects_padded_output_and_sidecar_paths() {
+    for (field, invalid_result) in [
+        (
+            "outputPath",
+            serde_json::json!({
+                "artifactKind": "executable",
+                "outputPath": " /workspace/dist/executable ",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
+        (
+            "metadataPath",
+            serde_json::json!({
+                "artifactKind": "lib",
+                "outputPath": "/workspace/dist/lib",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": " /workspace/dist/lib.cabi.json ",
+                "witPath": "lib.wit",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "witPath",
+            serde_json::json!({
+                "artifactKind": "capi",
+                "outputPath": "/workspace/dist/capi",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "/workspace/dist/capi.cabi.json",
+                "witPath": " lib.wit ",
+                "headerPath": "/workspace/dist/capi.h",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "headerPath",
+            serde_json::json!({
+                "artifactKind": "capi",
+                "outputPath": "/workspace/dist/capi",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "/workspace/dist/capi.cabi.json",
+                "witPath": "lib.wit",
+                "headerPath": " /workspace/dist/capi.h ",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+        (
+            "bindingPackagePath",
+            serde_json::json!({
+                "artifactKind": "component",
+                "outputPath": "/workspace/dist/component",
+                "sizeBytes": 42,
+                "buildMode": "release",
+                "sourceHash": "sha256-deadbeef",
+                "metadataPath": "/workspace/dist/component.cabi.json",
+                "witPath": "lib.wit",
+                "bindingPackagePath": " /workspace/dist/component.binding.json ",
+                "artifacts": [],
+                "exports": []
+            }),
+        ),
+    ] {
+        let err = validate_build_result_value(&invalid_result)
+            .expect_err("padded build result path fields should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_build_result_value_rejects_unexpected_top_level_keys() {
     let invalid_bundle = serde_json::json!({
         "artifactKind": "bundle",

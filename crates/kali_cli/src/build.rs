@@ -2239,7 +2239,7 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
         .and_then(Value::as_str)
         .expect("validated above");
 
-    validate_non_empty_string_field(object.get("outputPath"), "build result outputPath")?;
+    validate_canonical_non_empty_string_field(object.get("outputPath"), "build result outputPath")?;
 
     match object.get("sizeBytes") {
         Some(Value::Number(number)) if number.as_u64().is_some() => {}
@@ -2358,11 +2358,14 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            validate_non_empty_string_field(
+            validate_canonical_non_empty_string_field(
                 object.get("metadataPath"),
                 "build result metadataPath",
             )?;
-            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
+            validate_canonical_non_empty_string_field(
+                object.get("witPath"),
+                "build result witPath",
+            )?;
             validate_build_result_artifacts_array(
                 object.get("artifacts"),
                 "build result artifacts",
@@ -2409,12 +2412,18 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            validate_non_empty_string_field(
+            validate_canonical_non_empty_string_field(
                 object.get("metadataPath"),
                 "build result metadataPath",
             )?;
-            validate_non_empty_string_field(object.get("headerPath"), "build result headerPath")?;
-            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
+            validate_canonical_non_empty_string_field(
+                object.get("headerPath"),
+                "build result headerPath",
+            )?;
+            validate_canonical_non_empty_string_field(
+                object.get("witPath"),
+                "build result witPath",
+            )?;
             validate_build_result_artifacts_array(
                 object.get("artifacts"),
                 "build result artifacts",
@@ -2433,12 +2442,15 @@ pub fn validate_build_result_value(value: &Value) -> Result<(), String> {
                     return Err(format!("build result is missing required key `{key}`"));
                 }
             }
-            validate_non_empty_string_field(
+            validate_canonical_non_empty_string_field(
                 object.get("metadataPath"),
                 "build result metadataPath",
             )?;
-            validate_non_empty_string_field(object.get("witPath"), "build result witPath")?;
-            validate_non_empty_string_field(
+            validate_canonical_non_empty_string_field(
+                object.get("witPath"),
+                "build result witPath",
+            )?;
+            validate_canonical_non_empty_string_field(
                 object.get("bindingPackagePath"),
                 "build result bindingPackagePath",
             )?;
@@ -2689,17 +2701,6 @@ fn validate_no_unexpected_keys(
     }
 
     Ok(())
-}
-
-fn validate_non_empty_string_field(value: Option<&Value>, context: &str) -> Result<(), String> {
-    match value {
-        Some(Value::String(value)) if !value.trim().is_empty() => Ok(()),
-        Some(Value::String(_)) => Err(format!(
-            "{context} must be a non-empty, non-whitespace string"
-        )),
-        Some(other) => Err(format!("{context} must be a string, got {other}")),
-        None => Err(format!("{context} is missing required key")),
-    }
 }
 
 fn validate_canonical_non_empty_string_field(
