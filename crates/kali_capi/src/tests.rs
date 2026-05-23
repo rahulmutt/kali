@@ -764,6 +764,20 @@ fn binding_package_manifest_parsing_rejects_non_string_provenance_fields() {
 }
 
 #[test]
+fn binding_package_manifest_helpers_reject_whitespace_padded_module_name() {
+    let mut manifest = valid_binding_package_manifest();
+    manifest["moduleName"] = serde_json::json!(" sample ");
+
+    let error = parse_binding_package_manifest(&manifest.to_string())
+        .expect_err("padded moduleName should fail");
+    assert!(error.contains("moduleName"), "unexpected error: {error}");
+
+    let error =
+        binding_package_manifest_summary(&manifest).expect_err("padded moduleName should fail");
+    assert!(error.contains("moduleName"), "unexpected error: {error}");
+}
+
+#[test]
 fn binding_package_manifest_helpers_reject_empty_provenance_fields() {
     for (field, value) in [
         ("hostContract", serde_json::json!("")),

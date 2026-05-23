@@ -663,7 +663,7 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         ));
     }
 
-    validate_string_field(
+    validate_non_empty_string_field(
         manifest.get("moduleName").ok_or_else(|| {
             "binding package manifest field 'moduleName' must be a string".to_string()
         })?,
@@ -792,7 +792,7 @@ fn validate_non_empty_string_field(
     field_name: &str,
 ) -> Result<(), String> {
     match value {
-        Value::String(value) if !value.trim().is_empty() => Ok(()),
+        Value::String(value) if !value.trim().is_empty() && value.trim() == value => Ok(()),
         Value::String(_) => Err(format!(
             "{} field '{}' must be a non-empty, non-whitespace string",
             context, field_name
@@ -1029,7 +1029,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     let module_name = manifest.get("moduleName").ok_or_else(|| {
         "binding package manifest summary field 'moduleName' is missing".to_string()
     })?;
-    validate_string_field(
+    validate_non_empty_string_field(
         module_name,
         "binding package manifest summary",
         "moduleName",
