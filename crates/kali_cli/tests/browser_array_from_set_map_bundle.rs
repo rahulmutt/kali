@@ -18,7 +18,7 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of Object.freeze(globalThis["Array"].from)(new Set(setValues))) {
     console.log(value);
   }
-  for (const value of Object.freeze((globalThis["Array"]).from)(new Set(setValues))) {
+  for (const value of Object.freeze((globalThis["Array"])["from"])(new Set(setValues))) {
     console.log(value);
   }
   for (const value of Object.freeze((globalThis['Array']).from)(new Set(setValues))) {
@@ -92,7 +92,7 @@ export async function browserArrayFromSetMapWrappers() {
   for (const value of globalThis["Array"]["from"](new Set(setValues))) {
     console.log(value);
   }
-  for await (const entry of Object.freeze(globalThis['Array']["from"])(new Map(mapValues))) {
+  for await (const entry of Object.freeze((globalThis["Array"])["from"])(new Map(mapValues))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -104,7 +104,7 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     let source = browser_bundle_array_from_set_map_source();
-    assert!(source.contains(r#"Object.freeze((globalThis["Array"]).from)"#));
+    assert!(source.contains(r#"Object.freeze((globalThis["Array"])["from"])"#));
     assert!(source.contains(r#"Object.freeze((globalThis['Array']).from)"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array).from)"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array)["from"])"#));
@@ -115,7 +115,7 @@ fn assert_browser_bundle_array_from_set_map(filename: &str, json_output: bool) {
     assert!(source.contains(r#"Object.freeze((globalThis.Array))["from"]"#));
     assert!(source.contains(r#"Object.freeze((globalThis.Array))['from']"#));
     assert!(source.contains(r#"Object.freeze(globalThis["Array"]['from'])"#));
-    assert!(source.contains(r#"Object.freeze(globalThis['Array']["from"])"#));
+    assert!(source.contains(r#"Object.freeze((globalThis["Array"])["from"])"#));
     assert!(source.contains(r#"Object.freeze((null ?? globalThis["Array"].from))"#));
     assert!(source.contains(r#"Object.freeze((true && globalThis["Array"].from))"#));
     assert!(source.contains(r#"Object.freeze((false || globalThis["Array"].from))"#));
