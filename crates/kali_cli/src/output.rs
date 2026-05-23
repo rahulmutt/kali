@@ -1749,12 +1749,66 @@ fn validate_diagnostic_array(value: Option<&Value>, field: &str) -> Result<(), S
         return Err(format!("CLI envelope {field} must be an array"));
     };
 
+    let mut previous_sort_key: Option<(String, u64, u64, String)> = None;
     for (index, item) in items.iter().enumerate() {
         validate_diagnostic_value(item)
             .map_err(|err| format!("CLI envelope {field}[{index}] is invalid: {err}"))?;
+
+        let sort_key = diagnostic_sort_key(item)
+            .map_err(|err| format!("CLI envelope {field}[{index}] is invalid: {err}"))?;
+        if previous_sort_key
+            .as_ref()
+            .is_some_and(|previous| previous > &sort_key)
+        {
+            let (previous_file, previous_line, previous_column, previous_code) =
+                previous_sort_key.expect("validated above");
+            let (current_file, current_line, current_column, current_code) = &sort_key;
+            return Err(format!(
+                "CLI envelope {field}[{index}] must be sorted by file, line, column, then code; got file `{current_file}`, line {current_line}, column {current_column}, code `{current_code}` after file `{previous_file}`, line {previous_line}, column {previous_column}, code `{previous_code}`"
+            ));
+        }
+        previous_sort_key = Some(sort_key);
     }
 
     Ok(())
+}
+
+fn diagnostic_sort_key(value: &Value) -> Result<(String, u64, u64, String), String> {
+    let Some(object) = value.as_object() else {
+        return Err("diagnostic must be a JSON object".to_string());
+    };
+    let Some(span) = object.get("span").and_then(Value::as_object) else {
+        return Err("diagnostic is missing required key `span`".to_string());
+    };
+
+    let file = span
+        .get("file")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "diagnostic span.file must be a string".to_string())?
+        .to_string();
+    let line = span
+        .get("line")
+        .and_then(|value| {
+            value
+                .as_u64()
+                .or_else(|| value.as_i64().map(|value| value as u64))
+        })
+        .ok_or_else(|| "diagnostic span.line must be a positive integer".to_string())?;
+    let column = span
+        .get("column")
+        .and_then(|value| {
+            value
+                .as_u64()
+                .or_else(|| value.as_i64().map(|value| value as u64))
+        })
+        .ok_or_else(|| "diagnostic span.column must be a positive integer".to_string())?;
+    let code = object
+        .get("code")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "diagnostic code must be a canonical code string".to_string())?
+        .to_string();
+
+    Ok((file, line, column, code))
 }
 
 fn validate_cli_artifacts_array(value: Option<&Value>) -> Result<(), String> {

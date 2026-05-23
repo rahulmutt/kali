@@ -5842,6 +5842,50 @@ fn validate_envelope_value_rejects_malformed_diagnostics() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_out_of_order_diagnostics() {
+    let invalid_diagnostics = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": false,
+        "errors": [
+            {
+                "severity": "error",
+                "code": "E5508",
+                "message": "later diagnostic",
+                "span": {"file": "src/z.ts", "line": 2, "column": 1, "endLine": 2, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            },
+            {
+                "severity": "error",
+                "code": "E5501",
+                "message": "earlier diagnostic",
+                "span": {"file": "src/a.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                "labels": [],
+                "related": [],
+                "fix": null,
+                "notes": []
+            }
+        ],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 1,
+    });
+
+    let err = validate_envelope_value(&invalid_diagnostics)
+        .expect_err("out-of-order diagnostics should fail validation");
+    assert!(err.contains("errors[1]"), "unexpected error: {err}");
+    assert!(
+        err.contains("sorted by file, line, column, then code"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_warning_diagnostics() {
     let invalid_warning = json!({
         "schemaVersion": 1,
