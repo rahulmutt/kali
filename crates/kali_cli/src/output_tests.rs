@@ -3293,6 +3293,38 @@ fn validate_package_effects_payload_value_rejects_whitespace_padded_report_entry
 }
 
 #[test]
+fn validate_package_effects_payload_value_rejects_whitespace_padded_jsr_report_entry_points() {
+    let value = json!({
+        "schemaVersion": 1,
+        "package": {
+            "name": "@std/path",
+            "version": "1.0.8",
+            "registry": "jsr",
+        },
+        "report": {
+            "schemaVersion": 1,
+            "analysisContext": {
+                "apiSurface": "browser",
+                "runtimeProfiles": [],
+                "compatFeatures": [],
+            },
+            "entryPoints": [" jsr:@std/path "],
+            "effects": [],
+            "dynamicEffects": false,
+            "dynamicReasons": [],
+        },
+    });
+
+    let err = validate_package_effects_payload_value(&value)
+        .expect_err("whitespace-padded jsr report entryPoint should fail validation");
+    assert!(
+        err.contains("entryPoints[0]")
+            && err.contains("must not have leading or trailing whitespace"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn validate_package_effects_payload_value_rejects_unsupported_registry_names() {
     let value = json!({
         "schemaVersion": 1,
