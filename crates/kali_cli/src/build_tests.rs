@@ -4574,6 +4574,28 @@ fn check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_
 }
 
 #[test]
+fn check_source_file_supports_object_helper_nullish_logical_iterator_slices_in_browser_api_surface_in_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_check_source_file_supports_object_helper_nullish_logical_iterator_slices_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
+fn build_source_file_supports_object_helper_nullish_logical_iterator_slices_in_browser_api_surface_in_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_supports_object_helper_nullish_logical_iterator_slices_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
 fn check_source_file_supports_spread_of_object_keys_and_entries_iterator_slices_in_browser_api_surface_in_ts_jsx_and_tsx_input(
 ) {
     for extension in ["ts", "jsx", "tsx"] {
@@ -4638,6 +4660,17 @@ fn check_source_file_supports_spread_of_reflect_own_keys_iterator_slices_in_brow
 ) {
     for extension in ["ts", "jsx", "tsx"] {
         assert_check_source_file_supports_spread_of_reflect_own_keys_iterator_slices_in_input(
+            ApiSurface::Browser,
+            extension,
+        );
+    }
+}
+
+#[test]
+fn build_source_file_supports_spread_of_reflect_own_keys_iterator_slices_in_browser_api_surface_in_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_supports_spread_of_reflect_own_keys_iterator_slices_in_input(
             ApiSurface::Browser,
             extension,
         );
@@ -4952,6 +4985,23 @@ for await (const item of [...asyncBracketedBracketedValues]) { console.log(item)
 "##
 }
 
+fn object_helper_nullish_logical_iteration_source() -> &'static str {
+    r##"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
+const nullishKeys = Object.freeze((null ?? Object.keys))(fromEntries);
+const logicalValues = Object.freeze((true && Object.values))(Object.freeze(fromEntries));
+const logicalEntries = Object.freeze((false || Object.entries))(fromEntries);
+const frozenNullishKeys = Object.freeze((null ?? Object.keys))(Object.freeze(fromEntries));
+const frozenLogicalValues = Object.freeze((true && Object.values))(fromEntries);
+const frozenLogicalEntries = Object.freeze((false || Object.entries))(Object.freeze(fromEntries));
+for (const key of [...nullishKeys]) { console.log(key); }
+for await (const value of [...logicalValues]) { console.log(value); }
+for (const entry of [...logicalEntries]) { console.log(entry[0]); console.log(entry[1]); }
+for (const key of [...frozenNullishKeys]) { console.log(key); }
+for await (const value of [...frozenLogicalValues]) { console.log(value); }
+for (const entry of [...frozenLogicalEntries]) { console.log(entry[0]); console.log(entry[1]); }
+"##
+}
+
 fn reflect_own_keys_spread_iteration_source() -> &'static str {
     r##"const object = { "b": 1, "2": 2, "a": 3, "1": 4 };
 const alias = object;
@@ -4974,6 +5024,9 @@ const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(object);
 const frozenCallableParenKeys = Object.freeze((Reflect.ownKeys))(object);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(object);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(object);
+const nullishKeys = Object.freeze((null ?? Reflect.ownKeys))(object);
+const logicalAndKeys = Object.freeze((true && Reflect.ownKeys))(frozenObject);
+const logicalOrKeys = Object.freeze((false || Reflect.ownKeys))(alias);
 for (const item of [...keys]) { console.log(item); }
 for (const item of [...aliasKeys]) { console.log(item); }
 for (const item of [...frozenKeys]) { console.log(item); }
@@ -4987,6 +5040,9 @@ for (const item of [...frozenCallableKeys]) { console.log(item); }
 for (const item of [...frozenCallableParenKeys]) { console.log(item); }
 for (const item of [...frozenCallableGlobalKeys]) { console.log(item); }
 for (const item of [...frozenCallableBracketedKeys]) { console.log(item); }
+for (const item of [...nullishKeys]) { console.log(item); }
+for (const item of [...logicalAndKeys]) { console.log(item); }
+for (const item of [...logicalOrKeys]) { console.log(item); }
 for await (const item of keys) { console.log(item); }
 for await (const item of aliasKeys) { console.log(item); }
 for await (const item of frozenKeys) { console.log(item); }
@@ -5020,6 +5076,9 @@ const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(object);
 const frozenCallableParenKeys = Object.freeze((Reflect.ownKeys))(object);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(object);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(object);
+const nullishKeys = Object.freeze((null ?? Reflect.ownKeys))(object);
+const logicalAndKeys = Object.freeze((true && Reflect.ownKeys))(frozenObject);
+const logicalOrKeys = Object.freeze((false || Reflect.ownKeys))(alias);
 for (const item of keys) { console.log(item); }
 for (const item of aliasKeys) { console.log(item); }
 for (const item of frozenKeys) { console.log(item); }
@@ -5033,6 +5092,9 @@ for (const item of frozenCallableKeys) { console.log(item); }
 for (const item of frozenCallableParenKeys) { console.log(item); }
 for (const item of frozenCallableGlobalKeys) { console.log(item); }
 for (const item of frozenCallableBracketedKeys) { console.log(item); }
+for (const item of nullishKeys) { console.log(item); }
+for (const item of logicalAndKeys) { console.log(item); }
+for (const item of logicalOrKeys) { console.log(item); }
 for await (const item of keys) { console.log(item); }
 for await (const item of aliasKeys) { console.log(item); }
 for await (const item of frozenKeys) { console.log(item); }
@@ -5079,6 +5141,51 @@ fn assert_build_source_file_supports_spread_of_object_values_iterator_slices_in_
         None,
     )
     .expect("spread of object.values iterator slices should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+fn assert_check_source_file_supports_object_helper_nullish_logical_iterator_slices_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        object_helper_nullish_logical_iteration_source(),
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, api_surface, &[], false, false)
+        .expect("spread of nullish/logical object helper iterator slices should succeed");
+}
+
+fn assert_build_source_file_supports_object_helper_nullish_logical_iterator_slices_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        object_helper_nullish_logical_iteration_source(),
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("spread of nullish/logical object helper iterator slices should succeed");
 
     Validator::new()
         .validate_all(&output.wasm_bytes)
