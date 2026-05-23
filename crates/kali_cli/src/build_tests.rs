@@ -7043,6 +7043,17 @@ fn runtime_entrypoint_rejects_anonymous_default_export_generator_function_declar
     }
 }
 
+#[test]
+fn runtime_entrypoint_rejects_anonymous_default_export_async_generator_function_declarations_with_yield_delegation_in_supported_input_matrix(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_runtime_entrypoint_rejects_generator_function_declaration_in_input(
+            extension,
+            "export default async function*() { yield* []; }\n",
+        );
+    }
+}
+
 fn assert_runtime_entrypoint_rejects_generator_function_expression_in_input(
     extension: &str,
     source: &str,
@@ -7209,6 +7220,17 @@ fn build_source_file_rejects_anonymous_default_export_async_generator_function_d
         assert_build_source_file_rejects_generator_lowering_for_source_in_input(
             extension,
             "export default async function*() { yield 1; }\n",
+        );
+    }
+}
+
+#[test]
+fn build_source_file_rejects_anonymous_default_export_async_generator_function_declarations_with_yield_delegation_in_supported_input_matrix(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_build_source_file_rejects_generator_lowering_for_source_in_input(
+            extension,
+            "export default async function*() { yield* []; }\n",
         );
     }
 }
