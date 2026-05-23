@@ -9593,7 +9593,7 @@ fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"];"#,
+        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
     )
     .expect("write source");
 
@@ -9628,7 +9628,7 @@ fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"];"#,
+        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
     )
     .expect("write source");
 
@@ -9685,7 +9685,7 @@ fn assert_build_source_file_rejects_late_weak_reference_apis_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"];"#,
+        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
     )
     .expect("write source");
 

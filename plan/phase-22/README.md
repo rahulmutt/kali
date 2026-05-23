@@ -36,7 +36,7 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 ### 22.4 Late object/runtime APIs
 
-- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints.
+- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints; the current smoke now also covers transparent `Object.freeze(...)` wrapper forms around the canonical `WeakMap`/`WeakSet`/`WeakRef`/`FinalizationRegistry` late-object-model aliases.
 - Promote only with conformance, sandbox/resource, effect-report, and JSON-output evidence.
 
 ## Exit gate
