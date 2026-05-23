@@ -20,6 +20,9 @@ fn browser_harness_array_from_set_map_run_source() -> &'static str {
   for (const value of Object.freeze((globalThis["Array"])["from"])(new Set(setValues))) {
     console.log(value);
   }
+  for (const value of Object.freeze((globalThis["Array"]).from)(new Set(setValues))) {
+    console.log(value);
+  }
   for (const value of Object.freeze((globalThis['Array']).from)(new Set(setValues))) {
     console.log(value);
   }
@@ -118,6 +121,9 @@ fn browser_harness_array_from_set_map_test_source() -> &'static str {
     for (const value of Object.freeze((globalThis["Array"])["from"])(new Set(setValues))) {
       console.log(value);
     }
+    for (const value of Object.freeze((globalThis["Array"]).from)(new Set(setValues))) {
+      console.log(value);
+    }
     for (const value of Object.freeze(globalThis['Array']["from"])(new Set(setValues))) {
       console.log(value);
     }
@@ -206,6 +212,7 @@ fn assert_browser_harness_array_from_set_map(command: &str, filename: &str, json
     assert!(source.contains(r#"Object.freeze((globalThis.Array))['from']"#));
     assert!(source.contains(r#"Object.freeze(globalThis["Array"]['from'])"#));
     assert!(source.contains(r#"Object.freeze((globalThis["Array"])["from"])"#));
+    assert!(source.contains(r#"Object.freeze((globalThis["Array"]).from)"#));
     assert!(source.contains(r#"Object.freeze((null ?? globalThis["Array"].from))"#));
     assert!(source.contains(r#"Object.freeze((true && globalThis["Array"].from))"#));
     assert!(source.contains(r#"Object.freeze((false || globalThis["Array"].from))"#));
