@@ -4,6 +4,8 @@
 
 Expand runtime and host capability only where Kali can mediate, test, and describe it honestly.
 
+Keep browser-targeted compilation, browser harness execution, and standalone browser runtime claims separate.
+
 ## Owning specs
 
 - `specs/09-sandboxing.md`
@@ -36,8 +38,9 @@ Expand runtime and host capability only where Kali can mediate, test, and descri
 
 ### 22.4 Late object/runtime APIs
 
-- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints; the current smoke now also covers transparent `Object.freeze(...)` wrapper forms around the canonical `WeakMap`/`WeakSet`/`WeakRef`/`FinalizationRegistry` late-object-model aliases, the late object-model smoke now also carries the nullish-wrapped `Object.freeze((null ?? globalThis.Intl.NumberFormat))` alias on that same rejection path, and the late-threaded-runtime smoke now also carries transparent nullish/logical wrapper forms around the shared `SharedArrayBuffer` / `Atomics` aliases.
+- Triage `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and wider object helpers against no-GC/no-JIT and optimization constraints.
 - Promote only with conformance, sandbox/resource, effect-report, and JSON-output evidence.
+- Keep unsupported object/runtime APIs on canonical diagnostics rather than partial emulation.
 
 ## Exit gate
 

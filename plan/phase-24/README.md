@@ -25,7 +25,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 - Improve layout, representation, call-shape, object-shape, builtin-folding, and cross-module specialization in claim-aligned slices.
 - Treat `--max-specializations` as an exact upper bound.
 - Preserve fallback paths and JavaScript-visible semantics.
-- Keep optimization tests coupled to conformance and sandbox/effect expectations where observable behavior could change.
+- Couple optimization tests to conformance and sandbox/effect expectations where observable behavior could change.
 
 ### 24.3 PGO input hardening
 
@@ -38,7 +38,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 - Use version-pinned workload fixtures with hash validation.
 - Promote performance wording only with workload, build mode, baseline, repeatability, and artifact-determinism evidence.
 - Keep package anecdotes separate from package-compatibility claims.
-- Track benchmark inventory updates such as `math-floor-builtin-js`, `math-round-builtin-js`, `math-pow-builtin-js`, `math-trunc-builtin-js`, `math-ceil-builtin-js`, and `folded-arithmetic-variant-js` explicitly in the evidence notes; the runtime smoke benchmark suite now also includes the `folded-arithmetic-variant-js` workload entry.
+- Track benchmark inventory updates as evidence notes, not active implementation journals.
 
 ## Exit gate
 
