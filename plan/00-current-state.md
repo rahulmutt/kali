@@ -32,7 +32,7 @@ Implemented areas include:
 - source-file checking, building, running, and testing for TS/JS input classes;
 - browser-targeted `check` / `build --bundle` plus browser-harness smoke paths;
 - public source-graph and registry effect/audit commands;
-- package install/materialization, registry/raw-URL flows, and package-corpus probes;
+- package install/materialization, registry/raw-URL flows, install JSON removal reporting for pruned registry/raw-URL entries, and package-corpus probes;
 - Deno/Web/Node API slices with explicit late-compatibility gates;
 - runtime object, iterator, BigInt, Math, Promise, console, and dynamic-import slices where evidence exists, including single-quoted `Proxy.revocable` browser-late-compat alias coverage, browser bundle console routing/assertion smoke in `.js`, `.ts`, `.jsx`, and `.tsx` input, the frozen bracketed `Object.is` callable alias on the primitive-literal slice, browser-requested `for await` helper smoke now also covering mixed/bracketed frozen callable aliases for `Object.keys` / `Object.values` / `Object.entries`, and browser-requested dynamic-import smoke now also covering `Object.freeze`-wrapped literal imports with logical wrappers in `.js`, `.ts`, `.jsx`, and `.tsx` input;
 - library, WIT, C ABI, component, metadata, and binding-package artifact lanes;

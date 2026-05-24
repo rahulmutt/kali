@@ -177,6 +177,7 @@ pub struct InstallSummary {
     pub manifest_path: Option<PathBuf>,
     pub lock_path: Option<PathBuf>,
     pub installed: Vec<String>,
+    pub removed: Vec<String>,
 }
 
 /// The outcome of a registry package audit.
@@ -466,7 +467,7 @@ fn prune_unreachable_registry_packages(
     root: &Path,
     lock: &mut LockFile,
     reachable: &BTreeSet<String>,
-) -> Result<(), Vec<Diagnostic>> {
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     let unreachable = lock
         .packages
         .keys()
@@ -475,7 +476,7 @@ fn prune_unreachable_registry_packages(
         .collect::<Vec<_>>();
 
     if unreachable.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     let remaining_install_names = lock
@@ -487,8 +488,10 @@ fn prune_unreachable_registry_packages(
         })
         .collect::<BTreeSet<_>>();
 
+    let mut removed = Vec::new();
     for key in unreachable {
         lock.packages.remove(&key);
+        removed.push(key.clone());
 
         let cache_dir = root.join(".kali-cache").join("packages").join(&key);
         if cache_dir.exists() {
@@ -524,7 +527,7 @@ fn prune_unreachable_registry_packages(
         }
     }
 
-    Ok(())
+    Ok(removed)
 }
 
 fn discover_install_source_files(root: &Path) -> Result<Vec<PathBuf>, Diagnostic> {
@@ -721,7 +724,7 @@ fn prune_unreachable_raw_urls(
     root: &Path,
     lock: &mut LockFile,
     reachable: &BTreeSet<String>,
-) -> Result<(), Vec<Diagnostic>> {
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     let unreachable = lock
         .raw_urls
         .keys()
@@ -729,13 +732,15 @@ fn prune_unreachable_raw_urls(
         .cloned()
         .collect::<Vec<_>>();
 
+    let mut removed = Vec::new();
     for url in unreachable {
         if let Some(entry) = lock.raw_urls.remove(&url) {
+            removed.push(url.clone());
             remove_cached_raw_url_entry(root, &entry.cached)?;
         }
     }
 
-    Ok(())
+    Ok(removed)
 }
 
 fn remove_cached_raw_url_entry(root: &Path, cached: &str) -> Result<(), Vec<Diagnostic>> {
@@ -801,7 +806,7 @@ fn reconcile_raw_urls(
     lock: &mut LockFile,
     declared_raw_urls: &BTreeSet<String>,
     installed: &mut BTreeSet<String>,
-) -> Result<(), Vec<Diagnostic>> {
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     for url in declared_raw_urls {
         let needs_install = match lock.raw_urls.get(url) {
             Some(entry) => !Path::new(&entry.cached).exists(),
@@ -927,6 +932,7 @@ pub fn install_project(
     let mut diagnostics = Vec::new();
     let mut explicit_raw_url: Option<String> = None;
     let mut resolved_root_keys = BTreeSet::new();
+    let mut removed = Vec::new();
     let host_fit_context = package_host_fit_context_for_manifest(&manifest);
 
     if let Some(target) = parsed_target {
@@ -1007,7 +1013,12 @@ pub fn install_project(
     if let Some(url) = explicit_raw_url {
         declared_raw_urls.insert(url);
     }
-    reconcile_raw_urls(root, &mut lock, &declared_raw_urls, &mut installed)?;
+    removed.extend(reconcile_raw_urls(
+        root,
+        &mut lock,
+        &declared_raw_urls,
+        &mut installed,
+    )?);
 
     let root_keys = if resolved_root_keys.is_empty() {
         manifest_registry_package_keys(&manifest)
@@ -1016,7 +1027,9 @@ pub fn install_project(
     };
     let reachable = collect_reachable_registry_packages(&lock, &root_keys)
         .map_err(|diagnostic| vec![diagnostic])?;
-    prune_unreachable_registry_packages(root, &mut lock, &reachable)?;
+    removed.extend(prune_unreachable_registry_packages(
+        root, &mut lock, &reachable,
+    )?);
 
     let manifest_path = if manifest.is_minimal()
         && manifest.dependencies.is_empty()
@@ -1050,10 +1063,14 @@ pub fn install_project(
         return Err(diagnostics);
     }
 
+    removed.sort();
+    removed.dedup();
+
     Ok(InstallSummary {
         manifest_path,
         lock_path,
         installed: installed.into_iter().collect(),
+        removed,
     })
 }
 

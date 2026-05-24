@@ -4478,7 +4478,7 @@ fn install_command(
                     "lockPath": summary.lock_path,
                     "installed": summary.installed,
                     "updated": [],
-                    "removed": [],
+                    "removed": summary.removed,
                 });
                 validate_install_payload_value(&payload)
                     .expect("constructed install payload must satisfy schema-v1 shape");

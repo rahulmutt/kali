@@ -184,7 +184,7 @@ Required fields:
 Required fields:
 - `installed: string[]` — package identifiers added during the invocation
 - `updated: string[]` — package identifiers whose recorded metadata changed during the invocation
-- `removed: string[]` — package identifiers removed during the invocation
+- `removed: string[]` — package identifiers or raw-URL targets pruned from the current install reconciliation
 
 Optional fields:
 - `manifestPath: non-empty, non-whitespace string | null` — path to the written `kali.json` when the invocation touched manifest-owned registry state; `null` when no manifest file was written

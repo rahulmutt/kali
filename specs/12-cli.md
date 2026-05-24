@@ -584,6 +584,7 @@ Install or materialize project dependencies.
 Behavior:
 - `--output json` emits the standard command envelope with command name `install` and the `InstallPayload` shape from [18 — Schemas](18-schemas.md)
 - `manifestPath` and `lockPath` are each either `null` or a non-empty, non-whitespace string in that payload
+- `installed` lists newly materialized package identifiers, while `removed` lists package identifiers or raw-URL targets pruned during reconciliation; `updated` remains reserved for future differential-reporting detail
 
 Lifecycle scripts stay disabled by default. The one explicit opt-in is `--allow-scripts`, which permits npm lifecycle hooks for this install invocation only. Packages that fall into the shared **native/binary/bootstrap-heavy package contract** from [SPEC.md](../SPEC.md) remain unsupported even when scripts are enabled.
 
