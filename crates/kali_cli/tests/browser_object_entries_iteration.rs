@@ -28,6 +28,7 @@ function browserObjectEntriesIteration() {
   const frozenEntries = Object.freeze(Object.entries)(alias);
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](alias);
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
@@ -44,6 +45,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
@@ -76,6 +78,7 @@ function browserDirectObjectEntriesIteration() {
   const frozenEntries = Object.freeze(Object.entries)({ "b": 1, "a": 2 });
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)({ "b": 1, "a": 2 });
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])({ "b": 1, "a": 2 });
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"]({ "b": 1, "a": 2 });
   const mixedEntries = globalThis.Object["entries"]({ "b": 1, "a": 2 });
   const mixedBracketedEntries = globalThis["Object"].entries({ "b": 1, "a": 2 });
   const doubleQuotedSingleQuotedEntries = globalThis["Object"]['entries']({ "b": 1, "a": 2 });
@@ -86,6 +89,7 @@ function browserDirectObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
@@ -116,12 +120,14 @@ function browserGlobalObjectEntriesIteration() {
   const entries = globalThis.Object.entries(alias);
   const frozenEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](alias);
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const bracketed = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenBracketRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketed);

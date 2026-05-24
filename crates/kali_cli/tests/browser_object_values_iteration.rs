@@ -91,11 +91,16 @@ function browserGlobalObjectValuesIteration() {
   for (const value of globalThis["Object"]["values"](alias)) {
     bracketed.push(value);
   }
+  const parenthesizedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
+    parenthesizedReceiverBracketed.push(value);
+  }
   assertObjectValuesIteration(seen);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
   assertObjectValuesIteration(doubleQuotedSingleQuoted);
   assertObjectValuesIteration(bracketed);
+  assertObjectValuesIteration(parenthesizedReceiverBracketed);
 }
 "##
 }
