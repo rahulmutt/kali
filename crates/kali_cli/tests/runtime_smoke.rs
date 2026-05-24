@@ -12481,10 +12481,14 @@ fn run_supports_math_sign_fractional_literal_semantics_when_browser_harness_is_c
     );
 }
 
-#[test]
-fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_js_input() {
+fn assert_browser_harness_supports_math_hypot_semantics(
+    command: &str,
+    source_name: &str,
+    expected_stdout_fragment: &str,
+    assert_payload_details: bool,
+) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("main.js");
+    let source_path = dir.path().join(source_name);
     fs::write(&source_path, "console.log(Math.hypot(3, 4));\n").expect("write source");
 
     let output = Command::new(kali_bin())
@@ -12492,7 +12496,7 @@ fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_js_in
         .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
         .arg("--output")
         .arg("json")
-        .arg("run")
+        .arg(command)
         .arg("--api")
         .arg("browser")
         .arg(&source_path)
@@ -12506,16 +12510,38 @@ fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_js_in
         String::from_utf8_lossy(&output.stderr)
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["command"], "run");
+    assert_eq!(json["command"], command);
     assert_eq!(json["success"], true);
     assert_eq!(json["exitCode"], 0);
-    assert_eq!(json["payload"]["exitCode"], 0);
-    assert_eq!(json["payload"]["hostContract"], "browser-requested");
-    assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    if command == "run" {
+        assert_eq!(json["payload"]["exitCode"], 0);
+    }
+    if assert_payload_details {
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+    }
     assert!(
-        json["stdout"].as_str().expect("stdout").contains("5\n"),
+        json["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains(expected_stdout_fragment),
         "json: {json}"
     );
+}
+
+#[test]
+fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_supports_math_hypot_semantics("run", "main.js", "5\n", true);
+}
+
+#[test]
+fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_supports_math_hypot_semantics("run", "main.jsx", "5\n", true);
+}
+
+#[test]
+fn run_supports_math_hypot_semantics_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_supports_math_hypot_semantics("run", "main.tsx", "5\n", true);
 }
 
 #[test]
@@ -21953,28 +21979,17 @@ fn test_supports_math_sign_semantics_when_browser_harness_is_configured_in_js_in
 
 #[test]
 fn test_supports_math_hypot_semantics_when_browser_harness_is_configured_in_js_input() {
-    let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
-    fs::write(&source_path, "console.log(Math.hypot(3, 4));\n").expect("write source");
+    assert_browser_harness_supports_math_hypot_semantics("test", "smoke.test.js", "5", true);
+}
 
-    let output = Command::new(kali_bin())
-        .current_dir(dir.path())
-        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
-        .arg("test")
-        .arg("--api")
-        .arg("browser")
-        .arg(&source_path)
-        .output()
-        .expect("run kali");
+#[test]
+fn test_supports_math_hypot_semantics_when_browser_harness_is_configured_in_jsx_input() {
+    assert_browser_harness_supports_math_hypot_semantics("test", "smoke.test.jsx", "5", true);
+}
 
-    assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("5\nok 1"), "stdout: {stdout}");
+#[test]
+fn test_supports_math_hypot_semantics_when_browser_harness_is_configured_in_tsx_input() {
+    assert_browser_harness_supports_math_hypot_semantics("test", "smoke.test.tsx", "5", true);
 }
 
 #[test]
@@ -45678,6 +45693,16 @@ fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_ts_input(
 #[test]
 fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_js_input() {
     assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums("main.js");
+}
+
+#[test]
+fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_jsx_input() {
+    assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums("main.jsx");
+}
+
+#[test]
+fn build_supports_math_hypot_on_perfect_square_integer_literal_sums_in_tsx_input() {
+    assert_build_supports_math_hypot_on_perfect_square_integer_literal_sums("main.tsx");
 }
 
 #[test]
