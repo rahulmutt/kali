@@ -899,6 +899,7 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
         r#"Object.freeze(globalThis["Reflect"].ownKeys)"#,
         r#"Object.freeze((globalThis.Reflect)["ownKeys"])"#,
         r#"Object.freeze((globalThis["Reflect"]).ownKeys)"#,
+        r#"Object.freeze((globalThis['Reflect']).ownKeys)"#,
         r#"Object.freeze((globalThis["Reflect"])["ownKeys"])"#,
         r#"Object.freeze((globalThis["Reflect"].ownKeys))"#,
         r#"Object.freeze(globalThis.Reflect.ownKeys)"#,
@@ -910,7 +911,8 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
         r#"Object.freeze(globalThis.Reflect['ownKeys'])"#,
         r#"Object.freeze((globalThis.Reflect['ownKeys']))"#,
         r#"Object.freeze(globalThis['Reflect']['ownKeys'])"#,
-        r#"Object.freeze((globalThis['Reflect']).ownKeys)"#,
+        r#"Object.freeze(globalThis['Reflect'].ownKeys)"#,
+        r#"Object.freeze((globalThis['Reflect'].ownKeys))"#,
         r#"Object.freeze((globalThis['Reflect'])['ownKeys'])"#,
         r#"Object.freeze((null ?? Reflect.ownKeys))"#,
         r#"Object.freeze((true && Reflect.ownKeys))"#,
@@ -941,6 +943,7 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
 
     for expected in [
         r#"const frozenParenthesizedBracketRootKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj)"#,
+        r#"const frozenParenthesizedSingleQuotedBracketRootKeys = Object.freeze((globalThis['Reflect']).ownKeys)(obj)"#,
         r#"const frozenParenthesizedBracketedRootKeys = Object.freeze((globalThis["Reflect"])["ownKeys"])(obj)"#,
         r#"const mixedBracketedRootKeys = Object.freeze(globalThis["Reflect"]['ownKeys'])(obj)"#,
         r#"const parenthesizedMixedBracketedRootKeys = Object.freeze((globalThis["Reflect"]['ownKeys']))(obj)"#,
