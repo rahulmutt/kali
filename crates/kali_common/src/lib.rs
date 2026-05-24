@@ -1304,6 +1304,7 @@ pub const fn math_round_frozen_callable_aliases() -> &'static [&'static str] {
         r#"Object.freeze((globalThis["Math"].round))"#,
         r#"Object.freeze((globalThis["Math"])["round"])"#,
         r#"Object.freeze((globalThis['Math'])['round'])"#,
+        r#"Object.freeze((globalThis['Math'])["round"])"#,
         r#"Object.freeze(globalThis['Math']['round'])"#,
         r#"Object.freeze((globalThis['Math']['round']))"#,
         r#"Object.freeze(globalThis['Math'].round)"#,

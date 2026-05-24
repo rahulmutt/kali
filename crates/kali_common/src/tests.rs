@@ -1840,6 +1840,7 @@ fn test_math_round_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis["Math"].round))"#,
         r#"Object.freeze((globalThis["Math"])["round"])"#,
         r#"Object.freeze((globalThis['Math'])['round'])"#,
+        r#"Object.freeze((globalThis['Math'])["round"])"#,
         r#"Object.freeze(globalThis['Math']['round'])"#,
         r#"Object.freeze((globalThis['Math']['round']))"#,
         r#"Object.freeze(globalThis['Math'].round)"#,

@@ -2030,7 +2030,7 @@ fn math_round_member_calls_constant_fold_floating_literal() {
 #[test]
 fn math_round_member_constant_folding_is_available_through_object_freeze_callable_wrapper() {
     let program = parse_and_lower_lir(
-        "console.log(Object.freeze(globalThis.Math[\"round\"])(1.6)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(1.6)); console.log(Object.freeze(globalThis.Math['round'])(1.6)); console.log(Object.freeze(globalThis[\"Math\"]['round'])(1.6)); console.log(Object.freeze(globalThis['Math'].round)(1.6)); console.log(Object.freeze(globalThis['Math']['round'])(1.6));",
+        "console.log(Object.freeze(globalThis.Math[\"round\"])(1.6)); console.log(Object.freeze(globalThis[\"Math\"][\"round\"])(1.6)); console.log(Object.freeze(globalThis.Math['round'])(1.6)); console.log(Object.freeze(globalThis[\"Math\"]['round'])(1.6)); console.log(Object.freeze(globalThis['Math'].round)(1.6)); console.log(Object.freeze(globalThis['Math']['round'])(1.6)); console.log(Object.freeze((globalThis['Math'])[\"round\"])(1.6));",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
