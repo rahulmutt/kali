@@ -650,6 +650,76 @@ fn binding_package_manifest_parsing_rejects_whitespace_padded_string_lists() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_whitespace_padded_artifact_paths() {
+    for (field, manifest) in [
+        (
+            "artifacts.library",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": HOST_ABI_VERSION,
+                "runtimeProfiles": ["wasm-threads"],
+                "artifacts": {
+                    "library": " sample.capi.wasm ",
+                    "metadata": "sample.cabi.json",
+                    "exportsHeader": "sample.h",
+                    "glue": ["shim.py"]
+                }
+            }),
+        ),
+        (
+            "artifacts.metadata",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": HOST_ABI_VERSION,
+                "runtimeProfiles": ["wasm-threads"],
+                "artifacts": {
+                    "library": "sample.capi.wasm",
+                    "metadata": " sample.cabi.json ",
+                    "exportsHeader": "sample.h",
+                    "glue": ["shim.py"]
+                }
+            }),
+        ),
+        (
+            "artifacts.exportsHeader",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": HOST_ABI_VERSION,
+                "runtimeProfiles": ["wasm-threads"],
+                "artifacts": {
+                    "library": "sample.capi.wasm",
+                    "metadata": "sample.cabi.json",
+                    "exportsHeader": " sample.h ",
+                    "glue": ["shim.py"]
+                }
+            }),
+        ),
+    ] {
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("padded artifact path entries should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("padded artifact path entries should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn binding_package_manifest_summary_normalizes_string_lists() {
     let manifest = valid_binding_package_manifest();
 

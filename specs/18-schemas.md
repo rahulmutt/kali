@@ -446,7 +446,7 @@ Canonical schema-v1 `role` values:
 - `interface-wit` — canonical WIT interface description emitted for the stable public library/component/embedding flows once that Phase-2 public contract exists
 - `embedding-header` — generated **program-specific exports header** from `kali build --capi` (distinct from the stable **host ABI header** `kali.h`; see [SPEC.md](../SPEC.md))
 - `embedding-metadata` — generated C-ABI compatibility metadata from `kali build --capi` (the artifact `kind` remains `cabi-metadata`; this is the canonical `role` for that file)
-- `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows and follows the same host ABI version-window rule as the C-ABI metadata sidecar; both sidecars are fixed-shape schema-v1 objects and reject unexpected top-level or nested artifact keys
+- `binding-package-manifest` — deterministic stem-specific bundle index emitted alongside the public embedding flows; it records the generated artifact layout for higher-level language binding workflows and follows the same host ABI version-window rule as the C-ABI metadata sidecar; both sidecars are fixed-shape schema-v1 objects and reject unexpected top-level or nested artifact keys; the binding-package artifact references (`artifacts.library`, `artifacts.metadata`, `artifacts.exportsHeader`) are canonical non-empty strings that reject leading or trailing whitespace, and the `glue` entries follow the same non-empty, non-whitespace rule as other deterministic string lists
 - `debug-source-map` — source-map/debug companion artifact
 
 Current repository snapshot note:

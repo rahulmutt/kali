@@ -698,7 +698,7 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
         }
     }
     for key in ["library", "metadata", "exportsHeader"] {
-        validate_string_field(
+        validate_non_empty_string_field(
             artifacts.get(key).ok_or_else(|| {
                 format!(
                     "binding package manifest field 'artifacts.{}' is missing",
@@ -1012,7 +1012,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     let exports_header = artifacts.get("exportsHeader").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.exportsHeader' is missing".to_string()
     })?;
-    validate_string_field(
+    validate_non_empty_string_field(
         exports_header,
         "binding package manifest summary",
         "artifacts.exportsHeader",
@@ -1024,7 +1024,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     let library = artifacts.get("library").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.library' is missing".to_string()
     })?;
-    validate_string_field(
+    validate_non_empty_string_field(
         library,
         "binding package manifest summary",
         "artifacts.library",
@@ -1032,7 +1032,7 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     let metadata = artifacts.get("metadata").ok_or_else(|| {
         "binding package manifest summary field 'artifacts.metadata' is missing".to_string()
     })?;
-    validate_string_field(
+    validate_non_empty_string_field(
         metadata,
         "binding package manifest summary",
         "artifacts.metadata",
