@@ -986,6 +986,13 @@ fn analyze_source_file(
         )]);
     }
 
+    if source_uses_optional_chain_math_pow(&source) {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Math.pow is unavailable through optional-chain wrappers in the current phase; use a direct call or the later compatibility path",
+        )]);
+    }
+
     let lexer = Lexer::new(FileId::new(0), source);
     let tokens = lexer.lex_all().tokens;
     let mut parser = Parser::new(FileId::new(0), tokens);
@@ -1022,6 +1029,20 @@ fn analyze_source_file(
         statements: parsed.statements,
         diagnostics,
     })
+}
+
+fn source_uses_optional_chain_math_pow(source: &str) -> bool {
+    let patterns = [
+        "?.Math.pow",
+        "?.Math[\"pow\"]",
+        "?.Math['pow']",
+        "?.[\"Math\"].pow",
+        "?.[\"Math\"][\"pow\"]",
+        "?.['Math'].pow",
+        "?.['Math']['pow']",
+    ];
+
+    patterns.iter().any(|pattern| source.contains(pattern))
 }
 
 fn source_uses_process_env_mutation(source: &str) -> bool {

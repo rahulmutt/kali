@@ -22,6 +22,18 @@ fn sequence_expression(expressions: Vec<Expression>) -> Expression {
     Expression::SequenceExpression(Box::new(kali_ast::SequenceExpression { expressions }))
 }
 
+fn optional_chain_global_this_math() -> Expression {
+    Expression::OptionalChainExpression(Box::new(OptionalChainExpression {
+        inner: Box::new(OptionalChainInner::NonNull {
+            object: Box::new(Expression::MemberExpression(Box::new(MemberExpression {
+                object: Expression::Identifier("globalThis".to_string()),
+                property: "Math".to_string(),
+            }))),
+            optional: true,
+        }),
+    }))
+}
+
 #[test]
 fn test_scope_creation() {
     let scope = Scope::new(ScopeType::Global, None);
@@ -5678,6 +5690,54 @@ fn test_resolution_reports_unsupported_math_pow_negative_exponents_as_unavailabl
     assert!(result.diagnostics[0]
         .message
         .contains("negative numeric literals"));
+}
+
+#[test]
+fn test_resolution_reports_optional_chain_wrapped_math_pow_member_calls_as_unavailable() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: optional_chain_global_this_math(),
+                    property: "pow".to_string(),
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                ],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::CallExpression(Box::new(CallExpression {
+                    callee: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("Object".to_string()),
+                        property: "freeze".to_string(),
+                    })),
+                    args: vec![Expression::MemberExpression(Box::new(MemberExpression {
+                        object: optional_chain_global_this_math(),
+                        property: "pow".to_string(),
+                    }))],
+                })),
+                args: vec![
+                    Expression::Literal(LiteralValue::Number(2.0)),
+                    Expression::Literal(LiteralValue::Number(3.0)),
+                ],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.message.contains("optional-chain wrappers")));
 }
 
 #[test]

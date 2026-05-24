@@ -2829,6 +2829,46 @@ impl TypeContext {
             .or_else(|| self.resolve_static_reference_root(expression))
     }
 
+    fn contains_optional_chain(expression: &Expression) -> bool {
+        match expression {
+            Expression::OptionalChainExpression(_) => true,
+            Expression::ParenthesizedExpression(expr) => {
+                Self::contains_optional_chain(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => Self::contains_optional_chain(&expr.expression),
+            Expression::SatisfiesExpression(expr) => {
+                Self::contains_optional_chain(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::contains_optional_chain(&expr.expression)
+            }
+            Expression::ChainExpression(expr) => Self::contains_optional_chain(&expr.expression),
+            Expression::AwaitExpression(expr) => Self::contains_optional_chain(&expr.argument),
+            Expression::SequenceExpression(expr) => {
+                expr.expressions.iter().any(Self::contains_optional_chain)
+            }
+            Expression::CallExpression(call) => {
+                Self::contains_optional_chain(&call.callee)
+                    || call.args.iter().any(Self::contains_optional_chain)
+            }
+            Expression::MemberExpression(member) => Self::contains_optional_chain(&member.object),
+            Expression::BinaryExpression(expr) => {
+                Self::contains_optional_chain(&expr.left)
+                    || Self::contains_optional_chain(&expr.right)
+            }
+            Expression::LogicalExpression(expr) => {
+                Self::contains_optional_chain(&expr.left)
+                    || Self::contains_optional_chain(&expr.right)
+            }
+            Expression::ConditionalExpression(expr) => {
+                Self::contains_optional_chain(&expr.test)
+                    || Self::contains_optional_chain(&expr.consequent)
+                    || Self::contains_optional_chain(&expr.alternate)
+            }
+            _ => false,
+        }
+    }
+
     fn is_supported_static_callable_member_expression(&self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
@@ -3581,6 +3621,14 @@ impl TypeContext {
         }
 
         if method == "pow" {
+            if Self::contains_optional_chain(&expr.callee) {
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Math.pow is unavailable through optional-chain wrappers in the current phase; use a direct call or the later compatibility path",
+                ));
+                return;
+            }
+
             if expr.args.len() < 2 {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
