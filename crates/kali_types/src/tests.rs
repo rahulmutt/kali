@@ -272,8 +272,22 @@ fn test_resolution_accepts_object_freeze_wrapped_object_helper_iteration_targets
     let source_path = dir.path().join("main.js");
     let source = r#"const object = Object.fromEntries([["b", 1], ["a", 2]]);
 async function main() {
-    for (const key of Object.freeze(Object.keys(object))) { console.log(key); }
-    for await (const entry of Object.freeze(Object.entries(object))) { console.log(entry[0], entry[1]); }
+    const conditionalKeys = Object.freeze((true ? Object.keys : Object.keys));
+    const conditionalEntries = Object.freeze((true ? Object.entries : Object.entries));
+    const keys = conditionalKeys(object);
+    const entries = conditionalEntries(object);
+    if (
+        keys.length !== 2 ||
+        keys[0] !== "b" ||
+        keys[1] !== "a" ||
+        entries.length !== 2 ||
+        entries[0][0] !== "b" ||
+        entries[0][1] !== 1 ||
+        entries[1][0] !== "a" ||
+        entries[1][1] !== 2
+    ) {
+        throw new Error("unexpected conditional Object.keys/Object.entries helper result");
+    }
 }
 main();
 "#;

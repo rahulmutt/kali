@@ -14,6 +14,8 @@ function browserObjectHasOwnFromEntries() {
   const alias = object;
   const wrapped = (0, alias);
   const awaited = wrapped;
+  const conditionalHasOwn = Object.freeze((true ? Object.hasOwn : Object.hasOwn));
+  const conditionalHasOwnPropertyCall = Object.freeze((true ? Object.prototype.hasOwnProperty.call : Object.prototype.hasOwnProperty.call));
   if (
     !Object.hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
@@ -22,8 +24,10 @@ function browserObjectHasOwnFromEntries() {
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
     !Object.hasOwn(awaited, "a") ||
+    !conditionalHasOwn(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(awaited, "a") ||
+    !conditionalHasOwnPropertyCall(wrapped, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -202,6 +206,8 @@ fn browser_harness_object_has_own_from_entries_run_source() -> &'static str {
   const alias = object;
   const wrapped = (0, alias);
   const awaited = wrapped;
+  const conditionalHasOwn = Object.freeze((true ? Object.hasOwn : Object.hasOwn));
+  const conditionalHasOwnPropertyCall = Object.freeze((true ? Object.prototype.hasOwnProperty.call : Object.prototype.hasOwnProperty.call));
   if (
     !Object.hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
@@ -210,8 +216,10 @@ fn browser_harness_object_has_own_from_entries_run_source() -> &'static str {
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
     !Object.hasOwn(awaited, "a") ||
+    !conditionalHasOwn(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(awaited, "a") ||
+    !conditionalHasOwnPropertyCall(wrapped, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
@@ -234,6 +242,8 @@ fn browser_harness_object_has_own_from_entries_test_source() -> &'static str {
   const alias = object;
   const wrapped = (0, alias);
   const awaited = wrapped;
+  const conditionalHasOwn = Object.freeze((true ? Object.hasOwn : Object.hasOwn));
+  const conditionalHasOwnPropertyCall = Object.freeze((true ? Object.prototype.hasOwnProperty.call : Object.prototype.hasOwnProperty.call));
   if (
     !Object.hasOwn(wrapped, "a") ||
     !Object["hasOwn"](wrapped, "a") ||
@@ -242,8 +252,10 @@ fn browser_harness_object_has_own_from_entries_test_source() -> &'static str {
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
     !Object.hasOwn(awaited, "a") ||
+    !conditionalHasOwn(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object.prototype.hasOwnProperty.call(awaited, "a") ||
+    !conditionalHasOwnPropertyCall(wrapped, "a") ||
     !globalThis.Object.prototype["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis.Object["prototype"]["hasOwnProperty"]["call"](wrapped, "a") ||
     !globalThis["Object"].prototype["hasOwnProperty"]["call"](wrapped, "a") ||
