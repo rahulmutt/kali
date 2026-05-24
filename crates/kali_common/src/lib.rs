@@ -1643,6 +1643,27 @@ pub const fn promise_all_settled_browser_body_source() -> &'static str {
 "#
 }
 
+/// Canonical browser smoke body for the supported `Promise.race` slice.
+pub const fn promise_race_browser_body_source() -> &'static str {
+    r#"  const direct = await Promise.race([Promise.resolve(1), Promise.resolve(2)]);
+  const dotted = await globalThis.Promise.race([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketed = await globalThis["Promise"].race([Promise.resolve(1), Promise.resolve(2)]);
+  const singleBracketed = await globalThis['Promise'].race([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenDotted = await Object.freeze(globalThis.Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
+  if (
+    direct !== 1 ||
+    dotted !== 1 ||
+    bracketed !== 1 ||
+    singleBracketed !== 1 ||
+    frozenRoot !== 1 ||
+    frozenDotted !== 1
+  ) {
+    throw new Error('unexpected Promise.race semantics');
+  }
+"#
+}
+
 /// Canonical browser smoke body for the supported `Promise.all` slice.
 pub const fn promise_all_browser_body_source() -> &'static str {
     r#"  const direct = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);

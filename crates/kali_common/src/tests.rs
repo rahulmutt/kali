@@ -2406,6 +2406,33 @@ fn test_promise_all_settled_browser_body_source_includes_the_shared_freeze_wrapp
 }
 
 #[test]
+fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_aliases() {
+    let body = promise_race_browser_body_source();
+
+    assert!(
+        body.contains("const bracketed = await globalThis[\"Promise\"].race([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleBracketed = await globalThis['Promise'].race([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenDotted = await Object.freeze(globalThis.Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("throw new Error('unexpected Promise.race semantics');"),
+        "body: {body}"
+    );
+    assert!(body.contains("  }\n"), "body: {body}");
+}
+
+#[test]
 fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_aliases() {
     let body = promise_all_browser_body_source();
 
