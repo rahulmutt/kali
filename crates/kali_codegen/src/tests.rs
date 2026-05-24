@@ -2674,6 +2674,31 @@ fn generator_function_without_yield_still_remains_feature_unavailable() {
 }
 
 #[test]
+fn unsupported_array_callback_iteration_lowering_reports_feature_unavailable() {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().any(|diagnostic| {
+            diagnostic.is_error()
+                && diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                && diagnostic
+                    .message
+                    .contains("for-of array iteration lowering is unavailable")
+        }),
+        "expected an unavailable array-callback diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn supported_math_exp_member_lowering_is_available_for_exact_zero_literals() {
     let program = parse_and_lower_lir("const zero = 0; console.log(Math.exp(zero));");
     let mut ctx = CodegenCtx::new(TargetConfig {

@@ -3242,6 +3242,43 @@ impl<'a> FunctionEmitter<'a> {
         )
     }
 
+    fn is_array_callback_iteration_call(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let Some(callee_text) = self.node(callee).text.as_deref() else {
+            return false;
+        };
+
+        [
+            "map",
+            "filter",
+            "find",
+            "findLast",
+            "findIndex",
+            "findLastIndex",
+            "flatMap",
+            "some",
+            "every",
+            "reduce",
+            "reduceRight",
+        ]
+        .iter()
+        .any(|method| {
+            callee_text == *method
+                || callee_text.ends_with(&format!(".{method}"))
+                || callee_text.ends_with(&format!("[\"{method}\"]"))
+                || callee_text.ends_with(&format!("['{method}']"))
+        })
+    }
+
     fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
@@ -5159,6 +5196,18 @@ impl<'a> FunctionEmitter<'a> {
             function.instruction(&Instruction::End);
             self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
 
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_array_callback_iteration_call(&array) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "for-of array iteration lowering is unavailable for array callback-produced iterables in the current phase; use a supported loop form or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
             return EmittedValue {
                 produced: false,
                 shape: ValueShape::Unknown,
