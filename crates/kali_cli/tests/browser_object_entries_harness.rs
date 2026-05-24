@@ -28,17 +28,21 @@ function browserObjectEntriesIteration() {
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
   const frozenEntries = Object.freeze(Object.entries)(alias);
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   console.log('browser object entries iteration ok');
 }
 
@@ -67,17 +71,21 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const bracketedEntries = globalThis["Object"]["entries"](alias);
+  const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
   const frozenEntries = Object.freeze(Object.entries)(alias);
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
+  const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketedEntries);
+  assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenEntries);
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   console.log('browser object entries iteration ok');
 });
 "##
