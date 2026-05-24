@@ -26,6 +26,10 @@ function browserObjectKeysIteration() {
   for (const key of globalThis["Object"].keys(alias)) {
     mixedBracketed.push(key);
   }
+  const singleQuotedProperty = [];
+  for (const key of globalThis['Object'].keys(alias)) {
+    singleQuotedProperty.push(key);
+  }
   const doubleQuotedSingleQuoted = [];
   for (const key of globalThis["Object"]['keys'](alias)) {
     doubleQuotedSingleQuoted.push(key);
@@ -35,6 +39,7 @@ function browserObjectKeysIteration() {
     mixedSingleQuoted.push(key);
   }
   assertObjectKeysIteration(mixedBracketed);
+  assertObjectKeysIteration(singleQuotedProperty);
   assertObjectKeysIteration(doubleQuotedSingleQuoted);
   assertObjectKeysIteration(mixedSingleQuoted);
   assertObjectKeysIteration(keys);

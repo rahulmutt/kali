@@ -27,6 +27,10 @@ function browserObjectEntriesIteration() {
   const entries = Object.entries(alias);
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const singleQuotedProperty = [];
+  for (const entry of globalThis['Object'].entries(alias)) {
+    singleQuotedProperty.push(entry);
+  }
   const doubleQuotedSingleQuotedEntries = globalThis["Object"]['entries'](alias);
   const mixedSingleQuotedBracketedEntries = globalThis['Object']["entries"](alias);
   const mixedSingleQuotedEntries = globalThis['Object']['entries'](alias);
@@ -34,6 +38,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
+  assertObjectEntriesIteration(singleQuotedProperty);
   assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
   assertObjectEntriesIteration(mixedSingleQuotedBracketedEntries);
   assertObjectEntriesIteration(mixedSingleQuotedEntries);
