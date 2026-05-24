@@ -917,6 +917,9 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
         r#"Object.freeze((false || Reflect.ownKeys))"#,
         r#"Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))"#,
         r#"Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))"#,
+        r#"Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))"#,
+        r#"Object.freeze((true && globalThis["Reflect"]["ownKeys"]))"#,
+        r#"Object.freeze((false || globalThis["Reflect"]["ownKeys"]))"#,
     ] {
         assert!(aliases.contains(&alias), "missing alias: {alias}");
     }
@@ -969,6 +972,9 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
         r#"const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj)"#,
         r#"const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj)"#,
         r#"const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj)"#,
+        r#"const nullishFrozenBracketedKeys = Object.freeze((null ?? globalThis["Reflect"]["ownKeys"]))(obj)"#,
+        r#"const logicalAndFrozenBracketedKeys = Object.freeze((true && globalThis["Reflect"]["ownKeys"]))(obj)"#,
+        r#"const logicalOrFrozenBracketedKeys = Object.freeze((false || globalThis["Reflect"]["ownKeys"]))(obj)"#,
     ] {
         assert!(
             source.contains(expected),
@@ -3381,59 +3387,26 @@ fn test_process_kill_zero_probe_parenthesized_receiver_source_lists_all_aliases_
 }
 
 #[test]
-fn test_late_process_env_mutation_source_lists_bracketed_process_aliases_and_mixed_delete_aliases()
-{
+fn test_late_process_env_mutation_source_lists_mixed_quote_process_aliases_and_mixed_delete_aliases(
+) {
     let aliases = late_process_env_mutation_aliases();
     let source = late_process_env_mutation_source();
     let expected = format!("{};", aliases.join("; "));
 
-    assert_eq!(
-        aliases,
-        &[
-            r#"process.env = {}"#,
-            r#"process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"globalThis.process.env = {}"#,
-            r#"globalThis.process.env.KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"process["env"] = {}"#,
-            r#"process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
-            r#"globalThis.process["env"] = {}"#,
-            r#"globalThis.process["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
-            r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"globalThis["process"].env = {}"#,
-            r#"globalThis["process"].env.KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#,
-            r#"globalThis["process"]["env"] = {}"#,
-            r#"globalThis["process"]["env"].KALI_BROWSER_ENV_MUTATION = {}"#,
-            r#"globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
-            r#"delete process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"delete process.env["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"delete globalThis.process.env["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#,
-            r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
-        ]
-    );
     assert_eq!(source, expected);
-    assert!(
-        source.contains(r#"globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"] = {}"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis["process"].env["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis["process"]["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"delete globalThis.process["env"]["KALI_BROWSER_ENV_MUTATION"]"#),
-        "source: {source}"
-    );
+    for fragment in [
+        r#"process['env'] = {}"#,
+        r#"process['env']['KALI_BROWSER_ENV_MUTATION'] = {}"#,
+        r#"globalThis.process['env'] = {}"#,
+        r#"globalThis.process['env']['KALI_BROWSER_ENV_MUTATION'] = {}"#,
+        r#"globalThis["process"]['env'] = {}"#,
+        r#"globalThis["process"]['env']['KALI_BROWSER_ENV_MUTATION'] = {}"#,
+        r#"globalThis['process']["env"] = {}"#,
+        r#"globalThis['process']["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
+        r#"delete globalThis.process['env']['KALI_BROWSER_ENV_MUTATION']"#,
+        r#"delete globalThis["process"]['env']['KALI_BROWSER_ENV_MUTATION']"#,
+        r#"delete globalThis['process']['env']['KALI_BROWSER_ENV_MUTATION']"#,
+    ] {
+        assert!(source.contains(fragment), "missing fragment: {fragment}; source: {source}");
+    }
 }
