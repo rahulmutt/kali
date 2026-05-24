@@ -1663,6 +1663,18 @@ pub const fn promise_all_browser_body_source() -> &'static str {
   const parenthesizedFrozenBracketedRoot = await Object.freeze((Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenSingleBracketedRoot = await Object.freeze(Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenSingleBracketedRoot = await Object.freeze((Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedRoot = await Object.freeze(globalThis.Promise["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedRoot = await Object.freeze((globalThis.Promise["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedRoot = await Object.freeze(globalThis.Promise['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedRoot = await Object.freeze((globalThis.Promise['all']))([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketedRoot = await Object.freeze(globalThis["Promise"].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedBracketedRoot = await Object.freeze((globalThis["Promise"].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedBracketedRoot = await Object.freeze(globalThis["Promise"]["all"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedMixedBracketedRoot = await Object.freeze((globalThis["Promise"]["all"]))([Promise.resolve(1), Promise.resolve(2)]);
+  const singleMixedBracketedRoot = await Object.freeze(globalThis['Promise'].all)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleMixedBracketedRoot = await Object.freeze((globalThis['Promise'].all))([Promise.resolve(1), Promise.resolve(2)]);
+  const fullyBracketedSingleRoot = await Object.freeze(globalThis['Promise']['all'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFullyBracketedSingleRoot = await Object.freeze((globalThis['Promise']['all']))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenGlobal = await Object.freeze((globalThis.Promise.all))([Promise.resolve(1), Promise.resolve(2)]);
   if (

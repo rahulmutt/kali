@@ -2430,6 +2430,18 @@ fn test_promise_all_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains("const mixedRoot = await Object.freeze(globalThis.Promise[\"all\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const mixedBracketedRoot = await Object.freeze(globalThis[\"Promise\"][\"all\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const fullyBracketedSingleRoot = await Object.freeze(globalThis['Promise']['all'])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenGlobal = await Object.freeze(globalThis.Promise.all)([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
