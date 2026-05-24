@@ -27267,6 +27267,12 @@ const frozenGlobalKeys = globalThis['Reflect']['ownKeys'](frozen);
 const frozenCallableValues = Object.freeze(Object.values)(frozen);
 const frozenCallableGlobalValues = Object.freeze(globalThis.Object.values)(frozen);
 const frozenCallableBracketedValues = Object.freeze(globalThis["Object"]["values"])(frozen);
+const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
+const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
+const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
+for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
+for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
+for (const entry of [...parenthesizedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
 const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(frozen);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(frozen);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(frozen);
@@ -27291,6 +27297,12 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const frozenCallableValues = Object.freeze(Object.values)(frozen);
   const frozenCallableGlobalValues = Object.freeze(globalThis.Object.values)(frozen);
   const frozenCallableBracketedValues = Object.freeze(globalThis["Object"]["values"])(frozen);
+  const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
+  const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
+  const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
+  for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
+  for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
+  for (const entry of [...parenthesizedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
   const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(frozen);
   const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(frozen);
   const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(frozen);
@@ -27351,7 +27363,7 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
     }
     assert_eq!(
         json["stdout"],
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     );
     assert_eq!(json["stderr"], "");
 }
@@ -27480,7 +27492,7 @@ fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filenam
     }
     assert_eq!(
         json["stdout"],
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     );
     assert_eq!(json["stderr"], "");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
