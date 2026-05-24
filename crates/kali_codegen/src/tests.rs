@@ -6039,6 +6039,22 @@ fn map_constructor_iteration_lowers_via_frozen_constructor_alias_without_diagnos
 }
 
 #[test]
+fn object_enumeration_helper_iteration_lowers_via_frozen_object_entries_call_without_diagnostics() {
+    let program = parse_and_lower_lir("for await (const entry of (Object.freeze(Object.entries))({ \"b\": 1, \"a\": 2 })) { console.log(entry[0]); console.log(entry[1]); }");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn set_constructor_iteration_lowers_through_frozen_constructor_result_without_diagnostics() {
     let program = parse_and_lower_lir(
         "const values = [1, 2, 1]; for (const value of Object.freeze(new Set(values))) { console.log(value); }",
