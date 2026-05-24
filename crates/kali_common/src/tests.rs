@@ -3401,12 +3401,17 @@ fn test_late_process_env_mutation_source_lists_mixed_quote_process_aliases_and_m
         r#"globalThis.process['env']['KALI_BROWSER_ENV_MUTATION'] = {}"#,
         r#"globalThis["process"]['env'] = {}"#,
         r#"globalThis["process"]['env']['KALI_BROWSER_ENV_MUTATION'] = {}"#,
+        r#"globalThis['process']["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
         r#"globalThis['process']["env"] = {}"#,
         r#"globalThis['process']["env"]["KALI_BROWSER_ENV_MUTATION"] = {}"#,
         r#"delete globalThis.process['env']['KALI_BROWSER_ENV_MUTATION']"#,
         r#"delete globalThis["process"]['env']['KALI_BROWSER_ENV_MUTATION']"#,
+        r#"delete globalThis['process']["env"]["KALI_BROWSER_ENV_MUTATION"]"#,
         r#"delete globalThis['process']['env']['KALI_BROWSER_ENV_MUTATION']"#,
     ] {
-        assert!(source.contains(fragment), "missing fragment: {fragment}; source: {source}");
+        assert!(
+            source.contains(fragment),
+            "missing fragment: {fragment}; source: {source}"
+        );
     }
 }
