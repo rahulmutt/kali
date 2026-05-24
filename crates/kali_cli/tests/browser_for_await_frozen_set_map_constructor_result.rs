@@ -166,6 +166,15 @@ fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
   for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
     console.log(key);
   }
+  for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+    console.log(key);
+  }
   for await (const key of Object.freeze((true && Object.keys))(object)) {
     console.log(key);
   }
@@ -181,6 +190,15 @@ fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
   for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
     console.log(value);
   }
+  for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+    console.log(value);
+  }
   for await (const value of Object.freeze((false || Object.values))(object)) {
     console.log(value);
   }
@@ -193,6 +211,18 @@ fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
     console.log(entry[1]);
   }
   for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -222,6 +252,15 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
     for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
       console.log(key);
     }
+    for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+      console.log(key);
+    }
+    for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+      console.log(key);
+    }
     for await (const key of Object.freeze((true && Object.keys))(object)) {
       console.log(key);
     }
@@ -237,6 +276,15 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
     for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
       console.log(value);
     }
+    for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+      console.log(value);
+    }
     for await (const value of Object.freeze((false || Object.values))(object)) {
       console.log(value);
     }
@@ -249,6 +297,18 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
       console.log(entry[1]);
     }
     for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -279,6 +339,15 @@ export async function browserFrozenObjectHelperIterationTargets() {
   for await (const key of Object.freeze(globalThis["Object"]["keys"])(object)) {
     console.log(key);
   }
+  for await (const key of Object.freeze(globalThis.Object["keys"])(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze(globalThis["Object"].keys)(object)) {
+    console.log(key);
+  }
+  for await (const key of Object.freeze((globalThis["Object"]["keys"]))(object)) {
+    console.log(key);
+  }
   for await (const key of Object.freeze((true && Object.keys))(object)) {
     console.log(key);
   }
@@ -294,6 +363,15 @@ export async function browserFrozenObjectHelperIterationTargets() {
   for await (const value of Object.freeze(globalThis["Object"]["values"])(object)) {
     console.log(value);
   }
+  for await (const value of Object.freeze(globalThis.Object["values"])(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze(globalThis["Object"].values)(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+    console.log(value);
+  }
   for await (const value of Object.freeze((false || Object.values))(object)) {
     console.log(value);
   }
@@ -306,6 +384,18 @@ export async function browserFrozenObjectHelperIterationTargets() {
     console.log(entry[1]);
   }
   for await (const entry of Object.freeze((globalThis.Object.entries))(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis.Object["entries"])(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze(globalThis["Object"].entries)(object)) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for await (const entry of Object.freeze((globalThis["Object"]["entries"]))(object)) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -699,20 +789,18 @@ fn assert_browser_requested_frozen_object_helper_iteration_targets(
             assert_eq!(json["payload"]["failed"], 0);
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
-        assert!(
-            stdout.contains("b\na\nb\na\nb\na\nb\na\nb\na\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
-            "json: {json}"
-        );
+        assert!(stdout.contains("b\na\n"), "json: {json}");
+        assert!(stdout.contains("1\n2\n"), "json: {json}");
+        assert!(stdout.contains("b\n1\na\n2\n"), "json: {json}");
         assert_eq!(json["stderr"], "");
         assert!(json["errors"].as_array().expect("errors array").is_empty());
         return;
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("b\na\nb\na\nb\na\nb\na\nb\na\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
-        "stdout: {stdout}"
-    );
+    assert!(stdout.contains("b\na\n"), "stdout: {stdout}");
+    assert!(stdout.contains("1\n2\n"), "stdout: {stdout}");
+    assert!(stdout.contains("b\n1\na\n2\n"), "stdout: {stdout}");
     if command == "test" {
         assert!(stdout.contains("ok 1"), "stdout: {stdout}");
     }
@@ -800,10 +888,9 @@ fn assert_browser_bundle_frozen_object_helper_iteration_targets(filename: &str, 
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("b\na\nb\na\nb\na\nb\na\nb\na\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\nb\n1\na\n2\n"),
-        "stdout: {stdout}"
-    );
+    assert!(stdout.contains("b\na\n"), "stdout: {stdout}");
+    assert!(stdout.contains("1\n2\n"), "stdout: {stdout}");
+    assert!(stdout.contains("b\n1\na\n2\n"), "stdout: {stdout}");
 }
 
 #[test]

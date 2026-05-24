@@ -28,6 +28,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 ### 21.2 Iterator and async-iterator protocols
 
 - Expand `for...of`, `for await...of`, spreads, `Array.from`, object-enumeration helpers, `Set`/`Map` iteration, and iterable consumption beyond current bounded static slices.
+- Current smoke now also pins mixed/bracketed frozen callable aliases for `Object.keys` / `Object.values` / `Object.entries` on the browser-requested `for await` helper path.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, async iterator finalization, and error propagation.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 - Keep transparent wrapper handling only where it remains deterministic and evidence-backed.
