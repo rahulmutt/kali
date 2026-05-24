@@ -26892,8 +26892,11 @@ const stringEntries = Object.entries('ab');
 const globalThisStringEntries = globalThis.Object["entries"]('ab');
 const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const conditionalStringValues = (true ? Object.values : Object.values)('ab');
 const globalThisStringValues = globalThis.Object["values"]('ab');
+const conditionalGlobalThisStringValues = (true ? globalThis.Object["values"] : globalThis.Object["values"])('ab');
 const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
+const conditionalFullyBracketedGlobalThisStringValues = (true ? globalThis["Object"]["values"] : globalThis["Object"]["values"])('ab');
 const consumeArray = (items, value) => items[0] + items[1] + value;
 const arrayLiteralFirst = consumeArray([1n, 2n], 1n);
 const arrayLiteralSecond = consumeArray([1n, 2n, 3n], 1n);
@@ -26928,12 +26931,21 @@ if (
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
   stringValues[1] !== 'b' ||
+  conditionalStringValues.length !== 2 ||
+  conditionalStringValues[0] !== 'a' ||
+  conditionalStringValues[1] !== 'b' ||
   globalThisStringValues.length !== 2 ||
   globalThisStringValues[0] !== 'a' ||
   globalThisStringValues[1] !== 'b' ||
+  conditionalGlobalThisStringValues.length !== 2 ||
+  conditionalGlobalThisStringValues[0] !== 'a' ||
+  conditionalGlobalThisStringValues[1] !== 'b' ||
   fullyBracketedGlobalThisStringValues.length !== 2 ||
   fullyBracketedGlobalThisStringValues[0] !== 'a' ||
-  fullyBracketedGlobalThisStringValues[1] !== 'b'
+  fullyBracketedGlobalThisStringValues[1] !== 'b' ||
+  conditionalFullyBracketedGlobalThisStringValues.length !== 2 ||
+  conditionalFullyBracketedGlobalThisStringValues[0] !== 'a' ||
+  conditionalFullyBracketedGlobalThisStringValues[1] !== 'b'
 ) {
   throw 'unexpected string primitive enumeration';
 }
@@ -26949,8 +26961,11 @@ const stringEntries = Object.entries('ab');
 const globalThisStringEntries = globalThis.Object["entries"]('ab');
 const bracketedGlobalThisStringEntries = globalThis["Object"].entries('ab');
 const stringValues = Object.values('ab');
+const conditionalStringValues = (true ? Object.values : Object.values)('ab');
 const globalThisStringValues = globalThis.Object["values"]('ab');
+const conditionalGlobalThisStringValues = (true ? globalThis.Object["values"] : globalThis.Object["values"])('ab');
 const fullyBracketedGlobalThisStringValues = globalThis["Object"]["values"]('ab');
+const conditionalFullyBracketedGlobalThisStringValues = (true ? globalThis["Object"]["values"] : globalThis["Object"]["values"])('ab');
 if (
   stringKeys.length !== 2 ||
   stringKeys[0] !== '0' ||
@@ -26979,12 +26994,21 @@ if (
   stringValues.length !== 2 ||
   stringValues[0] !== 'a' ||
   stringValues[1] !== 'b' ||
+  conditionalStringValues.length !== 2 ||
+  conditionalStringValues[0] !== 'a' ||
+  conditionalStringValues[1] !== 'b' ||
   globalThisStringValues.length !== 2 ||
   globalThisStringValues[0] !== 'a' ||
   globalThisStringValues[1] !== 'b' ||
+  conditionalGlobalThisStringValues.length !== 2 ||
+  conditionalGlobalThisStringValues[0] !== 'a' ||
+  conditionalGlobalThisStringValues[1] !== 'b' ||
   fullyBracketedGlobalThisStringValues.length !== 2 ||
   fullyBracketedGlobalThisStringValues[0] !== 'a' ||
-  fullyBracketedGlobalThisStringValues[1] !== 'b'
+  fullyBracketedGlobalThisStringValues[1] !== 'b' ||
+  conditionalFullyBracketedGlobalThisStringValues.length !== 2 ||
+  conditionalFullyBracketedGlobalThisStringValues[0] !== 'a' ||
+  conditionalFullyBracketedGlobalThisStringValues[1] !== 'b'
 ) {
   throw 'unexpected string primitive enumeration';
 }
