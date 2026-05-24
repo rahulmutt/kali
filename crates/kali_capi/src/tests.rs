@@ -921,6 +921,39 @@ fn binding_package_manifest_helpers_reject_empty_provenance_fields() {
 }
 
 #[test]
+fn binding_package_manifest_helpers_reject_empty_or_whitespace_artifact_paths() {
+    for (field, value) in [
+        ("artifacts.library", serde_json::json!("")),
+        ("artifacts.metadata", serde_json::json!("   ")),
+        ("artifacts.exportsHeader", serde_json::json!("")),
+    ] {
+        let mut manifest = valid_binding_package_manifest();
+        match field {
+            "artifacts.library" => manifest["artifacts"]["library"] = value,
+            "artifacts.metadata" => manifest["artifacts"]["metadata"] = value,
+            "artifacts.exportsHeader" => manifest["artifacts"]["exportsHeader"] = value,
+            other => panic!("unexpected field {other}"),
+        }
+
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("empty artifact path should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("empty artifact path should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("non-empty, non-whitespace string"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn binding_package_manifest_rejects_incompatible_host_abi_version_window() {
     let manifest = serde_json::json!({
         "schemaVersion": 1,
