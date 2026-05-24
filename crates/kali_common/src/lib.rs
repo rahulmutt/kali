@@ -1996,8 +1996,17 @@ pub const fn math_exp2_frozen_callable_aliases() -> &'static [&'static str] {
         r#"Object.freeze((Math["exp2"]))"#,
         r#"Object.freeze(Math['exp2'])"#,
         r#"Object.freeze((Math['exp2']))"#,
+        r#"Object.freeze((null ?? globalThis.Math["exp2"]))"#,
+        r#"Object.freeze((true && globalThis.Math["exp2"]))"#,
+        r#"Object.freeze((false || globalThis.Math["exp2"]))"#,
+        r#"Object.freeze((null ?? globalThis["Math"].exp2))"#,
+        r#"Object.freeze((true && globalThis["Math"].exp2))"#,
+        r#"Object.freeze((false || globalThis["Math"].exp2))"#,
         r#"Object.freeze((null ?? Math.exp2))"#,
         r#"Object.freeze((true && globalThis.Math.exp2))"#,
+        r#"Object.freeze((false || globalThis.Math.exp2))"#,
+        r#"Object.freeze((null ?? globalThis["Math"]["exp2"]))"#,
+        r#"Object.freeze((true && globalThis["Math"]["exp2"]))"#,
         r#"Object.freeze((false || globalThis["Math"]["exp2"]))"#,
     ]
 }

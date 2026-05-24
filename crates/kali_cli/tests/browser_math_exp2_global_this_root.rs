@@ -35,7 +35,7 @@ function globalThisMathExp2NonNegativeIntegerLiterals() {
 }
 
 fn browser_harness_global_this_math_exp2_run_source() -> &'static str {
-    "const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis.Math[\"exp2\"](exponent)); console.log(globalThis[\"Math\"].exp2(exponent)); console.log(globalThis[\"Math\"][\"exp2\"](exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze(globalThis.Math.exp2)(exponent)); console.log(Object.freeze((globalThis.Math.exp2))(exponent)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(exponent)); console.log(Object.freeze((globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent)); console.log(Object.freeze((true && globalThis.Math.exp2))(exponent)); console.log(Object.freeze((false || globalThis.Math.exp2))(exponent)); console.log(Object.freeze((globalThis[\"Math\"][\"exp2\"]))(exponent));\n"
+    "const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis.Math[\"exp2\"](exponent)); console.log(globalThis[\"Math\"].exp2(exponent)); console.log(globalThis[\"Math\"][\"exp2\"](exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze(globalThis.Math.exp2)(exponent)); console.log(Object.freeze((globalThis.Math.exp2))(exponent)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(exponent)); console.log(Object.freeze((globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent)); console.log(Object.freeze((true && globalThis.Math.exp2))(exponent)); console.log(Object.freeze((false || globalThis.Math.exp2))(exponent)); console.log(Object.freeze((globalThis[\"Math\"][\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((true && globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((false || globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((true && globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((false || globalThis[\"Math\"].exp2))(exponent));\n"
 }
 
 fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
@@ -57,9 +57,16 @@ fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
   console.log(Object.freeze((true && globalThis.Math.exp2))(exponent));
   console.log(Object.freeze((false || globalThis.Math.exp2))(exponent));
   console.log(Object.freeze((globalThis["Math"]["exp2"]))(exponent));
+  console.log(Object.freeze((null ?? globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((true && globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((false || globalThis.Math["exp2"]))(exponent));
+  console.log(Object.freeze((null ?? globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((true && globalThis["Math"].exp2))(exponent));
+  console.log(Object.freeze((false || globalThis["Math"].exp2))(exponent));
 });
 "#
 }
+
 fn assert_browser_bundle_global_this_math_exp2(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
