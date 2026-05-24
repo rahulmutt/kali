@@ -944,6 +944,9 @@ impl TypeContext {
                 Expression::ChainExpression(expr) => &expr.expression,
                 Expression::DecoratedExpression(expr) => &expr.expression,
                 Expression::AwaitExpression(expr) => &expr.argument,
+                Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                    OptionalChainInner::NonNull { object, .. } => object,
+                },
                 Expression::CallExpression(call)
                     if Self::is_object_freeze_call(call) && !call.args.is_empty() =>
                 {
@@ -2673,6 +2676,11 @@ impl TypeContext {
             Expression::AwaitExpression(expr) => {
                 Self::unwrap_static_callable_expression(&expr.argument)
             }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    Self::unwrap_static_callable_expression(object)
+                }
+            },
             Expression::SequenceExpression(expr) => expr
                 .expressions
                 .last()
