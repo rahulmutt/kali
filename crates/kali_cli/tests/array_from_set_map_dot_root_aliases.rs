@@ -475,3 +475,136 @@ fn build_bundles_frozen_global_this_array_from_aliases_in_ts_jsx_and_tsx_input()
         assert_browser_bundle_array_from_dot_root(filename, false);
     }
 }
+
+fn mixed_bracket_global_this_array_from_wrappers_source() -> &'static str {
+    r##"const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const nullishMixedBracketArrayFrom = Object.freeze((null ?? globalThis.Array["from"])); const andMixedBracketArrayFrom = Object.freeze((true && globalThis.Array["from"])); for (const value of nullishMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const entry of andMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }"##
+}
+
+fn assert_standalone_mixed_bracket_global_this_array_from_wrappers(command: &str, filename: &str) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        mixed_bracket_global_this_array_from_wrappers_source(),
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg(command)
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    if command == "test" {
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+fn assert_browser_requested_mixed_bracket_global_this_array_from_wrappers(
+    command: &str,
+    filename: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(
+        &source_path,
+        mixed_bracket_global_this_array_from_wrappers_source(),
+    )
+    .expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.env(BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path());
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    let output = cli
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg("--max-threads")
+        .arg("0")
+        .arg("--max-spawned-processes")
+        .arg("0")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        assert_eq!(json["payload"]["threadTopology"]["totalInstances"], 0);
+        assert_eq!(json["payload"]["threadTopology"]["terminatedInstances"], 0);
+        assert_eq!(
+            json["payload"]["threadTopology"]["liveInstances"],
+            serde_json::json!([])
+        );
+        if command == "run" {
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            assert_eq!(json["payload"]["total"], 1);
+            assert_eq!(json["payload"]["passed"], 1);
+            assert_eq!(json["payload"]["failed"], 0);
+        }
+        let stdout = json["stdout"].as_str().expect("stdout string");
+        assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "json: {json}");
+        assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+        return;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("1\n2\n1\n3\n4\n5\n"), "stdout: {stdout}");
+    if command == "test" {
+        assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+    }
+}
+
+#[test]
+fn run_supports_nullish_logical_wrapped_global_this_array_from_bracket_aliases_in_js_input() {
+    assert_standalone_mixed_bracket_global_this_array_from_wrappers("run", "main.js");
+}
+
+#[test]
+fn test_supports_nullish_logical_wrapped_global_this_array_from_bracket_aliases_in_js_input() {
+    assert_standalone_mixed_bracket_global_this_array_from_wrappers("test", "smoke.test.js");
+}
+
+#[test]
+fn run_supports_nullish_logical_wrapped_global_this_array_from_bracket_aliases_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_mixed_bracket_global_this_array_from_wrappers("run", "main.js", false);
+}
+
+#[test]
+fn test_supports_nullish_logical_wrapped_global_this_array_from_bracket_aliases_in_js_input_when_browser_harness_is_configured(
+) {
+    assert_browser_requested_mixed_bracket_global_this_array_from_wrappers(
+        "test",
+        "smoke.test.js",
+        false,
+    );
+}
