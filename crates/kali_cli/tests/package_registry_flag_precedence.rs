@@ -96,6 +96,29 @@ fn package_effects_rejects_package_analysis_flags_before_malformed_target_valida
 }
 
 #[test]
+fn package_effects_rejects_sandbox_before_target_validation() {
+    let output = Command::new(kali_bin())
+        .arg("package-effects")
+        .arg("--sandbox")
+        .arg("policy.json")
+        .arg("npm:lodash")
+        .output()
+        .expect("run kali");
+
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("npm:lodash"),
+        "sandbox rejection should short-circuit before target validation: {stderr}"
+    );
+}
+
+#[test]
 fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_validation() {
     let output = Command::new(kali_bin())
         .arg("--output")
@@ -103,6 +126,37 @@ fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_v
         .arg("package-effects")
         .arg("--api")
         .arg("browser")
+        .arg("npm:lodash")
+        .output()
+        .expect("run kali");
+
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-effects");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
+    assert_ne!(errors[0]["message"], "npm:lodash");
+}
+
+#[test]
+fn json_package_effects_rejects_sandbox_before_malformed_target_validation() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("package-effects")
+        .arg("--sandbox")
+        .arg("policy.json")
         .arg("npm:lodash")
         .output()
         .expect("run kali");
@@ -162,6 +216,41 @@ fn package_audit_rejects_package_analysis_flags_before_malformed_target_validati
 }
 
 #[test]
+fn package_audit_rejects_sandbox_before_malformed_target_validation_and_lookup() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--sandbox")
+        .arg("policy.json")
+        .arg("npm:lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry should not be queried"
+    );
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("does not accept package-analysis-specific flags"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("npm:lodash"),
+        "sandbox rejection should short-circuit before target validation: {stderr}"
+    );
+}
+
+#[test]
 fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup()
 {
     let (registry_url, hits, stop, handle) =
@@ -174,6 +263,49 @@ fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_val
         .arg("package-audit")
         .arg("--api")
         .arg("browser")
+        .arg("npm:lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry should not be queried"
+    );
+    assert_eq!(output.status.code(), Some(5));
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert!(!json["success"].as_bool().expect("success boolean"));
+    assert_eq!(json["exitCode"], 5);
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5508");
+    assert!(
+        errors[0]["message"]
+            .as_str()
+            .expect("message string")
+            .contains("package-analysis-specific flags"),
+        "json: {json}"
+    );
+    assert_ne!(errors[0]["message"], "npm:lodash");
+}
+
+#[test]
+fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_lookup() {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("--output")
+        .arg("json")
+        .arg("package-audit")
+        .arg("--sandbox")
+        .arg("policy.json")
         .arg("npm:lodash")
         .output()
         .expect("run kali");
