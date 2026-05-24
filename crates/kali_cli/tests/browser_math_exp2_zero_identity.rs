@@ -8,7 +8,7 @@ fn kali_bin() -> String {
 }
 
 fn browser_harness_math_exp2_run_source() -> &'static str {
-    "const exponent = 2; const alias = exponent; console.log(Math.exp2(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias)); console.log(Object.freeze(Math.exp2)(alias)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(alias)); console.log(Object.freeze((null ?? globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((true && globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((false || globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((null ?? globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((true && globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((false || globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((null ?? Math.exp2))(alias)); console.log(Object.freeze((true && Math.exp2))(alias)); console.log(Object.freeze((false || Math.exp2))(alias));\n"
+    "const exponent = 2; const alias = exponent; console.log(Math.exp2(alias)); console.log(globalThis?.Math.exp2(alias)); console.log(Object.freeze(globalThis?.Math.exp2)(alias)); console.log(globalThis[\"Math\"][\"exp2\"](alias)); console.log(Object.freeze(Math.exp2)(alias)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(alias)); console.log(Object.freeze((null ?? globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((true && globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((false || globalThis.Math[\"exp2\"]))(alias)); console.log(Object.freeze((null ?? globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((true && globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((false || globalThis[\"Math\"].exp2))(alias)); console.log(Object.freeze((null ?? Math.exp2))(alias)); console.log(Object.freeze((true && Math.exp2))(alias)); console.log(Object.freeze((false || Math.exp2))(alias));\n"
 }
 
 fn browser_harness_math_exp2_test_source() -> &'static str {
@@ -16,6 +16,8 @@ fn browser_harness_math_exp2_test_source() -> &'static str {
   const exponent = 2;
   const alias = exponent;
   console.log(Math.exp2(alias));
+  console.log(globalThis?.Math.exp2(alias));
+  console.log(Object.freeze(globalThis?.Math.exp2)(alias));
   console.log(globalThis["Math"]["exp2"](alias));
   console.log(Object.freeze(Math.exp2)(alias));
   console.log(Object.freeze(globalThis.Math["exp2"])(alias));

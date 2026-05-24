@@ -12,6 +12,8 @@ fn browser_bundle_global_this_math_exp2_source() -> &'static str {
 function globalThisMathExp2NonNegativeIntegerLiterals() {
   const exponent = 2;
   console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis?.Math.exp2(exponent));
+  console.log(Object.freeze(globalThis?.Math.exp2)(exponent));
   console.log(globalThis.Math["exp2"](exponent));
   console.log(globalThis["Math"].exp2(exponent));
   console.log(globalThis["Math"]["exp2"](exponent));
@@ -35,13 +37,15 @@ function globalThisMathExp2NonNegativeIntegerLiterals() {
 }
 
 fn browser_harness_global_this_math_exp2_run_source() -> &'static str {
-    "const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis.Math[\"exp2\"](exponent)); console.log(globalThis[\"Math\"].exp2(exponent)); console.log(globalThis[\"Math\"][\"exp2\"](exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze(globalThis.Math.exp2)(exponent)); console.log(Object.freeze((globalThis.Math.exp2))(exponent)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(exponent)); console.log(Object.freeze((globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent)); console.log(Object.freeze((true && globalThis.Math.exp2))(exponent)); console.log(Object.freeze((false || globalThis.Math.exp2))(exponent)); console.log(Object.freeze((globalThis[\"Math\"][\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((true && globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((false || globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((true && globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((false || globalThis[\"Math\"].exp2))(exponent));\n"
+    "const exponent = 2; console.log(globalThis.Math.exp2(exponent)); console.log(globalThis?.Math.exp2(exponent)); console.log(Object.freeze(globalThis?.Math.exp2)(exponent)); console.log(globalThis.Math[\"exp2\"](exponent)); console.log(globalThis[\"Math\"].exp2(exponent)); console.log(globalThis[\"Math\"][\"exp2\"](exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze(globalThis.Math.exp2)(exponent)); console.log(Object.freeze((globalThis.Math.exp2))(exponent)); console.log(Object.freeze(globalThis.Math[\"exp2\"])(exponent)); console.log(Object.freeze((globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze(globalThis[\"Math\"].exp2)(exponent)); console.log(Object.freeze((globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((null ?? globalThis.Math.exp2))(exponent)); console.log(Object.freeze((true && globalThis.Math.exp2))(exponent)); console.log(Object.freeze((false || globalThis.Math.exp2))(exponent)); console.log(Object.freeze((globalThis[\"Math\"][\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((true && globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((false || globalThis.Math[\"exp2\"]))(exponent)); console.log(Object.freeze((null ?? globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((true && globalThis[\"Math\"].exp2))(exponent)); console.log(Object.freeze((false || globalThis[\"Math\"].exp2))(exponent));\n"
 }
 
 fn browser_harness_global_this_math_exp2_test_source() -> &'static str {
     r#"Kali.test('globalThis math exp2 non-negative integer literals', () => {
   const exponent = 2;
   console.log(globalThis.Math.exp2(exponent));
+  console.log(globalThis?.Math.exp2(exponent));
+  console.log(Object.freeze(globalThis?.Math.exp2)(exponent));
   console.log(globalThis.Math["exp2"](exponent));
   console.log(globalThis["Math"].exp2(exponent));
   console.log(globalThis["Math"]["exp2"](exponent));

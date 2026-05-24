@@ -2163,6 +2163,8 @@ fn test_math_exp2_frozen_callable_source_lists_all_aliases_in_order() {
             r#"Object.freeze((globalThis.Math['exp2']))"#,
             r#"Object.freeze(globalThis.Math.exp2)"#,
             r#"Object.freeze((globalThis.Math.exp2))"#,
+            r#"Object.freeze(globalThis?.Math.exp2)"#,
+            r#"Object.freeze((globalThis?.Math.exp2))"#,
             r#"Object.freeze(globalThis["Math"]["exp2"])"#,
             r#"Object.freeze((globalThis["Math"]["exp2"]))"#,
             r#"Object.freeze(globalThis["Math"]['exp2'])"#,
