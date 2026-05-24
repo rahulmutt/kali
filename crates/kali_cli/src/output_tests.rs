@@ -282,6 +282,29 @@ fn emitted_cli_envelopes_reject_whitespace_padded_artifact_roles() {
 }
 
 #[test]
+fn emitted_cli_envelopes_accept_debug_source_map_artifact_roles() {
+    let mut value = emit_envelope_value(
+        "build",
+        true,
+        json!([]),
+        json!([]),
+        json!({"result": "ok"}),
+        None,
+        None,
+        0,
+    );
+    value.as_object_mut().expect("envelope object").insert(
+        "artifacts".to_string(),
+        json!([
+            {"path": "main.js", "kind": "js-glue", "role": "browser-glue", "bytes": 7},
+            {"path": "main.map", "kind": "source-map", "role": "debug-source-map", "bytes": 11}
+        ]),
+    );
+
+    validate_envelope_value(&value).expect("debug-source-map artifact roles should validate");
+}
+
+#[test]
 fn emitted_cli_envelopes_reject_unexpected_artifact_keys() {
     let mut value = emit_envelope_value(
         "build",

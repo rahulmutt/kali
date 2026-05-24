@@ -12301,6 +12301,7 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "witPath": "/workspace/dist/lib/lib.wit",
             "artifacts": [
                 { "kind": "wasm-module", "path": "lib.wasm", "role": "primary-library" },
+                { "kind": "source-map", "path": "lib.map", "role": "debug-source-map" },
                 { "kind": "meta-json", "path": "lib.meta.json" }
             ],
             "exports": [
@@ -12315,7 +12316,8 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "sourceHash": "sha256-deadbeef",
             "artifacts": [
                 { "kind": "wasm-module", "path": "browser.wasm", "role": "primary-executable" },
-                { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" }
+                { "kind": "js-glue", "path": "browser.js", "role": "browser-glue" },
+                { "kind": "source-map", "path": "browser.map", "role": "debug-source-map" }
             ],
             "exports": [],
             "bundleFormat": "esm"
@@ -12332,6 +12334,7 @@ fn build_result_variants_accept_artifact_roles_through_schema_validation() {
             "headerPath": "/workspace/dist/capi/capi.h",
             "artifacts": [
                 { "kind": "wasm-module", "path": "capi.wasm", "role": "primary-library" },
+                { "kind": "source-map", "path": "capi.map", "role": "debug-source-map" },
                 { "kind": "header", "path": "capi.h" },
                 { "kind": "meta-json", "path": "capi.meta.json" }
             ],
