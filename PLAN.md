@@ -23,8 +23,7 @@ Normative ownership remains unchanged:
 
 The checked-in repository is beyond the original MVP and several later surfaces. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
 
-Implemented work includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, deterministic PGO input handling, package-corpus probes, and proof-backed claims limited to the published proof boundary. Recent smoke also widened the supported optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` helper aliases across build lanes.
-
+Implemented work includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, deterministic PGO input handling, package-corpus probes, and proof-backed claims limited to the published proof boundary. Recent smoke also widened the supported optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` helper aliases across build lanes. The optional-chain-wrapped `Math.pow` aliases remain gated after the browser smoke reproduced the miscompile.
 The active plan therefore starts at remaining spec gaps. Do not reopen completed Phase 1 through Phase 20 work as active tasks.
 
 ## Active roadmap
