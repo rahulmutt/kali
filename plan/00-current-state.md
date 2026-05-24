@@ -34,7 +34,7 @@ Implemented areas include:
 - public source-graph and registry effect/audit commands;
 - package install/materialization, registry/raw-URL flows, and package-corpus probes;
 - Deno/Web/Node API slices with explicit late-compatibility gates;
-- runtime object, iterator, BigInt, Math, Promise, console, and dynamic-import slices where evidence exists, including single-quoted `Proxy.revocable` browser-late-compat alias coverage;
+- runtime object, iterator, BigInt, Math, Promise, console, and dynamic-import slices where evidence exists, including single-quoted `Proxy.revocable` browser-late-compat alias coverage and the frozen bracketed `Object.is` callable alias on the primitive-literal slice;
 - library, WIT, C ABI, component, metadata, and binding-package artifact lanes;
 - deterministic PGO input handling and benchmark fixtures, including the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, and the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`);
 - Lean proof infrastructure with proof-backed claims limited to the published boundary.
