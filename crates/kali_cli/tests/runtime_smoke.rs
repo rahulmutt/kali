@@ -27271,6 +27271,10 @@ const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values
 const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
 const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
 const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
+const nullishBracketedEntries = Object.freeze((null ?? globalThis["Object"]["entries"]))(frozen);
+const logicalAndBracketedEntries = Object.freeze((true && globalThis["Object"]["entries"]))(frozen);
+const logicalOrBracketedEntries = Object.freeze((false || globalThis["Object"]["entries"]))(frozen);
+const parenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(frozen);
 for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
 for (const value of [...parenthesizedSingleQuotedBracketedValues]) { console.log(value); }
 for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
@@ -27303,6 +27307,10 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
   const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
   const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
+  const nullishBracketedEntries = Object.freeze((null ?? globalThis["Object"]["entries"]))(frozen);
+  const logicalAndBracketedEntries = Object.freeze((true && globalThis["Object"]["entries"]))(frozen);
+  const logicalOrBracketedEntries = Object.freeze((false || globalThis["Object"]["entries"]))(frozen);
+  const parenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(frozen);
   for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
   for (const value of [...parenthesizedSingleQuotedBracketedValues]) { console.log(value); }
   for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
