@@ -18,10 +18,14 @@ function assertObjectValuesSpreadIteration(values) {
 function browserObjectValuesSpreadIteration() {
   const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
   const bracketedFromEntries = globalThis["Object"]["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
+  const mixedBracketedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2], ["b", 3]]);
+  const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
   const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
   const collected = [...Object.values(fromEntries)];
   const globalCollected = [...globalThis.Object.values(fromEntries)];
   const bracketedCollected = [...Object.values(bracketedFromEntries)];
+  const mixedBracketedValuesCollected = [...Object.values(mixedBracketedFromEntries)];
+  const mixedSingleQuotedValuesCollected = [...Object.values(mixedSingleQuotedFromEntries)];
   const frozenCollected = [...Object.values(frozenFromEntries)];
   const frozenFromEntriesCollected = [...Object.freeze(Object.values(fromEntries))];
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
@@ -34,10 +38,12 @@ function browserObjectValuesSpreadIteration() {
   assertObjectValuesSpreadIteration(collected);
   assertObjectValuesSpreadIteration(globalCollected);
   assertObjectValuesSpreadIteration(bracketedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedValuesCollected);
+  assertObjectValuesSpreadIteration(mixedSingleQuotedValuesCollected);
   assertObjectValuesSpreadIteration(frozenCollected);
   assertObjectValuesSpreadIteration(frozenFromEntriesCollected);
   assertObjectValuesSpreadIteration(mixedCollected);
-  assertObjectValuesSpreadIteration(mixedBracketedCollected);
+  assertObjectValuesSpreadIteration(mixedBracketedValuesCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);
   assertObjectValuesSpreadIteration(singleBracketedPropertyCollected);
   assertObjectValuesSpreadIteration(bracketedAliasCollected);

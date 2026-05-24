@@ -18,6 +18,8 @@ const mixedEntries = [...globalThis["Object"]["entries"](Object.fromEntries([["b
 const bracketedKeys = [...globalThis.Object["keys"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const bracketedValues = [...globalThis["Object"].values(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
 const bracketedEntries = [...globalThis.Object["entries"](Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]))];
+const mixedBracketedFromEntries = globalThis["Object"]['fromEntries']([["b", 1], ["a", 2], ["b", 3]]);
+const mixedSingleQuotedFromEntries = globalThis['Object']["fromEntries"]([["b", 1], ["a", 2], ["b", 3]]);
 const frozenFromEntries = Object.freeze(Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]));
 const frozenKeys = [...Object.keys(frozenFromEntries)];
 const frozenValues = [...Object.values(frozenFromEntries)];
@@ -26,6 +28,12 @@ const frozenSingleBracketedPropertyValues = [...globalThis['Object'].values(froz
 const frozenMixedBracketedValues = [...globalThis["Object"].values(frozenFromEntries)];
 const frozenBracketedValues = [...globalThis["Object"]["values"](frozenFromEntries)];
 const frozenEntries = [...Object.entries(frozenFromEntries)];
+const mixedBracketedKeys = [...Object.keys(mixedBracketedFromEntries)];
+const mixedBracketedValues = [...Object.values(mixedBracketedFromEntries)];
+const mixedBracketedEntries = [...Object.entries(mixedBracketedFromEntries)];
+const mixedSingleQuotedKeys = [...Object.keys(mixedSingleQuotedFromEntries)];
+const mixedSingleQuotedValues = [...Object.values(mixedSingleQuotedFromEntries)];
+const mixedSingleQuotedEntries = [...Object.entries(mixedSingleQuotedFromEntries)];
 const reflectiveKeys = [...Reflect.ownKeys({ "b": 1, "2": 2, "a": 3, "1": 4 })];
 const frozenReflectiveKeys = [...Reflect.ownKeys(Object.freeze({ "b": 1, "2": 2, "a": 3, "1": 4 }))];
 
@@ -60,7 +68,29 @@ if (
   bracketedEntries[0][0] !== 'b' ||
   bracketedEntries[0][1] !== 3 ||
   bracketedEntries[1][0] !== 'a' ||
-  bracketedEntries[1][1] !== 2
+  bracketedEntries[1][1] !== 2 ||
+  mixedBracketedKeys.length !== 2 ||
+  mixedBracketedKeys[0] !== 'b' ||
+  mixedBracketedKeys[1] !== 'a' ||
+  mixedBracketedValues.length !== 2 ||
+  mixedBracketedValues[0] !== 3 ||
+  mixedBracketedValues[1] !== 2 ||
+  mixedBracketedEntries.length !== 2 ||
+  mixedBracketedEntries[0][0] !== 'b' ||
+  mixedBracketedEntries[0][1] !== 3 ||
+  mixedBracketedEntries[1][0] !== 'a' ||
+  mixedBracketedEntries[1][1] !== 2 ||
+  mixedSingleQuotedKeys.length !== 2 ||
+  mixedSingleQuotedKeys[0] !== 'b' ||
+  mixedSingleQuotedKeys[1] !== 'a' ||
+  mixedSingleQuotedValues.length !== 2 ||
+  mixedSingleQuotedValues[0] !== 3 ||
+  mixedSingleQuotedValues[1] !== 2 ||
+  mixedSingleQuotedEntries.length !== 2 ||
+  mixedSingleQuotedEntries[0][0] !== 'b' ||
+  mixedSingleQuotedEntries[0][1] !== 3 ||
+  mixedSingleQuotedEntries[1][0] !== 'a' ||
+  mixedSingleQuotedEntries[1][1] !== 2
 ) {
   throw new Error('unexpected Object enumeration spread semantics');
 }
