@@ -109,8 +109,7 @@ fn assert_run_supports_array_from_frozen_set_map_constructor_results_in_input(ex
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert_eq!(
-        stdout,
-        "1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n",
+        stdout, "1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n",
         "stdout: {stdout}"
     );
 }
@@ -140,9 +139,7 @@ fn assert_test_supports_array_from_frozen_set_map_constructor_results_in_input(e
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains(
-            "1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"
-        ),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
     assert!(stdout.contains("ok 1"), "stdout: {stdout}");

@@ -1664,6 +1664,27 @@ pub const fn promise_race_browser_body_source() -> &'static str {
 "#
 }
 
+/// Canonical browser smoke body for the supported `Promise.any` slice.
+pub const fn promise_any_browser_body_source() -> &'static str {
+    r#"  const direct = await Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  const dotted = await globalThis.Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  const bracketed = await globalThis["Promise"].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const singleBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenRoot = await Object.freeze(Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenDotted = await Object.freeze(globalThis.Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
+  if (
+    direct !== 1 ||
+    dotted !== 1 ||
+    bracketed !== 1 ||
+    singleBracketed !== 1 ||
+    frozenRoot !== 1 ||
+    frozenDotted !== 1
+  ) {
+    throw new Error('unexpected Promise.any semantics');
+  }
+"#
+}
+
 /// Canonical browser smoke body for the supported `Promise.all` slice.
 pub const fn promise_all_browser_body_source() -> &'static str {
     r#"  const direct = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
