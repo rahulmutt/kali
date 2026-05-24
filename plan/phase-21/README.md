@@ -35,7 +35,7 @@ Keep this file at the sequencing level: exact coverage belongs in tests, schemas
 ### 21.3 Dynamic language and built-in semantics
 
 - Widen object-model, Math, BigInt, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned; the current smoke also keeps the optional-chain-wrapped `Object.hasOwn` / `Object.prototype.hasOwnProperty.call` frozen aliases aligned with the existing helper slices, including the optional-chain-wrapped property-call bracket forms and the optional-chain-wrapped bracket-root `Object.freeze((globalThis?.Object)["prototype"].hasOwnProperty.call)` / `Object.freeze((globalThis?.Object)["prototype"].hasOwnProperty["call"])` pair, and now also exercises the parenthesized optional-chain-root `Object.hasOwn` aliases through the shared helper inventory; browser-requested run/test harness smoke now also covers logical/nullish wrappers around frozen literal dynamic-import specifiers in JS input.
-- Extend the supported `Math.exp2` slice with frozen parenthesized `globalThis.Math.exp2`, `globalThis["Math"]["exp2"]`, and `globalThis["Math"].exp2` aliases in the browser harness and bundle smoke lanes.
+- Extend the supported `Math.exp2` slice with frozen parenthesized `globalThis.Math.exp2`, `globalThis["Math"]["exp2"]`, and `globalThis["Math"].exp2` aliases in the browser harness and bundle smoke lanes. The current packet now also rounds out the missing transparent-wrapper variants on the same supported non-negative-integer slice.
 - Keep non-literal dynamic import, broad reflective APIs, and eval-adjacent forms gated unless their spec rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 
