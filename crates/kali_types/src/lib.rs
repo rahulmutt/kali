@@ -816,7 +816,7 @@ impl TypeContext {
                 left,
                 right,
                 body,
-                is_await: _,
+                is_await,
             }) => {
                 let left_is_supported = match left {
                     ForOfLefthand::VariableDeclaration(_) => true,
@@ -825,9 +825,13 @@ impl TypeContext {
                     }
                 };
                 if !left_is_supported || !self.is_static_array_iteration_target(right) {
+                    let loop_kind = if *is_await { "for-await-of" } else { "for-of" };
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
-                        "for-of array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path",
+                        format!(
+                            "{} array iteration lowering is unavailable unless the iterable is a literal array or supported string iterable with literal elements and the loop target is a variable declaration or simple identifier binding; use a supported loop form or the later compatibility path",
+                            loop_kind
+                        ),
                     ));
                     return;
                 }
