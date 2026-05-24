@@ -79,11 +79,16 @@ function browserGlobalObjectValuesIteration() {
   for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
     parenthesizedReceiverBracketed.push(value);
   }
+  const parenthesizedBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
+    parenthesizedBracketed.push(value);
+  }
   assertObjectValuesIteration(collected);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
   assertObjectValuesIteration(bracketed);
   assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedBracketed);
   console.log('browser object values iteration ok');
 }
 
@@ -121,11 +126,16 @@ fn browser_harness_global_object_values_test_source() -> &'static str {
   for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
     parenthesizedReceiverBracketed.push(value);
   }
+  const parenthesizedBracketed = [];
+  for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
+    parenthesizedBracketed.push(value);
+  }
   assertObjectValuesIteration(collected);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
   assertObjectValuesIteration(bracketed);
   assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedBracketed);
   console.log('browser object values iteration ok');
 });
 "##

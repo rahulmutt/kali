@@ -165,6 +165,10 @@ function browserGlobalObjectKeysIteration() {
   for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
     parenthesizedReceiverBracketed.push(key);
   }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(mixed);
   assertObjectKeysIteration(mixedBracketed);
@@ -172,6 +176,7 @@ function browserGlobalObjectKeysIteration() {
   assertObjectKeysIteration(doubleQuotedSingleQuoted);
   assertObjectKeysIteration(bracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedBracketed);
   console.log('browser object keys iteration ok');
 }
 
@@ -217,6 +222,10 @@ fn browser_harness_global_object_keys_test_source() -> &'static str {
   for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
     parenthesizedReceiverBracketed.push(key);
   }
+  const parenthesizedBracketed = [];
+  for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
+    parenthesizedBracketed.push(key);
+  }
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(mixed);
   assertObjectKeysIteration(mixedBracketed);
@@ -224,6 +233,7 @@ fn browser_harness_global_object_keys_test_source() -> &'static str {
   assertObjectKeysIteration(doubleQuotedSingleQuoted);
   assertObjectKeysIteration(bracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedBracketed);
   console.log('browser object keys iteration ok');
 });
 "##
