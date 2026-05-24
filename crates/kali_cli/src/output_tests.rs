@@ -6009,7 +6009,7 @@ fn validate_envelope_value_rejects_empty_timing_phases() {
     let err = validate_envelope_value(&empty_phase)
         .expect_err("empty timing phases should fail validation");
     assert!(
-        err.contains("timing phase must be a non-empty string"),
+        err.contains("timing phase must be a non-empty, non-whitespace string"),
         "unexpected error: {err}"
     );
 }
@@ -6032,7 +6032,30 @@ fn validate_envelope_value_rejects_whitespace_only_timing_phases() {
     let err = validate_envelope_value(&whitespace_phase)
         .expect_err("whitespace-only timing phases should fail validation");
     assert!(
-        err.contains("timing phase must be a non-empty string"),
+        err.contains("timing phase must be a non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_envelope_value_rejects_whitespace_padded_timing_phases() {
+    let padded_phase = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+        "timings": [{"phase": " parse ", "milliseconds": 1}],
+    });
+
+    let err = validate_envelope_value(&padded_phase)
+        .expect_err("whitespace-padded timing phases should fail validation");
+    assert!(
+        err.contains("timing phase must be a non-empty, non-whitespace string"),
         "unexpected error: {err}"
     );
 }
