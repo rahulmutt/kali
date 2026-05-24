@@ -376,7 +376,7 @@ pub fn validate_init_payload_value(value: &Value) -> Result<(), String> {
     )?;
 
     for key in ["root", "manifestPath", "sourcePath"] {
-        validate_non_empty_string_value(object.get(key), &format!("init payload {key}"))?;
+        validate_canonical_non_empty_string_value(object.get(key), &format!("init payload {key}"))?;
     }
 
     match object.get("library") {
@@ -475,7 +475,7 @@ pub fn validate_install_payload_value(value: &Value) -> Result<(), String> {
             match other {
                 Value::Null => {}
                 Value::String(_) => {
-                    validate_non_empty_string_value(
+                    validate_canonical_non_empty_string_value(
                         Some(other),
                         &format!("install payload {key}"),
                     )?;

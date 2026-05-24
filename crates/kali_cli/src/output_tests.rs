@@ -1415,6 +1415,32 @@ fn validate_init_payload_value_rejects_blank_paths() {
 }
 
 #[test]
+fn validate_init_payload_value_rejects_padded_paths() {
+    for (field, value) in [
+        ("root", json!(" /workspace/example ")),
+        ("manifestPath", json!(" /workspace/example/kali.json ")),
+        ("sourcePath", json!(" /workspace/example/src/main.ts ")),
+    ] {
+        let payload = json!({
+            "root": "/workspace/example",
+            "manifestPath": "/workspace/example/kali.json",
+            "sourcePath": "/workspace/example/src/main.ts",
+            "library": false,
+        });
+        let mut payload = payload.as_object().expect("init payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_init_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("padded init payload paths should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_fmt_payload_value_accepts_the_current_contract_shape() {
     let value = json!({
         "filesFormatted": 2,
@@ -3905,6 +3931,32 @@ fn validate_install_payload_value_rejects_whitespace_manifest_and_lock_paths() {
         assert!(err.contains(field), "unexpected error: {err}");
         assert!(
             err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
+fn validate_install_payload_value_rejects_padded_manifest_and_lock_paths() {
+    for (field, value) in [
+        ("manifestPath", json!(" /workspace/example/kali.json ")),
+        ("lockPath", json!(" /workspace/example/kali.lock ")),
+    ] {
+        let payload = json!({
+            "manifestPath": "/workspace/example/kali.json",
+            "lockPath": null,
+            "installed": [],
+            "updated": [],
+            "removed": [],
+        });
+        let mut payload = payload.as_object().expect("install payload object").clone();
+        payload.insert(field.to_string(), value);
+
+        let err = validate_install_payload_value(&serde_json::Value::Object(payload))
+            .expect_err("padded install payload path should fail");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(
+            err.contains("leading or trailing whitespace"),
             "unexpected error: {err}"
         );
     }
