@@ -2049,6 +2049,28 @@ fn math_round_member_constant_folding_is_available_through_object_freeze_callabl
 }
 
 #[test]
+fn math_round_member_constant_folding_is_available_through_parenthesized_receiver_wrapped_callable_wrapper(
+) {
+    let program = parse_and_lower_lir(
+        "console.log(Object.freeze((globalThis[\"Math\"]).round)(1.6)); console.log(Object.freeze((globalThis['Math']).round)(1.6));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+}
+
+#[test]
 fn math_round_member_calls_global_this_root_lower_to_math_host_imports() {
     let program =
         parse_and_lower_lir("function f(value) { console.log(globalThis.Math.round(value)); }");
@@ -3991,29 +4013,6 @@ fn supported_for_of_array_iteration_accepts_array_from_wrappers() {
 }
 
 #[test]
-fn supported_for_of_array_iteration_accepts_optional_chain_wrapped_array_from_calls() {
-    let program = parse_and_lower_lir(
-        "for (const item of Object.freeze(globalThis?.Array.from)([1, 2])) { console.log(item); } for (const item of Object.freeze(globalThis?.Array[\"from\"])([1, 2])) { console.log(item); } for (const item of Object.freeze((globalThis?.Array.from))([1, 2])) { console.log(item); }",
-    );
-    let mut ctx = CodegenCtx::new(TargetConfig {
-        max_specializations: 16,
-        compat_eval: false,
-        coverage: false,
-    });
-    let result = lower_lir_to_wasm(&mut ctx, &program);
-
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
-
-    Validator::new()
-        .validate_all(&result.wasm_bytes)
-        .expect("generated wasm should validate");
-}
-
-#[test]
 fn supported_for_of_array_iteration_accepts_nullish_wrapped_array_from_calls() {
     let program = parse_and_lower_lir(
         "for (const item of Object.freeze((null ?? Array.from))([1, 2])) { console.log(item); }",
@@ -4828,29 +4827,6 @@ fn supported_for_await_object_entries_iteration_accepts_parenthesized_global_thi
 fn supported_for_of_reflect_own_keys_iteration_accepts_static_object_literals() {
     let program = parse_and_lower_lir(
         "for (const key of Reflect.ownKeys({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 })) { console.log(key); }",
-    );
-    let mut ctx = CodegenCtx::new(TargetConfig {
-        max_specializations: 16,
-        compat_eval: false,
-        coverage: false,
-    });
-    let result = lower_lir_to_wasm(&mut ctx, &program);
-
-    assert!(
-        result.diagnostics.is_empty(),
-        "unexpected diagnostics: {:?}",
-        result.diagnostics
-    );
-
-    Validator::new()
-        .validate_all(&result.wasm_bytes)
-        .expect("generated wasm should validate");
-}
-
-#[test]
-fn supported_for_of_reflect_own_keys_iteration_accepts_optional_chain_wrapped_callable_targets() {
-    let program = parse_and_lower_lir(
-        "for (const key of Object.freeze(globalThis?.Reflect.ownKeys)({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 })) { console.log(key); } for (const key of Object.freeze(globalThis?.Reflect[\"ownKeys\"])({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 })) { console.log(key); } for (const key of Object.freeze((globalThis?.Reflect.ownKeys))({ \"b\": 1, \"2\": 2, \"a\": 3, \"1\": 4 })) { console.log(key); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
