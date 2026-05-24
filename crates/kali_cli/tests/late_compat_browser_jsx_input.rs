@@ -234,7 +234,7 @@ fn assert_browser_late_network_rejection_json(errors: &[Value]) {
 }
 
 fn late_object_model_source() -> &'static str {
-    r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.RelativeTimeFormat; globalThis["Intl"].RelativeTimeFormat; globalThis.Intl["RelativeTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis.Intl.Collator; globalThis["Intl"].Collator; globalThis.Intl["Collator"]; globalThis["Intl"]["Collator"]; globalThis.Intl.DisplayNames; globalThis["Intl"].DisplayNames; globalThis.Intl["DisplayNames"]; globalThis["Intl"]["DisplayNames"]; globalThis.Intl.Segmenter; globalThis["Intl"].Segmenter; globalThis.Intl["Segmenter"]; globalThis["Intl"]["Segmenter"]; globalThis.Intl.Locale; globalThis["Intl"].Locale; globalThis.Intl["Locale"]; globalThis["Intl"]["Locale"]; globalThis.Intl.PluralRules; globalThis["Intl"]["PluralRules"]; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze((globalThis["Proxy"].revocable))({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.freeze((globalThis.Proxy["revocable"]))({}, {}); Object.freeze(globalThis?.Proxy.revocable)({}, {}); Object.freeze((globalThis?.Proxy.revocable))({}, {}); Object.hasOwn({}, 'a'); globalThis.Object.hasOwn({}, 'a'); globalThis.Object["hasOwn"]({}, 'a'); globalThis["Object"]["hasOwn"]({}, 'a'); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; new WeakRef(); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#
+    r#"Intl; Object.freeze(globalThis.Intl.NumberFormat); globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis.Intl.RelativeTimeFormat; globalThis["Intl"].RelativeTimeFormat; globalThis.Intl["RelativeTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis.Intl.Collator; globalThis["Intl"].Collator; globalThis.Intl["Collator"]; globalThis["Intl"]["Collator"]; globalThis.Intl.DisplayNames; globalThis["Intl"].DisplayNames; globalThis.Intl["DisplayNames"]; globalThis["Intl"]["DisplayNames"]; globalThis.Intl.Segmenter; globalThis["Intl"].Segmenter; globalThis.Intl["Segmenter"]; globalThis["Intl"]["Segmenter"]; globalThis.Intl.Locale; globalThis["Intl"].Locale; globalThis.Intl["Locale"]; globalThis["Intl"]["Locale"]; globalThis.Intl.PluralRules; globalThis["Intl"]["PluralRules"]; globalThis["Intl"].PluralRules; globalThis.Intl["PluralRules"]; Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze((globalThis["Proxy"].revocable))({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.freeze((globalThis.Proxy["revocable"]))({}, {}); Object.freeze(globalThis?.Proxy.revocable)({}, {}); Object.freeze((globalThis?.Proxy.revocable))({}, {}); Object.hasOwn({}, 'a'); globalThis.Object.hasOwn({}, 'a'); globalThis.Object["hasOwn"]({}, 'a'); globalThis["Object"]["hasOwn"]({}, 'a'); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; new WeakRef(); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#
 }
 
 fn assert_browser_late_object_model_rejection(stderr: &str) {
@@ -470,6 +470,42 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
     assert!(
         source.contains(r#"Object.freeze((globalThis?.Proxy.revocable))"#),
         "source: {source}"
+    );
+}
+
+#[test]
+fn browser_late_object_model_source_includes_frozen_intl_number_format_form() {
+    let source = late_object_model_source();
+    assert!(
+        source.contains(r#"Object.freeze(globalThis.Intl.NumberFormat)"#),
+        "source: {source}"
+    );
+}
+
+#[test]
+fn check_rejects_frozen_intl_number_format_late_compatibility_member_in_jsx_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.jsx");
+    fs::write(
+        &source_path,
+        "Object.freeze(globalThis.Intl.NumberFormat);\n",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("Intl.NumberFormat") || stderr.contains("Intl"),
+        "stderr: {stderr}"
     );
 }
 
