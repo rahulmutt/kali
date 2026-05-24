@@ -15,6 +15,8 @@ fn reflect_own_keys_source() -> String {
         r#"const obj = {{ "b": 1, "2": 2, "a": 3, "1": 4 }};
 const keys = globalThis.Reflect.ownKeys(obj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
 const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -53,6 +55,16 @@ if (
   mixedRootKeys[1] !== '2' ||
   mixedRootKeys[2] !== 'b' ||
   mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
   mixedBracketedKeys.length !== 4 ||
   mixedBracketedKeys[0] !== '1' ||
   mixedBracketedKeys[1] !== '2' ||

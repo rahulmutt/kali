@@ -17,6 +17,8 @@ const frozenObj = Object.freeze(obj);
 const keys = globalThis.Reflect.ownKeys(obj);
 const frozenKeys = globalThis.Reflect.ownKeys(frozenObj);
 const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
 const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
 const singleQuotedPropertyKeys = globalThis['Reflect'].ownKeys(obj);
 const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -84,6 +86,16 @@ if (
   mixedRootKeys[1] !== '2' ||
   mixedRootKeys[2] !== 'b' ||
   mixedRootKeys[3] !== 'a' ||
+  mixedBracketedDirectKeys.length !== 4 ||
+  mixedBracketedDirectKeys[0] !== '1' ||
+  mixedBracketedDirectKeys[1] !== '2' ||
+  mixedBracketedDirectKeys[2] !== 'b' ||
+  mixedBracketedDirectKeys[3] !== 'a' ||
+  mixedSingleQuotedDirectKeys.length !== 4 ||
+  mixedSingleQuotedDirectKeys[0] !== '1' ||
+  mixedSingleQuotedDirectKeys[1] !== '2' ||
+  mixedSingleQuotedDirectKeys[2] !== 'b' ||
+  mixedSingleQuotedDirectKeys[3] !== 'a' ||
   mixedBracketedKeys.length !== 4 ||
   mixedBracketedKeys[0] !== '1' ||
   mixedBracketedKeys[1] !== '2' ||
@@ -314,6 +326,8 @@ async function reflectOwnKeysSmoke(left, right) {
   const keys = Reflect.ownKeys(obj);
   const frozenKeys = Reflect.ownKeys(frozenObj);
   const mixedRootKeys = globalThis["Reflect"].ownKeys(obj);
+  const mixedBracketedDirectKeys = globalThis["Reflect"]['ownKeys'](obj);
+  const mixedSingleQuotedDirectKeys = globalThis['Reflect']["ownKeys"](obj);
   const mixedBracketedKeys = globalThis.Reflect["ownKeys"](obj);
   const bracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
   const fullyBracketedKeys = globalThis["Reflect"]["ownKeys"](obj);
@@ -388,6 +402,16 @@ const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(ob
     mixedRootKeys[1] !== '2' ||
     mixedRootKeys[2] !== 'b' ||
     mixedRootKeys[3] !== 'a' ||
+    mixedBracketedDirectKeys.length !== 4 ||
+    mixedBracketedDirectKeys[0] !== '1' ||
+    mixedBracketedDirectKeys[1] !== '2' ||
+    mixedBracketedDirectKeys[2] !== 'b' ||
+    mixedBracketedDirectKeys[3] !== 'a' ||
+    mixedSingleQuotedDirectKeys.length !== 4 ||
+    mixedSingleQuotedDirectKeys[0] !== '1' ||
+    mixedSingleQuotedDirectKeys[1] !== '2' ||
+    mixedSingleQuotedDirectKeys[2] !== 'b' ||
+    mixedSingleQuotedDirectKeys[3] !== 'a' ||
     mixedBracketedKeys.length !== 4 ||
     mixedBracketedKeys[0] !== '1' ||
     mixedBracketedKeys[1] !== '2' ||
