@@ -118,6 +118,10 @@ function browserGlobalObjectKeysIteration() {
   for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
     parenthesizedReceiverBracketed.push(key);
   }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(key);
+  }
   const parenthesizedBracketed = [];
   for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
     parenthesizedBracketed.push(key);
@@ -130,6 +134,7 @@ function browserGlobalObjectKeysIteration() {
   assertObjectKeysIteration(mixedSingleQuoted);
   assertObjectKeysIteration(mixedSingleQuotedBracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
   assertObjectKeysIteration(parenthesizedBracketed);
 }
 "##
