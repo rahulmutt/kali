@@ -143,6 +143,10 @@ async function browserObjectStringEnumeration() {
   for await (const entry of Object.freeze((true && Object.entries))('ab')) {
     logicalAndEntries.push(entry);
   }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(frozenKeys);
@@ -171,6 +175,7 @@ async function browserObjectStringEnumeration() {
   assertObjectEntriesIteration(singleBracketedEntries);
   assertObjectEntriesIteration(nullishEntries);
   assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   console.log('browser object string enumeration ok');
 }
 
@@ -314,6 +319,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for await (const entry of Object.freeze((true && Object.entries))('ab')) {
     logicalAndEntries.push(entry);
   }
+  const logicalOrEntries = [];
+  for await (const entry of Object.freeze((false || Object.entries))('ab')) {
+    logicalOrEntries.push(entry);
+  }
 
   assertObjectKeysIteration(keys);
   assertObjectKeysIteration(frozenKeys);
@@ -342,6 +351,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectEntriesIteration(singleBracketedEntries);
   assertObjectEntriesIteration(nullishEntries);
   assertObjectEntriesIteration(logicalAndEntries);
+  assertObjectEntriesIteration(logicalOrEntries);
   console.log('browser object string enumeration ok');
 }
 
