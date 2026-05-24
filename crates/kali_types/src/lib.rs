@@ -2631,6 +2631,7 @@ impl TypeContext {
         self.resolve_permission_query_call(expr);
         self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);
+        self.resolve_array_callback_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -3849,6 +3850,50 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "Math.{method} is unavailable in the current phase; use a supported Math builtin or the later compatibility path"
+            ),
+        ));
+    }
+
+    fn resolve_array_callback_member_call(&mut self, expr: &CallExpression) {
+        if self.api_surface == "browser" {
+            return;
+        }
+
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if !matches!(
+            method,
+            "find"
+                | "findIndex"
+                | "findLast"
+                | "findLastIndex"
+                | "map"
+                | "filter"
+                | "some"
+                | "every"
+                | "reduce"
+                | "reduceRight"
+                | "flatMap"
+        ) {
+            return;
+        }
+
+        if !self.is_static_array_iteration_target(&member.object) {
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "array callback method '{method}' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path"
             ),
         ));
     }

@@ -14,6 +14,7 @@ Remaining goals:
 - Implement full generator and async-generator execution semantics, including resumable state machines, `yield`, `yield*`, `return`, `throw`, async interaction, and finalization; keep unsupported forms behind canonical gates until then.
 - Expand iterator and async-iterator protocol behavior beyond bounded static slices, including lookup, `next` result handling, abrupt completion, close/finalization, and async protocol behavior.
 - Continue widening expression/operator, object-model, BigInt, Math, Promise, dynamic-import, reflection, and built-in semantics where translation-safe.
+- Array callback methods such as `find`, `findLast`, `map`, `filter`, `some`, `every`, and their index/reduction variants remain on the canonical `E5506` gate path in the direct runtime until faithful callback lowering is implemented.
 - Keep non-literal dynamic import, broad reflection, eval-adjacent behavior, and unsupported dynamic language forms explicitly gated unless maturity rows are promoted.
 - Grow bounded TS/JS inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
 - Maintain concise conformance dashboards that distinguish supported slices from tested gates.

@@ -13671,3 +13671,69 @@ fn test_resolution_uses_project_root_for_materialized_packages() {
         result.diagnostics
     );
 }
+
+#[test]
+fn test_resolution_rejects_array_find_last_callback_methods_in_non_browser_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = "const result = [1, 2, 3].findLast((value) => value < 3);";
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains("array callback method 'findLast'"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn test_resolution_rejects_array_map_callback_methods_in_non_browser_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = "const result = [1, 2, 3].map((value) => value + 1);";
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(
+        result.diagnostics.len(),
+        1,
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(
+        result.diagnostics[0].code,
+        Some(e5::FEATURE_UNAVAILABLE as u32)
+    );
+    assert!(
+        result.diagnostics[0]
+            .message
+            .contains("array callback method 'map'"),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
