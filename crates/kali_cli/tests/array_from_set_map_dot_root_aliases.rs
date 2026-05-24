@@ -12,11 +12,11 @@ fn kali_bin() -> String {
 }
 
 fn standalone_array_from_dot_root_source() -> &'static str {
-    r##"const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const frozenDotRootArrayFrom = Object.freeze(globalThis.Array.from); const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]); const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']); const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from); const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); for (const value of frozenDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }  for (const value of frozenParenthesizedBracketRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenParenthesizedBracketRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }"##
+    r##"const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const frozenDotRootArrayFrom = Object.freeze(globalThis.Array.from); const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]); const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']); const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from); const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); const frozenParenthesizedDotRootArrayFrom = Object.freeze((globalThis.Array).from); const frozenParenthesizedBracketedArrayFrom = Object.freeze((globalThis.Array)["from"]); const frozenParenthesizedSingleQuotedArrayFrom = Object.freeze((globalThis.Array)['from']); for (const value of frozenDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedBracketedArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedSingleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedBracketedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedSingleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }  for (const value of frozenParenthesizedBracketRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenParenthesizedBracketRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }"##
 }
 
 fn standalone_array_from_dot_root_test_source() -> &'static str {
-    r##"Kali.test('frozen globalThis.Array.from aliases', () => { const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const frozenDotRootArrayFrom = Object.freeze(globalThis.Array.from); const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]); const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']); const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from); const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); for (const value of frozenDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }  for (const value of frozenParenthesizedBracketRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenParenthesizedBracketRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } });"##
+    r##"Kali.test('frozen globalThis.Array.from aliases', () => { const values = [1, 2, 1]; const mapValues = [[1, 2], [1, 3], [4, 5]]; const frozenDotRootArrayFrom = Object.freeze(globalThis.Array.from); const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]); const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']); const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from); const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); const frozenParenthesizedDotRootArrayFrom = Object.freeze((globalThis.Array).from); const frozenParenthesizedBracketedArrayFrom = Object.freeze((globalThis.Array)["from"]); const frozenParenthesizedSingleQuotedArrayFrom = Object.freeze((globalThis.Array)['from']); for (const value of frozenDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenMixedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedBracketArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenSingleQuotedRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedDotRootArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedBracketedArrayFrom(new Set(values))) { console.log(value); } for (const value of frozenParenthesizedSingleQuotedArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenMixedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedBracketArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenSingleQuotedRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedDotRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedBracketedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } for (const entry of frozenParenthesizedSingleQuotedArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); }  for (const value of frozenParenthesizedBracketRootArrayFrom(new Set(values))) { console.log(value); } for (const entry of frozenParenthesizedBracketRootArrayFrom(new Map(mapValues))) { console.log(entry[0]); console.log(entry[1]); } });"##
 }
 
 fn browser_array_from_dot_root_run_source() -> &'static str {
@@ -27,7 +27,7 @@ fn browser_array_from_dot_root_run_source() -> &'static str {
   const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]);
   const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']);
   const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from);
-  const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]);
+  const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); const frozenParenthesizedDotRootArrayFrom = Object.freeze((globalThis.Array).from); const frozenParenthesizedBracketedArrayFrom = Object.freeze((globalThis.Array)["from"]); const frozenParenthesizedSingleQuotedArrayFrom = Object.freeze((globalThis.Array)['from']);
   for (const value of frozenDotRootArrayFrom(new Set(values))) {
     console.log(value);
   }
@@ -41,6 +41,15 @@ fn browser_array_from_dot_root_run_source() -> &'static str {
     console.log(value);
   }
   for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedDotRootArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedBracketedArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedSingleQuotedArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) {
@@ -60,6 +69,18 @@ fn browser_array_from_dot_root_run_source() -> &'static str {
     console.log(entry[1]);
   }
   for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedDotRootArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedBracketedArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedSingleQuotedArrayFrom(new Map(mapValues))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -85,7 +106,7 @@ fn browser_array_from_dot_root_test_source() -> &'static str {
     const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]);
     const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']);
     const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from);
-    const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]);
+    const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); const frozenParenthesizedDotRootArrayFrom = Object.freeze((globalThis.Array).from); const frozenParenthesizedBracketedArrayFrom = Object.freeze((globalThis.Array)["from"]); const frozenParenthesizedSingleQuotedArrayFrom = Object.freeze((globalThis.Array)['from']);
     for (const value of frozenDotRootArrayFrom(new Set(values))) {
       console.log(value);
     }
@@ -144,7 +165,7 @@ export async function browserArrayFromDotRootAliases() {
   const frozenMixedBracketArrayFrom = Object.freeze(globalThis.Array["from"]); const frozenParenthesizedBracketRootArrayFrom = Object.freeze((globalThis["Array"])["from"]);
   const frozenSingleQuotedBracketArrayFrom = Object.freeze(globalThis.Array['from']);
   const frozenSingleQuotedRootArrayFrom = Object.freeze(globalThis['Array'].from);
-  const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]);
+  const frozenDoubleQuotedArrayFrom = Object.freeze(Array["from"]); const frozenParenthesizedDotRootArrayFrom = Object.freeze((globalThis.Array).from); const frozenParenthesizedBracketedArrayFrom = Object.freeze((globalThis.Array)["from"]); const frozenParenthesizedSingleQuotedArrayFrom = Object.freeze((globalThis.Array)['from']);
   for (const value of frozenDotRootArrayFrom(new Set(values))) {
     console.log(value);
   }
@@ -158,6 +179,15 @@ export async function browserArrayFromDotRootAliases() {
     console.log(value);
   }
   for (const value of frozenDoubleQuotedArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedDotRootArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedBracketedArrayFrom(new Set(values))) {
+    console.log(value);
+  }
+  for (const value of frozenParenthesizedSingleQuotedArrayFrom(new Set(values))) {
     console.log(value);
   }
   for (const entry of frozenDotRootArrayFrom(new Map(mapValues))) {
@@ -177,6 +207,18 @@ export async function browserArrayFromDotRootAliases() {
     console.log(entry[1]);
   }
   for (const entry of frozenDoubleQuotedArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedDotRootArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedBracketedArrayFrom(new Map(mapValues))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of frozenParenthesizedSingleQuotedArrayFrom(new Map(mapValues))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
