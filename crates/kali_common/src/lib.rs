@@ -2616,18 +2616,27 @@ const LATE_OBJECT_MODEL_SEGMENTS: &[&str] = &[
     "Proxy.revocable({}, {})",
     "globalThis.Proxy.revocable({}, {})",
     r#"globalThis["Proxy"]["revocable"]({}, {})"#,
+    r#"globalThis['Proxy']['revocable']({}, {})"#,
     r#"globalThis["Proxy"].revocable({}, {})"#,
+    r#"globalThis['Proxy'].revocable({}, {})"#,
     r#"globalThis.Proxy["revocable"]({}, {})"#,
+    r#"globalThis.Proxy['revocable']({}, {})"#,
     "Object.freeze(Proxy.revocable)({}, {})",
     "Object.freeze((Proxy.revocable))({}, {})",
     "Object.freeze(globalThis.Proxy.revocable)({}, {})",
     "Object.freeze((globalThis.Proxy.revocable))({}, {})",
     r#"Object.freeze(globalThis["Proxy"]["revocable"])({}, {})"#,
     r#"Object.freeze((globalThis["Proxy"]["revocable"]))({}, {})"#,
+    r#"Object.freeze(globalThis['Proxy']['revocable'])({}, {})"#,
+    r#"Object.freeze((globalThis['Proxy']['revocable']))({}, {})"#,
     r#"Object.freeze(globalThis["Proxy"].revocable)({}, {})"#,
     r#"Object.freeze((globalThis["Proxy"].revocable))({}, {})"#,
+    r#"Object.freeze(globalThis['Proxy'].revocable)({}, {})"#,
+    r#"Object.freeze((globalThis['Proxy'].revocable))({}, {})"#,
     r#"Object.freeze(globalThis.Proxy["revocable"])({}, {})"#,
     r#"Object.freeze((globalThis.Proxy["revocable"]))({}, {})"#,
+    r#"Object.freeze(globalThis.Proxy['revocable'])({}, {})"#,
+    r#"Object.freeze((globalThis.Proxy['revocable']))({}, {})"#,
 ];
 
 /// Canonical alias inventory for the shared late-object-model slice.
@@ -2637,7 +2646,7 @@ pub const fn late_object_model_aliases() -> &'static [&'static str] {
 
 /// Canonical late-object-model source text used by the browser and runtime smoke.
 pub const fn late_object_model_source() -> &'static str {
-    r#"Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"](); Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"](); Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"](() => {}); Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {}))); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze((globalThis["Proxy"].revocable))({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.freeze((globalThis.Proxy["revocable"]))({}, {});"#
+    r#"Proxy; globalThis.Proxy; globalThis["Proxy"]; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"](); Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"](); Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"](() => {}); Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {}))); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis['Proxy']['revocable']({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis['Proxy'].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); globalThis.Proxy['revocable']({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze((Proxy.revocable))({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze((globalThis.Proxy.revocable))({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis['Proxy']['revocable'])({}, {}); Object.freeze((globalThis['Proxy']['revocable']))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze((globalThis["Proxy"].revocable))({}, {}); Object.freeze(globalThis['Proxy'].revocable)({}, {}); Object.freeze((globalThis['Proxy'].revocable))({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.freeze((globalThis.Proxy["revocable"]))({}, {}); Object.freeze(globalThis.Proxy['revocable'])({}, {}); Object.freeze((globalThis.Proxy['revocable']))({}, {});"#
 }
 
 const LATE_OBJECT_MODEL_OWN_PROPERTY_SEGMENTS: &[&str] = &[

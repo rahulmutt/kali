@@ -36,6 +36,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 ### 24.4 Benchmark promotion
 
 - Use version-pinned workload fixtures with hash validation.
+- Keep the current evidence inventory anchored to the benchmark fixtures for `math-floor-builtin-js`, `math-round-builtin-js`, `math-pow-builtin-js`, `math-trunc-builtin-js`, `math-ceil-builtin-js`, and `folded-arithmetic-variant-js`.
 - Promote performance wording only with workload, build mode, baseline, repeatability, and artifact-determinism evidence.
 - Keep package anecdotes separate from package-compatibility claims.
 - Track benchmark inventory updates as evidence notes, not active implementation journals.

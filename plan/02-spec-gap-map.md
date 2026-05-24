@@ -51,7 +51,7 @@ Remaining goals:
 - Deepen `release` and `release-advanced` optimizations while preserving JavaScript-visible semantics, sandbox effects, proof boundaries, and deterministic artifacts.
 - Keep `--profile` as a deterministic build-only additive input; do not create a hidden fourth build mode.
 - Promote performance wording only when benchmark evidence names workload, build mode, baseline, and reproducibility constraints.
-- Keep optimization inventories as concise evidence snapshots rather than progress journals.
+- Keep optimization inventories as concise evidence snapshots rather than progress journals, including the current `math-round-builtin` / `math-round-builtin-js` pair for `Math.round` and the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`).
 
 ## Verification and contracts
 
