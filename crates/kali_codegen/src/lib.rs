@@ -5311,6 +5311,8 @@ impl<'a> FunctionEmitter<'a> {
                     || text.ends_with("[\"fromEntries\"]")
                     || text.ends_with("['fromEntries']")
                     || text == r#"globalThis["Object"]["fromEntries"]"#
+                    || text == r#"globalThis["Object"]['fromEntries']"#
+                    || text == r#"globalThis['Object']["fromEntries"]"#
                     || text == r#"globalThis['Object']['fromEntries']"#
         )
     }
@@ -5445,7 +5447,8 @@ impl<'a> FunctionEmitter<'a> {
                     || text == r#"globalThis["Object"]['entries']"#
                     || text == r#"globalThis['Object'].entries"#
                     || text == r#"globalThis['Object']['entries']"#
-                    || text == r#"globalThis['Object']["entries"]"# =>
+                    || text == r#"globalThis['Object']["entries"]"#
+                    || text == r#"globalThis["Object"]['entries']"# =>
             {
                 ObjectEnumerationMode::Entries
             }

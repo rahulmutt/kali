@@ -34,6 +34,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, async iterator finalization, and error propagation.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
 - Current smoke coverage now also exercises Set/Map constructor break/continue finalization on the supported iterator slice in run/test and browser-harness paths, plus frozen `Object.entries` helper-call coverage on the object-enumeration slice and the parenthesized frozen bracket-root `Object.entries` alias in browser bundle/harness paths, and `Array.from` over frozen `globalThis["Set"]` / `globalThis['Map']` constructor results in the standalone and browser harness/bundle smoke lanes.
+- Mixed-quote `Object.fromEntries` aliases now also stay on the same static object-enumeration helper path in codegen and smoke.
 - Keep transparent wrapper handling only where it remains deterministic and evidence-backed.
 
 ### 21.3 Dynamic language and built-in semantics

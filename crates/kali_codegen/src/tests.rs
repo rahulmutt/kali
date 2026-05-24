@@ -517,6 +517,31 @@ fn for_of_object_enumeration_lowers_for_single_quoted_bracketed_aliases_over_fro
 }
 
 #[test]
+fn for_of_object_enumeration_lowers_for_mixed_quote_bracketed_from_entries_operands() {
+    let program = parse_and_lower_lir(
+        "for (const entry of [...globalThis[\"Object\"][\"entries\"](Object.freeze(globalThis[\"Object\"]['fromEntries']([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(entry[0]); console.log(entry[1]); } for (const entry of [...globalThis[\"Object\"][\"entries\"](Object.freeze(globalThis['Object'][\"fromEntries\"]([[\"b\", 1], [\"a\", 2], [\"b\", 3]])))]) { console.log(entry[0]); console.log(entry[1]); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const"), "{printed}");
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn for_await_spread_of_object_enumeration_lowers_for_remaining_global_this_object_spellings_over_frozen_from_entries_operands(
 ) {
     let program = parse_and_lower_lir(
