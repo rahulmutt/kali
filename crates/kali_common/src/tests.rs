@@ -915,6 +915,8 @@ fn test_reflect_own_keys_frozen_callable_aliases_list_all_aliases_in_order() {
         r#"Object.freeze((null ?? Reflect.ownKeys))"#,
         r#"Object.freeze((true && Reflect.ownKeys))"#,
         r#"Object.freeze((false || Reflect.ownKeys))"#,
+        r#"Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))"#,
+        r#"Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))"#,
     ] {
         assert!(aliases.contains(&alias), "missing alias: {alias}");
     }
@@ -965,6 +967,8 @@ fn test_reflect_own_keys_frozen_callable_source_lists_all_aliases_in_order() {
         r#"const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))(obj)"#,
         r#"const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))(obj)"#,
         r#"const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))(obj)"#,
+        r#"const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))(obj)"#,
+        r#"const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))(obj)"#,
     ] {
         assert!(
             source.contains(expected),

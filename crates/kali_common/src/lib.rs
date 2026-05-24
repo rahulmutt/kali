@@ -798,6 +798,8 @@ pub const fn reflect_own_keys_frozen_callable_aliases() -> &'static [&'static st
         r#"Object.freeze((null ?? Reflect.ownKeys))"#,
         r#"Object.freeze((true && Reflect.ownKeys))"#,
         r#"Object.freeze((false || Reflect.ownKeys))"#,
+        r#"Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))"#,
+        r#"Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))"#,
     ]
 }
 
@@ -835,6 +837,8 @@ pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
         format!("const frozenNullishCallableKeys = Object.freeze((null ?? Reflect.ownKeys))({object_source})"),
         format!("const frozenLogicalAndCallableKeys = Object.freeze((true && Reflect.ownKeys))({object_source})"),
         format!("const frozenLogicalOrCallableKeys = Object.freeze((false || Reflect.ownKeys))({object_source})"),
+        format!("const conditionalFrozenCallableKeys = Object.freeze((true ? Reflect.ownKeys : Reflect.ownKeys))({object_source})"),
+        format!("const conditionalFrozenGlobalCallableKeys = Object.freeze((true ? globalThis.Reflect.ownKeys : globalThis.Reflect.ownKeys))({object_source})"),
     ];
     join_semicolon_terminated_segments(&statements.iter().map(String::as_str).collect::<Vec<_>>())
 }
