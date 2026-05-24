@@ -4911,6 +4911,7 @@ const mixedValues = globalThis.Object["values"](fromEntries);
 const frozenMixedValues = globalThis.Object["values"](frozenFromEntries);
 const bracketedMixedValues = globalThis.Object["values"](bracketedFromEntries);
 const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(fromEntries);
+const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(fromEntries);
 const parenthesizedFrozenBracketedValues = Object.freeze((globalThis["Object"]).values)(frozenFromEntries);
 const parenthesizedBracketedBracketedValues = Object.freeze((globalThis["Object"])["values"])(bracketedFromEntries);
 const singleQuotedValues = globalThis['Object'].values(fromEntries);
@@ -4941,6 +4942,7 @@ for (const item of [...mixedBracketedValues]) { console.log(item); }
 for (const item of [...frozenMixedBracketedValues]) { console.log(item); }
 for (const item of [...bracketedMixedBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedBracketedValues]) { console.log(item); }
+for (const item of [...parenthesizedSingleQuotedBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedFrozenBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedBracketedBracketedValues]) { console.log(item); }
 for (const item of [...bracketedValues]) { console.log(item); }
@@ -4962,6 +4964,7 @@ const asyncMixedValues = globalThis.Object["values"](asyncFromEntries);
 const frozenAsyncMixedValues = globalThis.Object["values"](frozenAsyncFromEntries);
 const asyncBracketedMixedValues = globalThis.Object["values"](asyncBracketedFromEntries);
 const asyncParenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(asyncFromEntries);
+const asyncParenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(asyncFromEntries);
 const frozenAsyncParenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozenAsyncFromEntries);
 const asyncParenthesizedBracketedBracketedValues = Object.freeze((globalThis["Object"])["values"])(asyncBracketedFromEntries);
 const asyncSingleQuotedValues = globalThis['Object'].values(asyncFromEntries);
@@ -4989,6 +4992,7 @@ for await (const item of [...asyncMixedBracketedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncMixedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncBracketedMixedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncParenthesizedBracketedValues]) { console.log(item); }
+for await (const item of [...asyncParenthesizedSingleQuotedBracketedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncParenthesizedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncParenthesizedBracketedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncBracketedValues]) { console.log(item); }
