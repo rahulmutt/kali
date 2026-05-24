@@ -1865,6 +1865,9 @@ fn test_math_round_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((Math["round"]))"#,
         r#"Object.freeze(Math['round'])"#,
         r#"Object.freeze((Math['round']))"#,
+        r#"Object.freeze((null ?? Math.round))"#,
+        r#"Object.freeze((true && globalThis.Math.round))"#,
+        r#"Object.freeze((false || globalThis["Math"]["round"]))"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
@@ -2169,6 +2172,9 @@ fn test_math_exp2_frozen_callable_source_lists_all_aliases_in_order() {
             r#"Object.freeze((Math["exp2"]))"#,
             r#"Object.freeze(Math['exp2'])"#,
             r#"Object.freeze((Math['exp2']))"#,
+            r#"Object.freeze((null ?? Math.exp2))"#,
+            r#"Object.freeze((true && globalThis.Math.exp2))"#,
+            r#"Object.freeze((false || globalThis["Math"]["exp2"]))"#,
         ]
     );
 
