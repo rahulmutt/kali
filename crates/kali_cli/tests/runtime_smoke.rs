@@ -16392,6 +16392,60 @@ fn run_rejects_inherited_browser_api_surface_in_phase_one() {
 }
 
 #[test]
+fn run_and_test_reject_malformed_browser_harness_command_overrides_in_phase_one() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "console.log('browser');").expect("write source");
+
+    for command in ["run", "test"] {
+        for json_output in [false, true] {
+            let mut cli = Command::new(kali_bin());
+            cli.current_dir(dir.path()).env(
+                kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+                r#"browser-wrapper "unterminated"#,
+            );
+            if json_output {
+                cli.arg("--output").arg("json");
+            }
+            cli.arg(command)
+                .arg("--api")
+                .arg("browser")
+                .arg(&source_path);
+            let output = cli.output().expect("run kali");
+
+            assert!(
+                !output.status.success(),
+                "{command} should reject malformed browser harness command overrides"
+            );
+            assert_eq!(output.status.code(), Some(1));
+            if json_output {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert!(!errors.is_empty(), "errors: {errors:?}");
+                assert_eq!(errors[0]["code"], "E5506");
+                assert_browser_runtime_rejection_message(
+                    errors[0]["message"]
+                        .as_str()
+                        .expect("browser rejection message"),
+                );
+                assert_browser_runtime_rejection_notes(
+                    errors[0]["notes"]
+                        .as_array()
+                        .expect("browser rejection notes"),
+                );
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(stderr.contains("E5506"), "stderr: {stderr}");
+                assert_browser_runtime_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
 fn run_accepts_browser_api_surface_when_a_browser_harness_command_is_configured() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
