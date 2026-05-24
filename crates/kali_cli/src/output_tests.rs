@@ -3261,35 +3261,37 @@ fn validate_package_effects_payload_value_rejects_mismatched_report_labels() {
 }
 
 #[test]
-fn validate_package_effects_payload_value_rejects_whitespace_padded_report_entry_points() {
-    let value = json!({
-        "schemaVersion": 1,
-        "package": {
-            "name": "semver",
-            "version": "7.6.3",
-            "registry": "npm",
-        },
-        "report": {
+fn validate_package_effects_payload_value_rejects_empty_or_whitespace_report_entry_points() {
+    for entry_point in ["", "   "] {
+        let value = json!({
             "schemaVersion": 1,
-            "analysisContext": {
-                "apiSurface": "browser",
-                "runtimeProfiles": [],
-                "compatFeatures": [],
+            "package": {
+                "name": "semver",
+                "version": "7.6.3",
+                "registry": "npm",
             },
-            "entryPoints": [" semver "],
-            "effects": [],
-            "dynamicEffects": false,
-            "dynamicReasons": [],
-        },
-    });
+            "report": {
+                "schemaVersion": 1,
+                "analysisContext": {
+                    "apiSurface": "browser",
+                    "runtimeProfiles": [],
+                    "compatFeatures": [],
+                },
+                "entryPoints": [entry_point],
+                "effects": [],
+                "dynamicEffects": false,
+                "dynamicReasons": [],
+            },
+        });
 
-    let err = validate_package_effects_payload_value(&value)
-        .expect_err("whitespace-padded report entryPoint should fail validation");
-    assert!(
-        err.contains("entryPoints[0]")
-            && err.contains("must not have leading or trailing whitespace"),
-        "unexpected error: {err}"
-    );
+        let err = validate_package_effects_payload_value(&value)
+            .expect_err("blank report entryPoint should fail validation");
+        assert!(err.contains("entryPoints[0]"), "unexpected error: {err}");
+        assert!(
+            err.contains("non-empty, non-whitespace string"),
+            "unexpected error: {err}"
+        );
+    }
 }
 
 #[test]
