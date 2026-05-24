@@ -32,7 +32,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Current smoke now also covers the frozen root-object `Object.freeze((globalThis["Reflect"]))["ownKeys"]` alias on the supported `Reflect.ownKeys` slice in JS-like input.
 - Implement protocol lookup, `next` result handling, abrupt completion, iterator close, async iterator finalization, and error propagation.
 - Add conformance fixtures for supported built-ins and negative diagnostics for unimplemented protocol edges.
-- Current smoke coverage now also exercises Set/Map constructor break/continue finalization on the supported iterator slice in run/test and browser-harness paths.
+- Current smoke coverage now also exercises Set/Map constructor break/continue finalization on the supported iterator slice in run/test and browser-harness paths, plus frozen `Object.entries` helper-call coverage on the object-enumeration slice.
 - Keep transparent wrapper handling only where it remains deterministic and evidence-backed.
 
 ### 21.3 Dynamic language and built-in semantics
