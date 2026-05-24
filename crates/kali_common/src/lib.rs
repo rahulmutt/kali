@@ -1941,6 +1941,44 @@ pub fn math_hypot_frozen_callable_source() -> String {
     join_semicolon_terminated_segments(math_hypot_frozen_callable_aliases())
 }
 
+/// Canonical frozen callable aliases for the supported `Math.exp2` helper slice.
+pub const fn math_exp2_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze(globalThis.Math["exp2"])"#,
+        r#"Object.freeze((globalThis.Math["exp2"]))"#,
+        r#"Object.freeze(globalThis.Math['exp2'])"#,
+        r#"Object.freeze((globalThis.Math['exp2']))"#,
+        r#"Object.freeze(globalThis.Math.exp2)"#,
+        r#"Object.freeze((globalThis.Math.exp2))"#,
+        r#"Object.freeze(globalThis["Math"]["exp2"])"#,
+        r#"Object.freeze((globalThis["Math"]["exp2"]))"#,
+        r#"Object.freeze(globalThis["Math"]['exp2'])"#,
+        r#"Object.freeze((globalThis["Math"]['exp2']))"#,
+        r#"Object.freeze(globalThis["Math"].exp2)"#,
+        r#"Object.freeze((globalThis["Math"]).exp2)"#,
+        r#"Object.freeze((globalThis["Math"].exp2))"#,
+        r#"Object.freeze((globalThis["Math"])["exp2"])"#,
+        r#"Object.freeze((globalThis['Math'])['exp2'])"#,
+        r#"Object.freeze((globalThis['Math'])["exp2"])"#,
+        r#"Object.freeze(globalThis['Math']['exp2'])"#,
+        r#"Object.freeze((globalThis['Math']['exp2']))"#,
+        r#"Object.freeze(globalThis['Math'].exp2)"#,
+        r#"Object.freeze((globalThis['Math']).exp2)"#,
+        r#"Object.freeze((globalThis['Math'].exp2))"#,
+        r#"Object.freeze(Math.exp2)"#,
+        r#"Object.freeze((Math.exp2))"#,
+        r#"Object.freeze(Math["exp2"])"#,
+        r#"Object.freeze((Math["exp2"]))"#,
+        r#"Object.freeze(Math['exp2'])"#,
+        r#"Object.freeze((Math['exp2']))"#,
+    ]
+}
+
+/// Canonical source text for the supported `Math.exp2` frozen callable aliases.
+pub fn math_exp2_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(math_exp2_frozen_callable_aliases())
+}
+
 /// Canonical aliases for the supported `Array.from` helper slice.
 pub const fn array_from_aliases() -> &'static [&'static str] {
     &[

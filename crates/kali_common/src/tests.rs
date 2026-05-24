@@ -2135,6 +2135,56 @@ fn test_math_hypot_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_math_exp2_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = math_exp2_frozen_callable_aliases();
+    let source = math_exp2_frozen_callable_source();
+
+    assert_eq!(
+        aliases,
+        &[
+            r#"Object.freeze(globalThis.Math["exp2"])"#,
+            r#"Object.freeze((globalThis.Math["exp2"]))"#,
+            r#"Object.freeze(globalThis.Math['exp2'])"#,
+            r#"Object.freeze((globalThis.Math['exp2']))"#,
+            r#"Object.freeze(globalThis.Math.exp2)"#,
+            r#"Object.freeze((globalThis.Math.exp2))"#,
+            r#"Object.freeze(globalThis["Math"]["exp2"])"#,
+            r#"Object.freeze((globalThis["Math"]["exp2"]))"#,
+            r#"Object.freeze(globalThis["Math"]['exp2'])"#,
+            r#"Object.freeze((globalThis["Math"]['exp2']))"#,
+            r#"Object.freeze(globalThis["Math"].exp2)"#,
+            r#"Object.freeze((globalThis["Math"]).exp2)"#,
+            r#"Object.freeze((globalThis["Math"].exp2))"#,
+            r#"Object.freeze((globalThis["Math"])["exp2"])"#,
+            r#"Object.freeze((globalThis['Math'])['exp2'])"#,
+            r#"Object.freeze((globalThis['Math'])["exp2"])"#,
+            r#"Object.freeze(globalThis['Math']['exp2'])"#,
+            r#"Object.freeze((globalThis['Math']['exp2']))"#,
+            r#"Object.freeze(globalThis['Math'].exp2)"#,
+            r#"Object.freeze((globalThis['Math']).exp2)"#,
+            r#"Object.freeze((globalThis['Math'].exp2))"#,
+            r#"Object.freeze(Math.exp2)"#,
+            r#"Object.freeze((Math.exp2))"#,
+            r#"Object.freeze(Math["exp2"])"#,
+            r#"Object.freeze((Math["exp2"]))"#,
+            r#"Object.freeze(Math['exp2'])"#,
+            r#"Object.freeze((Math['exp2']))"#,
+        ]
+    );
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Math.exp2 frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, format!("{};", aliases.join("; ")));
+}
+
+#[test]
 fn test_math_pow_browser_alias_inventory_invocation_lines_are_canonical() {
     let source = math_pow_browser_alias_inventory_invocation_lines("");
     let expected = math_pow_invocation_lines_for_aliases(
