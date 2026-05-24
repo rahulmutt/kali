@@ -91,40 +91,42 @@ Kali.test('template literal dynamic import sequence', () => {{}});
     )
 }
 
-fn object_freeze_literal_dynamic_import_wrappers_source() -> &'static str {
-    r#"async function main() {
-  const nullishChunk = await import(Object.freeze((null ?? "./lazy.js")));
-  if (typeof nullishChunk.lazyValue !== 'function') {
+fn object_freeze_literal_dynamic_import_wrappers_source(chunk_filename: &str) -> String {
+    format!(
+        r#"async function main() {{
+  const nullishChunk = await import(Object.freeze((null ?? "./{chunk_filename}")));
+  if (typeof nullishChunk.lazyValue !== 'function') {{
     throw new Error('missing lazyValue export');
-  }
+  }}
   const nullishValue = await nullishChunk.lazyValue();
-  if (nullishValue !== 0n) {
-    throw new Error(`unexpected nullish chunk result ${nullishValue}`);
-  }
+  if (nullishValue !== 0n) {{
+    throw new Error(`unexpected nullish chunk result ${{nullishValue}}`);
+  }}
   console.log(String(nullishValue));
-  const andChunk = await import(Object.freeze((true && "./lazy.js")));
-  if (typeof andChunk.lazyValue !== 'function') {
+  const andChunk = await import(Object.freeze((true && "./{chunk_filename}")));
+  if (typeof andChunk.lazyValue !== 'function') {{
     throw new Error('missing lazyValue export');
-  }
+  }}
   const andValue = await andChunk.lazyValue();
-  if (andValue !== 0n) {
-    throw new Error(`unexpected and chunk result ${andValue}`);
-  }
+  if (andValue !== 0n) {{
+    throw new Error(`unexpected and chunk result ${{andValue}}`);
+  }}
   console.log(String(andValue));
-  const orChunk = await import(Object.freeze((false || "./lazy.js")));
-  if (typeof orChunk.lazyValue !== 'function') {
+  const orChunk = await import(Object.freeze((false || "./{chunk_filename}")));
+  if (typeof orChunk.lazyValue !== 'function') {{
     throw new Error('missing lazyValue export');
-  }
+  }}
   const orValue = await orChunk.lazyValue();
-  if (orValue !== 0n) {
-    throw new Error(`unexpected or chunk result ${orValue}`);
-  }
+  if (orValue !== 0n) {{
+    throw new Error(`unexpected or chunk result ${{orValue}}`);
+  }}
   console.log(String(orValue));
   console.log('main loaded');
-}
+}}
 main();
-Kali.test('object.freeze logical literal dynamic import', () => {});
+Kali.test('object.freeze logical literal dynamic import', () => {{}});
 "#
+    )
 }
 
 fn parse_json_stdout(output: &std::process::Output) -> Value {
@@ -487,7 +489,7 @@ fn run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logica
         "run",
         "main.js",
         "lazy.js",
-        object_freeze_literal_dynamic_import_wrappers_source(),
+        &object_freeze_literal_dynamic_import_wrappers_source("lazy.js"),
         false,
         false,
     );
@@ -500,7 +502,7 @@ fn json_run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_l
         "run",
         "main.js",
         "lazy.js",
-        object_freeze_literal_dynamic_import_wrappers_source(),
+        &object_freeze_literal_dynamic_import_wrappers_source("lazy.js"),
         true,
         false,
     );
@@ -513,7 +515,7 @@ fn test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logic
         "test",
         "smoke.test.js",
         "lazy.js",
-        object_freeze_literal_dynamic_import_wrappers_source(),
+        &object_freeze_literal_dynamic_import_wrappers_source("lazy.js"),
         false,
         true,
     );
@@ -526,8 +528,60 @@ fn json_test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_
         "test",
         "smoke.test.js",
         "lazy.js",
-        object_freeze_literal_dynamic_import_wrappers_source(),
+        &object_freeze_literal_dynamic_import_wrappers_source("lazy.js"),
         true,
         true,
     );
+}
+
+#[test]
+fn run_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        let source_filename = format!("main.{extension}");
+        let chunk_filename = format!("lazy.{extension}");
+        let source = object_freeze_literal_dynamic_import_wrappers_source(&chunk_filename);
+        assert_browser_requested_template_literal_dynamic_import(
+            "run",
+            &source_filename,
+            &chunk_filename,
+            &source,
+            false,
+            false,
+        );
+        assert_browser_requested_template_literal_dynamic_import(
+            "run",
+            &source_filename,
+            &chunk_filename,
+            &source,
+            true,
+            false,
+        );
+    }
+}
+
+#[test]
+fn test_supports_object_freeze_wrapped_literal_dynamic_import_targets_with_logical_wrappers_in_browser_api_surface_with_harness_ts_jsx_tsx_input(
+) {
+    for extension in ["ts", "jsx", "tsx"] {
+        let source_filename = format!("smoke.test.{extension}");
+        let chunk_filename = format!("lazy.{extension}");
+        let source = object_freeze_literal_dynamic_import_wrappers_source(&chunk_filename);
+        assert_browser_requested_template_literal_dynamic_import(
+            "test",
+            &source_filename,
+            &chunk_filename,
+            &source,
+            false,
+            true,
+        );
+        assert_browser_requested_template_literal_dynamic_import(
+            "test",
+            &source_filename,
+            &chunk_filename,
+            &source,
+            true,
+            true,
+        );
+    }
 }
