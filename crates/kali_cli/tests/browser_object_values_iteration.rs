@@ -28,6 +28,14 @@ function browserDirectObjectValuesIteration() {
   for (const value of globalThis["Object"].values({ "b": 1, "a": 2 })) {
     mixedBracketed.push(value);
   }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"]({ "b": 1, "a": 2 })) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values']({ "b": 1, "a": 2 })) {
+    mixedSingleQuoted.push(value);
+  }
   const bracketed = [];
   for (const value of globalThis["Object"]["values"]({ "b": 1, "a": 2 })) {
     bracketed.push(value);
@@ -35,6 +43,8 @@ function browserDirectObjectValuesIteration() {
   assertObjectValuesIteration(seen);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
   assertObjectValuesIteration(bracketed);
 }
 "##
