@@ -596,6 +596,60 @@ fn binding_package_manifest_parsing_normalizes_string_lists() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_whitespace_padded_string_lists() {
+    for (field, manifest) in [
+        (
+            "runtimeProfiles",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": HOST_ABI_VERSION,
+                "runtimeProfiles": [" wasm-threads "],
+                "artifacts": {
+                    "library": "sample.capi.wasm",
+                    "metadata": "sample.cabi.json",
+                    "exportsHeader": "sample.h",
+                    "glue": ["z.py"]
+                }
+            }),
+        ),
+        (
+            "artifacts.glue",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "kind": "binding-package",
+                "moduleName": "sample",
+                "hostAbiVersion": HOST_ABI_VERSION,
+                "runtimeProfiles": ["wasm-threads"],
+                "artifacts": {
+                    "library": "sample.capi.wasm",
+                    "metadata": "sample.cabi.json",
+                    "exportsHeader": "sample.h",
+                    "glue": [" shim.py "]
+                }
+            }),
+        ),
+    ] {
+        let error = parse_binding_package_manifest(&manifest.to_string())
+            .expect_err("padded string list entries should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("leading or trailing whitespace"),
+            "unexpected error: {error}"
+        );
+
+        let error = binding_package_manifest_summary(&manifest)
+            .expect_err("padded string list entries should fail");
+        assert!(error.contains(field), "unexpected error: {error}");
+        assert!(
+            error.contains("leading or trailing whitespace"),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn binding_package_manifest_summary_normalizes_string_lists() {
     let manifest = valid_binding_package_manifest();
 

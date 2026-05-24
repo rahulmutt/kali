@@ -868,10 +868,22 @@ fn normalize_string_list_value(
     })?;
 
     let mut normalized = Vec::with_capacity(items.len());
-    for item in items {
+    for (index, item) in items.iter().enumerate() {
         let string = item
             .as_str()
             .ok_or_else(|| format!("{} field '{}' entries must be strings", context, field_name))?;
+        if string.trim().is_empty() {
+            return Err(format!(
+                "{} field '{}[{}]' must be a non-empty, non-whitespace string",
+                context, field_name, index
+            ));
+        }
+        if string.trim() != string {
+            return Err(format!(
+                "{} field '{}[{}]' must not have leading or trailing whitespace",
+                context, field_name, index
+            ));
+        }
         normalized.push(string.to_string());
     }
 
