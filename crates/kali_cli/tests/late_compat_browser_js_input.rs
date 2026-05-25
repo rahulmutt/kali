@@ -3661,7 +3661,12 @@ fn check_rejects_fully_bracketed_promise_all_settled_in_browser_api_surface_js_i
 fn check_supports_promise_all_settled_in_browser_api_surface_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis["Promise"])["allSettled"])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3682,7 +3687,12 @@ fn check_supports_promise_all_settled_in_browser_api_surface_js_input() {
 fn build_supports_promise_all_settled_in_browser_bundle_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis["Promise"])["allSettled"])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3704,7 +3714,12 @@ fn build_supports_promise_all_settled_in_browser_bundle_js_input() {
 fn check_supports_promise_all_settled_in_browser_api_surface_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis["Promise"])["allSettled"])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3730,7 +3745,12 @@ fn check_supports_promise_all_settled_in_browser_api_surface_js_input_in_json() 
 fn build_supports_promise_all_settled_in_browser_bundle_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis["Promise"])["allSettled"])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -3757,7 +3777,12 @@ fn build_supports_promise_all_settled_in_browser_bundle_js_input_in_json() {
 fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis['Promise'])['allSettled'])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
@@ -3779,7 +3804,12 @@ fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input
 fn run_supports_promise_all_settled_in_browser_api_surface_with_harness_js_input_in_json() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, "console.log(Promise.allSettled([1, 2]));\n").expect("write source");
+    fs::write(
+        &source_path,
+        r#"console.log(Object.freeze((globalThis['Promise'])['allSettled'])([1, 2]));
+"#,
+    )
+    .expect("write source");
 
     let output = Command::new(kali_bin())
         .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
@@ -3808,7 +3838,8 @@ fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_inpu
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('browser promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+        r#"Kali.test('browser promise allSettled', () => { return Object.freeze((globalThis['Promise'])['allSettled'])([1, 2]); });
+"#,
     )
     .expect("write source");
 
@@ -3834,7 +3865,8 @@ fn test_supports_promise_all_settled_in_browser_api_surface_with_harness_js_inpu
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "Kali.test('browser promise allSettled', () => { return Promise.allSettled([1, 2]); });\n",
+        r#"Kali.test('browser promise allSettled', () => { return Object.freeze((globalThis['Promise'])['allSettled'])([1, 2]); });
+"#,
     )
     .expect("write source");
 

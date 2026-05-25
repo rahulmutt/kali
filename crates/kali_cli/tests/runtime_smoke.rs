@@ -47425,7 +47425,7 @@ fn run_supports_frozen_promise_all_settled_in_browser_api_surface_with_harness_j
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "console.log(Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"][\"allSettled\"]))([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"]).allSettled)([1, 2]));\nconsole.log(Object.freeze((globalThis['Promise']).allSettled)([1, 2]));\n",
+        "console.log(Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"][\"allSettled\"]))([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"])[\"allSettled\"])([1, 2]));\nconsole.log(Object.freeze((globalThis['Promise'])['allSettled'])([1, 2]));\nconsole.log(Object.freeze((globalThis[\"Promise\"]).allSettled)([1, 2]));\nconsole.log(Object.freeze((globalThis['Promise']).allSettled)([1, 2]));\n",
     )
     .expect("write source");
 
@@ -47443,7 +47443,7 @@ fn run_supports_frozen_promise_all_settled_in_browser_api_surface_with_harness_j
                 let test_source = dir.path().join("smoke.test.js");
                 fs::write(
                     &test_source,
-                    "Kali.test('browser promise allSettled', () => { return Object.freeze(globalThis[\"Promise\"][\"allSettled\"])([1, 2]); });\n",
+                    "Kali.test('browser promise allSettled', () => { return Object.freeze((globalThis[\"Promise\"])[\"allSettled\"])([1, 2]); });\n",
                 )
                 .expect("write test source");
                 output.arg(&test_source);
