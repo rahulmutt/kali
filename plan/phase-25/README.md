@@ -34,6 +34,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 ### 25.4 Schema and CLI contract hardening
 
 - Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
+- Package-analysis-specific `--api` / `--compat` / `--wasm-threads` / `--sandbox` rejections now carry canonical CLI flag context in JSON output so the single-package registry-analysis contract stays machine-auditable.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.

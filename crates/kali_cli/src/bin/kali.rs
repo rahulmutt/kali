@@ -3989,6 +3989,33 @@ fn effects_command(
     emit_native_json_payload("effects", &report, output)
 }
 
+fn package_analysis_specific_flag_context(
+    api: Option<kali_cli::ApiSurface>,
+    compat: &[String],
+    wasm_threads: bool,
+    sandbox: Option<&Path>,
+) -> Option<DiagnosticContext> {
+    if api.is_some() {
+        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--api"));
+    }
+
+    if !compat.is_empty() {
+        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--compat"));
+    }
+
+    if wasm_threads {
+        return Some(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--wasm-threads"),
+        );
+    }
+
+    if sandbox.is_some() {
+        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--sandbox"));
+    }
+
+    None
+}
+
 fn reject_package_analysis_specific_flags(
     command: &str,
     api: Option<kali_cli::ApiSurface>,
@@ -3998,13 +4025,18 @@ fn reject_package_analysis_specific_flags(
     output: &CliOutputOptions,
 ) -> Result<(), i32> {
     if api.is_some() || !compat.is_empty() || wasm_threads || sandbox.is_some() {
-        let diagnostic = Diagnostic::error(
+        let mut diagnostic = Diagnostic::error(
             e5::INVALID_CLI_USAGE as u32,
             format!(
                 "`{}` does not accept package-analysis-specific flags like `--api`, `--compat`, `--wasm-threads`, or `--sandbox`; use inherited project config instead",
                 command
             ),
         );
+        if let Some(context) =
+            package_analysis_specific_flag_context(api, &compat, wasm_threads, sandbox.as_deref())
+        {
+            diagnostic = diagnostic.with_context(context);
+        }
         return emit_diagnostics_and_exit(command, vec![diagnostic], 5, output, None, None);
     }
 
@@ -5080,7 +5112,8 @@ fn single_diagnostic_to_values(
 mod tests {
     use super::{
         analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
-        manifest_compat_features, manifest_runtime_profiles, package_audit_command,
+        manifest_compat_features, manifest_runtime_profiles,
+        package_analysis_specific_flag_context, package_audit_command,
         package_audit_preview_diagnostic, package_effects_report, sort_package_audit_findings,
         CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
     };
@@ -5089,6 +5122,7 @@ mod tests {
     use kali_error::{_error_codes::e5, Diagnostic, DiagnosticContextOrigin};
     use kali_npm::ProjectManifest;
     use serde_json::json;
+    use std::path::Path;
 
     fn diagnostic_with_span(file_id: u32, start: u32, end: u32) -> Diagnostic {
         Diagnostic::error(e5::INVALID_CLI_USAGE as u32, "shared finding").with_span(Span::new(
@@ -5237,6 +5271,31 @@ mod tests {
         assert_eq!(context.flag.as_deref(), Some("--preview"));
         assert_eq!(context.requested_value.as_deref(), Some("true"));
         assert_eq!(context.effective_value.as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn package_analysis_specific_flag_context_prefers_the_first_cli_flag() {
+        let sandbox = Path::new("kali.policy.json");
+        let context = package_analysis_specific_flag_context(
+            Some(kali_cli::ApiSurface::Browser),
+            &[String::from("eval")],
+            true,
+            Some(sandbox),
+        )
+        .expect("package-analysis-specific flag context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
+        assert_eq!(context.flag.as_deref(), Some("--api"));
+    }
+
+    #[test]
+    fn package_analysis_specific_flag_context_falls_back_to_sandbox() {
+        let sandbox = Path::new("kali.policy.json");
+        let context = package_analysis_specific_flag_context(None, &[], false, Some(sandbox))
+            .expect("sandbox flag context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
+        assert_eq!(context.flag.as_deref(), Some("--sandbox"));
     }
 
     #[test]

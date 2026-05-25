@@ -125,10 +125,10 @@ fn package_effects_rejects_sandbox_before_target_validation() {
 
 #[test]
 fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_validation() {
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
+    for (args, expected_flag) in [
+        (&["--api", "browser"][..], "--api"),
+        (&["--compat", "eval"][..], "--compat"),
+        (&["--wasm-threads"][..], "--wasm-threads"),
     ] {
         let output = Command::new(kali_bin())
             .arg("--output")
@@ -148,6 +148,8 @@ fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_v
         let errors = json["errors"].as_array().expect("errors array");
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["flag"], expected_flag);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -180,6 +182,8 @@ fn json_package_effects_rejects_sandbox_before_malformed_target_validation() {
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["code"], "E5508");
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--sandbox");
     assert!(
         errors[0]["message"]
             .as_str()
@@ -192,38 +196,50 @@ fn json_package_effects_rejects_sandbox_before_malformed_target_validation() {
 
 #[test]
 fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_target_validation() {
-    for args in [
-        &[
+    for (args, expected_flag) in [
+        (
+            &[
+                "--api",
+                "browser",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
             "--api",
-            "browser",
-            "--pretty",
-            "--output",
-            "json",
-            "npm:lodash",
-        ][..],
-        &[
+        ),
+        (
+            &[
+                "--compat",
+                "eval",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
             "--compat",
-            "eval",
-            "--pretty",
-            "--output",
-            "json",
-            "npm:lodash",
-        ][..],
-        &[
+        ),
+        (
+            &[
+                "--wasm-threads",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
             "--wasm-threads",
-            "--pretty",
-            "--output",
-            "json",
-            "npm:lodash",
-        ][..],
-        &[
+        ),
+        (
+            &[
+                "--sandbox",
+                "policy.json",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
             "--sandbox",
-            "policy.json",
-            "--pretty",
-            "--output",
-            "json",
-            "npm:lodash",
-        ][..],
+        ),
     ] {
         let output = Command::new(kali_bin())
             .arg("package-effects")
@@ -240,6 +256,8 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
         let errors = json["errors"].as_array().expect("errors array");
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["flag"], expected_flag);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -329,10 +347,10 @@ fn package_audit_rejects_sandbox_before_malformed_target_validation_and_lookup()
 #[test]
 fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup()
 {
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
+    for (args, expected_flag) in [
+        (&["--api", "browser"][..], "--api"),
+        (&["--compat", "eval"][..], "--compat"),
+        (&["--wasm-threads"][..], "--wasm-threads"),
     ] {
         let (registry_url, hits, stop, handle) =
             start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
@@ -364,6 +382,8 @@ fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_val
         let errors = json["errors"].as_array().expect("errors array");
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["flag"], expected_flag);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -408,6 +428,8 @@ fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_loo
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["code"], "E5508");
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--sandbox");
     assert!(
         errors[0]["message"]
             .as_str()
@@ -421,44 +443,87 @@ fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_loo
 #[test]
 fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup(
 ) {
-    let (registry_url, hits, stop, handle) =
-        start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+    for (args, expected_flag) in [
+        (
+            &[
+                "--api",
+                "browser",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
+            "--api",
+        ),
+        (
+            &[
+                "--compat",
+                "eval",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
+            "--compat",
+        ),
+        (
+            &[
+                "--wasm-threads",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
+            "--wasm-threads",
+        ),
+        (
+            &[
+                "--sandbox",
+                "policy.json",
+                "--pretty",
+                "--output",
+                "json",
+                "npm:lodash",
+            ][..],
+            "--sandbox",
+        ),
+    ] {
+        let (registry_url, hits, stop, handle) =
+            start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
 
-    let output = Command::new(kali_bin())
-        .env("KALI_REGISTRY", registry_url)
-        .arg("package-audit")
-        .arg("--pretty")
-        .arg("--output")
-        .arg("json")
-        .arg("--compat")
-        .arg("eval")
-        .arg("npm:lodash")
-        .output()
-        .expect("run kali");
+        let output = Command::new(kali_bin())
+            .env("KALI_REGISTRY", registry_url)
+            .arg("package-audit")
+            .args(args)
+            .output()
+            .expect("run kali");
 
-    stop.store(true, Ordering::SeqCst);
-    handle.join().expect("join registry server");
+        stop.store(true, Ordering::SeqCst);
+        handle.join().expect("join registry server");
 
-    assert_eq!(
-        hits.load(Ordering::SeqCst),
-        0,
-        "registry should not be queried"
-    );
-    assert_eq!(output.status.code(), Some(5));
-    let json = parse_json_stdout(&output);
-    assert_eq!(json["schemaVersion"], 1);
-    assert_eq!(json["command"], "package-audit");
-    assert!(!json["success"].as_bool().expect("success boolean"));
-    assert_eq!(json["exitCode"], 5);
-    let errors = json["errors"].as_array().expect("errors array");
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0]["code"], "E5508");
-    assert!(
-        errors[0]["message"]
-            .as_str()
-            .expect("message string")
-            .contains("package-analysis-specific flags"),
-        "json: {json}"
-    );
-    assert_ne!(errors[0]["message"], "npm:lodash");
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            0,
+            "registry should not be queried"
+        );
+        assert_eq!(output.status.code(), Some(5));
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "package-audit");
+        assert!(!json["success"].as_bool().expect("success boolean"));
+        assert_eq!(json["exitCode"], 5);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["flag"], expected_flag);
+        assert!(
+            errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("package-analysis-specific flags"),
+            "json: {json}"
+        );
+        assert_ne!(errors[0]["message"], "npm:lodash");
+    }
 }
