@@ -17,6 +17,9 @@ fn browser_array_from_frozen_set_map_run_source() -> &'static str {
   for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
     console.log(value);
   }
+  for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+    console.log(value);
+  }
   for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
     console.log(value);
   }
@@ -34,6 +37,10 @@ fn browser_array_from_frozen_set_map_run_source() -> &'static str {
     console.log(entry[1]);
   }
   for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -70,6 +77,9 @@ fn browser_array_from_frozen_set_map_test_source() -> &'static str {
     for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
       console.log(value);
     }
+    for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+      console.log(value);
+    }
     for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
       console.log(value);
     }
@@ -87,6 +97,10 @@ fn browser_array_from_frozen_set_map_test_source() -> &'static str {
       console.log(entry[1]);
     }
     for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+      console.log(entry[0]);
+      console.log(entry[1]);
+    }
+    for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
       console.log(entry[0]);
       console.log(entry[1]);
     }
@@ -124,6 +138,9 @@ export async function browserArrayFromFrozenSetMapWrappers() {
   for (const value of Array.from(Object.freeze(new globalThis["Set"](setValues)))) {
     console.log(value);
   }
+  for (const value of Array.from(Object.freeze(new globalThis['Set'](setValues)))) {
+    console.log(value);
+  }
   for await (const value of Array.from(Object.freeze((new Set(setValues))))) {
     console.log(value);
   }
@@ -141,6 +158,10 @@ export async function browserArrayFromFrozenSetMapWrappers() {
     console.log(entry[1]);
   }
   for (const entry of Array.from(Object.freeze(new globalThis['Map'](mapValues)))) {
+    console.log(entry[0]);
+    console.log(entry[1]);
+  }
+  for (const entry of Array.from(Object.freeze(new globalThis["Map"](mapValues)))) {
     console.log(entry[0]);
     console.log(entry[1]);
   }
@@ -226,7 +247,7 @@ fn assert_browser_harness_array_from_frozen_set_map(
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(
-            stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+            stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
@@ -236,7 +257,7 @@ fn assert_browser_harness_array_from_frozen_set_map(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
     if command == "test" {
@@ -376,7 +397,7 @@ fn assert_browser_bundle_array_from_frozen_set_map(filename: &str, json_output: 
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
+        stdout.contains("1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n2\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n1\n3\n4\n5\n"),
         "stdout: {stdout}"
     );
 }
