@@ -66685,46 +66685,48 @@ fn package_effects_rejects_package_analysis_specific_flags_in_json_output() {
     fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
     let policy_path = policy_path.to_str().expect("policy path");
 
-    let assert_rejection = |prepend_target: bool, args: &[&str]| {
-        let mut command = Command::new(kali_bin());
-        command.current_dir(dir.path());
-        command.arg("--output").arg("json");
-        command.arg("package-effects");
-        if prepend_target {
-            command.arg("flagpkg").args(args);
-        } else {
-            command.args(args).arg("flagpkg");
-        }
-
-        let output = command.output().expect("run kali");
-
-        assert!(!output.status.success());
-        assert_eq!(output.status.code(), Some(5));
-        let json = parse_json_stdout(&output);
-        assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "package-effects");
-        assert_eq!(json["success"], false);
-        assert_eq!(json["exitCode"], 5);
-        let errors = json["errors"].as_array().expect("errors array");
-        assert!(!errors.is_empty(), "errors: {errors:?}");
-        assert_eq!(errors[0]["code"], "E5508");
-        assert!(
-            errors[0]["message"]
-                .as_str()
-                .expect("message string")
-                .contains("package-analysis-specific flags"),
-            "json: {json}"
-        );
-    };
-
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
-        &["--sandbox", policy_path][..],
+    for (args, expected_flag) in [
+        (&["--api", "browser"][..], "--api"),
+        (&["--compat", "eval"][..], "--compat"),
+        (&["--wasm-threads"][..], "--wasm-threads"),
+        (&["--sandbox", policy_path][..], "--sandbox"),
     ] {
-        assert_rejection(false, args);
-        assert_rejection(true, args);
+        let assert_rejection = |prepend_target: bool| {
+            let mut command = Command::new(kali_bin());
+            command.current_dir(dir.path());
+            command.arg("--output").arg("json");
+            command.arg("package-effects");
+            if prepend_target {
+                command.arg("flagpkg").args(args);
+            } else {
+                command.args(args).arg("flagpkg");
+            }
+
+            let output = command.output().expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(5));
+            let json = parse_json_stdout(&output);
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["command"], "package-effects");
+            assert_eq!(json["success"], false);
+            assert_eq!(json["exitCode"], 5);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert!(!errors.is_empty(), "errors: {errors:?}");
+            assert_eq!(errors[0]["code"], "E5508");
+            assert_eq!(errors[0]["context"]["origin"], "cli");
+            assert_eq!(errors[0]["context"]["flag"], expected_flag);
+            assert!(
+                errors[0]["message"]
+                    .as_str()
+                    .expect("message string")
+                    .contains("package-analysis-specific flags"),
+                "json: {json}"
+            );
+        };
+
+        assert_rejection(false);
+        assert_rejection(true);
     }
 }
 

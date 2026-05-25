@@ -32,7 +32,7 @@ Implemented areas include:
 - source-file checking, building, running, and testing for TS/JS input classes;
 - browser-targeted `check` / `build --bundle` plus browser-harness smoke paths;
 - generator and async-generator class-expression rejection now also covers sequence-wrapped forms on the supported build/check/runtime smoke paths;
-- public source-graph and registry effect/audit commands;
+- public source-graph and registry effect/audit commands, with package-effects JSON smoke now also asserting canonical CLI flag context for package-analysis-specific flag rejections;
 - package install/materialization, registry/raw-URL flows, install JSON removal reporting for pruned registry/raw-URL entries, and package-corpus probes, including browser-harness `test` rejection coverage for published bin entrypoints when a harness command is configured;
 - direct mixed-quote `Array.from` helper aliases now also flow through the supported array-iteration smoke path;
 - Deno/Web/Node API slices with explicit late-compatibility gates, including direct and bracketed `globalThis.Deno.Command` / `globalThis.Deno.connect` / `globalThis.Deno.listen` / `globalThis.Deno.serve` alias coverage in the phase-three host-API rejection matrix;
