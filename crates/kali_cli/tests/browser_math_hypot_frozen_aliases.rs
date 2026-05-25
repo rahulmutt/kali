@@ -17,18 +17,26 @@ function globalThisMathHypotFrozenAliasSlice() {
   const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
   const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
   const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
   const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
   const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
   const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
   console.log(globalThis.Math.hypot(three, four));
   console.log(frozenMathHypot(three, four));
   console.log(frozenGlobalThisMathHypot(three, four));
   console.log(frozenBracketedMathHypot(three, four));
   console.log(frozenBracketedMathHypotCall(three, four));
   console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
   console.log(frozenSingleQuotedBracketedMathHypot(three, four));
   console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
   console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
   return [
     globalThis.Math.hypot(three, four),
     frozenMathHypot(three, four),
@@ -36,18 +44,21 @@ function globalThisMathHypotFrozenAliasSlice() {
     frozenBracketedMathHypot(three, four),
     frozenBracketedMathHypotCall(three, four),
     frozenBracketedMathHypotSingle(three, four),
+    frozenParenthesizedBracketRootMathHypot(three, four),
+    frozenParenthesizedBracketRootMathHypotSingle(three, four),
     frozenSingleQuotedBracketedMathHypot(three, four),
     frozenSingleQuotedBracketedMathHypotCall(three, four),
     frozenSingleQuotedBracketedMathHypotSingle(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four),
+    frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four),
   ];
 }
 "##
 }
-
 fn browser_harness_global_this_math_hypot_frozen_aliases_run_source() -> &'static str {
-    "const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis[\"Math\"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis[\"Math\"])[\"hypot\"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis[\"Math\"])['hypot']); const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])[\"hypot\"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));\n"
+    r#"const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']); const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"]; const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot']; const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"]; const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot']; console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four)); console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
+"#
 }
-
 fn browser_harness_global_this_math_hypot_frozen_aliases_test_source() -> &'static str {
     r#"Kali.test('globalThis math hypot frozen alias slice', () => {
   const three = 3;
@@ -57,22 +68,29 @@ fn browser_harness_global_this_math_hypot_frozen_aliases_test_source() -> &'stat
   const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
   const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
   const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenParenthesizedBracketRootMathHypot = Object.freeze((globalThis["Math"]))["hypot"];
+  const frozenParenthesizedBracketRootMathHypotSingle = Object.freeze((globalThis["Math"]))['hypot'];
   const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
   const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
   const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
+  const frozenParenthesizedSingleQuotedBracketRootMathHypot = Object.freeze((globalThis['Math']))["hypot"];
+  const frozenParenthesizedSingleQuotedBracketRootMathHypotSingle = Object.freeze((globalThis['Math']))['hypot'];
   console.log(globalThis.Math.hypot(three, four));
   console.log(frozenMathHypot(three, four));
   console.log(frozenGlobalThisMathHypot(three, four));
   console.log(frozenBracketedMathHypot(three, four));
   console.log(frozenBracketedMathHypotCall(three, four));
   console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedBracketRootMathHypotSingle(three, four));
   console.log(frozenSingleQuotedBracketedMathHypot(three, four));
   console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
   console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypot(three, four));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathHypotSingle(three, four));
 });
 "#
 }
-
 fn assert_browser_bundle_global_this_math_hypot_frozen_aliases(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);

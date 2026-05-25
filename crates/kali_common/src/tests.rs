@@ -78,6 +78,8 @@ fn test_late_object_model_aliases_and_source_are_canonical() {
             "Object.freeze((globalThis.FinalizationRegistry))",
             r#"Object.freeze(globalThis["FinalizationRegistry"](() => {}))"#,
             r#"Object.freeze((globalThis["FinalizationRegistry"](() => {})))"#,
+            r#"Object.freeze(globalThis["FinalizationRegistry"])"#,
+            r#"Object.freeze((globalThis["FinalizationRegistry"]))"#,
             "Proxy.revocable({}, {})",
             "globalThis.Proxy.revocable({}, {})",
             r#"globalThis["Proxy"]["revocable"]({}, {})"#,
