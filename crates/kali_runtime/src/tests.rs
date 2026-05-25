@@ -4470,6 +4470,14 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
         command_diagnostic
             .notes
             .iter()
+            .any(|note| note
+                == "browser harness opt-in env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"),
+        "diagnostic: {command_diagnostic:?}"
+    );
+    assert!(
+        command_diagnostic
+            .notes
+            .iter()
             .any(|note| note == "supported browser runtime commands: run, test"),
         "diagnostic: {command_diagnostic:?}"
     );
@@ -4519,6 +4527,14 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
             .notes
             .iter()
             .any(|note| note == "current runtime backend: wasmtime"),
+        "diagnostic: {runtime_diagnostic:?}"
+    );
+    assert!(
+        runtime_diagnostic
+            .notes
+            .iter()
+            .any(|note| note
+                == "browser harness opt-in env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"),
         "diagnostic: {runtime_diagnostic:?}"
     );
     assert!(

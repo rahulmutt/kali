@@ -2688,6 +2688,10 @@ pub fn browser_runtime_unavailable_diagnostic(
         .note(format!(
             "current runtime backend: {}",
             RuntimeBackend::Wasmtime.canonical_label()
+        ))
+        .note(format!(
+            "browser harness opt-in env var: {}",
+            BROWSER_HARNESS_COMMAND_ENV
         ));
     for note in BrowserRuntimeContract::diagnostic_notes() {
         diagnostic = diagnostic.note(*note);

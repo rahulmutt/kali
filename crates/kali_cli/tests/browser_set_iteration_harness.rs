@@ -186,6 +186,14 @@ fn browser_harness_set_iteration_test_source() -> &'static str {
   for (const value of new globalThis.Set(values)) {
     globalDirect.push(value);
   }
+  const parenthesizedBracketed = [];
+  for (const value of new (globalThis["Set"])(values)) {
+    parenthesizedBracketed.push(value);
+  }
+  const parenthesizedSingleBracketed = [];
+  for (const value of new (globalThis['Set'])(values)) {
+    parenthesizedSingleBracketed.push(value);
+  }
   const bracketed = [];
   for (const value of new globalThis["Set"](values)) {
     bracketed.push(value);
