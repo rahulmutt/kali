@@ -9899,6 +9899,8 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
     const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(obj);
     const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(obj);
     const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(obj);
+    const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(obj);
+    const parenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(obj);
     const frozenOwnKeys = Object.freeze(Reflect.ownKeys)(obj);
     const frozenParenOwnKeys = Object.freeze((Reflect.ownKeys))(obj);
     const frozenBracketedRootOwnKeys = Object.freeze((globalThis["Reflect"]).ownKeys)(obj);
@@ -9954,6 +9956,12 @@ fn test_resolution_accepts_frozen_object_enumeration_callable_aliases_in_js_like
         console.log(value);
     }
     for (const entry of parenthesizedBracketedEntries) {
+        console.log(entry[0], entry[1]);
+    }
+    for (const value of parenthesizedSingleQuotedBracketedValues) {
+        console.log(value);
+    }
+    for (const entry of parenthesizedSingleQuotedBracketedEntries) {
         console.log(entry[0], entry[1]);
     }
     for (const key of frozenOwnKeys) {
