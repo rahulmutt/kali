@@ -15,6 +15,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
   const frozenMathSqrt = Object.freeze(Math.sqrt);
   const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
   const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
   const frozenMathCbrt = Object.freeze(Math.cbrt);
   const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
   const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
@@ -26,6 +28,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
   console.log(frozenMathSqrt(four));
   console.log(frozenGlobalThisMathSqrt(four));
   console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
   console.log(Math.cbrt(minusTwentySeven));
   console.log(frozenMathCbrt(minusTwentySeven));
   console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
@@ -39,6 +43,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
     frozenMathSqrt(four),
     frozenGlobalThisMathSqrt(four),
     frozenBracketedMathSqrt(four),
+    frozenParenthesizedBracketRootMathSqrt(four),
+    frozenParenthesizedDotRootMathSqrt(four),
     Math.cbrt(minusTwentySeven),
     frozenMathCbrt(minusTwentySeven),
     frozenGlobalThisMathCbrt(minusTwentySeven),
@@ -137,7 +143,7 @@ await mod.mathSqrtCbrtFrozenAliasSlice();
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
+        stdout.contains("2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
         "stdout: {stdout}"
     );
 }
@@ -188,6 +194,8 @@ const minusTwentySeven = -27;
 const frozenMathSqrt = Object.freeze(Math.sqrt);
 const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
 const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
 const frozenMathCbrt = Object.freeze(Math.cbrt);
 const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
 const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
@@ -199,6 +207,8 @@ console.log(Math.sqrt(four));
 console.log(frozenMathSqrt(four));
 console.log(frozenGlobalThisMathSqrt(four));
 console.log(frozenBracketedMathSqrt(four));
+console.log(frozenParenthesizedBracketRootMathSqrt(four));
+console.log(frozenParenthesizedDotRootMathSqrt(four));
 console.log(Math.cbrt(minusTwentySeven));
 console.log(frozenMathCbrt(minusTwentySeven));
 console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
@@ -217,6 +227,8 @@ fn browser_harness_math_sqrt_cbrt_frozen_aliases_test_source() -> &'static str {
   const frozenMathSqrt = Object.freeze(Math.sqrt);
   const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
   const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenParenthesizedBracketRootMathSqrt = Object.freeze((globalThis["Math"]))["sqrt"];
+  const frozenParenthesizedDotRootMathSqrt = Object.freeze((globalThis.Math))["sqrt"];
   const frozenMathCbrt = Object.freeze(Math.cbrt);
   const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
   const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
@@ -228,6 +240,8 @@ fn browser_harness_math_sqrt_cbrt_frozen_aliases_test_source() -> &'static str {
   console.log(frozenMathSqrt(four));
   console.log(frozenGlobalThisMathSqrt(four));
   console.log(frozenBracketedMathSqrt(four));
+  console.log(frozenParenthesizedBracketRootMathSqrt(four));
+  console.log(frozenParenthesizedDotRootMathSqrt(four));
   console.log(Math.cbrt(minusTwentySeven));
   console.log(frozenMathCbrt(minusTwentySeven));
   console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
@@ -290,7 +304,7 @@ fn assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
         }
         let stdout = json["stdout"].as_str().expect("stdout string");
         assert!(
-            stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
+            stdout.contains("2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
             "json: {json}"
         );
         assert_eq!(json["stderr"], "");
@@ -298,7 +312,7 @@ fn assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
+            stdout.contains("2\n2\n2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
             "stdout: {stdout}"
         );
         if command == "test" {
