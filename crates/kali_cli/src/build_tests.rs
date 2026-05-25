@@ -3,7 +3,8 @@ use kali_common::{
     array_from_alias_inventory_source, array_from_loop_lines,
     map_constructor_frozen_callable_source, map_constructor_iteration_source,
     math_pow_browser_alias_inventory_aliases, math_pow_invocation_lines_for_aliases,
-    set_constructor_frozen_callable_source, set_constructor_iteration_source,
+    promise_any_browser_body_source, set_constructor_frozen_callable_source,
+    set_constructor_iteration_source,
 };
 use kali_optimize::{ProfileData, ProfileSample, ProfileSampleKind};
 use sha2::{Digest, Sha256};
@@ -1602,6 +1603,47 @@ fn build_source_file_supports_promise_all_settled_across_input_classes() {
     for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
         for extension in ["ts", "js", "jsx", "tsx"] {
             assert_build_source_file_supports_promise_all_settled_in_input(api_surface, extension);
+        }
+    }
+}
+
+fn promise_any_source() -> String {
+    format!(
+        "async function promiseAnySmoke() {{\n{}\n}}\npromiseAnySmoke();\n",
+        promise_any_browser_body_source()
+    )
+}
+
+fn assert_build_source_file_supports_promise_any_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, promise_any_source()).expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Promise.any should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_promise_any_across_input_classes() {
+    for api_surface in [ApiSurface::Deno, ApiSurface::Browser] {
+        for extension in ["ts", "js", "jsx", "tsx"] {
+            assert_build_source_file_supports_promise_any_in_input(api_surface, extension);
         }
     }
 }
