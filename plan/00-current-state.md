@@ -31,6 +31,7 @@ Implemented areas include:
 - schema-v1 JSON envelopes and deterministic payload validation;
 - source-file checking, building, running, and testing for TS/JS input classes;
 - browser-targeted `check` / `build --bundle` plus browser-harness smoke paths;
+- generator and async-generator class-expression rejection now also covers sequence-wrapped forms on the supported build/check/runtime smoke paths;
 - public source-graph and registry effect/audit commands;
 - package install/materialization, registry/raw-URL flows, install JSON removal reporting for pruned registry/raw-URL entries, and package-corpus probes;
 - direct mixed-quote `Array.from` helper aliases now also flow through the supported array-iteration smoke path;

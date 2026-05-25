@@ -7242,6 +7242,22 @@ fn runtime_entrypoint_rejects_mixed_generator_class_expressions_in_ts_jsx_tsx_in
 }
 
 #[test]
+fn runtime_entrypoint_rejects_sequence_wrapped_generator_class_expressions_in_js_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "js",
+        "const Example = ((0, class NamedExample { *main() { yield 1; } }));\nnew Example();\n",
+    );
+}
+
+#[test]
+fn runtime_entrypoint_rejects_sequence_wrapped_async_generator_class_expressions_in_js_input() {
+    assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
+        "js",
+        "const Example = ((0, class NamedExample { async *main() { yield 1; } }));\nnew Example();\n",
+    );
+}
+
+#[test]
 fn runtime_entrypoint_rejects_generator_class_expressions_wrapped_in_type_assertions_in_ts_input() {
     assert_runtime_entrypoint_rejects_generator_class_expression_in_input(
         "ts",
@@ -7663,6 +7679,8 @@ fn assert_check_source_file_rejects_class_generator_methods_in_input(api_surface
             "const Example = class NamedExample { async *main() { yield 1; } };\nnew Example();\n",
             "export default (class NamedExample { *main() { yield 1; } });\n",
             "export default (class NamedExample { async *main() { yield 1; } });\n",
+            "const Example = ((0, class NamedExample { *main() { yield 1; } }));\nnew Example();\n",
+            "const Example = ((0, class NamedExample { async *main() { yield 1; } }));\nnew Example();\n",
             "class Example { *main() { yield* []; } }\nnew Example();\n",
             "class Example { async *main() { yield* []; } }\nnew Example();\n",
         ] {
@@ -8025,6 +8043,8 @@ fn assert_build_source_file_rejects_class_generator_methods_in_input(api_surface
             "const Example = class NamedExample { async *main() { yield 1; } };\nnew Example();\n",
             "export default (class NamedExample { *main() { yield 1; } });\n",
             "export default (class NamedExample { async *main() { yield 1; } });\n",
+            "const Example = ((0, class NamedExample { *main() { yield 1; } }));\nnew Example();\n",
+            "const Example = ((0, class NamedExample { async *main() { yield 1; } }));\nnew Example();\n",
             "class Example { *main() { yield* []; } }\nnew Example();\n",
             "class Example { async *main() { yield* []; } }\nnew Example();\n",
         ] {
