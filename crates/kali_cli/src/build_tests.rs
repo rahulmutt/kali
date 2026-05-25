@@ -1865,6 +1865,24 @@ fn build_source_file_supports_math_floor_const_numeric_alias_chain_in_browser_ap
     );
 }
 
+#[test]
+fn build_source_file_supports_math_floor_const_numeric_alias_chain_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_floor_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_floor_const_numeric_alias_chain_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_floor_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -1925,6 +1943,24 @@ fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_b
     assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_ceil_and_trunc_const_numeric_alias_chain_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
@@ -1991,6 +2027,24 @@ fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_nu
     assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_bracketed_global_this_math_floor_trunc_and_ceil_numeric_literals_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
