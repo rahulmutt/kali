@@ -5025,7 +5025,10 @@ fn array_callback_iteration_sources() -> [&'static str; 11] {
     ]
 }
 
-fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
+fn assert_build_source_file_rejects_array_callback_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     for source in array_callback_iteration_sources() {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
@@ -5034,7 +5037,7 @@ fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension:
         let error = build_source_file(
             &source_path,
             BuildMode::Fast,
-            ApiSurface::Deno,
+            api_surface,
             false,
             &[],
             16,
@@ -5057,13 +5060,16 @@ fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension:
     }
 }
 
-fn assert_check_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
+fn assert_check_source_file_rejects_array_callback_iteration_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
     for source in array_callback_iteration_sources() {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).expect("write source");
 
-        let error = check_source_file(&source_path, ApiSurface::Deno, &[], false, false)
+        let error = check_source_file(&source_path, api_surface, &[], false, false)
             .expect_err("array callback-produced iterables should remain gated");
 
         assert!(
@@ -5763,22 +5769,62 @@ fn build_source_file_rejects_for_of_non_literal_iterable_in_js_input() {
 
 #[test]
 fn build_source_file_rejects_array_callback_iteration_in_ts_input() {
-    assert_build_source_file_rejects_array_callback_iteration_in_input("ts");
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Deno, "ts");
 }
 
 #[test]
 fn build_source_file_rejects_array_callback_iteration_in_js_input() {
-    assert_build_source_file_rejects_array_callback_iteration_in_input("js");
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_browser_ts_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_browser_js_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_browser_jsx_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_browser_tsx_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "tsx");
 }
 
 #[test]
 fn check_source_file_rejects_array_callback_iteration_in_ts_input() {
-    assert_check_source_file_rejects_array_callback_iteration_in_input("ts");
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Deno, "ts");
 }
 
 #[test]
 fn check_source_file_rejects_array_callback_iteration_in_js_input() {
-    assert_check_source_file_rejects_array_callback_iteration_in_input("js");
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Deno, "js");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_browser_ts_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "ts");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_browser_js_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "js");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_browser_jsx_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "jsx");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_browser_tsx_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input(ApiSurface::Browser, "tsx");
 }
 
 #[test]

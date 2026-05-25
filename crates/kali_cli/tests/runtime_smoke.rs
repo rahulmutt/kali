@@ -49865,18 +49865,20 @@ fn run_and_test_reject_array_callback_iteration_lowering_in_js_and_ts_input() {
 }
 
 #[test]
-fn run_and_test_reject_array_callback_iteration_lowering_when_browser_harness_is_configured_in_js_input(
+fn run_and_test_reject_array_callback_iteration_lowering_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
 ) {
     for command in ["run", "test"] {
         for json_output in [false, true] {
-            for source in array_callback_iteration_sources() {
-                assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
-                    command,
-                    json_output,
-                    "js",
-                    source,
-                    &["array callback-produced iterables", "literal array"],
-                );
+            for extension in ["js", "ts", "jsx", "tsx"] {
+                for source in array_callback_iteration_sources() {
+                    assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
+                        command,
+                        json_output,
+                        extension,
+                        source,
+                        &["array callback-produced iterables", "literal array"],
+                    );
+                }
             }
         }
     }
