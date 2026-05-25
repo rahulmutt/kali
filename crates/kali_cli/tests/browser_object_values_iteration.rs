@@ -99,6 +99,10 @@ function browserGlobalObjectValuesIteration() {
   for (const value of Object.freeze((globalThis['Object'])['values'])(alias)) {
     parenthesizedSingleQuotedReceiverBracketed.push(value);
   }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const value of Object.freeze((globalThis['Object']).values)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(value);
+  }
   const parenthesizedBracketed = [];
   for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
     parenthesizedBracketed.push(value);
