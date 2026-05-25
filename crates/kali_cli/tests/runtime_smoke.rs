@@ -27321,6 +27321,30 @@ const frozenGlobalKeys = globalThis['Reflect']['ownKeys'](frozen);
 const frozenCallableValues = Object.freeze(Object.values)(frozen);
 const frozenCallableGlobalValues = Object.freeze(globalThis.Object.values)(frozen);
 const frozenCallableBracketedValues = Object.freeze(globalThis["Object"]["values"])(frozen);
+const bracketRootValues = Object.freeze((globalThis["Object"]))["values"](frozen);
+const bracketRootSingleQuotedValues = Object.freeze((globalThis["Object"])['values'])(frozen);
+const bracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](frozen);
+const bracketRootSingleQuotedEntries = Object.freeze((globalThis["Object"])['entries'])(frozen);
+if (
+  bracketRootValues.length !== 2 ||
+  bracketRootValues[0] !== 1 ||
+  bracketRootValues[1] !== 2 ||
+  bracketRootSingleQuotedValues.length !== 2 ||
+  bracketRootSingleQuotedValues[0] !== 1 ||
+  bracketRootSingleQuotedValues[1] !== 2 ||
+  bracketRootEntries.length !== 2 ||
+  bracketRootEntries[0][0] !== "zed" ||
+  bracketRootEntries[0][1] !== 1 ||
+  bracketRootEntries[1][0] !== "alpha" ||
+  bracketRootEntries[1][1] !== 2 ||
+  bracketRootSingleQuotedEntries.length !== 2 ||
+  bracketRootSingleQuotedEntries[0][0] !== "zed" ||
+  bracketRootSingleQuotedEntries[0][1] !== 1 ||
+  bracketRootSingleQuotedEntries[1][0] !== "alpha" ||
+  bracketRootSingleQuotedEntries[1][1] !== 2
+) {
+  throw new Error('unexpected bracket-root object enumeration semantics');
+}
 const frozenCallableEntries = Object.freeze(Object.entries)(frozen);
 const frozenCallableGlobalEntries = Object.freeze(globalThis.Object.entries)(frozen);
 const frozenCallableBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(frozen);
@@ -27373,6 +27397,30 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const frozenCallableValues = Object.freeze(Object.values)(frozen);
   const frozenCallableGlobalValues = Object.freeze(globalThis.Object.values)(frozen);
   const frozenCallableBracketedValues = Object.freeze(globalThis["Object"]["values"])(frozen);
+  const bracketRootValues = Object.freeze((globalThis["Object"]))["values"](frozen);
+  const bracketRootSingleQuotedValues = Object.freeze((globalThis["Object"])['values'])(frozen);
+  const bracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](frozen);
+  const bracketRootSingleQuotedEntries = Object.freeze((globalThis["Object"])['entries'])(frozen);
+  if (
+    bracketRootValues.length !== 2 ||
+    bracketRootValues[0] !== 1 ||
+    bracketRootValues[1] !== 2 ||
+    bracketRootSingleQuotedValues.length !== 2 ||
+    bracketRootSingleQuotedValues[0] !== 1 ||
+    bracketRootSingleQuotedValues[1] !== 2 ||
+    bracketRootEntries.length !== 2 ||
+    bracketRootEntries[0][0] !== "zed" ||
+    bracketRootEntries[0][1] !== 1 ||
+    bracketRootEntries[1][0] !== "alpha" ||
+    bracketRootEntries[1][1] !== 2 ||
+    bracketRootSingleQuotedEntries.length !== 2 ||
+    bracketRootSingleQuotedEntries[0][0] !== "zed" ||
+    bracketRootSingleQuotedEntries[0][1] !== 1 ||
+    bracketRootSingleQuotedEntries[1][0] !== "alpha" ||
+    bracketRootSingleQuotedEntries[1][1] !== 2
+  ) {
+    throw new Error('unexpected bracket-root object enumeration semantics');
+  }
   const frozenCallableEntries = Object.freeze(Object.entries)(frozen);
   const frozenCallableGlobalEntries = Object.freeze(globalThis.Object.entries)(frozen);
   const frozenCallableBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(frozen);
