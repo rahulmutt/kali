@@ -27,6 +27,14 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
     "export default (class NamedExample { async *main() { yield 1; } });\n"
 }
 
+fn sequence_wrapped_generator_class_expression_source() -> &'static str {
+    "const Example = (0, class NamedExample { *main() { yield* []; } });\nnew Example();\n"
+}
+
+fn sequence_wrapped_async_generator_class_expression_source() -> &'static str {
+    "const Example = (0, class NamedExample { async *main() { yield* []; } });\nnew Example();\n"
+}
+
 fn late_process_control_source() -> String {
     format!(
         "{} {} {}",
@@ -343,6 +351,14 @@ fn run_and_test_reject_generator_and_async_generator_class_expressions_in_browse
                 async_generator_default_export_class_expression_source(),
                 "async-generator class method lowering is unavailable in the direct runtime path",
             ),
+            (
+                sequence_wrapped_generator_class_expression_source(),
+                "generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+            ),
+            (
+                sequence_wrapped_async_generator_class_expression_source(),
+                "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+            ),
         ] {
             for output_json in [false, true] {
                 let dir = tempdir().expect("tempdir");
@@ -412,6 +428,14 @@ fn check_and_build_reject_generator_and_async_generator_class_expressions_in_bro
             (
                 async_generator_default_export_class_expression_source(),
                 "async-generator class method lowering is unavailable in the direct runtime path",
+            ),
+            (
+                sequence_wrapped_generator_class_expression_source(),
+                "generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+            ),
+            (
+                sequence_wrapped_async_generator_class_expression_source(),
+                "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation",
             ),
         ] {
             for output_json in [false, true] {
