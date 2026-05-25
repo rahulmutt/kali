@@ -18,6 +18,10 @@ function mathSqrtCbrtFrozenAliasSlice() {
   const frozenMathCbrt = Object.freeze(Math.cbrt);
   const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
   const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
   console.log(Math.sqrt(four));
   console.log(frozenMathSqrt(four));
   console.log(frozenGlobalThisMathSqrt(four));
@@ -26,6 +30,10 @@ function mathSqrtCbrtFrozenAliasSlice() {
   console.log(frozenMathCbrt(minusTwentySeven));
   console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
   console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
   return [
     Math.sqrt(four),
     frozenMathSqrt(four),
@@ -35,6 +43,10 @@ function mathSqrtCbrtFrozenAliasSlice() {
     frozenMathCbrt(minusTwentySeven),
     frozenGlobalThisMathCbrt(minusTwentySeven),
     frozenBracketedMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
+    frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
   ];
 }
 "##
@@ -125,7 +137,7 @@ await mod.mathSqrtCbrtFrozenAliasSlice();
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3"),
+        stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
         "stdout: {stdout}"
     );
 }
@@ -168,4 +180,215 @@ fn json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_jsx_input() {
 #[test]
 fn json_build_emits_math_sqrt_and_cbrt_frozen_aliases_in_tsx_input() {
     assert_browser_bundle_math_sqrt_cbrt_frozen_aliases("app.tsx", true);
+}
+
+fn browser_harness_math_sqrt_cbrt_frozen_aliases_run_source() -> &'static str {
+    r#"const four = 4;
+const minusTwentySeven = -27;
+const frozenMathSqrt = Object.freeze(Math.sqrt);
+const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+const frozenMathCbrt = Object.freeze(Math.cbrt);
+const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+console.log(Math.sqrt(four));
+console.log(frozenMathSqrt(four));
+console.log(frozenGlobalThisMathSqrt(four));
+console.log(frozenBracketedMathSqrt(four));
+console.log(Math.cbrt(minusTwentySeven));
+console.log(frozenMathCbrt(minusTwentySeven));
+console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+console.log(frozenBracketedMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+"#
+}
+
+fn browser_harness_math_sqrt_cbrt_frozen_aliases_test_source() -> &'static str {
+    r#"Kali.test('math sqrt/cbrt frozen aliases', () => {
+  const four = 4;
+  const minusTwentySeven = -27;
+  const frozenMathSqrt = Object.freeze(Math.sqrt);
+  const frozenGlobalThisMathSqrt = Object.freeze(globalThis.Math.sqrt);
+  const frozenBracketedMathSqrt = Object.freeze(globalThis["Math"]["sqrt"]);
+  const frozenMathCbrt = Object.freeze(Math.cbrt);
+  const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
+  const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
+  const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
+  const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
+  const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
+  console.log(Math.sqrt(four));
+  console.log(frozenMathSqrt(four));
+  console.log(frozenGlobalThisMathSqrt(four));
+  console.log(frozenBracketedMathSqrt(four));
+  console.log(Math.cbrt(minusTwentySeven));
+  console.log(frozenMathCbrt(minusTwentySeven));
+  console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
+  console.log(frozenBracketedMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
+  console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
+});
+"#
+}
+
+fn assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+    command: &str,
+    filename: &str,
+    source: &str,
+    json_output: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut output = Command::new(kali_bin());
+    output
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+    if json_output {
+        output.arg("--output").arg("json");
+    }
+    let output = output
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], true);
+        assert_eq!(json["payload"]["hostContract"], "browser-requested");
+        assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
+        if command == "run" {
+            assert_eq!(json["exitCode"], 0);
+            assert_eq!(json["payload"]["exitCode"], 0);
+        } else {
+            assert_eq!(json["payload"]["total"], 1);
+            assert_eq!(json["payload"]["passed"], 1);
+            assert_eq!(json["payload"]["failed"], 0);
+            assert_eq!(json["payload"]["skipped"], 0);
+        }
+        let stdout = json["stdout"].as_str().expect("stdout string");
+        assert!(
+            stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
+            "json: {json}"
+        );
+        assert_eq!(json["stderr"], "");
+        assert!(json["errors"].as_array().expect("errors array").is_empty());
+    } else {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("2\n2\n2\n2\n-3\n-3\n-3\n-3\n-3\n-3\n-3\n-3"),
+            "stdout: {stdout}"
+        );
+        if command == "test" {
+            assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+        }
+    }
+}
+
+#[test]
+fn run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input() {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "run",
+        "main.ts",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input() {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "run",
+        "main.js",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_run_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input()
+{
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input()
+{
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_test_source(),
+        false,
+    );
+}
+
+#[test]
+fn json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "run",
+        "main.ts",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_run_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "run",
+        "main.js",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_run_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_ts_input(
+) {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "test",
+        "smoke.test.ts",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_test_source(),
+        true,
+    );
+}
+
+#[test]
+fn json_test_supports_math_sqrt_and_cbrt_frozen_aliases_when_browser_harness_is_configured_in_js_input(
+) {
+    assert_browser_harness_math_sqrt_cbrt_frozen_aliases(
+        "test",
+        "smoke.test.js",
+        browser_harness_math_sqrt_cbrt_frozen_aliases_test_source(),
+        true,
+    );
 }
