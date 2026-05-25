@@ -5009,11 +5009,24 @@ fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extensi
     );
 }
 
-fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
-    for source in [
+fn array_callback_iteration_sources() -> [&'static str; 11] {
+    [
         "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
-    ] {
+        "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findLast((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findLastIndex((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.flatMap((value) => [value])) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.some((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.every((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.reduce((acc, value) => acc + value, 0)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.reduceRight((acc, value) => acc + value, 0)) { console.log(item); }\n",
+    ]
+}
+
+fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
+    for source in array_callback_iteration_sources() {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).expect("write source");
@@ -5045,10 +5058,7 @@ fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension:
 }
 
 fn assert_check_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
-    for source in [
-        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
-        "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
-    ] {
+    for source in array_callback_iteration_sources() {
         let dir = tempdir().expect("tempdir");
         let source_path = dir.path().join(format!("main.{extension}"));
         fs::write(&source_path, source).expect("write source");

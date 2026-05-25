@@ -6,21 +6,103 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn array_callback_iteration_source() -> &'static str {
-    r#"function main() {
+fn array_callback_iteration_sources() -> [&'static str; 11] {
+    [
+        r#"function main() {
   const values = [1, 2];
   for (const item of values.map((value) => value)) {
     console.log(item);
   }
 }
 main();
-"#
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.filter((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.find((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.findIndex((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.findLast((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.findLastIndex((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.flatMap((value) => [value])) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.some((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.every((value) => value > 1)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.reduce((acc, value) => acc + value, 0)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+        r#"function main() {
+  const values = [1, 2];
+  for (const item of values.reduceRight((acc, value) => acc + value, 0)) {
+    console.log(item);
+  }
+}
+main();
+"#,
+    ]
 }
 
-fn assert_array_callback_iteration_source_rejects(command: &str) {
+fn assert_array_callback_iteration_source_rejects(command: &str, source: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(&source_path, array_callback_iteration_source()).expect("write source");
+    fs::write(&source_path, source).expect("write source");
 
     let output = Command::new(kali_bin())
         .current_dir(dir.path())
@@ -42,20 +124,28 @@ fn assert_array_callback_iteration_source_rejects(command: &str) {
 
 #[test]
 fn run_rejects_array_callback_iteration_lowering_in_js_input() {
-    assert_array_callback_iteration_source_rejects("run");
+    for source in array_callback_iteration_sources() {
+        assert_array_callback_iteration_source_rejects("run", source);
+    }
 }
 
 #[test]
 fn test_rejects_array_callback_iteration_lowering_in_js_input() {
-    assert_array_callback_iteration_source_rejects("test");
+    for source in array_callback_iteration_sources() {
+        assert_array_callback_iteration_source_rejects("test", source);
+    }
 }
 
 #[test]
 fn check_rejects_array_callback_iteration_lowering_in_js_input() {
-    assert_array_callback_iteration_source_rejects("check");
+    for source in array_callback_iteration_sources() {
+        assert_array_callback_iteration_source_rejects("check", source);
+    }
 }
 
 #[test]
 fn build_rejects_array_callback_iteration_lowering_in_js_input() {
-    assert_array_callback_iteration_source_rejects("build");
+    for source in array_callback_iteration_sources() {
+        assert_array_callback_iteration_source_rejects("build", source);
+    }
 }

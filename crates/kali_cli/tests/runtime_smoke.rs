@@ -49829,15 +49829,28 @@ fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_confi
     }
 }
 
+fn array_callback_iteration_sources() -> [&'static str; 11] {
+    [
+        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findLast((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.findLastIndex((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.flatMap((value) => [value])) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.some((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.every((value) => value > 1)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.reduce((acc, value) => acc + value, 0)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.reduceRight((acc, value) => acc + value, 0)) { console.log(item); }\n",
+    ]
+}
+
 #[test]
 fn run_and_test_reject_array_callback_iteration_lowering_in_js_and_ts_input() {
     for extension in ["js", "ts"] {
         for command in ["run", "test"] {
             for json_output in [false, true] {
-                for source in [
-                    "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
-                    "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
-                ] {
+                for source in array_callback_iteration_sources() {
                     assert_runtime_entrypoint_rejection(
                         command,
                         json_output,
@@ -49856,19 +49869,13 @@ fn run_and_test_reject_array_callback_iteration_lowering_when_browser_harness_is
 ) {
     for command in ["run", "test"] {
         for json_output in [false, true] {
-            for source in [
-                "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
-                "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
-            ] {
+            for source in array_callback_iteration_sources() {
                 assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
                     command,
                     json_output,
                     "js",
                     source,
-                    &[
-                        "array callback-produced iterables",
-                        "literal array",
-                    ],
+                    &["array callback-produced iterables", "literal array"],
                 );
             }
         }
