@@ -124,6 +124,7 @@ Policy-validation side:
 - `E5506`: Feature unavailable in current phase, API surface, command/profile, or target configuration
 - `E5507`: Invalid primary command input kind for the selected command
 - `E5508`: Invalid CLI usage or flag/arity combination for the selected command
+- malformed single-package arguments for `package-effects` / `package-audit` may still carry requested/effective package-argument context in JSON mode when the command can normalize the target (for example trimming surrounding whitespace)
 - `E5509`: Invalid project configuration
 - `E5510`: Invalid sandbox policy file
 - `E5511`: Cannot determine a statically known export surface for a library-oriented build

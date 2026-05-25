@@ -4048,10 +4048,15 @@ fn require_single_registry_package_target(
     targets: Vec<String>,
     output: &CliOutputOptions,
 ) -> Result<String, i32> {
-    let (message, exit_code) = match targets.as_slice() {
+    let (message, exit_code, context) = match targets.as_slice() {
         [target] if target.trim().is_empty() => (
             format!("`{}` requires a non-empty package argument", command),
             5,
+            Some(
+                DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                    .with_requested_value(target.clone())
+                    .with_effective_value(target.trim().to_string()),
+            ),
         ),
         [target] if target.trim() != target => (
             format!(
@@ -4059,19 +4064,29 @@ fn require_single_registry_package_target(
                 command
             ),
             5,
+            Some(
+                DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                    .with_requested_value(target.clone())
+                    .with_effective_value(target.trim().to_string()),
+            ),
         ),
         [target] => return Ok(target.clone()),
         [] => (
             format!("`{}` requires exactly one package argument", command),
             5,
+            None,
         ),
         _ => (
             format!("`{}` accepts exactly one package argument", command),
             5,
+            None,
         ),
     };
 
-    let diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
+    let mut diagnostic = Diagnostic::error(e5::INVALID_CLI_USAGE as u32, message);
+    if let Some(context) = context {
+        diagnostic = diagnostic.with_context(context);
+    }
     if output.is_json() {
         print_envelope(
             command,
