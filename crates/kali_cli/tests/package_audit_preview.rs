@@ -131,6 +131,7 @@ fn package_audit_preview_short_circuits_before_malformed_target_validation_in_js
         errors[0]["message"],
         "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape"
     );
+    assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--preview");
     assert_eq!(errors[0]["context"]["requestedValue"], "true");
     assert_eq!(errors[0]["context"]["effectiveValue"], "true");
@@ -167,6 +168,7 @@ fn package_audit_preview_short_circuits_before_registry_lookup_in_json_mode_with
     let errors = json["errors"].as_array().expect("errors array");
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0]["code"], "E5508");
+    assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--preview");
     assert_eq!(errors[0]["context"]["requestedValue"], "true");
     assert_eq!(errors[0]["context"]["effectiveValue"], "true");
