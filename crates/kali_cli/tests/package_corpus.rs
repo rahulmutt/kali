@@ -1283,6 +1283,39 @@ fn browser_runtime_corpus_pi_coding_agent_style_package_bin_entrypoint_is_reject
 }
 
 #[test]
+fn browser_runtime_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_the_browser_surface_in_js_input_when_a_harness_command_is_configured_for_test(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(package_dir.join("dist/cli.js").to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        !test.status.success(),
+        "browser pi-coding-agent package bin entrypoint should be rejected on the browser surface at test time\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stderr = String::from_utf8_lossy(&test.stderr);
+    assert!(test_stderr.contains("E5506"), "stderr: {test_stderr}");
+    assert!(
+        test_stderr.contains("Node.js CLI features")
+            && test_stderr.contains("unavailable on the 'browser' API surface"),
+        "stderr: {test_stderr}"
+    );
+}
+
+#[test]
 fn browser_runtime_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_the_inherited_browser_surface_in_js_input_when_a_harness_command_is_configured(
 ) {
     let dir = tempdir().expect("tempdir");
@@ -1311,6 +1344,38 @@ fn browser_runtime_corpus_pi_coding_agent_style_package_bin_entrypoint_is_reject
         run_stderr.contains("Node.js CLI features")
             && run_stderr.contains("unavailable on the 'browser' API surface"),
         "stderr: {run_stderr}"
+    );
+}
+
+#[test]
+fn browser_runtime_corpus_pi_coding_agent_style_package_bin_entrypoint_is_rejected_on_the_inherited_browser_surface_in_js_input_when_a_harness_command_is_configured_for_test(
+) {
+    let dir = tempdir().expect("tempdir");
+    let package_dir = dir
+        .path()
+        .join("node_modules/@mariozechner/pi-coding-agent");
+    write_manifest(dir.path(), Some("browser"));
+    write_pi_coding_agent_style_package(&package_dir);
+
+    let test = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node")
+        .arg("test")
+        .arg(package_dir.join("dist/cli.js").to_str().unwrap())
+        .output()
+        .expect("run kali");
+    assert!(
+        !test.status.success(),
+        "browser pi-coding-agent package bin entrypoint should be rejected on the inherited browser surface at test time\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&test.stdout),
+        String::from_utf8_lossy(&test.stderr)
+    );
+    let test_stderr = String::from_utf8_lossy(&test.stderr);
+    assert!(test_stderr.contains("E5506"), "stderr: {test_stderr}");
+    assert!(
+        test_stderr.contains("Node.js CLI features")
+            && test_stderr.contains("unavailable on the 'browser' API surface"),
+        "stderr: {test_stderr}"
     );
 }
 

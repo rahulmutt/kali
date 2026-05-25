@@ -33,6 +33,7 @@ Broaden package compatibility using support-rung evidence instead of broad npm, 
 - Expand browser-targeted `check` / `build --bundle` and browser-harness package evidence by package shape.
 - Keep deployable-through-host, executable-through-browser-harness, and standalone browser runtime claims separate.
 - Reject packages whose browser path depends on unavailable host/native/binary behavior.
+- Keep browser-harness rejection coverage for published bin entrypoints aligned across `run` and `test` when a harness command is configured.
 
 ### 23.4 Registry-analysis boundaries
 
