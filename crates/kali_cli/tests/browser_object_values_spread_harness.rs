@@ -24,6 +24,7 @@ function browserObjectValuesSpreadIteration() {
   const mixedCollected = [...globalThis.Object["values"](fromEntries)];
   const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
   const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
+  const doubleQuotedSingleQuotedCollected = [...globalThis["Object"]['values'](fromEntries)];
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedCollected = [...Object.freeze((globalThis['Object'])['values'])(fromEntries)];
   const frozenCollected = [...globalThis["Object"]["values"](frozenFromEntries)];
@@ -34,6 +35,7 @@ function browserObjectValuesSpreadIteration() {
   assertObjectValuesSpreadIteration(mixedCollected);
   assertObjectValuesSpreadIteration(mixedBracketedCollected);
   assertObjectValuesSpreadIteration(bracketedAliasCollected);
+  assertObjectValuesSpreadIteration(doubleQuotedSingleQuotedCollected);
   assertObjectValuesSpreadIteration(singleBracketedCollected);
   assertObjectValuesSpreadIteration(parenthesizedSingleQuotedReceiverBracketedCollected);
   assertObjectValuesSpreadIteration(frozenCollected);
