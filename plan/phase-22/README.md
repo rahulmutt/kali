@@ -22,7 +22,7 @@ Keep browser-targeted compilation, browser harness execution, and standalone bro
 - Complete guest-facing threaded behavior beyond profile and budget acceptance.
 - Define valid positive thread budgets by command, API surface, target, and runtime profile.
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
-- Current smoke now also rejects single-quoted bracketed `SharedArrayBuffer` / `Atomics` aliases in the threaded-runtime gate, keeping the late-compat spellings honest alongside the positive budget path; the browser JS/JSX/TSX source inventories now also carry those single-quoted bracketed aliases, the shared threaded-runtime alias inventory is now canonicalized in `kali_common`, and the CLI build rejection lane reuses the same canonical late-threaded-runtime source inventory.
+- Current smoke now also rejects single-quoted bracketed `SharedArrayBuffer` / `Atomics` aliases in the threaded-runtime gate, keeping the late-compat spellings honest alongside the positive budget path; the browser JS/JSX/TSX source inventories now also carry those single-quoted bracketed aliases, the shared threaded-runtime alias inventory is now canonicalized in `kali_common`, the canonical helper set now also includes the matching single-quoted `true &&` / `null ??` wrapper variants and the double-quoted `false ||` wrapper variants for both globals, and the CLI build rejection lane reuses the same canonical late-threaded-runtime source inventory.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract

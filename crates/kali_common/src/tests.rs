@@ -207,6 +207,7 @@ fn test_late_threaded_runtime_aliases_and_source_are_canonical() {
             r#"Object.freeze((globalThis["SharedArrayBuffer"]))"#,
             "Object.freeze((globalThis['SharedArrayBuffer']))",
             "Object.freeze((null ?? globalThis.SharedArrayBuffer))",
+            "Object.freeze((null ?? globalThis['SharedArrayBuffer']))",
             r#"Object.freeze((true && globalThis["SharedArrayBuffer"]))"#,
             "Object.freeze((true && globalThis['SharedArrayBuffer']))",
             r#"Object.freeze((false || globalThis["SharedArrayBuffer"]))"#,
@@ -221,6 +222,7 @@ fn test_late_threaded_runtime_aliases_and_source_are_canonical() {
             r#"Object.freeze((globalThis["Atomics"]))"#,
             "Object.freeze((globalThis['Atomics']))",
             "Object.freeze((null ?? globalThis.Atomics))",
+            "Object.freeze((null ?? globalThis['Atomics']))",
             r#"Object.freeze((true && globalThis["Atomics"]))"#,
             "Object.freeze((true && globalThis['Atomics']))",
             r#"Object.freeze((false || globalThis["Atomics"]))"#,
@@ -230,7 +232,7 @@ fn test_late_threaded_runtime_aliases_and_source_are_canonical() {
 
     assert_eq!(
         late_threaded_runtime_source(),
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze(globalThis[\"SharedArrayBuffer\"]); Object.freeze(globalThis['SharedArrayBuffer']); Object.freeze((globalThis.SharedArrayBuffer)); Object.freeze((globalThis[\"SharedArrayBuffer\"])); Object.freeze((globalThis['SharedArrayBuffer'])); Object.freeze((null ?? globalThis.SharedArrayBuffer)); Object.freeze((true && globalThis[\"SharedArrayBuffer\"])); Object.freeze((true && globalThis['SharedArrayBuffer'])); Object.freeze((false || globalThis[\"SharedArrayBuffer\"])); Object.freeze((false || globalThis['SharedArrayBuffer'])); globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics']; Object.freeze(globalThis.Atomics); Object.freeze(globalThis[\"Atomics\"]); Object.freeze(globalThis['Atomics']); Object.freeze((globalThis.Atomics)); Object.freeze((globalThis[\"Atomics\"])); Object.freeze((globalThis['Atomics'])); Object.freeze((null ?? globalThis.Atomics)); Object.freeze((true && globalThis[\"Atomics\"])); Object.freeze((true && globalThis['Atomics'])); Object.freeze((false || globalThis[\"Atomics\"])); Object.freeze((false || globalThis['Atomics']));"
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze(globalThis[\"SharedArrayBuffer\"]); Object.freeze(globalThis['SharedArrayBuffer']); Object.freeze((globalThis.SharedArrayBuffer)); Object.freeze((globalThis[\"SharedArrayBuffer\"])); Object.freeze((globalThis['SharedArrayBuffer'])); Object.freeze((null ?? globalThis.SharedArrayBuffer)); Object.freeze((null ?? globalThis['SharedArrayBuffer'])); Object.freeze((true && globalThis[\"SharedArrayBuffer\"])); Object.freeze((true && globalThis['SharedArrayBuffer'])); Object.freeze((false || globalThis[\"SharedArrayBuffer\"])); Object.freeze((false || globalThis['SharedArrayBuffer'])); globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics']; Object.freeze(globalThis.Atomics); Object.freeze(globalThis[\"Atomics\"]); Object.freeze(globalThis['Atomics']); Object.freeze((globalThis.Atomics)); Object.freeze((globalThis[\"Atomics\"])); Object.freeze((globalThis['Atomics'])); Object.freeze((null ?? globalThis.Atomics)); Object.freeze((null ?? globalThis['Atomics'])); Object.freeze((true && globalThis[\"Atomics\"])); Object.freeze((true && globalThis['Atomics'])); Object.freeze((false || globalThis[\"Atomics\"])); Object.freeze((false || globalThis['Atomics']));"
     );
 }
 
