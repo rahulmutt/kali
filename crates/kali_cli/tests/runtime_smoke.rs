@@ -70987,7 +70987,7 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
 
-    let assert_rejection = |prepend_target: bool, args: &[&str]| {
+    let assert_rejection = |prepend_target: bool, args: &[&str], expected_flag: &str| {
         let mut command = Command::new(kali_bin());
         command.current_dir(dir.path());
         command.env("KALI_REGISTRY", &registry_url);
@@ -71008,6 +71008,8 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
         assert_eq!(json["command"], "package-audit");
         assert!(!json["success"].as_bool().expect("success boolean"));
         assert_eq!(json["errors"][0]["code"], "E5508");
+        assert_eq!(json["errors"][0]["context"]["origin"], "cli");
+        assert_eq!(json["errors"][0]["context"]["flag"], expected_flag);
         assert!(
             json["errors"][0]["message"]
                 .as_str()
@@ -71017,14 +71019,14 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
         );
     };
 
-    for args in [
-        &["--api", "browser"][..],
-        &["--compat", "eval"][..],
-        &["--wasm-threads"][..],
-        &["--sandbox", policy_path][..],
+    for (args, expected_flag) in [
+        (&["--api", "browser"][..], "--api"),
+        (&["--compat", "eval"][..], "--compat"),
+        (&["--wasm-threads"][..], "--wasm-threads"),
+        (&["--sandbox", policy_path][..], "--sandbox"),
     ] {
-        assert_rejection(false, args);
-        assert_rejection(true, args);
+        assert_rejection(false, args, expected_flag);
+        assert_rejection(true, args, expected_flag);
     }
 
     stop.store(true, Ordering::SeqCst);
