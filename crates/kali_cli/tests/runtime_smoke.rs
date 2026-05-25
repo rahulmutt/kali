@@ -5407,12 +5407,12 @@ fn threaded_runtime_globals_accept_on_default_standalone_surface() {
         let test_path = dir.path().join("main.test.js");
         fs::write(
             &source_path,
-            "SharedArrayBuffer; Atomics; console.log('threaded globals ok');\n",
+            "SharedArrayBuffer; globalThis['SharedArrayBuffer']; Atomics; globalThis['Atomics']; console.log('threaded globals ok');\n",
         )
         .expect("write source");
         fs::write(
             &test_path,
-            "Kali.test('threaded globals', () => { SharedArrayBuffer; Atomics; console.log('threaded globals ok'); });\n",
+            "Kali.test('threaded globals', () => { SharedArrayBuffer; globalThis['SharedArrayBuffer']; Atomics; globalThis['Atomics']; console.log('threaded globals ok'); });\n",
         )
         .expect("write test source");
 
@@ -5512,7 +5512,7 @@ fn check_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -5540,7 +5540,7 @@ fn check_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -5568,7 +5568,7 @@ fn run_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -5596,7 +5596,7 @@ fn run_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -5624,7 +5624,7 @@ fn test_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -5652,7 +5652,7 @@ fn test_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56595,7 +56595,7 @@ fn json_check_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56640,7 +56640,7 @@ fn json_check_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56685,7 +56685,7 @@ fn json_run_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56730,7 +56730,7 @@ fn json_run_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56775,7 +56775,7 @@ fn json_test_rejects_threaded_runtime_globals() {
     let source_path = dir.path().join("smoke.test.ts");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 
@@ -56820,7 +56820,7 @@ fn json_test_rejects_threaded_runtime_globals_js_input() {
     let source_path = dir.path().join("smoke.test.js");
     fs::write(
         &source_path,
-        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis.Atomics; globalThis[\"Atomics\"];",
+        "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics'];",
     )
     .expect("write source");
 

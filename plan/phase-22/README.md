@@ -22,6 +22,7 @@ Keep browser-targeted compilation, browser harness execution, and standalone bro
 - Complete guest-facing threaded behavior beyond profile and budget acceptance.
 - Define valid positive thread budgets by command, API surface, target, and runtime profile.
 - Specify interaction with `SharedArrayBuffer`, `Atomics`, workers, resource accounting, and deterministic failure modes.
+- Current smoke now also rejects single-quoted bracketed `SharedArrayBuffer` / `Atomics` aliases in the threaded-runtime gate, keeping the late-compat spellings honest alongside the positive budget path.
 - Preserve AOT-only compilation, no tracing/background GC, deterministic JSON, and resource-limit honesty.
 
 ### 22.2 Browser runtime contract
