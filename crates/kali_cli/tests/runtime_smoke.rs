@@ -48521,6 +48521,14 @@ function setAndMapIteration() {
   for (const value of new globalThis['Set'](values)) {
     singleBracketed.push(value);
   }
+  const parenthesizedBracketed = [];
+  for (const value of new (globalThis["Set"])(values)) {
+    parenthesizedBracketed.push(value);
+  }
+  const parenthesizedSingleBracketed = [];
+  for (const value of new (globalThis['Set'])(values)) {
+    parenthesizedSingleBracketed.push(value);
+  }
   const frozenValues = Object.freeze(aliasValues);
   const frozenDirect = [];
   for (const value of new Set(frozenValues)) {
@@ -48534,6 +48542,8 @@ function setAndMapIteration() {
   assertSetIteration(globalDirect);
   assertSetIteration(bracketed);
   assertSetIteration(singleBracketed);
+  assertSetIteration(parenthesizedBracketed);
+  assertSetIteration(parenthesizedSingleBracketed);
   assertSetIteration(frozenDirect);
 
   const mapValues = [[1, 2], [1, 3], [4, 5]];
@@ -48567,6 +48577,14 @@ function setAndMapIteration() {
   for (const entry of new globalThis['Map'](mapValues)) {
     singleBracketedMap.push(entry);
   }
+  const parenthesizedBracketedMap = [];
+  for (const entry of new (globalThis["Map"])(mapValues)) {
+    parenthesizedBracketedMap.push(entry);
+  }
+  const parenthesizedSingleBracketedMap = [];
+  for (const entry of new (globalThis['Map'])(mapValues)) {
+    parenthesizedSingleBracketedMap.push(entry);
+  }
 
   const frozenMapValues = Object.freeze(mapValues);
   const frozenMapDirect = [];
@@ -48581,6 +48599,8 @@ function setAndMapIteration() {
   assertMapIteration(globalMapDirect);
   assertMapIteration(bracketedMap);
   assertMapIteration(singleBracketedMap);
+  assertMapIteration(parenthesizedBracketedMap);
+  assertMapIteration(parenthesizedSingleBracketedMap);
   assertMapIteration(frozenMapDirect);
 
   let setBreakContinueCount = 0;
@@ -48724,6 +48744,14 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const value of new globalThis['Set'](values)) {
       singleBracketed.push(value);
     }
+    const parenthesizedBracketed = [];
+    for (const value of new (globalThis["Set"])(values)) {
+      parenthesizedBracketed.push(value);
+    }
+    const parenthesizedSingleBracketed = [];
+    for (const value of new (globalThis['Set'])(values)) {
+      parenthesizedSingleBracketed.push(value);
+    }
     const frozenValues = Object.freeze(aliasValues);
     const frozenDirect = [];
     for (const value of new frozenSetAlias(frozenValues)) {
@@ -48765,6 +48793,8 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertSetIteration(globalDirect);
     assertSetIteration(bracketed);
     assertSetIteration(singleBracketed);
+    assertSetIteration(parenthesizedBracketed);
+    assertSetIteration(parenthesizedSingleBracketed);
     assertSetIteration(frozenDirect);
     assertSetIteration(wrappedFrozenDirect);
     assertSetIteration(frozenGlobalDirect);
@@ -48813,6 +48843,14 @@ fn set_and_map_iteration_test_source() -> &'static str {
     for (const entry of new globalThis['Map'](mapValues)) {
       singleBracketedMap.push(entry);
     }
+    const parenthesizedBracketedMap = [];
+    for (const entry of new (globalThis["Map"])(mapValues)) {
+      parenthesizedBracketedMap.push(entry);
+    }
+    const parenthesizedSingleBracketedMap = [];
+    for (const entry of new (globalThis['Map'])(mapValues)) {
+      parenthesizedSingleBracketedMap.push(entry);
+    }
 
     const frozenMapValues = Object.freeze(mapValues);
     const frozenMapDirect = [];
@@ -48855,6 +48893,8 @@ fn set_and_map_iteration_test_source() -> &'static str {
     assertMapIteration(globalMapDirect);
     assertMapIteration(bracketedMap);
     assertMapIteration(singleBracketedMap);
+    assertMapIteration(parenthesizedBracketedMap);
+    assertMapIteration(parenthesizedSingleBracketedMap);
     assertMapIteration(frozenMapDirect);
     assertMapIteration(wrappedFrozenMapDirect);
     assertMapIteration(frozenGlobalMapDirect);
@@ -50495,6 +50535,33 @@ fn run_and_test_reject_wrapped_generator_and_async_generator_class_expressions_i
                     command,
                     json_output,
                     "ts",
+                    source,
+                    expected_message,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_sequence_wrapped_generator_and_async_generator_class_expressions_in_js_input(
+) {
+    for (source, expected_message) in [
+        (
+            "const Example = (0, class NamedExample { *main() { yield* []; } });\nnew Example();\n",
+            "generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+        ),
+        (
+            "const Example = (0, class NamedExample { async *main() { yield* []; } });\nnew Example();\n",
+            "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+        ),
+    ] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                assert_runtime_entrypoint_rejection(
+                    command,
+                    json_output,
+                    "js",
                     source,
                     expected_message,
                 );

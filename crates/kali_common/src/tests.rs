@@ -2765,7 +2765,33 @@ fn test_set_constructor_aliases_and_frozen_callable_source_are_canonical() {
             r#"Object.freeze((globalThis['Set']))"#,
         ]
     );
-    assert_eq!(iteration_source, set_constructor_iteration_source());
+    assert_eq!(
+        iteration_source,
+        concat!(
+            "for (const value of new Set([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new Set(Object.freeze([1, 2, 1]))) { console.log(value); } ",
+            "for (const value of new globalThis.Set([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new globalThis[\"Set\"]([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new globalThis['Set']([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (globalThis[\"Set\"])([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (globalThis['Set'])([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new globalThis['Set'](Object.freeze([1, 2, 1]))) { console.log(value); } ",
+            "for (const value of new (Object.freeze((Set)))([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (Object.freeze((globalThis.Set)))([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (Object.freeze((globalThis[\"Set\"])))([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (Object.freeze((globalThis['Set'])))([1, 2, 1])) { console.log(value); } ",
+            "for (const value of Object.freeze(new Set([1, 2, 1]))) { console.log(value); } ",
+            "for (const value of Object.freeze((new Set([1, 2, 1])))) { console.log(value); } ",
+            "for (const value of Object.freeze((null ?? new Set([1, 2, 1])))) { console.log(value); } ",
+            "for (const value of Object.freeze((true && new Set([1, 2, 1])))) { console.log(value); } ",
+            "for (const value of Object.freeze((false || new Set([1, 2, 1])))) { console.log(value); } ",
+            "for (const value of Object.freeze(new globalThis[\"Set\"]([1, 2, 1]))) { console.log(value); } ",
+            "for (const value of Object.freeze((new globalThis[\"Set\"]([1, 2, 1])))) { console.log(value); } ",
+            "for (const value of new (null ?? Set)([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (true && Set)([1, 2, 1])) { console.log(value); } ",
+            "for (const value of new (false || Set)([1, 2, 1])) { console.log(value); }"
+        )
+    );
     assert_eq!(
         frozen_source,
         concat!(
@@ -2811,7 +2837,33 @@ fn test_map_constructor_aliases_and_frozen_callable_source_are_canonical() {
             r#"Object.freeze((globalThis['Map']))"#,
         ]
     );
-    assert_eq!(iteration_source, map_constructor_iteration_source());
+    assert_eq!(
+        iteration_source,
+        concat!(
+            "for (const entry of new Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new Map(Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new globalThis.Map([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new globalThis['Map']([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (globalThis[\"Map\"])([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (globalThis['Map'])([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new globalThis['Map'](Object.freeze([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (Object.freeze((Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (Object.freeze((globalThis.Map)))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (Object.freeze((globalThis[\"Map\"])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (Object.freeze((globalThis['Map'])))([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze(new Map([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze((new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze((null ?? new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze((true && new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze((false || new Map([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze(new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]]))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of Object.freeze((new globalThis[\"Map\"]([[1, 2], [1, 3], [4, 5]])))) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (null ?? Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (true && Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); } ",
+            "for (const entry of new (false || Map)([[1, 2], [1, 3], [4, 5]])) { console.log(entry[0], entry[1]); }"
+        )
+    );
     assert_eq!(
         frozen_source,
         concat!(

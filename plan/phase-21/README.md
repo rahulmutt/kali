@@ -24,6 +24,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Cover `yield`, `yield*`, `return`, `throw`, `try/finally`, iterator close/finalization, and async interaction.
 - Preserve generator/function-kind metadata through parser, AST, HIR, MIR, LIR, codegen, and export analysis.
 - Keep unsupported generator forms behind canonical `E5506` gates until the full runtime path exists.
+- Current smoke now also exercises sequence-expression-wrapped generator and async-generator class expressions in JS input on the supported run/test paths, including the yield* delegation slice.
 
 ### 21.2 Iterator and async-iterator protocols
 
