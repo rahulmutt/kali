@@ -5309,6 +5309,18 @@ mod tests {
     }
 
     #[test]
+    fn package_audit_preview_diagnostic_serializes_cli_flag_context_in_json() {
+        let diagnostic = package_audit_preview_diagnostic();
+        let value = crate::output::diagnostic_to_json(&diagnostic, None, None, "error");
+
+        assert_eq!(value["message"], json!(PACKAGE_AUDIT_PREVIEW_MESSAGE));
+        assert_eq!(value["context"]["origin"], json!("cli"));
+        assert_eq!(value["context"]["flag"], json!("--preview"));
+        assert_eq!(value["context"]["requestedValue"], json!("true"));
+        assert_eq!(value["context"]["effectiveValue"], json!("true"));
+    }
+
+    #[test]
     fn package_analysis_specific_flag_context_prefers_the_first_cli_flag() {
         let sandbox = Path::new("kali.policy.json");
         let context = package_analysis_specific_flag_context(
