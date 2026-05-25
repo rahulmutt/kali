@@ -52,7 +52,8 @@
       }
     },
     "maxSpecializations": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     },
     "hostContract": {
       "type": "string",

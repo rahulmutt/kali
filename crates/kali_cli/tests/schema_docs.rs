@@ -592,6 +592,10 @@ fn core_schema_documents_match_current_cli_contracts() {
         "integer"
     );
     assert_eq!(
+        artifact_meta["properties"]["maxSpecializations"]["minimum"],
+        0
+    );
+    assert_eq!(
         artifact_meta["properties"]["hostContract"]["type"],
         "string"
     );
@@ -673,6 +677,10 @@ fn core_schema_documents_match_current_cli_contracts() {
             "missing binding package schema property: {property}"
         );
     }
+    assert_eq!(
+        binding_package["properties"]["maxSpecializations"]["minimum"],
+        0
+    );
     assert!(binding_package["properties"]["artifacts"]["required"]
         .as_array()
         .expect("binding package required array")

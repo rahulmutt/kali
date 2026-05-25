@@ -761,6 +761,36 @@ fn binding_package_manifest_parsing_rejects_non_integer_max_specializations() {
 }
 
 #[test]
+fn binding_package_manifest_parsing_rejects_negative_max_specializations() {
+    let manifest = serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "binding-package",
+        "moduleName": "sample",
+        "hostAbiVersion": 2,
+        "maxSpecializations": -1,
+        "artifacts": {
+            "library": "sample.capi.wasm",
+            "metadata": "sample.cabi.json",
+            "exportsHeader": "sample.h",
+            "glue": []
+        }
+    });
+
+    let error = parse_binding_package_manifest(&manifest.to_string())
+        .expect_err("negative maxSpecializations should fail");
+    assert!(
+        error.contains("must be a non-negative integer"),
+        "unexpected error: {error}"
+    );
+    let error = binding_package_manifest_summary(&manifest)
+        .expect_err("negative maxSpecializations should fail in summary mode");
+    assert!(
+        error.contains("must be a non-negative integer"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn cabi_metadata_parsing_rejects_unexpected_keys() {
     let error = parse_metadata(
         r#"{
@@ -780,6 +810,34 @@ fn cabi_metadata_parsing_rejects_unexpected_keys() {
 
     assert!(
         error.contains("unexpected key"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
+fn cabi_metadata_parsing_rejects_negative_max_specializations() {
+    let metadata = serde_json::json!({
+        "schemaVersion": 1,
+        "kind": "cabi-metadata",
+        "hostAbiVersion": 2,
+        "maxSpecializations": -1,
+        "artifacts": {
+            "wasmModule": "sample.wasm",
+            "wit": "sample.wit",
+            "exportsHeader": "sample.h"
+        }
+    });
+
+    let error =
+        parse_metadata(&metadata.to_string()).expect_err("negative maxSpecializations should fail");
+    assert!(
+        error.contains("must be a non-negative integer"),
+        "unexpected error: {error}"
+    );
+    let error = cabi_metadata_summary(&metadata)
+        .expect_err("negative maxSpecializations should fail in summary mode");
+    assert!(
+        error.contains("must be a non-negative integer"),
         "unexpected error: {error}"
     );
 }

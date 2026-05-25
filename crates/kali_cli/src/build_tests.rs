@@ -13558,6 +13558,22 @@ fn validate_artifact_metadata_value_rejects_invalid_optional_provenance_fields()
                 "sourceHash": "sha256-deadbeef"
             }),
         ),
+        (
+            "non-negative integer",
+            serde_json::json!({
+                "schemaVersion": 1,
+                "artifactKind": "component",
+                "entrypoint": "src/main.ts",
+                "buildMode": "release",
+                "apiSurface": "browser",
+                "runtimeProfiles": ["wasm-threads"],
+                "maxSpecializations": -1,
+                "hostContract": "kali-hosted",
+                "runtimeBackend": "wasmtime",
+                "kaliVersion": "1.2.3",
+                "sourceHash": "sha256-deadbeef"
+            }),
+        ),
     ] {
         let err = validate_artifact_metadata_value(&invalid_metadata)
             .expect_err("invalid artifact metadata field should fail validation");

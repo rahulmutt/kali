@@ -296,9 +296,11 @@ pub fn parse_metadata(metadata_text: &str) -> Result<Value, String> {
         );
     }
     if let Some(max_specializations) = max_specializations {
-        if max_specializations.as_u64().is_none() {
-            return Err("cabi metadata field 'maxSpecializations' must be an integer".to_string());
-        }
+        validate_non_negative_integer_field(
+            &max_specializations,
+            "cabi metadata",
+            "maxSpecializations",
+        )?;
         normalized.insert("maxSpecializations".to_string(), max_specializations);
     }
     if let Some(host_contract) = host_contract {
@@ -397,6 +399,11 @@ pub fn cabi_metadata_summary(metadata: &Value) -> Result<Value, String> {
     summary.insert("runtimeBackend".to_string(), runtime_backend);
 
     if let Some(max_specializations) = metadata.get("maxSpecializations") {
+        validate_non_negative_integer_field(
+            max_specializations,
+            "cabi metadata summary",
+            "maxSpecializations",
+        )?;
         summary.insert(
             "maxSpecializations".to_string(),
             max_specializations.clone(),
@@ -731,7 +738,7 @@ pub fn parse_binding_package_manifest(manifest_text: &str) -> Result<Value, Stri
     }
 
     if let Some(max_specializations) = manifest.get("maxSpecializations") {
-        validate_integer_field(
+        validate_non_negative_integer_field(
             max_specializations,
             "binding package manifest",
             "maxSpecializations",
@@ -810,6 +817,21 @@ fn validate_integer_field(value: &Value, context: &str, field_name: &str) -> Res
     } else {
         Err(format!(
             "{} field '{}' must be an integer",
+            context, field_name
+        ))
+    }
+}
+
+fn validate_non_negative_integer_field(
+    value: &Value,
+    context: &str,
+    field_name: &str,
+) -> Result<(), String> {
+    if value.as_u64().is_some() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} field '{}' must be a non-negative integer",
             context, field_name
         ))
     }
@@ -1097,6 +1119,11 @@ pub fn binding_package_manifest_summary(manifest: &Value) -> Result<Value, Strin
     summary.insert("runtimeBackend".to_string(), runtime_backend);
 
     if let Some(max_specializations) = manifest.get("maxSpecializations") {
+        validate_non_negative_integer_field(
+            max_specializations,
+            "binding package manifest summary",
+            "maxSpecializations",
+        )?;
         summary.insert(
             "maxSpecializations".to_string(),
             max_specializations.clone(),

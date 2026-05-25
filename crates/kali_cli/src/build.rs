@@ -2158,7 +2158,7 @@ pub(crate) fn validate_artifact_metadata_value(value: &Value) -> Result<(), Stri
         Some(Value::Number(number)) if number.as_u64().is_some() => {}
         Some(other) => {
             return Err(format!(
-                "artifact metadata maxSpecializations must be an integer, got {other}"
+                "artifact metadata maxSpecializations must be a non-negative integer, got {other}"
             ));
         }
         None => {}

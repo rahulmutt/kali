@@ -28,7 +28,8 @@
       "type": "integer"
     },
     "maxSpecializations": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     },
     "artifacts": {
       "type": "object",
