@@ -175,6 +175,48 @@ fn package_audit_preview_short_circuits_before_registry_lookup_in_json_mode_with
 }
 
 #[test]
+fn package_audit_preview_short_circuits_before_registry_lookup_in_pretty_json_mode_with_valid_target(
+) {
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--pretty")
+        .arg("--output")
+        .arg("json")
+        .arg("--preview")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry should not be queried"
+    );
+    assert_eq!(output.status.code(), Some(5));
+    assert!(output.stderr.is_empty(), "stderr: {:?}", output.stderr);
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "package-audit");
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    assert!(json["payload"].is_null());
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0]["code"], "E5508");
+    assert_eq!(errors[0]["context"]["origin"], "cli");
+    assert_eq!(errors[0]["context"]["flag"], "--preview");
+    assert_eq!(errors[0]["context"]["requestedValue"], "true");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "true");
+}
+
+#[test]
 fn package_audit_pretty_without_json_short_circuits_before_registry_lookup() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
