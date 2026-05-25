@@ -71,6 +71,22 @@ function browserGlobalObjectValuesIteration() {
   for (const value of globalThis["Object"].values(alias)) {
     mixedBracketed.push(value);
   }
+  const singleQuotedProperty = [];
+  for (const value of globalThis['Object'].values(alias)) {
+    singleQuotedProperty.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values'](alias)) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"](alias)) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values'](alias)) {
+    mixedSingleQuoted.push(value);
+  }
   const bracketed = [];
   for (const value of globalThis["Object"]["values"](alias)) {
     bracketed.push(value);
@@ -79,6 +95,10 @@ function browserGlobalObjectValuesIteration() {
   for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
     parenthesizedReceiverBracketed.push(value);
   }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis['Object'])['values'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(value);
+  }
   const parenthesizedBracketed = [];
   for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
     parenthesizedBracketed.push(value);
@@ -86,8 +106,13 @@ function browserGlobalObjectValuesIteration() {
   assertObjectValuesIteration(collected);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(singleQuotedProperty);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
   assertObjectValuesIteration(bracketed);
   assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketed);
   assertObjectValuesIteration(parenthesizedBracketed);
   console.log('browser object values iteration ok');
 }
@@ -118,6 +143,22 @@ fn browser_harness_global_object_values_test_source() -> &'static str {
   for (const value of globalThis["Object"].values(alias)) {
     mixedBracketed.push(value);
   }
+  const singleQuotedProperty = [];
+  for (const value of globalThis['Object'].values(alias)) {
+    singleQuotedProperty.push(value);
+  }
+  const doubleQuotedSingleQuoted = [];
+  for (const value of globalThis["Object"]['values'](alias)) {
+    doubleQuotedSingleQuoted.push(value);
+  }
+  const mixedSingleQuotedBracketed = [];
+  for (const value of globalThis['Object']["values"](alias)) {
+    mixedSingleQuotedBracketed.push(value);
+  }
+  const mixedSingleQuoted = [];
+  for (const value of globalThis['Object']['values'](alias)) {
+    mixedSingleQuoted.push(value);
+  }
   const bracketed = [];
   for (const value of globalThis["Object"]["values"](alias)) {
     bracketed.push(value);
@@ -126,6 +167,10 @@ fn browser_harness_global_object_values_test_source() -> &'static str {
   for (const value of Object.freeze((globalThis["Object"])["values"])(alias)) {
     parenthesizedReceiverBracketed.push(value);
   }
+  const parenthesizedSingleQuotedReceiverBracketed = [];
+  for (const value of Object.freeze((globalThis['Object'])['values'])(alias)) {
+    parenthesizedSingleQuotedReceiverBracketed.push(value);
+  }
   const parenthesizedBracketed = [];
   for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
     parenthesizedBracketed.push(value);
@@ -133,8 +178,13 @@ fn browser_harness_global_object_values_test_source() -> &'static str {
   assertObjectValuesIteration(collected);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
+  assertObjectValuesIteration(singleQuotedProperty);
+  assertObjectValuesIteration(doubleQuotedSingleQuoted);
+  assertObjectValuesIteration(mixedSingleQuotedBracketed);
+  assertObjectValuesIteration(mixedSingleQuoted);
   assertObjectValuesIteration(bracketed);
   assertObjectValuesIteration(parenthesizedReceiverBracketed);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverBracketed);
   assertObjectValuesIteration(parenthesizedBracketed);
   console.log('browser object values iteration ok');
 });
