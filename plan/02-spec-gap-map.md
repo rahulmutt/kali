@@ -28,7 +28,7 @@ Remaining goals:
 - Complete guest-facing threaded runtime semantics beyond profile acceptance and budget validation, while preserving no-JIT, no-tracing-GC, and resource-budget honesty.
 - Decide whether harness-assisted `run --api browser` / `test --api browser` graduates to a stable standalone browser runtime contract; specify host ownership, sandbox limits, summary behavior, and failure modes before any promotion.
 - Add late host APIs only with explicit effect keys, policy behavior, resource budgets, command/API-surface gating, and JSON evidence.
-- Triage late object/runtime APIs such as `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and broader object helpers against memory, threading, and optimization constraints before promotion; the shared late-object-model inventory now also carries frozen bracket-root spellings for `WeakRef` and `FinalizationRegistry` so the runtime/browser smoke remains aligned on those aliases.
+- Triage late object/runtime APIs such as `Proxy`, weak references, finalization, broader `Intl`, `SharedArrayBuffer`, `Atomics`, and broader object helpers against memory, threading, and optimization constraints before promotion; the shared late-object-model inventory now also carries frozen bracket-root spellings for `WeakRef` and `FinalizationRegistry` so the runtime/browser smoke remains aligned on those aliases, including the browser JS/JSX/TSX fixture variants.
 - Keep browser-targeted build/check support, browser harness execution, and Kali-hosted sandbox enforcement distinct.
 
 ## Ecosystem and packages

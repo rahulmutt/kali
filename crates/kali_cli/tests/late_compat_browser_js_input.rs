@@ -1043,8 +1043,10 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
         r#"globalThis["WeakSet"]"#,
         "globalThis.WeakRef",
         r#"globalThis["WeakRef"]"#,
+        r#"Object.freeze((globalThis["WeakRef"]))"#,
         "globalThis.FinalizationRegistry",
         r#"globalThis["FinalizationRegistry"]"#,
+        r#"Object.freeze((globalThis["FinalizationRegistry"]))"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
