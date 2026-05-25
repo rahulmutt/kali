@@ -39,13 +39,16 @@ fn assert_browser_harness_generator_rejection(
     );
     assert_eq!(output.status.code(), Some(1));
 
-    let expected_messages: &[&str] = if source.contains("yield*") {
-        &["yield* delegation"]
-    } else if source.contains("async function*") {
-        &["async-generator function lowering"]
-    } else {
-        &["generator function lowering"]
-    };
+    let expected_messages: &[&str] =
+        if source.contains("(0, async function*") && matches!(command, "check" | "build") {
+            &["generator and async-generator function lowering"]
+        } else if source.contains("yield*") {
+            &["yield* delegation"]
+        } else if source.contains("async function*") {
+            &["async-generator function lowering"]
+        } else {
+            &["generator function lowering"]
+        };
 
     if json_output {
         let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
@@ -97,6 +100,22 @@ fn check_rejects_anonymous_default_export_generator_function_declarations_in_bro
 }
 
 #[test]
+fn check_rejects_sequence_wrapped_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "check",
+                false,
+                extension,
+                "export default (0, function*() { yield* []; });\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
 fn run_rejects_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -106,6 +125,22 @@ fn run_rejects_anonymous_default_export_generator_function_declarations_in_brows
                 false,
                 extension,
                 "export default function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
+fn run_rejects_sequence_wrapped_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "run",
+                false,
+                extension,
+                "export default (0, function*() { yield* []; });\n",
                 json_output,
             );
         }
@@ -129,6 +164,22 @@ fn check_rejects_anonymous_default_export_async_generator_function_declarations_
 }
 
 #[test]
+fn check_rejects_sequence_wrapped_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "check",
+                false,
+                extension,
+                "export default (0, async function*() { yield* []; });\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
 fn run_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -138,6 +189,22 @@ fn run_rejects_anonymous_default_export_async_generator_function_declarations_in
                 false,
                 extension,
                 "export default async function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
+fn run_rejects_sequence_wrapped_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "run",
+                false,
+                extension,
+                "export default (0, async function*() { yield* []; });\n",
                 json_output,
             );
         }
@@ -161,6 +228,22 @@ fn test_rejects_anonymous_default_export_generator_function_declarations_in_brow
 }
 
 #[test]
+fn test_rejects_sequence_wrapped_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "test",
+                false,
+                extension,
+                "export default (0, function*() { yield* []; });\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
 fn test_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -170,6 +253,22 @@ fn test_rejects_anonymous_default_export_async_generator_function_declarations_i
                 false,
                 extension,
                 "export default async function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
+fn test_rejects_sequence_wrapped_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "test",
+                false,
+                extension,
+                "export default (0, async function*() { yield* []; });\n",
                 json_output,
             );
         }
@@ -193,6 +292,22 @@ fn build_rejects_anonymous_default_export_generator_function_declarations_in_bro
 }
 
 #[test]
+fn build_rejects_sequence_wrapped_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "build",
+                true,
+                extension,
+                "export default (0, function*() { yield* []; });\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
 fn build_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -202,6 +317,22 @@ fn build_rejects_anonymous_default_export_async_generator_function_declarations_
                 true,
                 extension,
                 "export default async function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_rejects_sequence_wrapped_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "build",
+                true,
+                extension,
+                "export default (0, async function*() { yield* []; });\n",
                 json_output,
             );
         }
