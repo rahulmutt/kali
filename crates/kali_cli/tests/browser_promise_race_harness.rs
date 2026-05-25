@@ -134,3 +134,43 @@ fn json_test_supports_promise_race_in_js_input_when_browser_harness_is_configure
 fn json_test_supports_promise_race_in_ts_input_when_browser_harness_is_configured() {
     assert_browser_requested_promise_race("test", "smoke.test.ts", true);
 }
+
+#[test]
+fn run_supports_promise_race_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("run", "main.jsx", false);
+}
+
+#[test]
+fn run_supports_promise_race_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("run", "main.tsx", false);
+}
+
+#[test]
+fn test_supports_promise_race_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("test", "smoke.test.jsx", false);
+}
+
+#[test]
+fn test_supports_promise_race_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("test", "smoke.test.tsx", false);
+}
+
+#[test]
+fn json_run_supports_promise_race_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("run", "main.jsx", true);
+}
+
+#[test]
+fn json_run_supports_promise_race_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("run", "main.tsx", true);
+}
+
+#[test]
+fn json_test_supports_promise_race_in_jsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("test", "smoke.test.jsx", true);
+}
+
+#[test]
+fn json_test_supports_promise_race_in_tsx_input_when_browser_harness_is_configured() {
+    assert_browser_requested_promise_race("test", "smoke.test.tsx", true);
+}

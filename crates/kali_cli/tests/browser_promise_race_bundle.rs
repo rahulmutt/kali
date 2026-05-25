@@ -122,3 +122,23 @@ fn json_build_emits_promise_race_in_js_input() {
 fn json_build_emits_promise_race_in_ts_input() {
     assert_browser_bundle_promise_race("app.ts", true);
 }
+
+#[test]
+fn build_emits_promise_race_in_jsx_input() {
+    assert_browser_bundle_promise_race("app.jsx", false);
+}
+
+#[test]
+fn build_emits_promise_race_in_tsx_input() {
+    assert_browser_bundle_promise_race("app.tsx", false);
+}
+
+#[test]
+fn json_build_emits_promise_race_in_jsx_input() {
+    assert_browser_bundle_promise_race("app.jsx", true);
+}
+
+#[test]
+fn json_build_emits_promise_race_in_tsx_input() {
+    assert_browser_bundle_promise_race("app.tsx", true);
+}
