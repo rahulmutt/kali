@@ -2422,7 +2422,19 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
         "body: {body}"
     );
     assert!(
+        body.contains("const bracketedBracketed = await globalThis[\"Promise\"][\"race\"]([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleBracketedBracketed = await globalThis['Promise']['race']([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenRoot = await Object.freeze((Promise.race))([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(
@@ -2434,7 +2446,19 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
         "body: {body}"
     );
     assert!(
+        body.contains("const frozenBracketedBracketed = await Object.freeze(globalThis[\"Promise\"][\"race\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenSingleBracketedBracketed = await Object.freeze(globalThis['Promise']['race'])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenDotted = await Object.freeze(globalThis.Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.race))([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(

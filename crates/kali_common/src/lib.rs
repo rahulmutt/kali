@@ -1664,19 +1664,31 @@ pub const fn promise_race_browser_body_source() -> &'static str {
   const dotted = await globalThis.Promise.race([Promise.resolve(1), Promise.resolve(2)]);
   const bracketed = await globalThis["Promise"].race([Promise.resolve(1), Promise.resolve(2)]);
   const singleBracketed = await globalThis['Promise'].race([Promise.resolve(1), Promise.resolve(2)]);
+  const bracketedBracketed = await globalThis["Promise"]["race"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleBracketedBracketed = await globalThis['Promise']['race']([Promise.resolve(1), Promise.resolve(2)]);
   const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenRoot = await Object.freeze((Promise.race))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenBracketed = await Object.freeze(globalThis["Promise"].race)([Promise.resolve(1), Promise.resolve(2)]);
   const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].race)([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenBracketedBracketed = await Object.freeze(globalThis["Promise"]["race"])([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenSingleBracketedBracketed = await Object.freeze(globalThis['Promise']['race'])([Promise.resolve(1), Promise.resolve(2)]);
   const frozenDotted = await Object.freeze(globalThis.Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.race))([Promise.resolve(1), Promise.resolve(2)]);
   if (
     direct !== 1 ||
     dotted !== 1 ||
     bracketed !== 1 ||
     singleBracketed !== 1 ||
+    bracketedBracketed !== 1 ||
+    singleBracketedBracketed !== 1 ||
     frozenRoot !== 1 ||
+    parenthesizedFrozenRoot !== 1 ||
     frozenBracketed !== 1 ||
     frozenSingleBracketed !== 1 ||
-    frozenDotted !== 1
+    frozenBracketedBracketed !== 1 ||
+    frozenSingleBracketedBracketed !== 1 ||
+    frozenDotted !== 1 ||
+    parenthesizedFrozenDotted !== 1
   ) {
     throw new Error('unexpected Promise.race semantics');
   }
