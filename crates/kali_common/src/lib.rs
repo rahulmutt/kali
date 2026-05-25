@@ -1664,16 +1664,22 @@ pub const fn promise_race_browser_body_source() -> &'static str {
   const dotted = await globalThis.Promise.race([Promise.resolve(1), Promise.resolve(2)]);
   const bracketed = await globalThis["Promise"].race([Promise.resolve(1), Promise.resolve(2)]);
   const singleBracketed = await globalThis['Promise'].race([Promise.resolve(1), Promise.resolve(2)]);
+  const mixedDotted = await globalThis.Promise["race"]([Promise.resolve(1), Promise.resolve(2)]);
+  const singleDotted = await globalThis.Promise['race']([Promise.resolve(1), Promise.resolve(2)]);
   const bracketedBracketed = await globalThis["Promise"]["race"]([Promise.resolve(1), Promise.resolve(2)]);
   const singleBracketedBracketed = await globalThis['Promise']['race']([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedBracketed = await Object.freeze((globalThis["Promise"])["race"])([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedSingleBracketed = await Object.freeze((globalThis['Promise'])['race'])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedDottedBracketed = await Object.freeze((globalThis.Promise)["race"])([Promise.resolve(1), Promise.resolve(2)]);
+  const parenthesizedSingleDottedBracketed = await Object.freeze((globalThis.Promise)['race'])([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedBracketedBracketed = await Object.freeze((globalThis["Promise"]["race"]))([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedSingleBracketedBracketed = await Object.freeze((globalThis['Promise']['race']))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
   const parenthesizedFrozenRoot = await Object.freeze((Promise.race))([Promise.resolve(1), Promise.resolve(2)]);
   const frozenBracketed = await Object.freeze(globalThis["Promise"].race)([Promise.resolve(1), Promise.resolve(2)]);
   const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].race)([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenDottedBracketed = await Object.freeze(globalThis.Promise["race"])([Promise.resolve(1), Promise.resolve(2)]);
+  const frozenSingleDottedBracketed = await Object.freeze(globalThis.Promise['race'])([Promise.resolve(1), Promise.resolve(2)]);
   const frozenBracketedBracketed = await Object.freeze(globalThis["Promise"]["race"])([Promise.resolve(1), Promise.resolve(2)]);
   const frozenSingleBracketedBracketed = await Object.freeze(globalThis['Promise']['race'])([Promise.resolve(1), Promise.resolve(2)]);
   const frozenDotted = await Object.freeze(globalThis.Promise.race)([Promise.resolve(1), Promise.resolve(2)]);
@@ -1687,12 +1693,16 @@ pub const fn promise_race_browser_body_source() -> &'static str {
     singleBracketedBracketed !== 1 ||
     parenthesizedBracketed !== 1 ||
     parenthesizedSingleBracketed !== 1 ||
+    parenthesizedDottedBracketed !== 1 ||
+    parenthesizedSingleDottedBracketed !== 1 ||
     parenthesizedBracketedBracketed !== 1 ||
     parenthesizedSingleBracketedBracketed !== 1 ||
     frozenRoot !== 1 ||
     parenthesizedFrozenRoot !== 1 ||
     frozenBracketed !== 1 ||
     frozenSingleBracketed !== 1 ||
+    frozenDottedBracketed !== 1 ||
+    frozenSingleDottedBracketed !== 1 ||
     frozenBracketedBracketed !== 1 ||
     frozenSingleBracketedBracketed !== 1 ||
     frozenDotted !== 1 ||

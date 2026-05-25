@@ -2452,6 +2452,14 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
         "body: {body}"
     );
     assert!(
+        body.contains("const mixedDotted = await globalThis.Promise[\"race\"]([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleDotted = await globalThis.Promise['race']([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const bracketedBracketed = await globalThis[\"Promise\"][\"race\"]([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
@@ -2460,11 +2468,11 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
         "body: {body}"
     );
     assert!(
-        body.contains("const parenthesizedBracketed = await Object.freeze((globalThis[\"Promise\"])[\"race\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        body.contains("const parenthesizedDottedBracketed = await Object.freeze((globalThis.Promise)[\"race\"])([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(
-        body.contains("const parenthesizedSingleBracketed = await Object.freeze((globalThis['Promise'])['race'])([Promise.resolve(1), Promise.resolve(2)]);"),
+        body.contains("const parenthesizedSingleDottedBracketed = await Object.freeze((globalThis.Promise)['race'])([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(
@@ -2489,6 +2497,14 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
     );
     assert!(
         body.contains("const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains(r#"const frozenDottedBracketed = await Object.freeze(globalThis.Promise["race"])([Promise.resolve(1), Promise.resolve(2)]);"#),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenSingleDottedBracketed = await Object.freeze(globalThis.Promise['race'])([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(
