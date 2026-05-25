@@ -258,3 +258,123 @@ fn test_supports_zero_max_threads_when_browser_harness_is_configured_in_tsx_inpu
         "0",
     );
 }
+
+fn write_browser_api_surface_manifest(dir: &tempfile::TempDir) {
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+}
+
+fn assert_browser_harness_rejects_positive_thread_budget(
+    command: &str,
+    filename: &str,
+    source: &str,
+    with_browser_api_surface_manifest: bool,
+    with_explicit_browser_api_surface: bool,
+) {
+    for json_output in [false, true] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(filename);
+        fs::write(&source_path, source).expect("write source");
+        if with_browser_api_surface_manifest {
+            write_browser_api_surface_manifest(&dir);
+        }
+
+        let mut cli = Command::new(kali_bin());
+        cli.env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+            .current_dir(dir.path());
+        if json_output {
+            cli.arg("--output").arg("json");
+        }
+        let mut cli = cli.arg(command);
+        if with_explicit_browser_api_surface {
+            cli = cli.arg("--api").arg("browser");
+        }
+        let output = cli
+            .arg("--max-threads")
+            .arg("1")
+            .arg("--max-spawned-processes")
+            .arg("0")
+            .arg(&source_path)
+            .output()
+            .expect("run kali");
+
+        assert!(
+            !output.status.success(),
+            "stdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.status.code(), Some(5));
+
+        if json_output {
+            let json: Value = serde_json::from_slice(&output.stdout).expect("json stdout");
+            assert_eq!(json["schemaVersion"], 1);
+            assert_eq!(json["success"], false);
+            let errors = json["errors"].as_array().expect("errors array");
+            assert!(!errors.is_empty(), "errors array should not be empty");
+            assert_eq!(errors[0]["code"], "E5506");
+            let message = errors[0]["message"].as_str().expect("error message");
+            assert!(
+                message.contains("resources.maxThreads"),
+                "message: {message}"
+            );
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("E5506"), "stderr: {stderr}");
+            assert!(stderr.contains("resources.maxThreads"), "stderr: {stderr}");
+        }
+    }
+}
+
+#[test]
+fn run_rejects_positive_max_threads_without_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        assert_browser_harness_rejects_positive_thread_budget(
+            "run",
+            source_name,
+            browser_harness_run_source(),
+            false,
+            true,
+        );
+        assert_browser_harness_rejects_positive_thread_budget(
+            "run",
+            source_name,
+            browser_harness_run_source(),
+            true,
+            false,
+        );
+    }
+}
+
+#[test]
+fn test_rejects_positive_max_threads_without_wasm_threads_in_js_ts_jsx_and_tsx_inputs() {
+    for source_name in [
+        "smoke.test.js",
+        "smoke.test.ts",
+        "smoke.test.jsx",
+        "smoke.test.tsx",
+    ] {
+        assert_browser_harness_rejects_positive_thread_budget(
+            "test",
+            source_name,
+            browser_harness_test_source(),
+            false,
+            true,
+        );
+        assert_browser_harness_rejects_positive_thread_budget(
+            "test",
+            source_name,
+            browser_harness_test_source(),
+            true,
+            false,
+        );
+    }
+}
