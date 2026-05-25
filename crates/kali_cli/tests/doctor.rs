@@ -85,10 +85,10 @@ fn doctor_reports_env_selected_browser_harness_in_json() {
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
-    assert!(contract["diagnosticHint"]
-        .as_str()
-        .expect("diagnostic hint string")
-        .contains("kali check --api browser"));
+    assert_eq!(
+        contract["diagnosticHint"],
+        BrowserRuntimeContract::diagnostic_hint()
+    );
     assert_eq!(
         contract["summaryNote"],
         BrowserRuntimeContract::summary_note()
@@ -344,10 +344,10 @@ fn doctor_reports_auto_selected_browser_harness_in_pretty_json_under_quiet() {
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
-    assert!(contract["diagnosticHint"]
-        .as_str()
-        .expect("diagnostic hint string")
-        .contains("kali check --api browser"));
+    assert_eq!(
+        contract["diagnosticHint"],
+        BrowserRuntimeContract::diagnostic_hint()
+    );
 }
 
 #[test]
@@ -396,10 +396,10 @@ fn doctor_reports_auto_selected_browser_harness_in_json() {
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
-    assert!(contract["diagnosticHint"]
-        .as_str()
-        .expect("diagnostic hint string")
-        .contains("kali check --api browser"));
+    assert_eq!(
+        contract["diagnosticHint"],
+        BrowserRuntimeContract::diagnostic_hint()
+    );
     assert_eq!(
         contract["summaryNote"],
         BrowserRuntimeContract::summary_note()
@@ -463,10 +463,10 @@ fn doctor_reports_unavailable_browser_harness_executable_in_json() {
         contract["supportedCommands"],
         serde_json::json!(["run", "test"])
     );
-    assert!(contract["diagnosticHint"]
-        .as_str()
-        .expect("diagnostic hint string")
-        .contains("kali check --api browser"));
+    assert_eq!(
+        contract["diagnosticHint"],
+        BrowserRuntimeContract::diagnostic_hint()
+    );
     assert_eq!(
         contract["summaryNote"],
         BrowserRuntimeContract::summary_note()
