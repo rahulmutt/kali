@@ -2449,11 +2449,33 @@ fn test_promise_any_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains(
+            "const mixed = await Promise[\"any\"]([Promise.reject('boom'), Promise.resolve(1)]);"
+        ),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleMixed = await Promise['any']([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const bracketed = await globalThis[\"Promise\"].any([Promise.reject('boom'), Promise.resolve(1)]);"),
         "body: {body}"
     );
     assert!(
-        body.contains("const singleBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);"),
+        body.contains("const singleBracketed = await globalThis['Promise']['any']([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const singleMixedBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const logicalOrRoot = await Object.freeze((false || Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);"),
         "body: {body}"
     );
     assert!(
@@ -2461,7 +2483,7 @@ fn test_promise_any_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
-        body.contains("const frozenDotted = await Object.freeze(globalThis.Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);"),
+        body.contains("const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);"),
         "body: {body}"
     );
     assert!(

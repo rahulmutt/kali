@@ -1667,18 +1667,40 @@ pub const fn promise_race_browser_body_source() -> &'static str {
 /// Canonical browser smoke body for the supported `Promise.any` slice.
 pub const fn promise_any_browser_body_source() -> &'static str {
     r#"  const direct = await Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  const mixed = await Promise["any"]([Promise.reject('boom'), Promise.resolve(1)]);
+  const singleMixed = await Promise['any']([Promise.reject('boom'), Promise.resolve(1)]);
   const dotted = await globalThis.Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
+  const mixedDotted = await globalThis.Promise["any"]([Promise.reject('boom'), Promise.resolve(1)]);
+  const singleDotted = await globalThis.Promise['any']([Promise.reject('boom'), Promise.resolve(1)]);
   const bracketed = await globalThis["Promise"].any([Promise.reject('boom'), Promise.resolve(1)]);
-  const singleBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const mixedBracketed = await globalThis["Promise"]["any"]([Promise.reject('boom'), Promise.resolve(1)]);
+  const singleBracketed = await globalThis['Promise']['any']([Promise.reject('boom'), Promise.resolve(1)]);
+  const singleMixedBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
+  const logicalAndRoot = await Object.freeze((true && Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
+  const logicalOrRoot = await Object.freeze((false || Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenRoot = await Object.freeze(Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenRoot = await Object.freeze((Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenDotted = await Object.freeze(globalThis.Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   if (
     direct !== 1 ||
+    mixed !== 1 ||
+    singleMixed !== 1 ||
     dotted !== 1 ||
+    mixedDotted !== 1 ||
+    singleDotted !== 1 ||
     bracketed !== 1 ||
+    mixedBracketed !== 1 ||
     singleBracketed !== 1 ||
+    singleMixedBracketed !== 1 ||
+    nullishRoot !== 1 ||
+    logicalAndRoot !== 1 ||
+    logicalOrRoot !== 1 ||
     frozenRoot !== 1 ||
-    frozenDotted !== 1
+    parenthesizedFrozenRoot !== 1 ||
+    frozenDotted !== 1 ||
+    parenthesizedFrozenDotted !== 1
   ) {
     throw new Error('unexpected Promise.any semantics');
   }
