@@ -1674,6 +1674,8 @@ pub const fn promise_race_browser_body_source() -> &'static str {
     bracketed !== 1 ||
     singleBracketed !== 1 ||
     frozenRoot !== 1 ||
+    frozenBracketed !== 1 ||
+    frozenSingleBracketed !== 1 ||
     frozenDotted !== 1
   ) {
     throw new Error('unexpected Promise.race semantics');

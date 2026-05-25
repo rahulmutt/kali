@@ -65,21 +65,29 @@ fn test_late_object_model_aliases_and_source_are_canonical() {
             "Object.freeze((new WeakSet()))",
             "globalThis.WeakRef",
             r#"globalThis["WeakRef"]"#,
+            "globalThis['WeakRef']",
             "Object.freeze(globalThis.WeakRef)",
             "Object.freeze((globalThis.WeakRef))",
             r#"Object.freeze(globalThis["WeakRef"])"#,
             r#"Object.freeze((globalThis["WeakRef"]))"#,
+            "Object.freeze(globalThis['WeakRef'])",
+            "Object.freeze((globalThis['WeakRef']))",
             "new FinalizationRegistry(() => {})",
             "globalThis.FinalizationRegistry",
             r#"globalThis["FinalizationRegistry"](() => {})"#,
+            r#"globalThis['FinalizationRegistry'](() => {})"#,
             "Object.freeze(new FinalizationRegistry(() => {}))",
             "Object.freeze((new FinalizationRegistry(() => {})))",
             "Object.freeze(globalThis.FinalizationRegistry)",
             "Object.freeze((globalThis.FinalizationRegistry))",
             r#"Object.freeze(globalThis["FinalizationRegistry"](() => {}))"#,
             r#"Object.freeze((globalThis["FinalizationRegistry"](() => {})))"#,
+            r#"Object.freeze(globalThis['FinalizationRegistry'](() => {}))"#,
+            r#"Object.freeze((globalThis['FinalizationRegistry'](() => {})))"#,
             r#"Object.freeze(globalThis["FinalizationRegistry"])"#,
             r#"Object.freeze((globalThis["FinalizationRegistry"]))"#,
+            r#"Object.freeze(globalThis['FinalizationRegistry'])"#,
+            r#"Object.freeze((globalThis['FinalizationRegistry']))"#,
             "Proxy.revocable({}, {})",
             "globalThis.Proxy.revocable({}, {})",
             r#"globalThis["Proxy"]["revocable"]({}, {})"#,
@@ -2397,6 +2405,14 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
     );
     assert!(
         body.contains("const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenBracketed = await Object.freeze(globalThis[\"Promise\"].race)([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].race)([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
     assert!(
