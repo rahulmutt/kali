@@ -42,6 +42,10 @@ function browserObjectKeysIteration() {
   for (const key of Object.freeze((globalThis["Object"])["keys"])(alias)) {
     parenthesizedReceiverBracketed.push(key);
   }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
   const parenthesizedBracketed = [];
   for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
     parenthesizedBracketed.push(key);
@@ -51,6 +55,7 @@ function browserObjectKeysIteration() {
   assertObjectKeysIteration(doubleQuotedSingleQuoted);
   assertObjectKeysIteration(mixedSingleQuoted);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
   assertObjectKeysIteration(parenthesizedBracketed);
   assertObjectKeysIteration(keys);
 }
@@ -122,6 +127,10 @@ function browserGlobalObjectKeysIteration() {
   for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
     parenthesizedSingleQuotedReceiverBracketed.push(key);
   }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
   const parenthesizedBracketed = [];
   for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
     parenthesizedBracketed.push(key);
@@ -135,6 +144,7 @@ function browserGlobalObjectKeysIteration() {
   assertObjectKeysIteration(mixedSingleQuotedBracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
   assertObjectKeysIteration(parenthesizedBracketed);
 }
 "##

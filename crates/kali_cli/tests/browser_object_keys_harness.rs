@@ -169,6 +169,10 @@ function browserGlobalObjectKeysIteration() {
   for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
     parenthesizedSingleQuotedReceiverBracketed.push(key);
   }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
   const parenthesizedBracketed = [];
   for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
     parenthesizedBracketed.push(key);
@@ -181,6 +185,7 @@ function browserGlobalObjectKeysIteration() {
   assertObjectKeysIteration(bracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
   assertObjectKeysIteration(parenthesizedBracketed);
   console.log('browser object keys iteration ok');
 }
@@ -231,6 +236,10 @@ fn browser_harness_global_object_keys_test_source() -> &'static str {
   for (const key of Object.freeze((globalThis['Object'])['keys'])(alias)) {
     parenthesizedSingleQuotedReceiverBracketed.push(key);
   }
+  const parenthesizedSingleQuotedReceiverBracketedProperty = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    parenthesizedSingleQuotedReceiverBracketedProperty.push(key);
+  }
   const parenthesizedBracketed = [];
   for (const key of Object.freeze((globalThis["Object"]).keys)(alias)) {
     parenthesizedBracketed.push(key);
@@ -243,6 +252,7 @@ fn browser_harness_global_object_keys_test_source() -> &'static str {
   assertObjectKeysIteration(bracketed);
   assertObjectKeysIteration(parenthesizedReceiverBracketed);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketed);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedProperty);
   assertObjectKeysIteration(parenthesizedBracketed);
   console.log('browser object keys iteration ok');
 });
