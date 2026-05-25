@@ -66751,6 +66751,10 @@ fn package_effects_rejects_package_analysis_specific_flags_in_json_output() {
             assert_eq!(errors[0]["code"], "E5508");
             assert_eq!(errors[0]["context"]["origin"], "cli");
             assert_eq!(errors[0]["context"]["flag"], expected_flag);
+            if expected_flag == "--sandbox" {
+                assert_eq!(errors[0]["context"]["requestedValue"], policy_path);
+                assert_eq!(errors[0]["context"]["effectiveValue"], policy_path);
+            }
             assert!(
                 errors[0]["message"]
                     .as_str()
@@ -71051,6 +71055,10 @@ fn package_audit_rejects_package_analysis_specific_flags_in_json_output() {
         assert_eq!(json["errors"][0]["code"], "E5508");
         assert_eq!(json["errors"][0]["context"]["origin"], "cli");
         assert_eq!(json["errors"][0]["context"]["flag"], expected_flag);
+        if expected_flag == "--sandbox" {
+            assert_eq!(json["errors"][0]["context"]["requestedValue"], policy_path);
+            assert_eq!(json["errors"][0]["context"]["effectiveValue"], policy_path);
+        }
         assert!(
             json["errors"][0]["message"]
                 .as_str()

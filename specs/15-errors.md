@@ -329,7 +329,7 @@ Use `E5508` for cases such as:
 
 Registry-analysis shorthand:
 - any violation of the shared **single-package registry-analysis command** rule from [SPEC.md](../SPEC.md) is also `E5508`
-- follow the canonical **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms from [SPEC.md](../SPEC.md): schema-v1 `package-effects` and `package-audit` keep the package selector as their semantic/context flag surface, may still accept their documented JSON/output selectors, and continue to allow ordinary shared presentation/control flags under the shared CLI rules. Package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them
+- follow the canonical **shared flag buckets**, **semantic/context flag surface**, and **JSON-mode selectors** terms from [SPEC.md](../SPEC.md): schema-v1 `package-effects` and `package-audit` keep the package selector as their semantic/context flag surface, may still accept their documented JSON/output selectors, and continue to allow ordinary shared presentation/control flags under the shared CLI rules. Package-analysis-specific `--api` / `--compat` / `--wasm-threads` flags and `--sandbox` are invalid usage unless a later spec adds them; when a rejected flag has a concrete value (for example `--sandbox <policy>`), JSON diagnostics may preserve that requested/effective value alongside the canonical flag context
 
 Examples:
 - `kali run` with no explicit entrypoint

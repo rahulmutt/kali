@@ -4009,8 +4009,14 @@ fn package_analysis_specific_flag_context(
         );
     }
 
-    if sandbox.is_some() {
-        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--sandbox"));
+    if let Some(sandbox) = sandbox {
+        let sandbox_value = sandbox.display().to_string();
+        return Some(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--sandbox")
+                .with_requested_value(sandbox_value.clone())
+                .with_effective_value(sandbox_value),
+        );
     }
 
     None
@@ -5311,6 +5317,8 @@ mod tests {
 
         assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
         assert_eq!(context.flag.as_deref(), Some("--sandbox"));
+        assert_eq!(context.requested_value.as_deref(), Some("kali.policy.json"));
+        assert_eq!(context.effective_value.as_deref(), Some("kali.policy.json"));
     }
 
     fn assert_package_analysis_specific_flag_rejection<F>(invoke: F)
