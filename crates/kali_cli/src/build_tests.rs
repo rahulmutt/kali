@@ -2534,6 +2534,40 @@ fn build_source_file_supports_math_sqrt_perfect_square_literal_in_browser_api_su
     );
 }
 
+#[test]
+fn build_source_file_supports_math_sqrt_perfect_square_literal_in_jsx_input() {
+    assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_sqrt_perfect_square_literal_in_tsx_input() {
+    assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_sqrt_perfect_square_literal_in_browser_api_surface_in_jsx_input()
+{
+    assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_sqrt_perfect_square_literal_in_browser_api_surface_in_tsx_input()
+{
+    assert_build_source_file_supports_math_sqrt_perfect_square_literal_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_supports_math_sqrt_perfect_square_literal_through_object_freeze_callable_wrappers_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -2655,6 +2689,40 @@ fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_browser
     assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
         ApiSurface::Browser,
         "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_jsx_input() {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_tsx_input() {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
+        ApiSurface::Browser,
+        "tsx",
     );
 }
 
