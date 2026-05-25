@@ -2422,7 +2422,15 @@ fn test_promise_any_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains("const parenthesizedBracketed = await Object.freeze((globalThis[\"Promise\"])[\"any\"])([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const singleBracketed = await globalThis['Promise']['any']([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleBracketed = await Object.freeze((globalThis['Promise'])['any'])([Promise.reject('boom'), Promise.resolve(1)]);"),
         "body: {body}"
     );
     assert!(

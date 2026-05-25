@@ -1679,8 +1679,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const mixedDotted = await globalThis.Promise["any"]([Promise.reject('boom'), Promise.resolve(1)]);
   const singleDotted = await globalThis.Promise['any']([Promise.reject('boom'), Promise.resolve(1)]);
   const bracketed = await globalThis["Promise"].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedBracketed = await Object.freeze((globalThis["Promise"])["any"])([Promise.reject('boom'), Promise.resolve(1)]);
   const mixedBracketed = await globalThis["Promise"]["any"]([Promise.reject('boom'), Promise.resolve(1)]);
   const singleBracketed = await globalThis['Promise']['any']([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedSingleBracketed = await Object.freeze((globalThis['Promise'])['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   const singleMixedBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenBracketed = await Object.freeze(globalThis["Promise"].any)([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].any)([Promise.reject('boom'), Promise.resolve(1)]);
@@ -1707,8 +1709,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
     mixedDotted !== 1 ||
     singleDotted !== 1 ||
     bracketed !== 1 ||
+    parenthesizedBracketed !== 1 ||
     mixedBracketed !== 1 ||
     singleBracketed !== 1 ||
+    parenthesizedSingleBracketed !== 1 ||
     singleMixedBracketed !== 1 ||
     frozenBracketed !== 1 ||
     frozenSingleBracketed !== 1 ||
