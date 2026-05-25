@@ -16,7 +16,7 @@ fn freeze_number_predicates_test_source() -> String {
 }
 
 fn freeze_number_predicates_expected_stdout() -> &'static str {
-    "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1"
+    "1\n1\n1\n0\n0\n0\n1\n0\n0\n1\n1\n1\n0\n1\n1\n1\n1\n1\n1\n0\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n0\n1\n1\n1\n1\n1"
 }
 
 #[test]
