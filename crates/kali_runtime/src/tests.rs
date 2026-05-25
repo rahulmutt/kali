@@ -4496,6 +4496,22 @@ fn browser_runtime_unavailable_diagnostic_formats_command_context() {
         "diagnostic: {command_diagnostic:?}"
     );
 
+    let test_diagnostic = browser_runtime_unavailable_diagnostic(Some("test"), None);
+    assert!(
+        test_diagnostic
+            .message
+            .contains("test does not support the browser API surface"),
+        "diagnostic: {test_diagnostic:?}"
+    );
+    assert!(
+        test_diagnostic
+            .notes
+            .iter()
+            .any(|note| note
+                == "browser harness opt-in env var: KALI_BROWSER_BUNDLE_HARNESS_COMMAND"),
+        "diagnostic: {test_diagnostic:?}"
+    );
+
     let runtime_diagnostic = browser_runtime_unavailable_diagnostic(None, None);
     assert!(
         runtime_diagnostic
