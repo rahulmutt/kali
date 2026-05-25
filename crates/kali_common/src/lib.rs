@@ -1687,6 +1687,8 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const dotted = await globalThis.Promise.any([Promise.reject('boom'), Promise.resolve(1)]);
   const mixedDotted = await globalThis.Promise["any"]([Promise.reject('boom'), Promise.resolve(1)]);
   const singleDotted = await globalThis.Promise['any']([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedDottedBracketed = await Object.freeze((globalThis.Promise)["any"])([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedSingleDottedBracketed = await Object.freeze((globalThis.Promise)['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   const bracketed = await globalThis["Promise"].any([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedBracketed = await Object.freeze((globalThis["Promise"])["any"])([Promise.reject('boom'), Promise.resolve(1)]);
   const mixedBracketed = await globalThis["Promise"]["any"]([Promise.reject('boom'), Promise.resolve(1)]);
@@ -1709,6 +1711,8 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const frozenRoot = await Object.freeze(Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedFrozenRoot = await Object.freeze((Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenDotted = await Object.freeze(globalThis.Promise.any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenDottedBracketed = await Object.freeze(globalThis.Promise["any"])([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenSingleDottedBracketed = await Object.freeze(globalThis.Promise['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   if (
     direct !== 1 ||
@@ -1737,6 +1741,8 @@ pub const fn promise_any_browser_body_source() -> &'static str {
     frozenRoot !== 1 ||
     parenthesizedFrozenRoot !== 1 ||
     frozenDotted !== 1 ||
+    parenthesizedDottedBracketed !== 1 ||
+    parenthesizedSingleDottedBracketed !== 1 ||
     parenthesizedFrozenDotted !== 1
   ) {
     throw new Error('unexpected Promise.any semantics');
