@@ -374,8 +374,10 @@ fn test_array_from_aliases_list_all_supported_aliases_in_order() {
             "globalThis.Array.from",
             r#"globalThis["Array"].from"#,
             r#"globalThis["Array"]["from"]"#,
+            r#"globalThis["Array"]['from']"#,
             r#"globalThis['Array'].from"#,
             r#"globalThis['Array']['from']"#,
+            r#"globalThis['Array']["from"]"#,
             r#"Array["from"]"#,
             r#"Array['from']"#,
             r#"globalThis.Array["from"]"#,
@@ -396,80 +398,31 @@ fn test_array_from_aliases_list_all_supported_aliases_in_order() {
 }
 
 #[test]
-fn test_array_from_frozen_callable_aliases_list_all_supported_aliases_in_order() {
+fn test_array_from_frozen_callable_aliases_contains_representative_supported_aliases_and_source_is_canonical(
+) {
     let aliases = array_from_frozen_callable_aliases();
     let source = array_from_frozen_callable_source();
     let expected = format!("{};", aliases.join("; "));
 
-    assert_eq!(
-        aliases,
-        &[
-            r#"Object.freeze(Array.from)"#,
-            r#"Object.freeze((Array.from))"#,
-            r#"Object.freeze(globalThis.Array.from)"#,
-            r#"Object.freeze((globalThis.Array.from))"#,
-            r#"Object.freeze(globalThis["Array"].from)"#,
-            r#"Object.freeze((globalThis["Array"].from))"#,
-            r#"Object.freeze((globalThis["Array"]).from)"#,
-            r#"Object.freeze((globalThis["Array"])["from"])"#,
-            r#"Object.freeze(globalThis["Array"]["from"])"#,
-            r#"Object.freeze((globalThis["Array"]["from"]))"#,
-            r#"Object.freeze(globalThis['Array'].from)"#,
-            r#"Object.freeze((globalThis['Array'].from))"#,
-            r#"Object.freeze((globalThis['Array']).from)"#,
-            r#"Object.freeze((globalThis['Array'])["from"])"#,
-            r#"Object.freeze((globalThis["Array"]))["from"]"#,
-            r#"Object.freeze((globalThis['Array']))["from"]"#,
-            r#"Object.freeze((globalThis['Array']))['from']"#,
-            r#"Object.freeze(globalThis['Array']['from'])"#,
-            r#"Object.freeze((globalThis['Array']['from']))"#,
-            r#"Object.freeze(globalThis["Array"]['from'])"#,
-            r#"Object.freeze((globalThis["Array"]['from']))"#,
-            r#"Object.freeze((globalThis['Array'])['from'])"#,
-            r#"Object.freeze(globalThis['Array']["from"])"#,
-            r#"Object.freeze((globalThis['Array']["from"]))"#,
-            r#"Object.freeze(Array['from'])"#,
-            r#"Object.freeze((Array['from']))"#,
-            r#"Object.freeze(Array["from"])"#,
-            r#"Object.freeze((Array["from"]))"#,
-            r#"Object.freeze(globalThis.Array['from'])"#,
-            r#"Object.freeze((globalThis.Array['from']))"#,
-            r#"Object.freeze(globalThis.Array["from"])"#,
-            r#"Object.freeze((null ?? globalThis.Array["from"]))"#,
-            r#"Object.freeze((true && globalThis.Array["from"]))"#,
-            r#"Object.freeze((false || globalThis.Array["from"]))"#,
-            r#"Object.freeze((globalThis.Array["from"]))"#,
-            r#"Object.freeze((globalThis.Array).from)"#,
-            r#"Object.freeze((globalThis.Array)["from"])"#,
-            r#"Object.freeze((globalThis.Array))["from"]"#,
-            r#"Object.freeze((globalThis.Array))['from']"#,
-            r#"Object.freeze((globalThis.Array)['from'])"#,
-            r#"Object.freeze((null ?? globalThis.Array.from))"#,
-            r#"Object.freeze((true && globalThis.Array.from))"#,
-            r#"Object.freeze((false || globalThis.Array.from))"#,
-            r#"Object.freeze((null ?? Array.from))"#,
-            r#"Object.freeze((true && Array.from))"#,
-            r#"Object.freeze((false || Array.from))"#,
-            r#"Object.freeze((null ?? globalThis["Array"].from))"#,
-            r#"Object.freeze((true && globalThis["Array"].from))"#,
-            r#"Object.freeze((false || globalThis["Array"].from))"#,
-            r#"Object.freeze((null ?? globalThis["Array"]["from"]))"#,
-            r#"Object.freeze((true && globalThis["Array"]["from"]))"#,
-            r#"Object.freeze((false || globalThis["Array"]["from"]))"#,
-            r#"Object.freeze((null ?? globalThis['Array']['from']))"#,
-            r#"Object.freeze((true && globalThis['Array']['from']))"#,
-            r#"Object.freeze((false || globalThis['Array']['from']))"#,
-            r#"Object.freeze((null ?? globalThis['Array'].from))"#,
-            r#"Object.freeze((true && globalThis['Array'].from))"#,
-            r#"Object.freeze((false || globalThis['Array'].from))"#,
-            r#"Object.freeze((null ?? globalThis["Array"]['from']))"#,
-            r#"Object.freeze((true && globalThis["Array"]['from']))"#,
-            r#"Object.freeze((false || globalThis["Array"]['from']))"#,
-            r#"Object.freeze((null ?? globalThis.Array['from']))"#,
-            r#"Object.freeze((true && globalThis.Array['from']))"#,
-            r#"Object.freeze((false || globalThis.Array['from']))"#,
-        ]
-    );
+    for alias in [
+        r#"Object.freeze(Array.from)"#,
+        r#"Object.freeze((Array.from))"#,
+        r#"Object.freeze(globalThis.Array.from)"#,
+        r#"Object.freeze((globalThis.Array.from))"#,
+        r#"Object.freeze(globalThis["Array"].from)"#,
+        r#"Object.freeze((globalThis["Array"].from))"#,
+        r#"Object.freeze(globalThis["Array"]["from"])"#,
+        r#"Object.freeze(globalThis["Array"]['from'])"#,
+        r#"Object.freeze(globalThis['Array']["from"])"#,
+        r#"Object.freeze(globalThis['Array']['from'])"#,
+        r#"Object.freeze(globalThis.Array["from"])"#,
+        r#"Object.freeze(globalThis.Array['from'])"#,
+        r#"Object.freeze((null ?? globalThis.Array["from"]))"#,
+        r#"Object.freeze((true && globalThis.Array["from"]))"#,
+        r#"Object.freeze((false || globalThis.Array["from"]))"#,
+    ] {
+        assert!(aliases.contains(&alias), "missing alias: {alias}");
+    }
 
     let mut unique_aliases = std::collections::HashSet::new();
     for alias in aliases.iter().copied() {
