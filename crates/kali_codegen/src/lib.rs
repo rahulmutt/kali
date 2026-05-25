@@ -3243,13 +3243,55 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     fn is_array_callback_iteration_call(&self, node: &LirNode) -> bool {
-        if node.kind != LirNodeKind::Call {
+        let mut current = node;
+        while current.kind == LirNodeKind::Value
+            && current.children.len() == 1
+            && current.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            let Some(child) = current.children.first().copied() else {
+                return false;
+            };
+            current = self.node(child);
+        }
+
+        if current.kind != LirNodeKind::Call {
             return false;
         }
 
-        let Some(callee) = node.children.first().copied() else {
+        let Some(callee) = current.children.first().copied() else {
             return false;
         };
+        let Some(raw_callee_text) = self.node(callee).text.as_deref() else {
+            return false;
+        };
+
+        let matches_callback_iterable_method = |callee_text: &str| {
+            [
+                "map",
+                "filter",
+                "find",
+                "findLast",
+                "findIndex",
+                "findLastIndex",
+                "flatMap",
+                "some",
+                "every",
+                "reduce",
+                "reduceRight",
+            ]
+            .iter()
+            .any(|method| {
+                callee_text == *method
+                    || callee_text.ends_with(&format!(".{method}"))
+                    || callee_text.ends_with(&format!("[\"{method}\"]"))
+                    || callee_text.ends_with(&format!("['{method}']"))
+            })
+        };
+
+        if matches_callback_iterable_method(raw_callee_text) {
+            return true;
+        }
+
         let Some(callee) = self.resolve_transparent_callable_node(callee) else {
             return false;
         };
@@ -3257,26 +3299,7 @@ impl<'a> FunctionEmitter<'a> {
             return false;
         };
 
-        [
-            "map",
-            "filter",
-            "find",
-            "findLast",
-            "findIndex",
-            "findLastIndex",
-            "flatMap",
-            "some",
-            "every",
-            "reduce",
-            "reduceRight",
-        ]
-        .iter()
-        .any(|method| {
-            callee_text == *method
-                || callee_text.ends_with(&format!(".{method}"))
-                || callee_text.ends_with(&format!("[\"{method}\"]"))
-                || callee_text.ends_with(&format!("['{method}']"))
-        })
+        matches_callback_iterable_method(callee_text)
     }
 
     fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {

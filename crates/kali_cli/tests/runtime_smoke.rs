@@ -49830,6 +49830,52 @@ fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_confi
 }
 
 #[test]
+fn run_and_test_reject_array_callback_iteration_lowering_in_js_and_ts_input() {
+    for extension in ["js", "ts"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                for source in [
+                    "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
+                    "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
+                ] {
+                    assert_runtime_entrypoint_rejection(
+                        command,
+                        json_output,
+                        extension,
+                        source,
+                        "literal array",
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_array_callback_iteration_lowering_when_browser_harness_is_configured_in_js_input(
+) {
+    for command in ["run", "test"] {
+        for json_output in [false, true] {
+            for source in [
+                "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
+                "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
+            ] {
+                assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
+                    command,
+                    json_output,
+                    "js",
+                    source,
+                    &[
+                        "array callback-produced iterables",
+                        "literal array",
+                    ],
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn run_and_test_reject_generator_function_expression_lowering_in_js_ts_jsx_and_tsx_input() {
     for extension in ["js", "ts", "jsx", "tsx"] {
         for command in ["run", "test"] {
@@ -50082,6 +50128,59 @@ fn assert_runtime_entrypoint_rejection(
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
         assert!(stderr.contains(expected_message), "stderr: {stderr}");
+    }
+}
+
+fn assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
+    command: &str,
+    json_output: bool,
+    extension: &str,
+    source_contents: &str,
+    expected_messages: &[&str],
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(&source_path, source_contents).expect("write source");
+
+    let mut cli = Command::new(kali_bin());
+    cli.current_dir(dir.path())
+        .env("KALI_BROWSER_BUNDLE_HARNESS_COMMAND", "node");
+    if json_output {
+        cli.arg("--output").arg("json");
+    }
+    cli.arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path);
+    let output = cli.output().expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    if json_output {
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(errors.iter().any(|error| error["code"] == "E5506"));
+        let messages = errors
+            .iter()
+            .map(|error| error["message"].as_str().expect("message"))
+            .collect::<Vec<_>>();
+        assert!(messages.iter().any(|message| {
+            expected_messages
+                .iter()
+                .any(|expected_message| message.contains(expected_message))
+        }), "messages: {messages:?}");
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            expected_messages
+                .iter()
+                .any(|expected_message| stderr.contains(expected_message)),
+            "stderr: {stderr}"
+        );
     }
 }
 

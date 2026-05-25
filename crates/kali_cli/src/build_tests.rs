@@ -4913,6 +4913,67 @@ fn assert_build_source_file_rejects_for_of_non_literal_iterable_in_input(extensi
     );
 }
 
+fn assert_build_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
+    for source in [
+        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).expect("write source");
+
+        let error = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            ApiSurface::Deno,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect_err("array callback-produced iterables should remain gated");
+
+        assert!(
+            error.iter().any(|diagnostic| {
+                diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                    && (diagnostic
+                        .message
+                        .contains("array callback-produced iterables")
+                        || diagnostic.message.contains("literal array"))
+            }),
+            "unexpected diagnostics: {:?}",
+            error
+        );
+    }
+}
+
+fn assert_check_source_file_rejects_array_callback_iteration_in_input(extension: &str) {
+    for source in [
+        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
+        "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
+    ] {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).expect("write source");
+
+        let error = check_source_file(&source_path, ApiSurface::Deno, &[], false, false)
+            .expect_err("array callback-produced iterables should remain gated");
+
+        assert!(
+            error.iter().any(|diagnostic| {
+                diagnostic.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)
+                    && (diagnostic
+                        .message
+                        .contains("array callback-produced iterables")
+                        || diagnostic.message.contains("literal array"))
+            }),
+            "unexpected diagnostics: {:?}",
+            error
+        );
+    }
+}
+
 fn assert_check_source_file_rejects_for_of_object_keys_non_literal_iterable_in_input(
     api_surface: ApiSurface,
     extension: &str,
@@ -5592,6 +5653,26 @@ fn build_source_file_rejects_for_of_non_literal_iterable_in_ts_input() {
 #[test]
 fn build_source_file_rejects_for_of_non_literal_iterable_in_js_input() {
     assert_build_source_file_rejects_for_of_non_literal_iterable_in_input("js");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_ts_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input("ts");
+}
+
+#[test]
+fn build_source_file_rejects_array_callback_iteration_in_js_input() {
+    assert_build_source_file_rejects_array_callback_iteration_in_input("js");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_ts_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input("ts");
+}
+
+#[test]
+fn check_source_file_rejects_array_callback_iteration_in_js_input() {
+    assert_check_source_file_rejects_array_callback_iteration_in_input("js");
 }
 
 #[test]
