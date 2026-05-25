@@ -27288,6 +27288,7 @@ const frozenCallableBracketedEntries = Object.freeze(globalThis["Object"]["entri
 const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
 const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
 const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
+const parenthesizedSingleQuotedReceiverBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozen);
 const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
 const parenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(frozen);
 const nullishBracketedEntries = Object.freeze((null ?? globalThis["Object"]["entries"]))(frozen);
@@ -27333,6 +27334,7 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
   const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
   const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
+  const parenthesizedSingleQuotedReceiverBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozen);
   const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
   const parenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(frozen);
   const nullishBracketedEntries = Object.freeze((null ?? globalThis["Object"]["entries"]))(frozen);
@@ -27343,6 +27345,7 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
   for (const value of [...parenthesizedSingleQuotedBracketedValues]) { console.log(value); }
   for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
+  for (const key of [...parenthesizedSingleQuotedReceiverBracketedKeys]) { console.log(key); }
   for (const entry of [...parenthesizedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
   for (const entry of [...parenthesizedSingleQuotedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
   for (const entry of [...frozenCallableEntries]) { console.log(entry[0]); console.log(entry[1]); }
@@ -27406,10 +27409,14 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
         assert_eq!(json["payload"]["hostContract"], "browser-requested");
         assert_eq!(json["payload"]["runtimeBackend"], "browser-harness");
     }
-    assert_eq!(
-        json["stdout"],
+    let expected_stdout = if command == "test"
+        && (filename.ends_with(".jsx") || filename.ends_with(".tsx"))
+    {
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+    } else {
         "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
-    );
+    };
+    assert_eq!(json["stdout"], expected_stdout);
     assert_eq!(json["stderr"], "");
 }
 
