@@ -33,7 +33,9 @@ function browserObjectEntriesIteration() {
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
   const singleQuotedProperty = [];
   for (const entry of globalThis['Object'].entries(alias)) {
     singleQuotedProperty.push(entry);
@@ -51,7 +53,9 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(singleQuotedProperty);
   assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
   assertObjectEntriesIteration(mixedSingleQuotedBracketedEntries);
@@ -128,6 +132,7 @@ function browserGlobalObjectEntriesIteration() {
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
+  const parenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
   const bracketed = globalThis["Object"]["entries"](alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(frozenEntries);
@@ -135,6 +140,7 @@ function browserGlobalObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenBracketRootEntries);
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
   assertObjectEntriesIteration(mixedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(bracketed);
 }
