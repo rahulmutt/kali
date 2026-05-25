@@ -50167,11 +50167,14 @@ fn assert_runtime_entrypoint_rejection_when_browser_harness_is_configured(
             .iter()
             .map(|error| error["message"].as_str().expect("message"))
             .collect::<Vec<_>>();
-        assert!(messages.iter().any(|message| {
-            expected_messages
-                .iter()
-                .any(|expected_message| message.contains(expected_message))
-        }), "messages: {messages:?}");
+        assert!(
+            messages.iter().any(|message| {
+                expected_messages
+                    .iter()
+                    .any(|expected_message| message.contains(expected_message))
+            }),
+            "messages: {messages:?}"
+        );
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains("E5506"), "stderr: {stderr}");
