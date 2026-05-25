@@ -153,7 +153,7 @@ export async function promiseAllSmoke(left, right) {
 }
 
 fn late_process_control_source() -> String {
-    kali_common::late_process_control_source()
+    kali_common::late_process_control_single_quoted_process_source()
 }
 
 fn late_process_env_mutation_source() -> String {
@@ -214,13 +214,32 @@ fn late_process_control_source_includes_bracketed_spellings() {
         r#"globalThis["process"].chdir"#,
         r#"globalThis["process"]["chdir"]"#,
         r#"process["kill"]"#,
+        r#"process['kill']"#,
         r#"globalThis.process["kill"]"#,
+        r#"globalThis['process'].kill"#,
         r#"globalThis["process"].kill"#,
         r#"globalThis["process"]["kill"]"#,
         r#"process["exit"]"#,
+        r#"process['exit']"#,
         r#"globalThis.process["exit"]"#,
+        r#"globalThis['process'].exit"#,
         r#"globalThis["process"].exit"#,
         r#"globalThis["process"]["exit"]"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn late_process_control_source_includes_single_quoted_spellings() {
+    let source = late_process_control_source();
+    for expected in [
+        r#"process['kill']"#,
+        r#"globalThis['process'].kill"#,
+        r#"globalThis['process']['kill']"#,
+        r#"process['exit']"#,
+        r#"globalThis['process'].exit"#,
+        r#"globalThis['process']['exit']"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -233,6 +252,8 @@ fn late_process_control_source_includes_zero_probe_spellings() {
         "process.kill(0)",
         "process.kill(+0)",
         r#"process["kill"](+0)"#,
+        r#"process['kill'](0)"#,
+        r#"process['kill'](+0)"#,
         "process.kill((0))",
         "((process)).kill(0)",
         "((process)).kill(+0)",
@@ -242,6 +263,8 @@ fn late_process_control_source_includes_zero_probe_spellings() {
         r#"globalThis["process"].kill(0)"#,
         r#"globalThis["process"].kill(+0)"#,
         r#"globalThis.process["kill"](+0)"#,
+        r#"globalThis['process'].kill(0)"#,
+        r#"globalThis['process'].kill(+0)"#,
         r#"globalThis["process"]["kill"](0)"#,
         r#"globalThis["process"]["kill"](+0)"#,
         r#"globalThis["process"]["kill"]((0))"#,
@@ -252,10 +275,12 @@ fn late_process_control_source_includes_zero_probe_spellings() {
         r#"globalThis["process"].kill(0)"#,
         "((process.kill))(0)",
         r#"((process["kill"]))(0)"#,
+        r#"((process['kill']))(0)"#,
         "((globalThis.process.kill))(0)",
         "((globalThis.process.kill))(+0)",
         r#"((globalThis.process["kill"]))(0)"#,
         r#"((globalThis.process["kill"]))(+0)"#,
+        r#"((globalThis['process'].kill))(0)"#,
         r#"((globalThis["process"].kill))(0)"#,
         r#"((globalThis.process["kill"]))(0)"#,
         r#"Object.freeze(globalThis.process["kill"])(0)"#,

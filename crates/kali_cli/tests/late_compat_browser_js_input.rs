@@ -1050,9 +1050,11 @@ fn browser_late_object_model_source_includes_bracketed_proxy_and_finalization_fo
         "globalThis.WeakRef",
         r#"globalThis["WeakRef"]"#,
         r#"Object.freeze((globalThis["WeakRef"]))"#,
+        r#"Object.freeze((globalThis['WeakRef']))"#,
         "globalThis.FinalizationRegistry",
         r#"globalThis["FinalizationRegistry"]"#,
         r#"Object.freeze((globalThis["FinalizationRegistry"]))"#,
+        r#"Object.freeze((globalThis['FinalizationRegistry']))"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
@@ -1064,7 +1066,7 @@ fn check_rejects_frozen_late_object_model_weak_aliases_in_browser_api_surface_js
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis[\"WeakRef\"]); Object.freeze((globalThis[\"WeakRef\"])); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis[\"FinalizationRegistry\"]); Object.freeze((globalThis[\"FinalizationRegistry\"]));",
+        "Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis[\"WeakRef\"]); Object.freeze((globalThis[\"WeakRef\"])); Object.freeze(globalThis['WeakRef']); Object.freeze((globalThis['WeakRef'])); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis[\"FinalizationRegistry\"]); Object.freeze((globalThis[\"FinalizationRegistry\"])); Object.freeze(globalThis['FinalizationRegistry']); Object.freeze((globalThis['FinalizationRegistry']));",
     )
     .expect("write source");
 
