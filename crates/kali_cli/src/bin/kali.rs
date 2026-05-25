@@ -3995,17 +3995,31 @@ fn package_analysis_specific_flag_context(
     wasm_threads: bool,
     sandbox: Option<&Path>,
 ) -> Option<DiagnosticContext> {
-    if api.is_some() {
-        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--api"));
+    if let Some(api) = api {
+        let api_value = api.to_string();
+        return Some(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--api")
+                .with_requested_value(api_value.clone())
+                .with_effective_value(api_value),
+        );
     }
 
-    if !compat.is_empty() {
-        return Some(DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--compat"));
+    if let Some(compat_value) = compat.first() {
+        return Some(
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--compat")
+                .with_requested_value(compat_value.clone())
+                .with_effective_value(compat_value.clone()),
+        );
     }
 
     if wasm_threads {
         return Some(
-            DiagnosticContext::new(DiagnosticContextOrigin::Cli).with_flag("--wasm-threads"),
+            DiagnosticContext::new(DiagnosticContextOrigin::Cli)
+                .with_flag("--wasm-threads")
+                .with_requested_value("true")
+                .with_effective_value("true"),
         );
     }
 
@@ -5307,6 +5321,31 @@ mod tests {
 
         assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
         assert_eq!(context.flag.as_deref(), Some("--api"));
+        assert_eq!(context.requested_value.as_deref(), Some("browser"));
+        assert_eq!(context.effective_value.as_deref(), Some("browser"));
+    }
+
+    #[test]
+    fn package_analysis_specific_flag_context_records_compat_value() {
+        let context =
+            package_analysis_specific_flag_context(None, &[String::from("eval")], false, None)
+                .expect("package-analysis-specific flag context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
+        assert_eq!(context.flag.as_deref(), Some("--compat"));
+        assert_eq!(context.requested_value.as_deref(), Some("eval"));
+        assert_eq!(context.effective_value.as_deref(), Some("eval"));
+    }
+
+    #[test]
+    fn package_analysis_specific_flag_context_records_wasm_threads_value() {
+        let context = package_analysis_specific_flag_context(None, &[], true, None)
+            .expect("package-analysis-specific flag context");
+
+        assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
+        assert_eq!(context.flag.as_deref(), Some("--wasm-threads"));
+        assert_eq!(context.requested_value.as_deref(), Some("true"));
+        assert_eq!(context.effective_value.as_deref(), Some("true"));
     }
 
     #[test]

@@ -125,10 +125,10 @@ fn package_effects_rejects_sandbox_before_target_validation() {
 
 #[test]
 fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_validation() {
-    for (args, expected_flag) in [
-        (&["--api", "browser"][..], "--api"),
-        (&["--compat", "eval"][..], "--compat"),
-        (&["--wasm-threads"][..], "--wasm-threads"),
+    for (args, expected_flag, expected_value) in [
+        (&["--api", "browser"][..], "--api", "browser"),
+        (&["--compat", "eval"][..], "--compat", "eval"),
+        (&["--wasm-threads"][..], "--wasm-threads", "true"),
     ] {
         let output = Command::new(kali_bin())
             .arg("--output")
@@ -150,6 +150,8 @@ fn json_package_effects_rejects_package_analysis_flags_before_malformed_target_v
         assert_eq!(errors[0]["code"], "E5508");
         assert_eq!(errors[0]["context"]["origin"], "cli");
         assert_eq!(errors[0]["context"]["flag"], expected_flag);
+        assert_eq!(errors[0]["context"]["requestedValue"], expected_value);
+        assert_eq!(errors[0]["context"]["effectiveValue"], expected_value);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -184,6 +186,8 @@ fn json_package_effects_rejects_sandbox_before_malformed_target_validation() {
     assert_eq!(errors[0]["code"], "E5508");
     assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--sandbox");
+    assert_eq!(errors[0]["context"]["requestedValue"], "policy.json");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "policy.json");
     assert!(
         errors[0]["message"]
             .as_str()
@@ -196,7 +200,7 @@ fn json_package_effects_rejects_sandbox_before_malformed_target_validation() {
 
 #[test]
 fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_target_validation() {
-    for (args, expected_flag) in [
+    for (args, expected_flag, expected_value) in [
         (
             &[
                 "--api",
@@ -207,6 +211,7 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
                 "npm:lodash",
             ][..],
             "--api",
+            "browser",
         ),
         (
             &[
@@ -218,6 +223,7 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
                 "npm:lodash",
             ][..],
             "--compat",
+            "eval",
         ),
         (
             &[
@@ -228,6 +234,7 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
                 "npm:lodash",
             ][..],
             "--wasm-threads",
+            "true",
         ),
         (
             &[
@@ -239,6 +246,7 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
                 "npm:lodash",
             ][..],
             "--sandbox",
+            "policy.json",
         ),
     ] {
         let output = Command::new(kali_bin())
@@ -258,6 +266,8 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
         assert_eq!(errors[0]["code"], "E5508");
         assert_eq!(errors[0]["context"]["origin"], "cli");
         assert_eq!(errors[0]["context"]["flag"], expected_flag);
+        assert_eq!(errors[0]["context"]["requestedValue"], expected_value);
+        assert_eq!(errors[0]["context"]["effectiveValue"], expected_value);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -268,7 +278,6 @@ fn json_pretty_package_effects_rejects_package_analysis_flags_before_malformed_t
         assert_ne!(errors[0]["message"], "npm:lodash");
     }
 }
-
 #[test]
 fn package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup() {
     for args in [
@@ -347,10 +356,10 @@ fn package_audit_rejects_sandbox_before_malformed_target_validation_and_lookup()
 #[test]
 fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup()
 {
-    for (args, expected_flag) in [
-        (&["--api", "browser"][..], "--api"),
-        (&["--compat", "eval"][..], "--compat"),
-        (&["--wasm-threads"][..], "--wasm-threads"),
+    for (args, expected_flag, expected_value) in [
+        (&["--api", "browser"][..], "--api", "browser"),
+        (&["--compat", "eval"][..], "--compat", "eval"),
+        (&["--wasm-threads"][..], "--wasm-threads", "true"),
     ] {
         let (registry_url, hits, stop, handle) =
             start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
@@ -384,6 +393,8 @@ fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_val
         assert_eq!(errors[0]["code"], "E5508");
         assert_eq!(errors[0]["context"]["origin"], "cli");
         assert_eq!(errors[0]["context"]["flag"], expected_flag);
+        assert_eq!(errors[0]["context"]["requestedValue"], expected_value);
+        assert_eq!(errors[0]["context"]["effectiveValue"], expected_value);
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -394,7 +405,6 @@ fn json_package_audit_rejects_package_analysis_flags_before_malformed_target_val
         assert_ne!(errors[0]["message"], "npm:lodash");
     }
 }
-
 #[test]
 fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_lookup() {
     let (registry_url, hits, stop, handle) =
@@ -430,6 +440,8 @@ fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_loo
     assert_eq!(errors[0]["code"], "E5508");
     assert_eq!(errors[0]["context"]["origin"], "cli");
     assert_eq!(errors[0]["context"]["flag"], "--sandbox");
+    assert_eq!(errors[0]["context"]["requestedValue"], "policy.json");
+    assert_eq!(errors[0]["context"]["effectiveValue"], "policy.json");
     assert!(
         errors[0]["message"]
             .as_str()
@@ -439,11 +451,10 @@ fn json_package_audit_rejects_sandbox_before_malformed_target_validation_and_loo
     );
     assert_ne!(errors[0]["message"], "npm:lodash");
 }
-
 #[test]
 fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_target_validation_and_lookup(
 ) {
-    for (args, expected_flag) in [
+    for (args, expected_flag, expected_value) in [
         (
             &[
                 "--api",
@@ -454,6 +465,7 @@ fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_tar
                 "npm:lodash",
             ][..],
             "--api",
+            "browser",
         ),
         (
             &[
@@ -465,6 +477,7 @@ fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_tar
                 "npm:lodash",
             ][..],
             "--compat",
+            "eval",
         ),
         (
             &[
@@ -475,6 +488,7 @@ fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_tar
                 "npm:lodash",
             ][..],
             "--wasm-threads",
+            "true",
         ),
         (
             &[
@@ -486,6 +500,7 @@ fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_tar
                 "npm:lodash",
             ][..],
             "--sandbox",
+            "policy.json",
         ),
     ] {
         let (registry_url, hits, stop, handle) =
@@ -517,6 +532,8 @@ fn json_pretty_package_audit_rejects_package_analysis_flags_before_malformed_tar
         assert_eq!(errors[0]["code"], "E5508");
         assert_eq!(errors[0]["context"]["origin"], "cli");
         assert_eq!(errors[0]["context"]["flag"], expected_flag);
+        assert_eq!(errors[0]["context"]["requestedValue"], expected_value);
+        assert_eq!(errors[0]["context"]["effectiveValue"], expected_value);
         assert!(
             errors[0]["message"]
                 .as_str()
