@@ -42,7 +42,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 
 ### 21.3 Dynamic language and built-in semantics
 
-- Widen object-model, Math, BigInt, Promise, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned. Current smoke now also covers the single-quoted receiver-wrapped `Math.floor` / `Math.trunc` / `Math.ceil` frozen-callable aliases on the supported helper slice, and direct build smoke now also covers the `Math.sqrt` / `Math.cbrt` literal slices in `.jsx` and `.tsx` input on both the Deno and browser surfaces.
+- Widen object-model, Math, BigInt, Promise, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned. Current smoke now also covers the single-quoted receiver-wrapped `Math.floor` / `Math.trunc` / `Math.ceil` frozen-callable aliases on the supported helper slice, and direct build smoke now also covers the `Math.sqrt` / `Math.cbrt` literal slices in `.jsx` and `.tsx` input on both the Deno and browser surfaces. The supported static-call inventory now also recognizes `Promise.any` aliases alongside the existing Promise combinator smoke.
 - Keep non-literal dynamic import, broad reflective APIs, eval-adjacent forms, and unsupported object-model/runtime APIs gated unless their maturity rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 

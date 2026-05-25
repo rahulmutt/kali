@@ -2900,6 +2900,14 @@ impl TypeContext {
                 | "globalThis.Number.isNaN"
                 | "globalThis.Number.isInteger"
                 | "globalThis.Number.isSafeInteger"
+                | "Promise.all"
+                | "Promise.allSettled"
+                | "Promise.any"
+                | "Promise.race"
+                | "globalThis.Promise.all"
+                | "globalThis.Promise.allSettled"
+                | "globalThis.Promise.any"
+                | "globalThis.Promise.race"
         ) || matches!(
             bracketed,
             r#"globalThis["Object"].is"#

@@ -6980,6 +6980,41 @@ fn test_resolution_supports_promise_all_settled_member_calls() {
 }
 
 #[test]
+fn test_resolution_supports_promise_any_member_calls() {
+    let mut ctx = TypeContext::new();
+    let statements = vec![
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::Identifier("Promise".to_string()),
+                    property: "any".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(1.0))],
+            }))),
+        }),
+        Statement::ExpressionStatement(ExpressionStatement {
+            expression: Box::new(Expression::CallExpression(Box::new(CallExpression {
+                callee: Expression::MemberExpression(Box::new(MemberExpression {
+                    object: Expression::MemberExpression(Box::new(MemberExpression {
+                        object: Expression::Identifier("globalThis".to_string()),
+                        property: "Promise".to_string(),
+                    })),
+                    property: "any".to_string(),
+                })),
+                args: vec![Expression::Literal(LiteralValue::Number(2.0))],
+            }))),
+        }),
+    ];
+
+    let result = ctx.resolve_statements(&statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_math_tan_zero_literal_member_calls() {
     let mut ctx = TypeContext::new();
     let statements = vec![Statement::ExpressionStatement(ExpressionStatement {
