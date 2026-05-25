@@ -38,7 +38,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 - Keep docs/schema drift tests aligned with README and CLI examples.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
-- Package-analysis-specific `--sandbox` rejection is now pinned alongside the existing `--api` / `--compat` / `--wasm-threads` precedence checks for `package-effects` and `package-audit`; the dedicated flag-precedence harness now exercises all three package-analysis-specific flags in both plain and JSON output, including pretty-bearing JSON forms.
+- Package-analysis-specific `--sandbox` rejection is now pinned alongside the existing `--api` / `--compat` / `--wasm-threads` precedence checks for `package-effects` and `package-audit`; the dedicated flag-precedence harness now exercises the package-analysis flag set in both plain and JSON output, including pretty-bearing JSON forms, and the package-corpus smoke now also covers the `--sandbox` JSON rejection envelope with canonical CLI flag context.
 
 ## Exit gate
 

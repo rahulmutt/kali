@@ -724,6 +724,70 @@ fn assert_browser_blocked_package_json_rejection(output: &std::process::Output, 
     );
 }
 
+fn assert_package_analysis_specific_flag_json_rejection(
+    output: &std::process::Output,
+    command: &str,
+    expected_flag: &str,
+) {
+    assert!(!output.status.success(), "expected {command} to fail");
+    assert_eq!(output.status.code(), Some(5));
+
+    let json = parse_json_stdout(output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], command);
+    assert_eq!(json["success"], false);
+    assert_eq!(json["exitCode"], 5);
+    assert_eq!(json["payload"], serde_json::Value::Null);
+
+    let errors = json["errors"].as_array().expect("errors array");
+    assert_eq!(errors.len(), 1, "json: {json}");
+    let error = errors.first().expect("first error");
+    assert_eq!(error["code"], "E5508");
+    assert!(error["message"]
+        .as_str()
+        .expect("error message")
+        .contains("package-analysis-specific flags"));
+    assert_eq!(error["context"]["origin"], "cli");
+    assert_eq!(error["context"]["flag"], expected_flag);
+}
+
+#[test]
+fn package_analysis_commands_reject_sandbox_flag_before_target_validation_in_json_output() {
+    let dir = tempdir().expect("tempdir");
+
+    let package_effects = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "package-effects",
+            "--sandbox",
+            "kali.policy.json",
+        ],
+    );
+    assert_package_analysis_specific_flag_json_rejection(
+        &package_effects,
+        "package-effects",
+        "--sandbox",
+    );
+
+    let package_audit = run_kali(
+        dir.path(),
+        [
+            "--output",
+            "json",
+            "package-audit",
+            "--sandbox",
+            "kali.policy.json",
+        ],
+    );
+    assert_package_analysis_specific_flag_json_rejection(
+        &package_audit,
+        "package-audit",
+        "--sandbox",
+    );
+}
+
 #[test]
 fn browser_corpus_packages_remain_checkable_and_deployable_through_host() {
     for package in [
