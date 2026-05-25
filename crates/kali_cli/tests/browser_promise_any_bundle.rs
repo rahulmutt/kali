@@ -19,7 +19,24 @@ fn browser_bundle_promise_any_source() -> String {
 fn assert_browser_bundle_promise_any(filename: &str, json_output: bool) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
-    fs::write(&source_path, browser_bundle_promise_any_source()).expect("write source");
+    let source = browser_bundle_promise_any_source();
+    assert!(
+        source.contains(r#"Object.freeze(globalThis["Promise"]["any"])"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['Promise']['any'])"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis["Promise"]["any"]))"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis['Promise']['any']))"#),
+        "source: {source}"
+    );
+    fs::write(&source_path, source).expect("write source");
 
     let mut command = Command::new(kali_bin());
     command

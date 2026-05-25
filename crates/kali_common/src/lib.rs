@@ -1684,8 +1684,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const singleMixedBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenBracketed = await Object.freeze(globalThis["Promise"].any)([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].any)([Promise.reject('boom'), Promise.resolve(1)]);
-  const parenthesizedFrozenBracketed = await Object.freeze((globalThis["Promise"].any))([Promise.reject('boom'), Promise.resolve(1)]);
-  const parenthesizedFrozenSingleBracketed = await Object.freeze((globalThis['Promise'].any))([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenMixedBracketed = await Object.freeze(globalThis["Promise"]["any"])([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenSingleBracketRoot = await Object.freeze(globalThis['Promise']['any'])([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenMixedBracketed = await Object.freeze((globalThis["Promise"]["any"]))([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenSingleBracketRoot = await Object.freeze((globalThis['Promise']['any']))([Promise.reject('boom'), Promise.resolve(1)]);
   const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalAndRoot = await Object.freeze((true && Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalOrRoot = await Object.freeze((false || Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
@@ -1706,8 +1708,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
     singleMixedBracketed !== 1 ||
     frozenBracketed !== 1 ||
     frozenSingleBracketed !== 1 ||
-    parenthesizedFrozenBracketed !== 1 ||
-    parenthesizedFrozenSingleBracketed !== 1 ||
+    parenthesizedFrozenMixedBracketed !== 1 ||
+    parenthesizedFrozenSingleBracketRoot !== 1 ||
+    frozenMixedBracketed !== 1 ||
+    frozenSingleBracketRoot !== 1 ||
     nullishRoot !== 1 ||
     logicalAndRoot !== 1 ||
     logicalOrRoot !== 1 ||
