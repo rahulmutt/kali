@@ -29,9 +29,13 @@ function browserObjectHasOwn() {{
   const object = {{ a: 1, "b": 2 }};
   const alias = object;
   const hasOwn = Object.hasOwn;
+  const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+  const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+  const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+  const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
   {}
   {}
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !singleQuotedHasOwn(alias, "a") || !parenthesizedSingleQuotedHasOwn(alias, "a") || !frozenSingleQuotedHasOwn(alias, "a") || !frozenParenthesizedSingleQuotedHasOwn(alias, "a") || {} ||
     !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
   }}
@@ -60,9 +64,13 @@ function browserObjectHasOwn() {{
   const object = ({{ a: 1, "b": 2 }} as const);
   const alias = object;
   const hasOwn = Object.hasOwn;
+  const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+  const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+  const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+  const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
   {}
   {}
-  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || {} ||
+  if (!globalThis["Object"]["prototype"].hasOwnProperty["call"](alias, "a") || !hasOwn(alias, "a") || !globalThis["Object"]["hasOwn"](alias, "a") || !globalThis.Object["hasOwn"](alias, "a") || !Object["hasOwn"](alias, "a") || !globalThis["Object"].hasOwn(alias, "a") || !singleQuotedHasOwn(alias, "a") || !parenthesizedSingleQuotedHasOwn(alias, "a") || !frozenSingleQuotedHasOwn(alias, "a") || !frozenParenthesizedSingleQuotedHasOwn(alias, "a") || {} ||
     !Object["hasOwnProperty"].call(alias, "a") || !Object["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.hasOwnProperty.call(alias, "a") || !globalThis["Object"]["hasOwnProperty"].call(alias, "a") || !globalThis["Object"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].hasOwnProperty.call(alias, "a") || !hasOwnPropertyCall(alias, "a") || !globalThis["Object"].prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"].prototype.hasOwnProperty.call(alias, "a") || !globalThis.Object.prototype["hasOwnProperty"]["call"](alias, "a") || !globalThis.Object.prototype.hasOwnProperty["call"](alias, "a") || !globalThis.Object["prototype"].hasOwnProperty.call(alias, "a") || !globalThis.Object["prototype"]["hasOwnProperty"]["call"](alias, "a") || !globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](alias, "a")) {{
     throw new Error('unexpected browser Object.hasOwn result');
   }}

@@ -27,6 +27,10 @@ fn browser_harness_object_has_own_run_source() -> String {
         r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
 const alias = object;
 const hasOwn = Object.hasOwn;
+const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
 {}
 {}
 const wrapped = (0, alias);
@@ -38,6 +42,10 @@ if (
   !globalThis["Object"]["hasOwn"](wrapped, "a") ||
   !globalThis.Object["hasOwn"](wrapped, "a") ||
   !globalThis["Object"].hasOwn(wrapped, "a") ||
+  !singleQuotedHasOwn(wrapped, "a") ||
+  !parenthesizedSingleQuotedHasOwn(wrapped, "a") ||
+  !frozenSingleQuotedHasOwn(wrapped, "a") ||
+  !frozenParenthesizedSingleQuotedHasOwn(wrapped, "a") ||
   {} ||
   !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
   !Object["hasOwnProperty"].call(wrapped, "a") ||
@@ -84,6 +92,10 @@ fn browser_harness_object_has_own_test_source() -> String {
   {}
   {}
   const wrapped = (0, alias);
+  const singleQuotedHasOwn = globalThis['Object']['hasOwn'];
+  const parenthesizedSingleQuotedHasOwn = (globalThis['Object'])['hasOwn'];
+  const frozenSingleQuotedHasOwn = Object.freeze(globalThis['Object']['hasOwn']);
+  const frozenParenthesizedSingleQuotedHasOwn = Object.freeze((globalThis['Object'])['hasOwn']);
   if (
     !Object.hasOwn(wrapped, "a") ||
     !hasOwn(wrapped, "a") ||
@@ -92,6 +104,10 @@ fn browser_harness_object_has_own_test_source() -> String {
     !globalThis["Object"]["hasOwn"](wrapped, "a") ||
     !globalThis.Object["hasOwn"](wrapped, "a") ||
     !globalThis["Object"].hasOwn(wrapped, "a") ||
+    !singleQuotedHasOwn(wrapped, "a") ||
+    !parenthesizedSingleQuotedHasOwn(wrapped, "a") ||
+    !frozenSingleQuotedHasOwn(wrapped, "a") ||
+    !frozenParenthesizedSingleQuotedHasOwn(wrapped, "a") ||
     {} ||
     !Object.prototype.hasOwnProperty.call(wrapped, "a") ||
     !Object["hasOwnProperty"].call(wrapped, "a") ||
