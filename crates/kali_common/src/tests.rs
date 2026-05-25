@@ -2048,6 +2048,8 @@ fn test_math_cbrt_frozen_callable_source_lists_all_aliases_in_order() {
             r#"Object.freeze((globalThis.Math['cbrt']))"#,
             r#"Object.freeze(globalThis.Math.cbrt)"#,
             r#"Object.freeze((globalThis.Math.cbrt))"#,
+            r#"Object.freeze((globalThis.Math)["cbrt"])"#,
+            r#"Object.freeze((globalThis.Math)['cbrt'])"#,
             r#"Object.freeze(globalThis["Math"]["cbrt"])"#,
             r#"Object.freeze((globalThis["Math"]["cbrt"]))"#,
             r#"Object.freeze(globalThis["Math"]['cbrt'])"#,

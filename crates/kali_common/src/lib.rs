@@ -2010,6 +2010,8 @@ pub const fn math_cbrt_frozen_callable_aliases() -> &'static [&'static str] {
         r#"Object.freeze((globalThis.Math['cbrt']))"#,
         r#"Object.freeze(globalThis.Math.cbrt)"#,
         r#"Object.freeze((globalThis.Math.cbrt))"#,
+        r#"Object.freeze((globalThis.Math)["cbrt"])"#,
+        r#"Object.freeze((globalThis.Math)['cbrt'])"#,
         r#"Object.freeze(globalThis["Math"]["cbrt"])"#,
         r#"Object.freeze((globalThis["Math"]["cbrt"]))"#,
         r#"Object.freeze(globalThis["Math"]['cbrt'])"#,
