@@ -14,20 +14,38 @@ function globalThisMathHypotFrozenAliasSlice() {
   const four = 4;
   const frozenMathHypot = Object.freeze(Math.hypot);
   const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
   console.log(globalThis.Math.hypot(three, four));
   console.log(frozenMathHypot(three, four));
   console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
   return [
     globalThis.Math.hypot(three, four),
     frozenMathHypot(three, four),
     frozenGlobalThisMathHypot(three, four),
+    frozenBracketedMathHypot(three, four),
+    frozenBracketedMathHypotCall(three, four),
+    frozenBracketedMathHypotSingle(three, four),
+    frozenSingleQuotedBracketedMathHypot(three, four),
+    frozenSingleQuotedBracketedMathHypotCall(three, four),
+    frozenSingleQuotedBracketedMathHypotSingle(three, four),
   ];
 }
 "##
 }
 
 fn browser_harness_global_this_math_hypot_frozen_aliases_run_source() -> &'static str {
-    "const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four));\n"
+    "const three = 3; const four = 4; const frozenMathHypot = Object.freeze(Math.hypot); const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot); const frozenBracketedMathHypot = Object.freeze((globalThis[\"Math\"]).hypot); const frozenBracketedMathHypotCall = Object.freeze((globalThis[\"Math\"])[\"hypot\"]); const frozenBracketedMathHypotSingle = Object.freeze((globalThis[\"Math\"])['hypot']); const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot); const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])[\"hypot\"]); const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']); console.log(globalThis.Math.hypot(three, four)); console.log(frozenMathHypot(three, four)); console.log(frozenGlobalThisMathHypot(three, four)); console.log(frozenBracketedMathHypot(three, four)); console.log(frozenBracketedMathHypotCall(three, four)); console.log(frozenBracketedMathHypotSingle(three, four)); console.log(frozenSingleQuotedBracketedMathHypot(three, four)); console.log(frozenSingleQuotedBracketedMathHypotCall(three, four)); console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));\n"
 }
 
 fn browser_harness_global_this_math_hypot_frozen_aliases_test_source() -> &'static str {
@@ -36,9 +54,21 @@ fn browser_harness_global_this_math_hypot_frozen_aliases_test_source() -> &'stat
   const four = 4;
   const frozenMathHypot = Object.freeze(Math.hypot);
   const frozenGlobalThisMathHypot = Object.freeze(globalThis.Math.hypot);
+  const frozenBracketedMathHypot = Object.freeze((globalThis["Math"]).hypot);
+  const frozenBracketedMathHypotCall = Object.freeze((globalThis["Math"])["hypot"]);
+  const frozenBracketedMathHypotSingle = Object.freeze((globalThis["Math"])['hypot']);
+  const frozenSingleQuotedBracketedMathHypot = Object.freeze((globalThis['Math']).hypot);
+  const frozenSingleQuotedBracketedMathHypotCall = Object.freeze((globalThis['Math'])["hypot"]);
+  const frozenSingleQuotedBracketedMathHypotSingle = Object.freeze((globalThis['Math'])['hypot']);
   console.log(globalThis.Math.hypot(three, four));
   console.log(frozenMathHypot(three, four));
   console.log(frozenGlobalThisMathHypot(three, four));
+  console.log(frozenBracketedMathHypot(three, four));
+  console.log(frozenBracketedMathHypotCall(three, four));
+  console.log(frozenBracketedMathHypotSingle(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypot(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotCall(three, four));
+  console.log(frozenSingleQuotedBracketedMathHypotSingle(three, four));
 });
 "#
 }
