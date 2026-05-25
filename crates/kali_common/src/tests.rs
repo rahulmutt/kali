@@ -2446,11 +2446,19 @@ fn test_promise_any_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains(r#"const frozenSingleMixedBracketed = await Object.freeze(globalThis["Promise"]['any'])([Promise.reject('boom'), Promise.resolve(1)]);"#),
+        "body: {body}"
+    );
+    assert!(
         body.contains(r#"const parenthesizedFrozenMixedBracketed = await Object.freeze((globalThis["Promise"]["any"]))([Promise.reject('boom'), Promise.resolve(1)]);"#),
         "body: {body}"
     );
     assert!(
         body.contains("const parenthesizedFrozenSingleBracketRoot = await Object.freeze((globalThis['Promise']['any']))([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains(r#"const parenthesizedFrozenSingleMixedBracketed = await Object.freeze((globalThis["Promise"]['any']))([Promise.reject('boom'), Promise.resolve(1)]);"#),
         "body: {body}"
     );
     assert!(
@@ -2740,12 +2748,24 @@ fn test_set_constructor_aliases_and_frozen_callable_source_are_canonical() {
         &[
             r#"Object.freeze(Set)"#,
             r#"Object.freeze((Set))"#,
+            r#"Object.freeze((null ?? Set))"#,
+            r#"Object.freeze((true && Set))"#,
+            r#"Object.freeze((false || Set))"#,
             r#"Object.freeze(globalThis.Set)"#,
             r#"Object.freeze((globalThis.Set))"#,
+            r#"Object.freeze((null ?? globalThis.Set))"#,
+            r#"Object.freeze((true && globalThis.Set))"#,
+            r#"Object.freeze((false || globalThis.Set))"#,
             r#"Object.freeze(globalThis["Set"])"#,
             r#"Object.freeze((globalThis["Set"]))"#,
+            r#"Object.freeze((null ?? globalThis["Set"]))"#,
+            r#"Object.freeze((true && globalThis["Set"]))"#,
+            r#"Object.freeze((false || globalThis["Set"]))"#,
             r#"Object.freeze(globalThis['Set'])"#,
             r#"Object.freeze((globalThis['Set']))"#,
+            r#"Object.freeze((null ?? globalThis['Set']))"#,
+            r#"Object.freeze((true && globalThis['Set']))"#,
+            r#"Object.freeze((false || globalThis['Set']))"#,
         ]
     );
     assert_eq!(
@@ -2784,10 +2804,15 @@ fn test_set_constructor_aliases_and_frozen_callable_source_are_canonical() {
     assert_eq!(
         frozen_source,
         concat!(
-            "Object.freeze(Set); Object.freeze((Set)); Object.freeze(globalThis.Set); ",
-            "Object.freeze((globalThis.Set)); Object.freeze(globalThis[\"Set\"]); ",
-            "Object.freeze((globalThis[\"Set\"])); Object.freeze(globalThis['Set']); ",
-            "Object.freeze((globalThis['Set']));"
+            "Object.freeze(Set); Object.freeze((Set)); Object.freeze((null ?? Set)); ",
+            "Object.freeze((true && Set)); Object.freeze((false || Set)); Object.freeze(globalThis.Set); ",
+            "Object.freeze((globalThis.Set)); Object.freeze((null ?? globalThis.Set)); ",
+            "Object.freeze((true && globalThis.Set)); Object.freeze((false || globalThis.Set)); ",
+            "Object.freeze(globalThis[\"Set\"]); Object.freeze((globalThis[\"Set\"])); ",
+            "Object.freeze((null ?? globalThis[\"Set\"])); Object.freeze((true && globalThis[\"Set\"])); ",
+            "Object.freeze((false || globalThis[\"Set\"])); Object.freeze(globalThis['Set']); ",
+            "Object.freeze((globalThis['Set'])); Object.freeze((null ?? globalThis['Set'])); ",
+            "Object.freeze((true && globalThis['Set'])); Object.freeze((false || globalThis['Set']));"
         )
     );
 }
@@ -2818,12 +2843,24 @@ fn test_map_constructor_aliases_and_frozen_callable_source_are_canonical() {
         &[
             r#"Object.freeze(Map)"#,
             r#"Object.freeze((Map))"#,
+            r#"Object.freeze((null ?? Map))"#,
+            r#"Object.freeze((true && Map))"#,
+            r#"Object.freeze((false || Map))"#,
             r#"Object.freeze(globalThis.Map)"#,
             r#"Object.freeze((globalThis.Map))"#,
+            r#"Object.freeze((null ?? globalThis.Map))"#,
+            r#"Object.freeze((true && globalThis.Map))"#,
+            r#"Object.freeze((false || globalThis.Map))"#,
             r#"Object.freeze(globalThis["Map"])"#,
             r#"Object.freeze((globalThis["Map"]))"#,
+            r#"Object.freeze((null ?? globalThis["Map"]))"#,
+            r#"Object.freeze((true && globalThis["Map"]))"#,
+            r#"Object.freeze((false || globalThis["Map"]))"#,
             r#"Object.freeze(globalThis['Map'])"#,
             r#"Object.freeze((globalThis['Map']))"#,
+            r#"Object.freeze((null ?? globalThis['Map']))"#,
+            r#"Object.freeze((true && globalThis['Map']))"#,
+            r#"Object.freeze((false || globalThis['Map']))"#,
         ]
     );
     assert_eq!(
@@ -2862,10 +2899,15 @@ fn test_map_constructor_aliases_and_frozen_callable_source_are_canonical() {
     assert_eq!(
         frozen_source,
         concat!(
-            "Object.freeze(Map); Object.freeze((Map)); Object.freeze(globalThis.Map); ",
-            "Object.freeze((globalThis.Map)); Object.freeze(globalThis[\"Map\"]); ",
-            "Object.freeze((globalThis[\"Map\"])); Object.freeze(globalThis['Map']); ",
-            "Object.freeze((globalThis['Map']));"
+            "Object.freeze(Map); Object.freeze((Map)); Object.freeze((null ?? Map)); ",
+            "Object.freeze((true && Map)); Object.freeze((false || Map)); Object.freeze(globalThis.Map); ",
+            "Object.freeze((globalThis.Map)); Object.freeze((null ?? globalThis.Map)); ",
+            "Object.freeze((true && globalThis.Map)); Object.freeze((false || globalThis.Map)); ",
+            "Object.freeze(globalThis[\"Map\"]); Object.freeze((globalThis[\"Map\"])); ",
+            "Object.freeze((null ?? globalThis[\"Map\"])); Object.freeze((true && globalThis[\"Map\"])); ",
+            "Object.freeze((false || globalThis[\"Map\"])); Object.freeze(globalThis['Map']); ",
+            "Object.freeze((globalThis['Map'])); Object.freeze((null ?? globalThis['Map'])); ",
+            "Object.freeze((true && globalThis['Map'])); Object.freeze((false || globalThis['Map']));"
         )
     );
 }

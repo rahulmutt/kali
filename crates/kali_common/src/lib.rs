@@ -1686,8 +1686,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].any)([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenMixedBracketed = await Object.freeze(globalThis["Promise"]["any"])([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenSingleBracketRoot = await Object.freeze(globalThis['Promise']['any'])([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenSingleMixedBracketed = await Object.freeze(globalThis["Promise"]['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedFrozenMixedBracketed = await Object.freeze((globalThis["Promise"]["any"]))([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedFrozenSingleBracketRoot = await Object.freeze((globalThis['Promise']['any']))([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenSingleMixedBracketed = await Object.freeze((globalThis["Promise"]['any']))([Promise.reject('boom'), Promise.resolve(1)]);
   const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalAndRoot = await Object.freeze((true && Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalOrRoot = await Object.freeze((false || Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
@@ -2264,12 +2266,24 @@ pub const fn set_constructor_frozen_callable_aliases() -> &'static [&'static str
     &[
         r#"Object.freeze(Set)"#,
         r#"Object.freeze((Set))"#,
+        r#"Object.freeze((null ?? Set))"#,
+        r#"Object.freeze((true && Set))"#,
+        r#"Object.freeze((false || Set))"#,
         r#"Object.freeze(globalThis.Set)"#,
         r#"Object.freeze((globalThis.Set))"#,
+        r#"Object.freeze((null ?? globalThis.Set))"#,
+        r#"Object.freeze((true && globalThis.Set))"#,
+        r#"Object.freeze((false || globalThis.Set))"#,
         r#"Object.freeze(globalThis["Set"])"#,
         r#"Object.freeze((globalThis["Set"]))"#,
+        r#"Object.freeze((null ?? globalThis["Set"]))"#,
+        r#"Object.freeze((true && globalThis["Set"]))"#,
+        r#"Object.freeze((false || globalThis["Set"]))"#,
         r#"Object.freeze(globalThis['Set'])"#,
         r#"Object.freeze((globalThis['Set']))"#,
+        r#"Object.freeze((null ?? globalThis['Set']))"#,
+        r#"Object.freeze((true && globalThis['Set']))"#,
+        r#"Object.freeze((false || globalThis['Set']))"#,
     ]
 }
 
@@ -2333,12 +2347,24 @@ pub const fn map_constructor_frozen_callable_aliases() -> &'static [&'static str
     &[
         r#"Object.freeze(Map)"#,
         r#"Object.freeze((Map))"#,
+        r#"Object.freeze((null ?? Map))"#,
+        r#"Object.freeze((true && Map))"#,
+        r#"Object.freeze((false || Map))"#,
         r#"Object.freeze(globalThis.Map)"#,
         r#"Object.freeze((globalThis.Map))"#,
+        r#"Object.freeze((null ?? globalThis.Map))"#,
+        r#"Object.freeze((true && globalThis.Map))"#,
+        r#"Object.freeze((false || globalThis.Map))"#,
         r#"Object.freeze(globalThis["Map"])"#,
         r#"Object.freeze((globalThis["Map"]))"#,
+        r#"Object.freeze((null ?? globalThis["Map"]))"#,
+        r#"Object.freeze((true && globalThis["Map"]))"#,
+        r#"Object.freeze((false || globalThis["Map"]))"#,
         r#"Object.freeze(globalThis['Map'])"#,
         r#"Object.freeze((globalThis['Map']))"#,
+        r#"Object.freeze((null ?? globalThis['Map']))"#,
+        r#"Object.freeze((true && globalThis['Map']))"#,
+        r#"Object.freeze((false || globalThis['Map']))"#,
     ]
 }
 
