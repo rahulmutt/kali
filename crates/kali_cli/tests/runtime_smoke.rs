@@ -27343,6 +27343,10 @@ for (const entry of [...parenthesizedSingleQuotedBracketedEntries]) { console.lo
 for (const entry of [...frozenCallableEntries]) { console.log(entry[0]); console.log(entry[1]); }
 for (const entry of [...frozenCallableGlobalEntries]) { console.log(entry[0]); console.log(entry[1]); }
 for (const entry of [...frozenCallableBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+for (const entry of [...logicalAndBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+for (const entry of [...logicalOrBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+for (const entry of [...parenthesizedReceiverBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+for (const entry of [...parenthesizedSingleQuotedReceiverBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
 const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(frozen);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(frozen);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(frozen);
@@ -27392,6 +27396,10 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   for (const entry of [...frozenCallableEntries]) { console.log(entry[0]); console.log(entry[1]); }
   for (const entry of [...frozenCallableGlobalEntries]) { console.log(entry[0]); console.log(entry[1]); }
   for (const entry of [...frozenCallableBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+  for (const entry of [...logicalAndBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+  for (const entry of [...logicalOrBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+  for (const entry of [...parenthesizedReceiverBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
+  for (const entry of [...parenthesizedSingleQuotedReceiverBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
   const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(frozen);
   const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(frozen);
   const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(frozen);
@@ -27454,16 +27462,16 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
         && (filename.ends_with(".jsx") || filename.ends_with(".tsx"))
     {
         "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+    } else if command == "test" {
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     } else {
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     };
     if filename.ends_with(".jsx") || filename.ends_with(".tsx") {
-        assert!(
-            json["stdout"]
-                .as_str()
-                .expect("stdout string")
-                .starts_with("1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\n")
-        );
+        assert!(json["stdout"]
+            .as_str()
+            .expect("stdout string")
+            .starts_with("1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\n"));
     } else {
         assert_eq!(json["stdout"], expected_stdout);
     }
@@ -27594,7 +27602,7 @@ fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filenam
     }
     assert_eq!(
         json["stdout"],
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     );
     assert_eq!(json["stderr"], "");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
