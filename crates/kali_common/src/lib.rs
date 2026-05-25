@@ -2890,6 +2890,38 @@ pub const fn late_object_model_own_property_source() -> &'static str {
     r#"Object.hasOwn(globalThis, "a"); globalThis.Object.hasOwn(globalThis, "a"); globalThis.Object["hasOwn"](globalThis, "a"); globalThis["Object"].hasOwn(globalThis, "a"); globalThis["Object"]["hasOwn"](globalThis, "a"); Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["hasOwnProperty"].call(globalThis, "a"); Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty']['call'](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty'].call(globalThis, "a"); globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a");"#
 }
 
+const LATE_THREADED_RUNTIME_SEGMENTS: &[&str] = &[
+    "globalThis.SharedArrayBuffer",
+    r#"globalThis["SharedArrayBuffer"]"#,
+    "globalThis['SharedArrayBuffer']",
+    "Object.freeze(globalThis.SharedArrayBuffer)",
+    r#"Object.freeze(globalThis["SharedArrayBuffer"])"#,
+    "Object.freeze(globalThis['SharedArrayBuffer'])",
+    "Object.freeze((globalThis.SharedArrayBuffer))",
+    r#"Object.freeze((globalThis["SharedArrayBuffer"]))"#,
+    "Object.freeze((globalThis['SharedArrayBuffer']))",
+    "Object.freeze((null ?? globalThis.SharedArrayBuffer))",
+    r#"Object.freeze((true && globalThis["SharedArrayBuffer"]))"#,
+    "Object.freeze((false || globalThis['SharedArrayBuffer']))",
+    "globalThis.Atomics",
+    r#"globalThis["Atomics"]"#,
+    "globalThis['Atomics']",
+    "Object.freeze(globalThis.Atomics)",
+    r#"Object.freeze(globalThis["Atomics"])"#,
+    "Object.freeze(globalThis['Atomics'])",
+    "Object.freeze((globalThis.Atomics))",
+    r#"Object.freeze((globalThis["Atomics"]))"#,
+    "Object.freeze((globalThis['Atomics']))",
+    "Object.freeze((null ?? globalThis.Atomics))",
+    r#"Object.freeze((true && globalThis["Atomics"]))"#,
+    "Object.freeze((false || globalThis['Atomics']))",
+];
+
+/// Canonical alias inventory for the shared late-threaded-runtime slice.
+pub fn late_threaded_runtime_aliases() -> &'static [&'static str] {
+    LATE_THREADED_RUNTIME_SEGMENTS
+}
+
 /// Canonical late-threaded-runtime source text used by the browser and runtime smoke.
 pub const fn late_threaded_runtime_source() -> &'static str {
     "globalThis.SharedArrayBuffer; globalThis[\"SharedArrayBuffer\"]; globalThis['SharedArrayBuffer']; Object.freeze(globalThis.SharedArrayBuffer); Object.freeze(globalThis[\"SharedArrayBuffer\"]); Object.freeze(globalThis['SharedArrayBuffer']); Object.freeze((globalThis.SharedArrayBuffer)); Object.freeze((globalThis[\"SharedArrayBuffer\"])); Object.freeze((globalThis['SharedArrayBuffer'])); Object.freeze((null ?? globalThis.SharedArrayBuffer)); Object.freeze((true && globalThis[\"SharedArrayBuffer\"])); Object.freeze((false || globalThis['SharedArrayBuffer'])); globalThis.Atomics; globalThis[\"Atomics\"]; globalThis['Atomics']; Object.freeze(globalThis.Atomics); Object.freeze(globalThis[\"Atomics\"]); Object.freeze(globalThis['Atomics']); Object.freeze((globalThis.Atomics)); Object.freeze((globalThis[\"Atomics\"])); Object.freeze((globalThis['Atomics'])); Object.freeze((null ?? globalThis.Atomics)); Object.freeze((true && globalThis[\"Atomics\"])); Object.freeze((false || globalThis['Atomics']));"
