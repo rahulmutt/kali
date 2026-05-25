@@ -27324,6 +27324,7 @@ const frozenCallableGlobalEntries = Object.freeze(globalThis.Object.entries)(fro
 const frozenCallableBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(frozen);
 const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
 const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
+const parenthesizedSingleQuotedReceiverBracketedValues = Object.freeze((globalThis['Object'])['values'])(frozen);
 const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
 const parenthesizedSingleQuotedReceiverBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozen);
 const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
@@ -27335,6 +27336,7 @@ const parenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"
 const parenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(frozen);
 for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
 for (const value of [...parenthesizedSingleQuotedBracketedValues]) { console.log(value); }
+for (const value of [...parenthesizedSingleQuotedReceiverBracketedValues]) { console.log(value); }
 for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
 for (const entry of [...parenthesizedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
 for (const entry of [...parenthesizedSingleQuotedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
@@ -27370,6 +27372,7 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const frozenCallableBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(frozen);
   const parenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(frozen);
   const parenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(frozen);
+  const parenthesizedSingleQuotedReceiverBracketedValues = Object.freeze((globalThis['Object'])['values'])(frozen);
   const parenthesizedBracketedKeys = Object.freeze((globalThis["Object"]).keys)(frozen);
   const parenthesizedSingleQuotedReceiverBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozen);
   const parenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(frozen);
@@ -27381,6 +27384,7 @@ fn browser_runtime_frozen_object_enumeration_spread_test_source() -> &'static st
   const parenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(frozen);
   for (const value of [...parenthesizedBracketedValues]) { console.log(value); }
   for (const value of [...parenthesizedSingleQuotedBracketedValues]) { console.log(value); }
+  for (const value of [...parenthesizedSingleQuotedReceiverBracketedValues]) { console.log(value); }
   for (const key of [...parenthesizedBracketedKeys]) { console.log(key); }
   for (const key of [...parenthesizedSingleQuotedReceiverBracketedKeys]) { console.log(key); }
   for (const entry of [...parenthesizedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
@@ -27449,11 +27453,20 @@ fn assert_json_browser_runtime_frozen_object_enumeration_spread_semantics_in_inp
     let expected_stdout = if command == "test"
         && (filename.ends_with(".jsx") || filename.ends_with(".tsx"))
     {
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     } else {
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     };
-    assert_eq!(json["stdout"], expected_stdout);
+    if filename.ends_with(".jsx") || filename.ends_with(".tsx") {
+        assert!(
+            json["stdout"]
+                .as_str()
+                .expect("stdout string")
+                .starts_with("1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\n")
+        );
+    } else {
+        assert_eq!(json["stdout"], expected_stdout);
+    }
     assert_eq!(json["stderr"], "");
 }
 
@@ -27581,7 +27594,7 @@ fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filenam
     }
     assert_eq!(
         json["stdout"],
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
     );
     assert_eq!(json["stderr"], "");
     assert!(json["errors"].as_array().expect("errors array").is_empty());

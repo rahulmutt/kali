@@ -5273,6 +5273,9 @@ for await (const item of [...asyncBracketedBracketedValues]) { console.log(item)
 fn object_helper_nullish_logical_iteration_source() -> &'static str {
     r##"const fromEntries = Object.fromEntries([["b", 1], ["a", 2], ["b", 3]]);
 const nullishKeys = Object.freeze((null ?? Object.keys))(fromEntries);
+const logicalKeys = Object.freeze((true && Object.keys))(Object.freeze(fromEntries));
+const logicalOrKeys = Object.freeze((false || Object.keys))(fromEntries);
+const parenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(fromEntries);
 const logicalValues = Object.freeze((true && Object.values))(Object.freeze(fromEntries));
 const logicalEntries = Object.freeze((false || Object.entries))(fromEntries);
 const parenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(fromEntries);
@@ -5283,6 +5286,9 @@ const frozenLogicalValues = Object.freeze((true && Object.values))(fromEntries);
 const frozenLogicalEntries = Object.freeze((false || Object.entries))(Object.freeze(fromEntries));
 const frozenParenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(Object.freeze(fromEntries));
 for (const key of [...nullishKeys]) { console.log(key); }
+for (const key of [...logicalKeys]) { console.log(key); }
+for (const key of [...logicalOrKeys]) { console.log(key); }
+for (const key of [...parenthesizedSingleQuotedBracketedKeys]) { console.log(key); }
 for await (const value of [...logicalValues]) { console.log(value); }
 for (const entry of [...logicalEntries]) { console.log(entry[0]); console.log(entry[1]); }
 for (const entry of [...parenthesizedSingleQuotedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
