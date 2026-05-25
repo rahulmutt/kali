@@ -49764,10 +49764,11 @@ fn assert_generator_function_lowering_rejection_in_browser_context(
     command: &str,
     bundle: bool,
     extension: &str,
+    source_contents: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+    fs::write(&source_path, source_contents).expect("write source");
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path());
@@ -49792,10 +49793,11 @@ fn assert_generator_function_lowering_rejection_when_browser_harness_is_configur
     command: &str,
     extension: &str,
     json_output: bool,
+    source_contents: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(&source_path, "function* main() { yield 1; }\nmain();").expect("write source");
+    fs::write(&source_path, source_contents).expect("write source");
 
     let mut cli = Command::new(kali_bin());
     cli.current_dir(dir.path())
@@ -49840,12 +49842,22 @@ fn assert_generator_function_lowering_rejection_when_browser_harness_is_configur
 
 #[test]
 fn check_rejects_generator_function_lowering_in_browser_api_surface_js_input() {
-    assert_generator_function_lowering_rejection_in_browser_context("check", false, "js");
+    assert_generator_function_lowering_rejection_in_browser_context(
+        "check",
+        false,
+        "js",
+        "function* main() { yield 1; }\nmain();",
+    );
 }
 
 #[test]
 fn build_rejects_generator_function_lowering_in_browser_api_surface_js_input() {
-    assert_generator_function_lowering_rejection_in_browser_context("build", true, "js");
+    assert_generator_function_lowering_rejection_in_browser_context(
+        "build",
+        true,
+        "js",
+        "function* main() { yield 1; }\nmain();",
+    );
 }
 
 #[test]
@@ -49857,7 +49869,66 @@ fn run_and_test_reject_generator_function_lowering_when_browser_harness_is_confi
                 command,
                 "js",
                 json_output,
+                "function* main() { yield 1; }\nmain();",
             );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_generator_and_async_generator_function_lowering_in_browser_api_surface_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for source_contents in [
+            "function* main() { yield 1; }\nmain();",
+            "async function* main() { yield 1; }\nmain();",
+        ] {
+            assert_generator_function_lowering_rejection_in_browser_context(
+                "check",
+                false,
+                extension,
+                source_contents,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_rejects_generator_and_async_generator_function_lowering_in_browser_api_surface_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for source_contents in [
+            "function* main() { yield 1; }\nmain();",
+            "async function* main() { yield 1; }\nmain();",
+        ] {
+            assert_generator_function_lowering_rejection_in_browser_context(
+                "build",
+                true,
+                extension,
+                source_contents,
+            );
+        }
+    }
+}
+
+#[test]
+fn run_and_test_reject_generator_and_async_generator_function_lowering_when_browser_harness_is_configured_in_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for command in ["run", "test"] {
+            for json_output in [false, true] {
+                for source_contents in [
+                    "function* main() { yield 1; }\nmain();",
+                    "async function* main() { yield 1; }\nmain();",
+                ] {
+                    assert_generator_function_lowering_rejection_when_browser_harness_is_configured(
+                        command,
+                        extension,
+                        json_output,
+                        source_contents,
+                    );
+                }
+            }
         }
     }
 }
