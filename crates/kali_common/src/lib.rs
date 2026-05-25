@@ -1682,6 +1682,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const mixedBracketed = await globalThis["Promise"]["any"]([Promise.reject('boom'), Promise.resolve(1)]);
   const singleBracketed = await globalThis['Promise']['any']([Promise.reject('boom'), Promise.resolve(1)]);
   const singleMixedBracketed = await globalThis['Promise'].any([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenBracketed = await Object.freeze(globalThis["Promise"].any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].any)([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenBracketed = await Object.freeze((globalThis["Promise"].any))([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenSingleBracketed = await Object.freeze((globalThis['Promise'].any))([Promise.reject('boom'), Promise.resolve(1)]);
   const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalAndRoot = await Object.freeze((true && Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
   const logicalOrRoot = await Object.freeze((false || Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
@@ -1700,6 +1704,10 @@ pub const fn promise_any_browser_body_source() -> &'static str {
     mixedBracketed !== 1 ||
     singleBracketed !== 1 ||
     singleMixedBracketed !== 1 ||
+    frozenBracketed !== 1 ||
+    frozenSingleBracketed !== 1 ||
+    parenthesizedFrozenBracketed !== 1 ||
+    parenthesizedFrozenSingleBracketed !== 1 ||
     nullishRoot !== 1 ||
     logicalAndRoot !== 1 ||
     logicalOrRoot !== 1 ||

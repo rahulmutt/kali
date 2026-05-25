@@ -2430,6 +2430,22 @@ fn test_promise_any_browser_body_source_includes_the_shared_freeze_wrapper_alias
         "body: {body}"
     );
     assert!(
+        body.contains(r#"const frozenBracketed = await Object.freeze(globalThis["Promise"].any)([Promise.reject('boom'), Promise.resolve(1)]);"#),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const frozenSingleBracketed = await Object.freeze(globalThis['Promise'].any)([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains(r#"const parenthesizedFrozenBracketed = await Object.freeze((globalThis["Promise"].any))([Promise.reject('boom'), Promise.resolve(1)]);"#),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedFrozenSingleBracketed = await Object.freeze((globalThis['Promise'].any))([Promise.reject('boom'), Promise.resolve(1)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const nullishRoot = await Object.freeze((null ?? Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);"),
         "body: {body}"
     );
