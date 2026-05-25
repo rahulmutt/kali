@@ -41,6 +41,14 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   for (const entry of new globalThis.Map(values)) {
     globalDirect.push(entry);
   }
+  const parenthesizedBracketed = [];
+  for (const entry of new (globalThis["Map"])(values)) {
+    parenthesizedBracketed.push(entry);
+  }
+  const parenthesizedSingleBracketed = [];
+  for (const entry of new (globalThis['Map'])(values)) {
+    parenthesizedSingleBracketed.push(entry);
+  }
   const bracketed = [];
   for (const entry of new globalThis["Map"](values)) {
     bracketed.push(entry);
@@ -143,6 +151,8 @@ fn browser_harness_map_iteration_run_source() -> &'static str {
   assertMapIteration(alias);
   assertMapIteration(wrappedAlias);
   assertMapIteration(globalDirect);
+  assertMapIteration(parenthesizedBracketed);
+  assertMapIteration(parenthesizedSingleBracketed);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
@@ -295,6 +305,8 @@ fn browser_harness_map_iteration_test_source() -> &'static str {
   assertMapIteration(alias);
   assertMapIteration(wrappedAlias);
   assertMapIteration(globalDirect);
+  assertMapIteration(parenthesizedBracketed);
+  assertMapIteration(parenthesizedSingleBracketed);
   assertMapIteration(bracketed);
   assertMapIteration(singleBracketed);
   assertMapIteration(frozenDirect);
