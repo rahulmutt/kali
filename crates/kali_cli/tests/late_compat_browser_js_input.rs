@@ -108,6 +108,14 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
     "export default (class NamedExample { async *main() { yield 1; } });\n"
 }
 
+fn sequence_wrapped_generator_class_expression_source() -> &'static str {
+    "const Example = (0, class NamedExample { *main() { yield* []; } });\nnew Example();\n"
+}
+
+fn sequence_wrapped_async_generator_class_expression_source() -> &'static str {
+    "const Example = (0, class NamedExample { async *main() { yield* []; } });\nnew Example();\n"
+}
+
 #[test]
 fn browser_late_threaded_runtime_source_includes_bracketed_forms() {
     let source = late_threaded_runtime_source();
@@ -1931,6 +1939,14 @@ fn run_and_test_reject_generator_and_async_generator_class_expressions_in_browse
             (
                 async_generator_default_export_class_expression_source(),
                 "async-generator class method lowering is unavailable in the direct runtime path",
+            ),
+            (
+                sequence_wrapped_generator_class_expression_source(),
+                "generator class method lowering is unavailable in the direct runtime path for yield* delegation",
+            ),
+            (
+                sequence_wrapped_async_generator_class_expression_source(),
+                "async-generator class method lowering is unavailable in the direct runtime path for yield* delegation",
             ),
         ] {
             for output_json in [false, true] {
