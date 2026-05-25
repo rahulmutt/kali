@@ -5114,8 +5114,8 @@ mod tests {
         analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
         manifest_compat_features, manifest_runtime_profiles,
         package_analysis_specific_flag_context, package_audit_command,
-        package_audit_preview_diagnostic, package_effects_report, sort_package_audit_findings,
-        CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
+        package_audit_preview_diagnostic, package_effects_command, package_effects_report,
+        sort_package_audit_findings, CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
     };
     use kali_cli::{ColorChoice, OutputFormat};
     use kali_common::{FileId, Span};
@@ -5296,6 +5296,96 @@ mod tests {
 
         assert_eq!(context.origin, DiagnosticContextOrigin::Cli);
         assert_eq!(context.flag.as_deref(), Some("--sandbox"));
+    }
+
+    fn assert_package_analysis_specific_flag_rejection<F>(invoke: F)
+    where
+        F: Fn(&CliOutputOptions) -> Result<(), i32>,
+    {
+        for output in [
+            CliOutputOptions {
+                format: OutputFormat::Text,
+                pretty: false,
+                verbose: false,
+                quiet: false,
+                color: ColorChoice::Auto,
+            },
+            CliOutputOptions {
+                format: OutputFormat::Json,
+                pretty: true,
+                verbose: false,
+                quiet: false,
+                color: ColorChoice::Auto,
+            },
+        ] {
+            let exit_code = invoke(&output)
+                .expect_err("package-analysis-specific flags should fail before target validation");
+
+            assert_eq!(exit_code, 5);
+        }
+    }
+
+    #[test]
+    fn package_audit_rejects_package_analysis_specific_flags_before_target_validation() {
+        for (api, compat, wasm_threads, sandbox) in [
+            (
+                Some(kali_cli::ApiSurface::Browser),
+                Vec::<String>::new(),
+                false,
+                None,
+            ),
+            (None, vec![String::from("eval")], false, None),
+            (None, Vec::<String>::new(), true, None),
+            (
+                None,
+                Vec::<String>::new(),
+                false,
+                Some(Path::new("kali.policy.json").to_path_buf()),
+            ),
+        ] {
+            assert_package_analysis_specific_flag_rejection(|output| {
+                package_audit_command(
+                    Vec::new(),
+                    false,
+                    api,
+                    compat.clone(),
+                    wasm_threads,
+                    sandbox.clone(),
+                    output,
+                )
+            });
+        }
+    }
+
+    #[test]
+    fn package_effects_rejects_package_analysis_specific_flags_before_target_validation() {
+        for (api, compat, wasm_threads, sandbox) in [
+            (
+                Some(kali_cli::ApiSurface::Browser),
+                Vec::<String>::new(),
+                false,
+                None,
+            ),
+            (None, vec![String::from("eval")], false, None),
+            (None, Vec::<String>::new(), true, None),
+            (
+                None,
+                Vec::<String>::new(),
+                false,
+                Some(Path::new("kali.policy.json").to_path_buf()),
+            ),
+        ] {
+            assert_package_analysis_specific_flag_rejection(|output| {
+                package_effects_command(
+                    Vec::new(),
+                    api,
+                    compat.clone(),
+                    wasm_threads,
+                    sandbox.clone(),
+                    output,
+                )
+            });
+        }
     }
 
     #[test]
