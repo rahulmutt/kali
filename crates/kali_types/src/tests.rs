@@ -10382,12 +10382,20 @@ const frozenBracketedRoot = Object.freeze(globalThis["Math"]["pow"]);
 const frozenSingleQuotedBracketedRoot = Object.freeze(globalThis['Math']['pow']);
 const frozenSingleQuotedMathRoot = Object.freeze(Math['pow']);
 const frozenParenthesizedDotRoot = Object.freeze((Math.pow));
+const frozenParenthesizedGlobalThisDotRoot = Object.freeze((globalThis.Math))["pow"];
+const frozenParenthesizedSingleQuotedGlobalThisDotRoot = Object.freeze((globalThis.Math))['pow'];
+const frozenParenthesizedGlobalThisBracketedRoot = Object.freeze((globalThis["Math"]))["pow"];
+const frozenParenthesizedSingleQuotedGlobalThisBracketedRoot = Object.freeze((globalThis['Math']))['pow'];
 frozenDotRoot(2, exponent);
 frozenGlobalDotRoot(2, exponent);
 frozenBracketedRoot(2, exponent);
 frozenSingleQuotedBracketedRoot(2, exponent);
 frozenSingleQuotedMathRoot(2, exponent);
 frozenParenthesizedDotRoot(2, exponent);
+frozenParenthesizedGlobalThisDotRoot(2, exponent);
+frozenParenthesizedSingleQuotedGlobalThisDotRoot(2, exponent);
+frozenParenthesizedGlobalThisBracketedRoot(2, exponent);
+frozenParenthesizedSingleQuotedGlobalThisBracketedRoot(2, exponent);
 "#;
 
     for extension in ["js", "jsx", "ts", "tsx"] {

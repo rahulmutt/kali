@@ -2070,6 +2070,10 @@ fn test_math_pow_browser_alias_inventory_aliases_list_all_aliases_in_order() {
             r#"Object.freeze((null ?? globalThis['Math']['pow']))"#,
             r#"Object.freeze((true && globalThis['Math']['pow']))"#,
             r#"Object.freeze((false || globalThis['Math']['pow']))"#,
+            r#"Object.freeze((globalThis.Math))["pow"]"#,
+            r#"Object.freeze((globalThis.Math))['pow']"#,
+            r#"Object.freeze((globalThis["Math"]))["pow"]"#,
+            r#"Object.freeze((globalThis['Math']))['pow']"#,
         ]
     );
 
@@ -2099,7 +2103,7 @@ fn test_math_pow_browser_alias_inventory_source_is_canonical() {
         source
             .matches(&math_pow_bracketed_frozen_callable_source())
             .count(),
-        0,
+        1,
         "source: {source}"
     );
 }
@@ -2108,9 +2112,12 @@ fn test_math_pow_browser_alias_inventory_source_is_canonical() {
 fn test_math_pow_browser_alias_inventory_source_reuses_the_canonical_math_pow_alias_inventory() {
     let source = math_pow_browser_alias_inventory_source();
     let canonical = math_pow_alias_inventory_source();
+    let bracketed = math_pow_bracketed_frozen_callable_source();
 
-    assert_eq!(source, canonical);
+    assert!(source.starts_with(&canonical), "source: {source}");
     assert_eq!(source.matches(&canonical).count(), 1, "source: {source}");
+    assert!(source.ends_with(&bracketed), "source: {source}");
+    assert_eq!(source.matches(&bracketed).count(), 1, "source: {source}");
 }
 
 #[test]
@@ -2837,11 +2844,13 @@ fn test_math_pow_bracketed_frozen_callable_source_lists_all_aliases_in_order() {
     assert_eq!(
         aliases,
         &[
-            r#"Object.freeze((globalThis.Math["pow"]))"#,
-            r#"Object.freeze((globalThis["Math"]["pow"]))"#,
+            r#"Object.freeze((globalThis.Math))["pow"]"#,
+            r#"Object.freeze((globalThis.Math))['pow']"#,
+            r#"Object.freeze((globalThis["Math"]))["pow"]"#,
+            r#"Object.freeze((globalThis['Math']))['pow']"#,
         ]
     );
-    assert_eq!(source, "Object.freeze((globalThis.Math[\"pow\"])); Object.freeze((globalThis[\"Math\"][\"pow\"]));");
+    assert_eq!(source, "Object.freeze((globalThis.Math))[\"pow\"]; Object.freeze((globalThis.Math))['pow']; Object.freeze((globalThis[\"Math\"]))[\"pow\"]; Object.freeze((globalThis['Math']))['pow'];");
 }
 
 #[test]
