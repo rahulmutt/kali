@@ -69,6 +69,17 @@ main();
 "#
 }
 
+fn array_callback_iteration_source() -> &'static str {
+    r#"function main() {
+  const values = [1, 2];
+  for (const item of values.map((value) => value)) {
+    console.log(item);
+  }
+}
+main();
+"#
+}
+
 fn set_constructor_call_expression_source() -> &'static str {
     r#"function main() {
   let values = [1, 2];
@@ -659,6 +670,273 @@ fn build_rejects_non_literal_object_entries_iterator_source_under_inherited_brow
                 true,
             );
         }
+    }
+}
+
+fn assert_browser_array_callback_iteration_source_rejects(
+    source: &str,
+    filename: &str,
+    json_output: bool,
+    command: &str,
+    bundle: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut cmd = Command::new(kali_bin());
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    cmd.current_dir(dir.path());
+    cmd.arg(command);
+    if bundle {
+        cmd.arg("--bundle");
+    }
+    let output = cmd
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "command unexpectedly succeeded");
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], if bundle { "build" } else { "check" });
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            !errors.is_empty(),
+            "errors array should not be empty: {json}"
+        );
+        let message = errors[0]["message"].as_str().expect("error message");
+        assert_eq!(errors[0]["code"], "E5506");
+        assert!(
+            message.contains("array callback-produced iterables")
+                || message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("array callback-produced iterables")
+                || stderr.contains("literal array"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_inherited_browser_array_callback_iteration_source_rejects(
+    source: &str,
+    filename: &str,
+    json_output: bool,
+    command: &str,
+    bundle: bool,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let mut cmd = Command::new(kali_bin());
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    cmd.current_dir(dir.path());
+    cmd.arg(command);
+    if bundle {
+        cmd.arg("--bundle");
+    }
+    let output = cmd.arg(&source_path).output().expect("run kali");
+
+    assert!(!output.status.success(), "command unexpectedly succeeded");
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], if bundle { "build" } else { "check" });
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            !errors.is_empty(),
+            "errors array should not be empty: {json}"
+        );
+        let message = errors[0]["message"].as_str().expect("error message");
+        assert_eq!(errors[0]["code"], "E5506");
+        assert!(
+            message.contains("array callback-produced iterables")
+                || message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("array callback-produced iterables")
+                || stderr.contains("literal array"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
+fn assert_browser_requested_array_callback_iteration_source_rejects(
+    source: &str,
+    filename: &str,
+    json_output: bool,
+    command: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(filename);
+    fs::write(&source_path, source).expect("write source");
+
+    let mut cmd = Command::new(kali_bin());
+    cmd.env(BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path());
+    if json_output {
+        cmd.arg("--output").arg("json");
+    }
+    let output = cmd
+        .arg(command)
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success(), "command unexpectedly succeeded");
+    assert_eq!(output.status.code(), Some(1));
+
+    if json_output {
+        let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], command);
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 1);
+        let errors = json["errors"].as_array().expect("errors array");
+        assert!(
+            !errors.is_empty(),
+            "errors array should not be empty: {json}"
+        );
+        let message = errors[0]["message"].as_str().expect("error message");
+        assert_eq!(errors[0]["code"], "E5506");
+        assert!(
+            message.contains("array callback-produced iterables")
+                || message.contains("literal array"),
+            "unexpected error message: {message}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(
+            stderr.contains("array callback-produced iterables")
+                || stderr.contains("literal array"),
+            "unexpected stderr: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn build_rejects_array_callback_iteration_from_call_expression_source_in_browser_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        for json_output in [false, true] {
+            assert_browser_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_array_callback_iteration_from_call_expression_source_in_browser_input() {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        for json_output in [false, true] {
+            assert_browser_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
+}
+
+#[test]
+fn build_rejects_array_callback_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        for json_output in [false, true] {
+            assert_inherited_browser_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "build",
+                true,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_array_callback_iteration_from_call_expression_source_under_inherited_browser_config(
+) {
+    for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+        for json_output in [false, true] {
+            assert_inherited_browser_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "check",
+                false,
+            );
+        }
+    }
+}
+
+#[test]
+fn run_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for json_output in [false, true] {
+        assert_browser_requested_array_callback_iteration_source_rejects(
+            array_callback_iteration_source(),
+            "main.js",
+            json_output,
+            "run",
+        );
+    }
+}
+
+#[test]
+fn test_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+) {
+    for json_output in [false, true] {
+        assert_browser_requested_array_callback_iteration_source_rejects(
+            array_callback_iteration_source(),
+            "smoke.test.js",
+            json_output,
+            "test",
+        );
     }
 }
 
