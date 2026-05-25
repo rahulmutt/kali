@@ -66885,6 +66885,9 @@ fn json_package_registry_analysis_commands_reject_whitespace_package_argument() 
         let errors = json["errors"].as_array().expect("errors array");
         assert!(!errors.is_empty(), "errors: {errors:?}");
         assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["requestedValue"], "   ");
+        assert_eq!(errors[0]["context"]["effectiveValue"], "");
         assert!(
             errors[0]["message"]
                 .as_str()
@@ -66916,6 +66919,9 @@ fn json_package_registry_analysis_commands_reject_padded_package_argument() {
         let errors = json["errors"].as_array().expect("errors array");
         assert!(!errors.is_empty(), "errors: {errors:?}");
         assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["requestedValue"], " lodash ");
+        assert_eq!(errors[0]["context"]["effectiveValue"], "lodash");
         assert!(
             errors[0]["message"]
                 .as_str()
