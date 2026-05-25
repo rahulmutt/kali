@@ -2460,6 +2460,22 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
         "body: {body}"
     );
     assert!(
+        body.contains("const parenthesizedBracketed = await Object.freeze((globalThis[\"Promise\"])[\"race\"])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleBracketed = await Object.freeze((globalThis['Promise'])['race'])([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedBracketedBracketed = await Object.freeze((globalThis[\"Promise\"][\"race\"]))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
+        body.contains("const parenthesizedSingleBracketedBracketed = await Object.freeze((globalThis['Promise']['race']))([Promise.resolve(1), Promise.resolve(2)]);"),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const frozenRoot = await Object.freeze(Promise.race)([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
