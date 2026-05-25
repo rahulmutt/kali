@@ -1,6 +1,6 @@
 use super::*;
 use kali_common::{
-    array_from_alias_inventory_source, array_from_loop_lines,
+    array_from_alias_inventory_source, array_from_loop_lines, late_threaded_runtime_source,
     map_constructor_frozen_callable_source, map_constructor_iteration_source,
     math_pow_browser_alias_inventory_aliases, math_pow_invocation_lines_for_aliases,
     promise_any_browser_body_source, set_constructor_frozen_callable_source,
@@ -10031,11 +10031,7 @@ fn build_source_file_rejects_broader_intl_apis_in_browser_api_surface_in_tsx_inp
 fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
-    fs::write(
-        &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, late_threaded_runtime_source()).expect("write source");
 
     let error = build_source_file(
         &source_path,
@@ -10057,6 +10053,9 @@ fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
                 || diagnostic.message.contains("WeakSet")
                 || diagnostic.message.contains("WeakRef")
                 || diagnostic.message.contains("FinalizationRegistry")
+                || diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime global")
         }),
         "unexpected diagnostics: {error:?}"
     );
@@ -10066,11 +10065,7 @@ fn build_source_file_rejects_late_weak_reference_apis_in_ts_input() {
 fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
-    fs::write(
-        &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, late_threaded_runtime_source()).expect("write source");
 
     let error = build_source_file(
         &source_path,
@@ -10092,6 +10087,9 @@ fn build_source_file_rejects_late_weak_reference_apis_in_js_input() {
                 || diagnostic.message.contains("WeakSet")
                 || diagnostic.message.contains("WeakRef")
                 || diagnostic.message.contains("FinalizationRegistry")
+                || diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime global")
         }),
         "unexpected diagnostics: {error:?}"
     );
@@ -10123,11 +10121,7 @@ fn assert_build_source_file_rejects_late_weak_reference_apis_in_input(
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("main.{extension}"));
-    fs::write(
-        &source_path,
-        r#"new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; Object.freeze(new WeakMap()); Object.freeze((new WeakMap())); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; Object.freeze(new WeakSet()); Object.freeze((new WeakSet())); globalThis.WeakRef; globalThis["WeakRef"]; Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis["WeakRef"]); Object.freeze((globalThis["WeakRef"])); new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; Object.freeze(new FinalizationRegistry(() => {})); Object.freeze((new FinalizationRegistry(() => {}))); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis["FinalizationRegistry"](() => {})); Object.freeze((globalThis["FinalizationRegistry"](() => {})));"#,
-    )
-    .expect("write source");
+    fs::write(&source_path, late_threaded_runtime_source()).expect("write source");
 
     let error = build_source_file(
         &source_path,
@@ -10149,6 +10143,9 @@ fn assert_build_source_file_rejects_late_weak_reference_apis_in_input(
                 || diagnostic.message.contains("WeakSet")
                 || diagnostic.message.contains("WeakRef")
                 || diagnostic.message.contains("FinalizationRegistry")
+                || diagnostic.message.contains("SharedArrayBuffer")
+                || diagnostic.message.contains("Atomics")
+                || diagnostic.message.contains("threaded runtime global")
         }),
         "unexpected diagnostics: {error:?}"
     );
