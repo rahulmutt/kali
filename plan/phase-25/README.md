@@ -35,7 +35,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 
 - Continue validating JSON payloads, artifact manifests, diagnostics, source spans, and schema-v1 envelopes at emission boundaries.
 - Package-analysis-specific `--api` / `--compat` / `--wasm-threads` / `--sandbox` rejections now carry canonical CLI flag context in JSON output so the single-package registry-analysis contract stays machine-auditable; the broad `runtime_smoke` coverage now also asserts that context on the `package-effects` and `package-audit` JSON rejection paths, and padded single-target package rejections now carry normalized requested/effective package-argument context in JSON output.
-- Keep docs/schema drift tests aligned with README and CLI examples.
+- Keep docs/schema drift tests aligned with README and CLI examples; the browser runtime contract docs now also spell out trim-on-compare handling for the summary and scope note fields alongside the existing host label/description fields.
 - Respect schema extension posture; do not make validators narrower than published schemas.
 - Keep command-shape, arity, JSON-mode, and diagnostic-context regressions explicit for every newly promoted surface.
 - Package-analysis-specific `--sandbox` rejection is now pinned alongside the existing `--api` / `--compat` / `--wasm-threads` precedence checks for `package-effects` and `package-audit`; the dedicated flag-precedence harness now exercises the package-analysis flag set in both plain and JSON output, including pretty-bearing JSON forms, and the package-corpus smoke now also covers the `--sandbox` JSON rejection envelope with canonical CLI flag context.

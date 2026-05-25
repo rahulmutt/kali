@@ -2278,7 +2278,7 @@ fn cli_spec_examples_track_the_current_repository_surface() {
     }
 
     assert!(
-        cli_spec.contains("The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden."),
+        cli_spec.contains("The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, `summaryNote`, `contractScopeNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden."),
         "specs/12-cli.md should describe browser runtime contract trimming alongside the array-item rules"
     );
 }
@@ -2306,7 +2306,7 @@ fn browser_runtime_contract_docs_track_trimmed_validation_rules() {
         (
             "specs/12-cli.md",
             [
-                "The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden.",
+                "The browser runtime contract `hostLabel`, `hostDescription`, `hostDescriptionNote`, `summaryNote`, `contractScopeNote`, and `diagnosticHint` are compared against their canonical strings after trimming surrounding whitespace, and the `supportedCommands` / `diagnosticNotes` items are compared after trimming too, but whitespace-only values still fail validation and duplicates remain forbidden.",
                 "Each `threadTopology.liveInstances[].scriptUrl` is a canonical absolute URL string, not a relative or whitespace-padded spelling.",
             ]
             .as_slice(),
