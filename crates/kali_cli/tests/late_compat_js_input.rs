@@ -483,6 +483,31 @@ fn late_js_compatibility_source_includes_frozen_process_zero_probe_alias() {
 }
 
 #[test]
+fn check_rejects_frozen_late_object_model_weak_aliases_in_standalone_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        "Object.freeze(globalThis.WeakRef); Object.freeze((globalThis.WeakRef)); Object.freeze(globalThis[\"WeakRef\"]); Object.freeze((globalThis[\"WeakRef\"])); Object.freeze(globalThis.FinalizationRegistry); Object.freeze((globalThis.FinalizationRegistry)); Object.freeze(globalThis[\"FinalizationRegistry\"]); Object.freeze((globalThis[\"FinalizationRegistry\"]));",
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("check")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("WeakRef"), "stderr: {stderr}");
+    assert!(stderr.contains("FinalizationRegistry"), "stderr: {stderr}");
+}
+
+#[test]
 fn late_js_compatibility_source_includes_bracketed_process_env_mutation_forms() {
     let source = late_process_env_mutation_source();
     for expected in [
