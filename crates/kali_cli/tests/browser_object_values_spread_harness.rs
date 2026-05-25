@@ -28,6 +28,7 @@ function browserObjectValuesSpreadIteration() {
   const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedCollected = [...Object.freeze((globalThis['Object'])['values'])(fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedPropertyCollected = [...Object.freeze((globalThis['Object']).values)(fromEntries)];
+  const frozenBracketRootCollected = [...Object.freeze((globalThis["Object"]))["values"](fromEntries)];
   const frozenCollected = [...globalThis["Object"]["values"](frozenFromEntries)];
   const frozenFromEntriesCollected = [...Object.freeze(Object.values(fromEntries))];
   assertObjectValuesSpreadIteration(collected);
@@ -40,6 +41,7 @@ function browserObjectValuesSpreadIteration() {
   assertObjectValuesSpreadIteration(singleBracketedCollected);
   assertObjectValuesSpreadIteration(parenthesizedSingleQuotedReceiverBracketedCollected);
   assertObjectValuesSpreadIteration(parenthesizedSingleQuotedReceiverBracketedPropertyCollected);
+  assertObjectValuesSpreadIteration(frozenBracketRootCollected);
   assertObjectValuesSpreadIteration(frozenCollected);
   assertObjectValuesSpreadIteration(frozenFromEntriesCollected);
   console.log('browser object values spread iteration ok');
@@ -68,6 +70,7 @@ fn browser_harness_object_values_spread_test_source() -> &'static str {
     const mixedBracketedCollected = [...globalThis["Object"].values(fromEntries)];
     const bracketedAliasCollected = [...globalThis["Object"]["values"](fromEntries)];
     const singleBracketedCollected = [...globalThis['Object']['values'](fromEntries)];
+    const frozenBracketRootCollected = [...Object.freeze((globalThis["Object"]))["values"](fromEntries)];
     const frozenCollected = [...globalThis["Object"]["values"](frozenFromEntries)];
     const frozenFromEntriesCollected = [...Object.freeze(Object.values(fromEntries))];
     assertObjectValuesSpreadIteration(collected);
@@ -77,6 +80,7 @@ fn browser_harness_object_values_spread_test_source() -> &'static str {
     assertObjectValuesSpreadIteration(mixedBracketedCollected);
     assertObjectValuesSpreadIteration(bracketedAliasCollected);
     assertObjectValuesSpreadIteration(singleBracketedCollected);
+    assertObjectValuesSpreadIteration(frozenBracketRootCollected);
     assertObjectValuesSpreadIteration(frozenCollected);
     assertObjectValuesSpreadIteration(frozenFromEntriesCollected);
     console.log('browser object values spread iteration ok');

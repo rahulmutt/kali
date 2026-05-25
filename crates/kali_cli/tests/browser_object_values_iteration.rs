@@ -48,7 +48,9 @@ function browserDirectObjectValuesIteration() {
   for (const value of globalThis["Object"]["values"]({ "b": 1, "a": 2 })) {
     bracketed.push(value);
   }
+  const frozenBracketRootValues = Object.freeze((globalThis["Object"]))["values"]({ "b": 1, "a": 2 });
   assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(frozenBracketRootValues);
   assertObjectValuesIteration(singleQuotedProperty);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
@@ -107,7 +109,9 @@ function browserGlobalObjectValuesIteration() {
   for (const value of Object.freeze((globalThis["Object"]).values)(alias)) {
     parenthesizedBracketed.push(value);
   }
+  const frozenBracketRootValues = Object.freeze((globalThis["Object"]))["values"](alias);
   assertObjectValuesIteration(seen);
+  assertObjectValuesIteration(frozenBracketRootValues);
   assertObjectValuesIteration(mixed);
   assertObjectValuesIteration(mixedBracketed);
   assertObjectValuesIteration(doubleQuotedSingleQuoted);

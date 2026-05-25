@@ -199,6 +199,9 @@ fn browser_frozen_object_helper_iteration_run_source() -> &'static str {
   for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
     console.log(value);
   }
+  for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
+    console.log(value);
+  }
   for await (const value of Object.freeze((false || Object.values))(object)) {
     console.log(value);
   }
@@ -283,6 +286,9 @@ fn browser_frozen_object_helper_iteration_test_source() -> &'static str {
       console.log(value);
     }
     for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+      console.log(value);
+    }
+    for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
       console.log(value);
     }
     for await (const value of Object.freeze((false || Object.values))(object)) {
@@ -370,6 +376,9 @@ export async function browserFrozenObjectHelperIterationTargets() {
     console.log(value);
   }
   for await (const value of Object.freeze((globalThis["Object"]["values"]))(object)) {
+    console.log(value);
+  }
+  for await (const value of Object.freeze((globalThis["Object"]))["values"](object)) {
     console.log(value);
   }
   for await (const value of Object.freeze((false || Object.values))(object)) {
