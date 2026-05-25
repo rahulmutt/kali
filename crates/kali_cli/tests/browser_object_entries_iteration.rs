@@ -36,6 +36,7 @@ function browserObjectEntriesIteration() {
   const parenthesizedSingleQuotedReceiverBracketedEntries = (globalThis['Object'])["entries"](alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
   const singleQuotedProperty = [];
   for (const entry of globalThis['Object'].entries(alias)) {
     singleQuotedProperty.push(entry);
@@ -56,6 +57,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
   assertObjectEntriesIteration(singleQuotedProperty);
   assertObjectEntriesIteration(doubleQuotedSingleQuotedEntries);
   assertObjectEntriesIteration(mixedSingleQuotedBracketedEntries);

@@ -36,6 +36,7 @@ function browserObjectEntriesIteration() {
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
@@ -49,6 +50,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
   console.log('browser object entries iteration ok');
 }
 
@@ -85,6 +87,7 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
+  const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
   assertObjectEntriesIteration(entries);
   assertObjectEntriesIteration(globalEntries);
   assertObjectEntriesIteration(mixedEntries);
@@ -98,6 +101,7 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
   console.log('browser object entries iteration ok');
 });
 "##
