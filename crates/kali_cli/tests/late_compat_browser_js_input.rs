@@ -124,7 +124,15 @@ fn browser_late_threaded_runtime_source_includes_bracketed_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['SharedArrayBuffer']"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["Atomics"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Atomics']"#),
         "source: {source}"
     );
 }
