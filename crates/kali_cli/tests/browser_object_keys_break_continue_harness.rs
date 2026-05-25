@@ -25,7 +25,16 @@ function browserObjectKeysBreakContinueIteration() {
     keys.push(key);
     break;
   }
+  const propertyKeys = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    if (key === 'b') {
+      continue;
+    }
+    propertyKeys.push(key);
+    break;
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(propertyKeys);
   console.log('browser object keys break/continue iteration ok');
 }
 
@@ -51,7 +60,16 @@ fn browser_harness_object_keys_break_continue_test_source() -> &'static str {
     keys.push(key);
     break;
   }
+  const propertyKeys = [];
+  for (const key of Object.freeze((globalThis['Object']).keys)(alias)) {
+    if (key === 'b') {
+      continue;
+    }
+    propertyKeys.push(key);
+    break;
+  }
   assertObjectKeysIteration(keys);
+  assertObjectKeysIteration(propertyKeys);
   console.log('browser object keys break/continue iteration ok');
 });
 "##
