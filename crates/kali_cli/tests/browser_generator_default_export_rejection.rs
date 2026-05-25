@@ -81,6 +81,22 @@ fn assert_browser_harness_generator_rejection(
 }
 
 #[test]
+fn check_rejects_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "check",
+                false,
+                extension,
+                "export default function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
 fn run_rejects_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
@@ -90,6 +106,22 @@ fn run_rejects_anonymous_default_export_generator_function_declarations_in_brows
                 false,
                 extension,
                 "export default function*() { yield* []; }\n",
+                json_output,
+            );
+        }
+    }
+}
+
+#[test]
+fn check_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            assert_browser_harness_generator_rejection(
+                "check",
+                false,
+                extension,
+                "export default async function*() { yield* []; }\n",
                 json_output,
             );
         }

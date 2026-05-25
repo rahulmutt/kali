@@ -25,7 +25,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Preserve generator/function-kind metadata through parser, AST, HIR, MIR, LIR, codegen, and export analysis.
 - Keep unsupported generator forms behind canonical `E5506` gates until the full runtime path exists.
 - Current smoke now also exercises sequence-expression-wrapped generator and async-generator class expressions on the supported run/check/build paths, including the yield* delegation slice; the browser-requested JS, TS, JSX, and TSX harness lanes now mirror that same sequence-wrapped generator/async-generator rejection on the yield* slice.
-- Browser build smoke now also rejects anonymous default-export generator and async-generator function declarations across JS, TS, JSX, and TSX inputs on the supported browser harness path.
+- Browser check/build smoke now also rejects anonymous default-export generator and async-generator function declarations across JS, TS, JSX, and TSX inputs on the supported browser harness path.
 
 ### 21.2 Iterator and async-iterator protocols
 

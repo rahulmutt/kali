@@ -30,7 +30,7 @@ Implemented areas include:
 
 - schema-v1 JSON envelopes and deterministic payload validation;
 - source-file checking, building, running, and testing for TS/JS input classes;
-- browser-targeted `check` / `build --bundle` plus browser-harness smoke paths;
+- browser-targeted `check` / `build --bundle` plus browser-harness smoke paths, with browser-harness `check` coverage now also rejecting anonymous default-export generator and async-generator declarations across JS, TS, JSX, and TSX input;
 - generator and async-generator class-expression rejection now also covers sequence-wrapped forms on the supported build/check/runtime smoke paths;
 - public source-graph and registry effect/audit commands, with package-effects JSON smoke now also asserting canonical CLI flag context for package-analysis-specific flag rejections;
 - package install/materialization, registry/raw-URL flows, install JSON removal reporting for pruned registry/raw-URL entries, and package-corpus probes, including browser-harness `test` rejection coverage for published bin entrypoints when a harness command is configured;
