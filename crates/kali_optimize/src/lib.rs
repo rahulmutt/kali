@@ -2166,7 +2166,13 @@ impl Optimizer {
         node: &LirNode,
     ) -> Option<String> {
         let raw = self.member_access_name(program, node)?;
-        Some(Self::canonicalize_bracketed_member_access_name(&raw))
+        Some(Self::canonicalize_optional_chain_member_access_name(
+            &Self::canonicalize_bracketed_member_access_name(&raw),
+        ))
+    }
+
+    fn canonicalize_optional_chain_member_access_name(name: &str) -> String {
+        name.replace("globalThis?.", "globalThis.")
     }
 
     fn canonicalize_bracketed_member_access_name(name: &str) -> String {

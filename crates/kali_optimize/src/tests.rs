@@ -2490,6 +2490,56 @@ fn release_folds_object_has_own_calls_over_literal_object_shapes() {
 }
 
 #[test]
+fn release_folds_object_has_own_calls_through_optional_chain_wrappers() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+
+    let callee = builder.node_mut(call).unwrap().children[0];
+    let object = builder.node_mut(callee).unwrap().children[0];
+    builder.node_mut(object).unwrap().text = Some("globalThis?.Object".to_string());
+
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
+fn release_folds_object_has_own_calls_through_frozen_optional_chain_wrappers() {
+    let mut builder = LirBuilder::new();
+    let root = builder.alloc(LirNodeKind::Program);
+    let call = build_object_has_own_call(&mut builder, "hasOwn");
+
+    let callee = builder.node_mut(call).unwrap().children[0];
+    let object = builder.node_mut(callee).unwrap().children[0];
+    builder.node_mut(object).unwrap().text = Some("globalThis?.Object".to_string());
+    let frozen_callee = build_object_freeze_call(&mut builder, callee);
+    builder.node_mut(call).unwrap().children[0] = frozen_callee;
+
+    builder.node_mut(root).unwrap().children = vec![call];
+
+    let mut program = LirProgram {
+        root,
+        nodes: builder.into_nodes(),
+    };
+
+    Optimizer::new(OptimizationLevel::Release).optimize_program(&mut program);
+
+    let call_node = &program.nodes[call.0 as usize];
+    assert_eq!(call_node.kind, LirNodeKind::Literal);
+    assert_eq!(call_node.text.as_deref(), Some("true"));
+}
+
+#[test]
 fn release_folds_object_has_own_calls_over_frozen_from_entries_shapes() {
     let mut builder = LirBuilder::new();
     let root = builder.alloc(LirNodeKind::Program);
