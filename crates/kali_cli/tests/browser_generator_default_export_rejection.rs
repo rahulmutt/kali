@@ -145,9 +145,9 @@ fn test_rejects_anonymous_default_export_async_generator_function_declarations_i
 }
 
 #[test]
-fn build_rejects_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn build_rejects_anonymous_default_export_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
-    for extension in ["jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         for json_output in [false, true] {
             assert_browser_harness_generator_rejection(
                 "build",
@@ -161,9 +161,9 @@ fn build_rejects_anonymous_default_export_generator_function_declarations_in_bro
 }
 
 #[test]
-fn build_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_jsx_and_tsx_input(
+fn build_rejects_anonymous_default_export_async_generator_function_declarations_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
-    for extension in ["jsx", "tsx"] {
+    for extension in ["js", "ts", "jsx", "tsx"] {
         for json_output in [false, true] {
             assert_browser_harness_generator_rejection(
                 "build",
