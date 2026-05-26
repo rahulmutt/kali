@@ -5252,10 +5252,10 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
         browser_runtime_contract["supportedCommands"],
         json!(["run", "test"])
     );
-    assert!(browser_runtime_contract["diagnosticHint"]
-        .as_str()
-        .expect("diagnostic hint string")
-        .contains("kali build --bundle --api browser"));
+    assert_eq!(
+        browser_runtime_contract["diagnosticHint"],
+        json!(kali_runtime::BrowserRuntimeContract::diagnostic_hint())
+    );
     assert_eq!(browser_runtime_contract["diagnosticNotes"], json!([
         "supported browser runtime commands: run, test",
         "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
