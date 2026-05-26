@@ -4653,12 +4653,14 @@ impl TypeContext {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr)
             .unwrap_or_else(|| format!("globalThis[\"{}\"]", expr.property));
+        let single_quoted = Self::member_access_name_single_quoted(expr)
+            .unwrap_or_else(|| format!("globalThis['{}']", expr.property));
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "broader Intl support via '{}' (aka {}) is unavailable until the later web/Intl compatibility path is enabled",
-                dotted, bracketed
+                "broader Intl support via '{}' (aka {}, {}) is unavailable until the later web/Intl compatibility path is enabled",
+                dotted, bracketed, single_quoted
             ),
         ));
         true
@@ -4743,6 +4745,51 @@ impl TypeContext {
         let object_name = Self::member_access_bracketed_root_name(&expr.object)?;
 
         Some(format!("{}[\"{}\"]", object_name, expr.property))
+    }
+
+    fn member_access_name_single_quoted(expr: &MemberExpression) -> Option<String> {
+        let object_name = Self::member_access_single_quoted_root_name(&expr.object)?;
+
+        Some(format!("{}['{}']", object_name, expr.property))
+    }
+
+    fn member_access_single_quoted_root_name(object: &Expression) -> Option<String> {
+        match object {
+            Expression::Identifier(name) => Some(name.clone()),
+            Expression::MemberExpression(member) => Self::member_access_name_single_quoted(member),
+            Expression::ParenthesizedExpression(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.expression)
+            }
+            Expression::TypeAssertion(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.expression)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.expression)
+            }
+            Expression::DecoratedExpression(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.expression)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .and_then(Self::member_access_single_quoted_root_name),
+            Expression::AwaitExpression(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.argument)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    Self::member_access_single_quoted_root_name(object)
+                }
+            },
+            Expression::ChainExpression(expr) => {
+                Self::member_access_single_quoted_root_name(&expr.expression)
+            }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => call
+                .args
+                .first()
+                .and_then(Self::member_access_single_quoted_root_name),
+            _ => None,
+        }
     }
 
     fn member_access_bracketed_root_name(object: &Expression) -> Option<String> {

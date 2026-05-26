@@ -14,7 +14,7 @@ fn kali_bin() -> String {
 fn late_js_compatibility_source() -> String {
     format!(
         "{}{} {} {}",
-        r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis.Intl.NumberFormat; Object.freeze((null ?? globalThis.Intl.NumberFormat)); globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis.Intl.DateTimeFormat; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis["Intl"]["NumberFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis.Deno["permissions"]["request"](); globalThis.Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke(); Deno.env.toObject(); globalThis.Deno.env.toObject(); Deno.env["toObject"](); Deno["env"]["toObject"](); Deno["env"].toObject(); globalThis.Deno.env["toObject"](); globalThis.Deno["env"]["toObject"](); globalThis.Deno["env"].toObject(); globalThis["Deno"].env.toObject(); globalThis["Deno"].env["toObject"](); globalThis["Deno"]["env"]["toObject"](); globalThis["Deno"]["env"].toObject(); globalThis.Deno["env"]["toObject"](); "#,
+        r#"Intl; globalThis.Intl; globalThis["Intl"]; globalThis['Intl']; globalThis.Intl.NumberFormat; Object.freeze((null ?? globalThis.Intl.NumberFormat)); globalThis["Intl"].NumberFormat; globalThis.Intl["NumberFormat"]; globalThis['Intl']['NumberFormat']; globalThis.Intl.DateTimeFormat; globalThis["Intl"].DateTimeFormat; globalThis.Intl["DateTimeFormat"]; globalThis.Intl.PluralRules; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis["Intl"]["NumberFormat"]; globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.PluralRules; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale; Deno.permissions["request"](); Deno.permissions["revoke"](); globalThis.Deno.permissions["request"](); globalThis.Deno.permissions["revoke"](); globalThis["Deno"].permissions["request"](); globalThis["Deno"].permissions["revoke"](); globalThis["Deno"].permissions.request(); globalThis["Deno"].permissions.revoke(); globalThis.Deno["permissions"]["request"](); globalThis.Deno["permissions"]["revoke"](); globalThis["Deno"]["permissions"]["request"](); globalThis["Deno"]["permissions"]["revoke"](); globalThis["Deno"]["permissions"].request(); globalThis["Deno"]["permissions"].revoke(); Deno.env.toObject(); globalThis.Deno.env.toObject(); Deno.env["toObject"](); Deno["env"]["toObject"](); Deno["env"].toObject(); globalThis.Deno.env["toObject"](); globalThis.Deno["env"]["toObject"](); globalThis.Deno["env"].toObject(); globalThis["Deno"].env.toObject(); globalThis["Deno"].env["toObject"](); globalThis["Deno"]["env"]["toObject"](); globalThis["Deno"]["env"].toObject(); globalThis.Deno["env"]["toObject"](); "#,
         kali_common::late_process_control_single_quoted_process_source(),
         kali_common::late_compat_object_has_own_source("globalThis", r#""a""#),
         r#"Proxy; globalThis.Proxy; globalThis["Proxy"]; globalThis['Proxy']; new Proxy({}, {}); new globalThis.Proxy({}, {}); new globalThis["Proxy"]({}, {}); new globalThis['Proxy']({}, {}); Proxy.revocable({}, {}); globalThis.Proxy.revocable({}, {}); globalThis["Proxy"]["revocable"]({}, {}); globalThis["Proxy"].revocable({}, {}); globalThis.Proxy["revocable"]({}, {}); Object.freeze(Proxy.revocable)({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze(globalThis["Proxy"]["revocable"])({}, {}); Object.freeze((globalThis["Proxy"]["revocable"]))({}, {}); Object.freeze(globalThis["Proxy"].revocable)({}, {}); Object.freeze((globalThis["Proxy"].revocable))({}, {}); Object.freeze(globalThis.Proxy["revocable"])({}, {}); Object.freeze((globalThis.Proxy["revocable"]))({}, {}); new WeakMap(); globalThis.WeakMap; globalThis["WeakMap"]; globalThis['WeakMap']; globalThis["WeakMap"](); globalThis['WeakMap'](); Object.freeze(globalThis.WeakMap); Object.freeze(globalThis["WeakMap"]); Object.freeze(globalThis['WeakMap']); new WeakSet(); globalThis.WeakSet; globalThis["WeakSet"]; globalThis['WeakSet']; globalThis["WeakSet"](); globalThis['WeakSet'](); Object.freeze(globalThis.WeakSet); Object.freeze(globalThis["WeakSet"]); Object.freeze(globalThis['WeakSet']); globalThis.WeakRef; globalThis["WeakRef"]; new FinalizationRegistry(() => {}); globalThis.FinalizationRegistry; globalThis["FinalizationRegistry"]; globalThis["FinalizationRegistry"](() => {}); globalThis.SharedArrayBuffer; globalThis["SharedArrayBuffer"]; globalThis.Atomics; globalThis["Atomics"];"#,
@@ -59,7 +59,9 @@ fn assert_late_js_compatibility_rejection(stderr: &str) {
     for expected in [
         "Intl",
         "globalThis.Intl",
+        "globalThis['Intl']",
         "globalThis.Intl.NumberFormat",
+        "globalThis['Intl']['NumberFormat']",
         "globalThis.Intl.DateTimeFormat",
         "globalThis.Intl.RelativeTimeFormat",
         "globalThis.Intl.PluralRules",
@@ -195,7 +197,9 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
     for expected in [
         "Intl",
         "globalThis.Intl",
+        "globalThis['Intl']",
         "globalThis.Intl.NumberFormat",
+        "globalThis['Intl']['NumberFormat']",
         "globalThis.Intl.DateTimeFormat",
         "globalThis.Intl.RelativeTimeFormat",
         "globalThis.Intl.PluralRules",
@@ -276,8 +280,13 @@ fn assert_late_js_compatibility_rejection_json(errors: &[Value]) {
 fn late_js_compatibility_source_includes_bracketed_intl_forms() {
     let source = late_js_compatibility_source_with_mixed_process_forms();
     assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
+    assert!(source.contains(r#"globalThis['Intl']"#), "source: {source}");
     assert!(
         source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Intl']['NumberFormat']"#),
         "source: {source}"
     );
     assert!(

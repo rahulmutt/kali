@@ -962,8 +962,13 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 fn browser_late_object_model_source_includes_bracketed_intl_forms() {
     let source = late_object_model_source();
     assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
+    assert!(source.contains(r#"globalThis['Intl']"#), "source: {source}");
     assert!(
         source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Intl']['NumberFormat']"#),
         "source: {source}"
     );
     assert!(
