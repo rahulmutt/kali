@@ -578,6 +578,18 @@ fn browser_late_tsx_compatibility_source_includes_mixed_bracketed_proxy_revocabl
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['Proxy']['revocable']"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze(globalThis['Proxy']['revocable'])"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis['Proxy']['revocable']))"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"Object.freeze(globalThis["Proxy"].revocable)"#),
         "source: {source}"
     );
