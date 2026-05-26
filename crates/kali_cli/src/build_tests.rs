@@ -1759,6 +1759,110 @@ fn build_source_file_rejects_unsupported_math_member_calls_in_browser_api_surfac
     );
 }
 
+fn optional_chain_math_pow_source_variants() -> [&'static str; 6] {
+    [
+        "console.log(Math?.pow(2, 3));\n",
+        "console.log(Math?.[\"pow\"](2, 3));\n",
+        "console.log(globalThis.Math?.pow(2, 3));\n",
+        "console.log(globalThis[\"Math\"]?.pow(2, 3));\n",
+        "console.log(globalThis['Math']?.pow(2, 3));\n",
+        "console.log(globalThis?.Math?.pow(2, 3));\n",
+    ]
+}
+
+fn assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    for source in optional_chain_math_pow_source_variants() {
+        let dir = tempdir().expect("tempdir");
+        let source_path = dir.path().join(format!("main.{extension}"));
+        fs::write(&source_path, source).expect("write source");
+
+        let error = build_source_file(
+            &source_path,
+            BuildMode::Fast,
+            api_surface,
+            false,
+            &[],
+            16,
+            None,
+            None,
+        )
+        .expect_err("optional-chain wrapped Math.pow should fail");
+
+        assert!(error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)));
+        assert!(error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("optional-chain wrappers")));
+    }
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_js_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_ts_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_jsx_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_tsx_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_js_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_ts_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_jsx_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_tsx_input() {
+    assert_build_source_file_rejects_optional_chain_wrapped_math_pow_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_rejects_negative_math_pow_exponents_in_input(
     api_surface: ApiSurface,
     extension: &str,
