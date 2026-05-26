@@ -528,13 +528,21 @@ fn broader_intl_source_includes_bracketed_spellings() {
         r#"globalThis.Intl["NumberFormat"]"#,
         r#"globalThis["Intl"].NumberFormat"#,
         r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis['Intl']['NumberFormat']"#,
         r#"globalThis["Intl"]["DateTimeFormat"]"#,
+        r#"globalThis['Intl']['DateTimeFormat']"#,
         r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
+        r#"globalThis['Intl']['RelativeTimeFormat']"#,
         r#"globalThis["Intl"]["PluralRules"]"#,
+        r#"globalThis['Intl']['PluralRules']"#,
         r#"globalThis["Intl"]["Collator"]"#,
+        r#"globalThis['Intl']['Collator']"#,
         r#"globalThis["Intl"]["DisplayNames"]"#,
+        r#"globalThis['Intl']['DisplayNames']"#,
         r#"globalThis["Intl"]["Segmenter"]"#,
+        r#"globalThis['Intl']['Segmenter']"#,
         r#"globalThis["Intl"]["Locale"]"#,
+        r#"globalThis['Intl']['Locale']"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }

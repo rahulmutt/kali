@@ -825,13 +825,21 @@ fn assert_browser_late_object_model_rejection(stderr: &str) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis['Intl']['NumberFormat']"#,
         "globalThis.Intl.DateTimeFormat",
+        r#"globalThis['Intl']['DateTimeFormat']"#,
         "globalThis.Intl.RelativeTimeFormat",
+        r#"globalThis['Intl']['RelativeTimeFormat']"#,
         "globalThis.Intl.PluralRules",
+        r#"globalThis['Intl']['PluralRules']"#,
         "globalThis.Intl.Collator",
+        r#"globalThis['Intl']['Collator']"#,
         "globalThis.Intl.DisplayNames",
+        r#"globalThis['Intl']['DisplayNames']"#,
         "globalThis.Intl.Segmenter",
+        r#"globalThis['Intl']['Segmenter']"#,
         "globalThis.Intl.Locale",
+        r#"globalThis['Intl']['Locale']"#,
         "Intl.DisplayNames",
         "Intl.Segmenter",
         "Intl.Locale",
@@ -878,13 +886,21 @@ fn assert_browser_late_object_model_rejection_json(errors: &[Value]) {
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
         r#"globalThis["Intl"]["NumberFormat"]"#,
+        r#"globalThis['Intl']['NumberFormat']"#,
         "globalThis.Intl.DateTimeFormat",
+        r#"globalThis['Intl']['DateTimeFormat']"#,
         "globalThis.Intl.RelativeTimeFormat",
+        r#"globalThis['Intl']['RelativeTimeFormat']"#,
         "globalThis.Intl.PluralRules",
+        r#"globalThis['Intl']['PluralRules']"#,
         "globalThis.Intl.Collator",
+        r#"globalThis['Intl']['Collator']"#,
         "globalThis.Intl.DisplayNames",
+        r#"globalThis['Intl']['DisplayNames']"#,
         "globalThis.Intl.Segmenter",
+        r#"globalThis['Intl']['Segmenter']"#,
         "globalThis.Intl.Locale",
+        r#"globalThis['Intl']['Locale']"#,
         "Intl.DisplayNames",
         "Intl.Segmenter",
         "Intl.Locale",
@@ -976,7 +992,15 @@ fn browser_late_object_model_source_includes_bracketed_intl_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['Intl']['DateTimeFormat']"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["Intl"]["RelativeTimeFormat"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Intl']['RelativeTimeFormat']"#),
         "source: {source}"
     );
     assert!(
@@ -1004,6 +1028,10 @@ fn browser_late_object_model_source_includes_bracketed_intl_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['Intl']['PluralRules']"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis.Intl["PluralRules"]"#),
         "source: {source}"
     );
@@ -1016,7 +1044,15 @@ fn browser_late_object_model_source_includes_bracketed_intl_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['Intl']['Collator']"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["Intl"]["DisplayNames"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Intl']['DisplayNames']"#),
         "source: {source}"
     );
     assert!(
@@ -1024,7 +1060,15 @@ fn browser_late_object_model_source_includes_bracketed_intl_forms() {
         "source: {source}"
     );
     assert!(
+        source.contains(r#"globalThis['Intl']['Segmenter']"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"globalThis["Intl"]["Locale"]"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"globalThis['Intl']['Locale']"#),
         "source: {source}"
     );
 }
