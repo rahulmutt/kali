@@ -7560,6 +7560,42 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
 }
 
 #[test]
+fn test_resolution_reports_single_quoted_proxy_revocable_aliases_as_late_object_model_api() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"globalThis['Proxy']['revocable']; Object.freeze((globalThis['Proxy'])['revocable']);"#,
+    )
+    .unwrap();
+
+    let lexer = kali_lexer::Lexer::new(
+        kali_common::FileId::new(0),
+        r#"globalThis['Proxy']['revocable']; Object.freeze((globalThis['Proxy'])['revocable']);"#
+            .to_string(),
+    );
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert_eq!(result.diagnostics.len(), 2);
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains("Proxy.revocable")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains(r#"globalThis["Proxy"]["revocable"]"#)));
+}
+
+#[test]
 fn test_resolution_reports_frozen_proxy_revocable_aliases_as_unavailable() {
     let mut ctx = TypeContext::new();
     let statements = vec![
