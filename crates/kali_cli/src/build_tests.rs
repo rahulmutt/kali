@@ -2731,6 +2731,107 @@ fn build_source_file_supports_math_sqrt_perfect_square_literal_through_object_fr
     );
 }
 
+fn assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+    api_surface: ApiSurface,
+    extension: &str,
+) {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join(format!("main.{extension}"));
+    fs::write(
+        &source_path,
+        "const value = -27; console.log(Object.freeze(globalThis.Math.cbrt)(value)); console.log(Object.freeze(globalThis[\"Math\"][\"cbrt\"])(value));\n",
+    )
+    .expect("write source");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        api_surface,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("Math.cbrt frozen callable wrapper build should succeed");
+
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_js_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Deno,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_ts_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Deno,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_browser_api_surface_in_js_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Browser,
+        "js",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_browser_api_surface_in_ts_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Browser,
+        "ts",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Deno,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Deno,
+        "tsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_browser_api_surface_in_jsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Browser,
+        "jsx",
+    );
+}
+
+#[test]
+fn build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_browser_api_surface_in_tsx_input(
+) {
+    assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_through_object_freeze_callable_wrappers_in_input(
+        ApiSurface::Browser,
+        "tsx",
+    );
+}
+
 fn assert_build_source_file_supports_math_cbrt_negative_perfect_cube_literal_in_input(
     api_surface: ApiSurface,
     extension: &str,
