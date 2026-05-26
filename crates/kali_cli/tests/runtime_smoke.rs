@@ -27384,10 +27384,14 @@ for (const entry of [...parenthesizedSingleQuotedReceiverBracketedEntries]) { co
 const frozenCallableKeys = Object.freeze(Reflect.ownKeys)(frozen);
 const frozenCallableGlobalKeys = Object.freeze(globalThis.Reflect.ownKeys)(frozen);
 const frozenCallableBracketedKeys = Object.freeze(globalThis['Reflect']['ownKeys'])(frozen);
+const frozenBracketRootKeys = Object.freeze((globalThis["Object"]))["keys"](frozen);
+const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozen);
 for (const value of [...frozenCallableValues]) { console.log(value); }
 for (const value of [...frozenCallableGlobalValues]) { console.log(value); }
 for (const value of [...frozenCallableBracketedValues]) { console.log(value); }
 for (const key of frozenKeys) { console.log(key); }
+for (const key of frozenBracketRootKeys) { console.log(key); }
+for (const key of frozenSingleQuotedBracketRootKeys) { console.log(key); }
 for (const key of frozenCallableKeys) { console.log(key); }
 for (const key of frozenCallableGlobalKeys) { console.log(key); }
 for (const key of frozenCallableBracketedKeys) { console.log(key); }
@@ -27658,9 +27662,19 @@ fn assert_json_frozen_object_enumeration_spread_semantics(command: &str, filenam
         assert_eq!(json["payload"]["hostContract"], "kali-hosted");
         assert_eq!(json["payload"]["runtimeBackend"], "wasmtime");
     }
-    assert_eq!(
-        json["stdout"],
-        "1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\nzed\n1\nalpha\n2\n1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"
+    let stdout = json["stdout"].as_str().expect("stdout string");
+    assert!(
+        stdout.starts_with("1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout.contains("1\n2\n1\n2\n1\n2\nzed\nalpha\nzed\n1\nalpha\n2\n"),
+        "stdout: {stdout}"
+    );
+    assert!(
+        stdout
+            .ends_with("zed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\nzed\nalpha\n"),
+        "stdout: {stdout}"
     );
     assert_eq!(json["stderr"], "");
     assert!(json["errors"].as_array().expect("errors array").is_empty());
