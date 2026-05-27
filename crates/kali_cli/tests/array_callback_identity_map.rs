@@ -40,9 +40,9 @@ fn assert_identity_map_succeeds(command: &str, extension: &str) {
     }
 }
 
-fn assert_identity_map_browser_check_build_succeeds(command: &str) {
+fn assert_identity_map_browser_check_build_succeeds(command: &str, extension: &str) {
     let dir = tempdir().expect("tempdir");
-    let source_path = dir.path().join("smoke.test.js");
+    let source_path = dir.path().join(format!("smoke.test.{extension}"));
     fs::write(&source_path, identity_map_source()).expect("write source");
 
     let mut cli = Command::new(kali_bin());
@@ -90,11 +90,17 @@ fn test_supports_identity_map_array_iteration_lowering_in_js_and_ts_input() {
 }
 
 #[test]
-fn check_supports_identity_map_array_iteration_lowering_in_browser_api_surface_js_input() {
-    assert_identity_map_browser_check_build_succeeds("check");
+fn check_supports_identity_map_array_iteration_lowering_in_browser_api_surface_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_identity_map_browser_check_build_succeeds("check", extension);
+    }
 }
 
 #[test]
-fn build_supports_identity_map_array_iteration_lowering_in_browser_api_surface_js_input() {
-    assert_identity_map_browser_check_build_succeeds("build");
+fn build_supports_identity_map_array_iteration_lowering_in_browser_api_surface_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_identity_map_browser_check_build_succeeds("build", extension);
+    }
 }
