@@ -34335,6 +34335,12 @@ fn json_build_rejects_library_sources_without_static_exports_in_js_input() {
             .contains("no statically known export surface")),
         "expected export-surface message in {errors:?}"
     );
+    assert!(
+        errors
+            .iter()
+            .any(|error| error["context"]["origin"] == "source"),
+        "expected source-origin context in {errors:?}"
+    );
     assert!(!dir.path().join("math.lib.wasm").exists());
     assert!(!dir.path().join("math.lib.meta.json").exists());
 }
@@ -34372,6 +34378,12 @@ fn json_build_rejects_library_sources_without_static_exports_in_capi_and_compone
                 .as_str()
                 .expect("error message")
                 .contains("no statically known export surface")),
+            "selector: {selector}\nerrors: {errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error["context"]["origin"] == "source"),
             "selector: {selector}\nerrors: {errors:?}"
         );
         assert!(!dir.path().join("math.capi.wasm").exists());

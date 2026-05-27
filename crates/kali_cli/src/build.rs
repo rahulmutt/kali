@@ -13,7 +13,9 @@ use kali_common::{
     generator_class_method_yield_lowering_unavailable_message_for_flavors,
     template::resolve_interpolated_template_literal, FileId,
 };
-use kali_error::{_error_codes::e5, _error_codes::e8, Diagnostic};
+use kali_error::{
+    _error_codes::e5, _error_codes::e8, Diagnostic, DiagnosticContext, DiagnosticContextOrigin,
+};
 use kali_hir::HirLowerer;
 use kali_lexer::{Lexer, Token, TokenType};
 use kali_lir::LirLowerer;
@@ -5039,6 +5041,7 @@ fn invalid_export_surface(source_path: &Path, message: &str) -> Diagnostic {
             message
         ),
     )
+    .with_context(DiagnosticContext::new(DiagnosticContextOrigin::Source))
 }
 
 fn source_stem(source_path: &Path) -> String {
