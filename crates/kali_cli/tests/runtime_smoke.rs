@@ -42815,8 +42815,12 @@ fn check_and_build_reject_global_this_optional_chain_wrapped_math_pow_in_browser
     for (command, source) in [
         ("check", "console.log(globalThis.Math?.pow(2, 3));\n"),
         ("check", "console.log(globalThis?.Math.pow(2, 3));\n"),
+        ("check", "console.log(globalThis?.Math[\"pow\"](2, 3));\n"),
+        ("check", "console.log(globalThis?.[\"Math\"].pow(2, 3));\n"),
         ("build", "console.log(globalThis.Math?.pow(2, 3));\n"),
         ("build", "console.log(globalThis?.Math.pow(2, 3));\n"),
+        ("build", "console.log(globalThis?.Math[\"pow\"](2, 3));\n"),
+        ("build", "console.log(globalThis?.[\"Math\"].pow(2, 3));\n"),
     ] {
         for output_json in [false, true] {
             let dir = tempdir().expect("tempdir");
@@ -42865,6 +42869,16 @@ fn run_and_test_reject_optional_chain_wrapped_math_pow_in_browser_api_surface_wi
         ("run", "main.jsx", "console.log(Math?.pow(2, 3));\n"),
         ("run", "main.tsx", "console.log(Math?.pow(2, 3));\n"),
         (
+            "run",
+            "main.js",
+            "console.log(globalThis?.Math[\"pow\"](2, 3));\n",
+        ),
+        (
+            "run",
+            "main.ts",
+            "console.log(globalThis?.[\"Math\"].pow(2, 3));\n",
+        ),
+        (
             "test",
             "smoke.test.js",
             "Kali.test('optional-chain pow', () => { console.log(Math?.pow(2, 3)); });\n",
@@ -42883,6 +42897,16 @@ fn run_and_test_reject_optional_chain_wrapped_math_pow_in_browser_api_surface_wi
             "test",
             "smoke.test.tsx",
             "Kali.test('optional-chain pow', () => { console.log(Math?.pow(2, 3)); });\n",
+        ),
+        (
+            "test",
+            "smoke.test.js",
+            "Kali.test('optional-chain pow', () => { console.log(globalThis?.Math[\"pow\"](2, 3)); });\n",
+        ),
+        (
+            "test",
+            "smoke.test.ts",
+            "Kali.test('optional-chain pow', () => { console.log(globalThis?.[\"Math\"].pow(2, 3)); });\n",
         ),
     ] {
         for output_json in [false, true] {

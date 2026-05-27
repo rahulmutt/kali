@@ -11,8 +11,17 @@ fn browser_math_pow_optional_chain_run_source() -> &'static str {
     r#"const exponent = 3;
 const alias = exponent;
 console.log(globalThis?.Math.pow(2, alias));
+console.log(globalThis?.Math["pow"](2, alias));
+console.log(globalThis?.Math['pow'](2, alias));
+console.log(globalThis?.["Math"].pow(2, alias));
+console.log(globalThis?.["Math"]["pow"](2, alias));
+console.log(globalThis?.['Math'].pow(2, alias));
 console.log(Object.freeze(globalThis?.Math.pow)(2, alias));
 console.log(Object.freeze((globalThis?.Math.pow))(2, alias));
+console.log(Object.freeze(globalThis?.Math["pow"])(2, alias));
+console.log(Object.freeze((globalThis?.Math["pow"]))(2, alias));
+console.log(Object.freeze((globalThis?.["Math"].pow))(2, alias));
+console.log(Object.freeze((globalThis?.['Math'].pow))(2, alias));
 "#
 }
 
