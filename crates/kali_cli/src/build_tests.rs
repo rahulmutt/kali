@@ -9921,7 +9921,7 @@ fn build_source_file_rejects_broader_intl_apis_in_ts_input() {
     let source_path = dir.path().join("main.ts");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis['Intl']['DateTimeFormat']; globalThis["Intl"]["DateTimeFormat"]; globalThis['Intl']['RelativeTimeFormat']; globalThis["Intl"]["RelativeTimeFormat"]; globalThis['Intl']['PluralRules']; globalThis["Intl"]["PluralRules"]; globalThis['Intl']['Collator']; globalThis["Intl"]["Collator"]; globalThis['Intl']['DisplayNames']; globalThis["Intl"]["DisplayNames"]; globalThis['Intl']['Segmenter']; globalThis["Intl"]["Segmenter"]; globalThis['Intl']['Locale']; globalThis["Intl"]["Locale"]; globalThis['Intl']['NumberFormat']; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -9984,7 +9984,7 @@ fn build_source_file_rejects_broader_intl_apis_in_js_input() {
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis['Intl']['DateTimeFormat']; globalThis["Intl"]["DateTimeFormat"]; globalThis['Intl']['RelativeTimeFormat']; globalThis["Intl"]["RelativeTimeFormat"]; globalThis['Intl']['PluralRules']; globalThis["Intl"]["PluralRules"]; globalThis['Intl']['Collator']; globalThis["Intl"]["Collator"]; globalThis['Intl']['DisplayNames']; globalThis["Intl"]["DisplayNames"]; globalThis['Intl']['Segmenter']; globalThis["Intl"]["Segmenter"]; globalThis['Intl']['Locale']; globalThis["Intl"]["Locale"]; globalThis['Intl']['NumberFormat']; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -10047,7 +10047,7 @@ fn build_source_file_rejects_broader_intl_apis_in_jsx_input() {
     let source_path = dir.path().join("main.jsx");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis['Intl']['DateTimeFormat']; globalThis["Intl"]["DateTimeFormat"]; globalThis['Intl']['RelativeTimeFormat']; globalThis["Intl"]["RelativeTimeFormat"]; globalThis['Intl']['PluralRules']; globalThis["Intl"]["PluralRules"]; globalThis['Intl']['Collator']; globalThis["Intl"]["Collator"]; globalThis['Intl']['DisplayNames']; globalThis["Intl"]["DisplayNames"]; globalThis['Intl']['Segmenter']; globalThis["Intl"]["Segmenter"]; globalThis['Intl']['Locale']; globalThis["Intl"]["Locale"]; globalThis['Intl']['NumberFormat']; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -10110,7 +10110,7 @@ fn build_source_file_rejects_broader_intl_apis_in_tsx_input() {
     let source_path = dir.path().join("main.tsx");
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis['Intl']['DateTimeFormat']; globalThis["Intl"]["DateTimeFormat"]; globalThis['Intl']['RelativeTimeFormat']; globalThis["Intl"]["RelativeTimeFormat"]; globalThis['Intl']['PluralRules']; globalThis["Intl"]["PluralRules"]; globalThis['Intl']['Collator']; globalThis["Intl"]["Collator"]; globalThis['Intl']['DisplayNames']; globalThis["Intl"]["DisplayNames"]; globalThis['Intl']['Segmenter']; globalThis["Intl"]["Segmenter"]; globalThis['Intl']['Locale']; globalThis["Intl"]["Locale"]; globalThis['Intl']['NumberFormat']; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
@@ -10175,7 +10175,7 @@ fn assert_build_source_file_rejects_broader_intl_apis_in_input(
     let source_path = dir.path().join(format!("main.{extension}"));
     fs::write(
         &source_path,
-        r#"globalThis["Intl"]["DateTimeFormat"]; globalThis["Intl"]["RelativeTimeFormat"]; globalThis["Intl"]["PluralRules"]; globalThis["Intl"]["Collator"]; globalThis["Intl"]["DisplayNames"]; globalThis["Intl"]["Segmenter"]; globalThis["Intl"]["Locale"]; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
+        r#"globalThis['Intl']['DateTimeFormat']; globalThis["Intl"]["DateTimeFormat"]; globalThis['Intl']['RelativeTimeFormat']; globalThis["Intl"]["RelativeTimeFormat"]; globalThis['Intl']['PluralRules']; globalThis["Intl"]["PluralRules"]; globalThis['Intl']['Collator']; globalThis["Intl"]["Collator"]; globalThis['Intl']['DisplayNames']; globalThis["Intl"]["DisplayNames"]; globalThis['Intl']['Segmenter']; globalThis["Intl"]["Segmenter"]; globalThis['Intl']['Locale']; globalThis["Intl"]["Locale"]; globalThis['Intl']['NumberFormat']; globalThis["Intl"]["NumberFormat"]; Intl.NumberFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; Intl.Segmenter; Intl.Locale;"#,
     )
     .expect("write source");
 
