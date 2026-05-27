@@ -4730,6 +4730,29 @@ fn supported_for_of_array_iteration_accepts_parenthesized_frozen_array_from_call
 }
 
 #[test]
+fn supported_for_of_array_iteration_accepts_identity_map_calls() {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
 fn supported_for_await_array_iteration_accepts_as_const_wrappers() {
     let program = parse_and_lower_lir(
         "const value = 2; for await (const item of ([1, (value)] as const)) { console.log(item); }",
@@ -4801,6 +4824,29 @@ fn supported_for_await_array_iteration_accepts_satisfies_wrappers() {
 fn supported_for_await_array_iteration_accepts_parenthesized_binding_wrappers() {
     let program =
         parse_and_lower_lir("let item = 0; for await ((item) of [1, 2]) { console.log(item); }");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_await_array_iteration_accepts_identity_map_calls() {
+    let program = parse_and_lower_lir(
+        "const values = [1, 2]; for await (const item of values.map((value) => value)) { console.log(item); }",
+    );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
