@@ -1813,6 +1813,8 @@ pub const fn promise_any_browser_body_source() -> &'static str {
   const frozenDottedBracketed = await Object.freeze(globalThis.Promise["any"])([Promise.reject('boom'), Promise.resolve(1)]);
   const frozenSingleDottedBracketed = await Object.freeze(globalThis.Promise['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   const parenthesizedFrozenDotted = await Object.freeze((globalThis.Promise.any))([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenDottedBracketed = await Object.freeze((globalThis.Promise)["any"])([Promise.reject('boom'), Promise.resolve(1)]);
+  const parenthesizedFrozenSingleDottedBracketed = await Object.freeze((globalThis.Promise)['any'])([Promise.reject('boom'), Promise.resolve(1)]);
   if (
     direct !== 1 ||
     mixed !== 1 ||

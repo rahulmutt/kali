@@ -47,6 +47,14 @@ fn assert_browser_requested_promise_any(command: &str, filename: &str, json_outp
         source.contains(r#"Object.freeze((globalThis['Promise']['any']))"#),
         "source: {source}"
     );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis.Promise)["any"])"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((globalThis.Promise)['any'])"#),
+        "source: {source}"
+    );
     fs::write(&source_path, source).expect("write source");
 
     let mut command_line = Command::new(kali_bin());
