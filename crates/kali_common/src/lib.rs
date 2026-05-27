@@ -1039,6 +1039,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
         format!(r#"Object["prototype"]["hasOwnProperty"]["call"]({receiver_source}, {key_source})"#),
         format!(r#"Object.prototype["hasOwnProperty"].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis.Object["hasOwnProperty"].call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis.Object['hasOwnProperty'].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis["Object"].hasOwnProperty.call({receiver_source}, {key_source})"#),
         format!(r#"globalThis["Object"]["hasOwnProperty"].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis['Object'].hasOwnProperty.call({receiver_source}, {key_source})"#),
