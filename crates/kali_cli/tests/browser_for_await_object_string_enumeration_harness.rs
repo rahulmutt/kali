@@ -61,6 +61,10 @@ async function browserObjectStringEnumeration() {
   for await (const key of globalThis['Object']['keys']('ab')) {
     singleBracketedKeys.push(key);
   }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
   const parenthesizedBracketedKeys = [];
   for await (const key of (globalThis.Object)["keys"]('ab')) {
     parenthesizedBracketedKeys.push(key);
@@ -105,6 +109,10 @@ async function browserObjectStringEnumeration() {
   const singleBracketedValues = [];
   for await (const value of globalThis['Object']['values']('ab')) {
     singleBracketedValues.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
   }
   const parenthesizedBracketedValues = [];
   for await (const value of (globalThis.Object)["values"]('ab')) {
@@ -151,6 +159,10 @@ async function browserObjectStringEnumeration() {
   for await (const entry of globalThis['Object']['entries']('ab')) {
     singleBracketedEntries.push(entry);
   }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
   const parenthesizedBracketedEntries = [];
   for await (const entry of (globalThis.Object)["entries"]('ab')) {
     parenthesizedBracketedEntries.push(entry);
@@ -179,6 +191,7 @@ async function browserObjectStringEnumeration() {
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
   assertObjectKeysIteration(parenthesizedBracketedKeys);
   assertObjectKeysIteration(parenthesizedBracketedReceiverKeys);
   assertObjectKeysIteration(nullishKeys);
@@ -190,6 +203,7 @@ async function browserObjectStringEnumeration() {
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverPropertyValues);
   assertObjectValuesIteration(parenthesizedBracketedValues);
   assertObjectValuesIteration(parenthesizedBracketedReceiverValues);
   assertObjectValuesIteration(nullishValues);
@@ -201,6 +215,7 @@ async function browserObjectStringEnumeration() {
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
   assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverPropertyEntries);
   assertObjectEntriesIteration(parenthesizedBracketedEntries);
   assertObjectEntriesIteration(parenthesizedBracketedReceiverEntries);
   assertObjectEntriesIteration(nullishEntries);
@@ -267,6 +282,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for await (const key of globalThis['Object']['keys']('ab')) {
     singleBracketedKeys.push(key);
   }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
   const parenthesizedBracketedKeys = [];
   for await (const key of (globalThis.Object)["keys"]('ab')) {
     parenthesizedBracketedKeys.push(key);
@@ -311,6 +330,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   const singleBracketedValues = [];
   for await (const value of globalThis['Object']['values']('ab')) {
     singleBracketedValues.push(value);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
   }
   const parenthesizedBracketedValues = [];
   for await (const value of (globalThis.Object)["values"]('ab')) {
@@ -357,6 +380,10 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   for await (const entry of globalThis['Object']['entries']('ab')) {
     singleBracketedEntries.push(entry);
   }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
+  }
   const parenthesizedBracketedEntries = [];
   for await (const entry of (globalThis.Object)["entries"]('ab')) {
     parenthesizedBracketedEntries.push(entry);
@@ -385,6 +412,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectKeysIteration(bracketedKeys);
   assertObjectKeysIteration(fullyBracketedKeys);
   assertObjectKeysIteration(singleBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
   assertObjectKeysIteration(parenthesizedBracketedKeys);
   assertObjectKeysIteration(parenthesizedBracketedReceiverKeys);
   assertObjectKeysIteration(nullishKeys);
@@ -396,6 +424,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectValuesIteration(bracketedValues);
   assertObjectValuesIteration(fullyBracketedValues);
   assertObjectValuesIteration(singleBracketedValues);
+  assertObjectValuesIteration(parenthesizedSingleQuotedReceiverPropertyValues);
   assertObjectValuesIteration(parenthesizedBracketedValues);
   assertObjectValuesIteration(parenthesizedBracketedReceiverValues);
   assertObjectValuesIteration(nullishValues);
@@ -407,6 +436,7 @@ fn browser_harness_object_string_enumeration_test_source() -> &'static str {
   assertObjectEntriesIteration(bracketedEntries);
   assertObjectEntriesIteration(fullyBracketedEntries);
   assertObjectEntriesIteration(singleBracketedEntries);
+  assertObjectEntriesIteration(parenthesizedSingleQuotedReceiverPropertyEntries);
   assertObjectEntriesIteration(parenthesizedBracketedEntries);
   assertObjectEntriesIteration(parenthesizedBracketedReceiverEntries);
   assertObjectEntriesIteration(nullishEntries);

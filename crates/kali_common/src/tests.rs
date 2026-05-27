@@ -590,6 +590,10 @@ fn test_array_from_frozen_callable_aliases_contains_representative_supported_ali
         r#"Object.freeze((null ?? globalThis.Array["from"]))"#,
         r#"Object.freeze((true && globalThis.Array["from"]))"#,
         r#"Object.freeze((false || globalThis.Array["from"]))"#,
+        r#"Object.freeze((Array.from, Array.from))"#,
+        r#"Object.freeze((globalThis.Array.from, globalThis.Array.from))"#,
+        r#"Object.freeze((globalThis["Array"].from, globalThis["Array"].from))"#,
+        r#"Object.freeze((globalThis['Array'].from, globalThis['Array'].from))"#,
     ] {
         assert!(aliases.contains(&alias), "missing alias: {alias}");
     }

@@ -57,6 +57,10 @@ fn browser_for_await_object_string_enumeration_source() -> &'static str {
   for await (const key of globalThis['Object']['keys']('ab')) {
     singleBracketedKeys.push(key);
   }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of Object.freeze((globalThis['Object']).keys)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
 
   const values = [];
   for await (const value of Object.values('ab')) {
@@ -82,6 +86,10 @@ fn browser_for_await_object_string_enumeration_source() -> &'static str {
   for await (const value of globalThis['Object']['values']('ab')) {
     singleBracketedValues.push(value);
   }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of Object.freeze((globalThis['Object']).values)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
 
   const entries = [];
   for await (const entry of Object.entries('ab')) {
@@ -106,6 +114,10 @@ fn browser_for_await_object_string_enumeration_source() -> &'static str {
   const singleBracketedEntries = [];
   for await (const entry of globalThis['Object']['entries']('ab')) {
     singleBracketedEntries.push(entry);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of Object.freeze((globalThis['Object']).entries)('ab')) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
   }
 
   assertObjectKeysIteration(keys);
@@ -181,6 +193,10 @@ async function browserObjectStringEnumerationAwaitSequenceWrappers() {
   for await (const key of (0, globalThis['Object']['keys']('ab'))) {
     singleBracketedKeys.push(key);
   }
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [];
+  for await (const key of (0, Object.freeze((globalThis['Object']).keys)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyKeys.push(key);
+  }
 
   const values = [];
   for await (const value of (0, Object.values('ab'))) {
@@ -206,6 +222,10 @@ async function browserObjectStringEnumerationAwaitSequenceWrappers() {
   for await (const value of (0, globalThis['Object']['values']('ab'))) {
     singleBracketedValues.push(value);
   }
+  const parenthesizedSingleQuotedReceiverPropertyValues = [];
+  for await (const value of (0, Object.freeze((globalThis['Object']).values)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyValues.push(value);
+  }
 
   const entries = [];
   for await (const entry of (0, Object.entries('ab'))) {
@@ -230,6 +250,10 @@ async function browserObjectStringEnumerationAwaitSequenceWrappers() {
   const singleBracketedEntries = [];
   for await (const entry of (0, globalThis['Object']['entries']('ab'))) {
     singleBracketedEntries.push(entry);
+  }
+  const parenthesizedSingleQuotedReceiverPropertyEntries = [];
+  for await (const entry of (0, Object.freeze((globalThis['Object']).entries)('ab'))) {
+    parenthesizedSingleQuotedReceiverPropertyEntries.push(entry);
   }
 
   assertObjectKeysIteration(keys);
