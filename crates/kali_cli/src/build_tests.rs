@@ -5481,6 +5481,7 @@ const nullishKeys = Object.freeze((null ?? Object.keys))(fromEntries);
 const logicalKeys = Object.freeze((true && Object.keys))(Object.freeze(fromEntries));
 const logicalOrKeys = Object.freeze((false || Object.keys))(fromEntries);
 const parenthesizedSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(fromEntries);
+const parenthesizedDoubleQuotedBracketedKeys = Object.freeze((globalThis["Object"])["keys"])(fromEntries);
 const logicalValues = Object.freeze((true && Object.values))(Object.freeze(fromEntries));
 const logicalEntries = Object.freeze((false || Object.entries))(fromEntries);
 const parenthesizedSingleQuotedBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(fromEntries);
@@ -5494,6 +5495,7 @@ for (const key of [...nullishKeys]) { console.log(key); }
 for (const key of [...logicalKeys]) { console.log(key); }
 for (const key of [...logicalOrKeys]) { console.log(key); }
 for (const key of [...parenthesizedSingleQuotedBracketedKeys]) { console.log(key); }
+for (const key of [...parenthesizedDoubleQuotedBracketedKeys]) { console.log(key); }
 for await (const value of [...logicalValues]) { console.log(value); }
 for (const entry of [...logicalEntries]) { console.log(entry[0]); console.log(entry[1]); }
 for (const entry of [...parenthesizedSingleQuotedBracketedEntries]) { console.log(entry[0]); console.log(entry[1]); }
