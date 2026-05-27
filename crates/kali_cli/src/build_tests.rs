@@ -10893,6 +10893,29 @@ fn build_artifact_metadata_round_trips_through_schema_validation() {
 }
 
 #[test]
+fn build_artifact_metadata_accepts_zero_max_specializations() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+    fs::write(&source_path, "const main = 1;").expect("write source");
+
+    let metadata = build_artifact_metadata(
+        &source_path,
+        "component",
+        BuildMode::ReleaseAdvanced,
+        "browser",
+        &[],
+        0,
+        None,
+        None,
+    )
+    .expect("build metadata with zero maxSpecializations");
+
+    let value = serde_json::to_value(&metadata).expect("serialize metadata");
+    assert_eq!(value["maxSpecializations"], serde_json::json!(0));
+    validate_artifact_metadata_value(&value).expect("metadata should satisfy schema validation");
+}
+
+#[test]
 fn build_browser_bundle_result_round_trips_through_schema_validation() {
     let value = serde_json::json!({
         "artifactKind": "bundle",

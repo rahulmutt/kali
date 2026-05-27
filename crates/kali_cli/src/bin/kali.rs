@@ -5147,7 +5147,7 @@ fn single_diagnostic_to_values(
 mod tests {
     use super::{
         analysis_context_for_api, command_allows_pretty_without_json, emit_native_json_payload,
-        manifest_compat_features, manifest_runtime_profiles,
+        manifest_compat_features, manifest_max_specializations, manifest_runtime_profiles,
         package_analysis_specific_flag_context, package_audit_command,
         package_audit_preview_diagnostic, package_effects_command, package_effects_report,
         sort_package_audit_findings, CliOutputOptions, PACKAGE_AUDIT_PREVIEW_MESSAGE,
@@ -5632,5 +5632,18 @@ mod tests {
             context.config_path.as_deref(),
             Some("compilerOptions.runtimeProfiles")
         );
+    }
+
+    #[test]
+    fn manifest_max_specializations_accepts_zero() {
+        let manifest = ProjectManifest {
+            compiler_options: Some(json!({"maxSpecializations": 0})),
+            ..ProjectManifest::minimal()
+        };
+
+        let max_specializations = manifest_max_specializations(&manifest)
+            .expect("zero maxSpecializations should be accepted");
+
+        assert_eq!(max_specializations, Some(0));
     }
 }
