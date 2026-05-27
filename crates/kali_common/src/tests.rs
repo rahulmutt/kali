@@ -2565,6 +2565,18 @@ fn test_promise_race_browser_body_source_includes_the_shared_freeze_wrapper_alia
     let body = promise_race_browser_body_source();
 
     assert!(
+        body.contains(
+            "const mixed = await Promise[\"race\"]([Promise.resolve(1), Promise.resolve(2)]);"
+        ),
+        "body: {body}"
+    );
+    assert!(
+        body.contains(
+            "const singleMixed = await Promise['race']([Promise.resolve(1), Promise.resolve(2)]);"
+        ),
+        "body: {body}"
+    );
+    assert!(
         body.contains("const bracketed = await globalThis[\"Promise\"].race([Promise.resolve(1), Promise.resolve(2)]);"),
         "body: {body}"
     );
