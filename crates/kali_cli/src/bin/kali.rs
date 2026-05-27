@@ -5646,4 +5646,22 @@ mod tests {
 
         assert_eq!(max_specializations, Some(0));
     }
+
+    #[test]
+    fn manifest_max_specializations_rejects_negative_values() {
+        let manifest = ProjectManifest {
+            compiler_options: Some(json!({"maxSpecializations": -1})),
+            ..ProjectManifest::minimal()
+        };
+
+        let diagnostics = manifest_max_specializations(&manifest)
+            .expect_err("negative maxSpecializations should fail manifest validation");
+        let diagnostic = diagnostics.first().expect("diagnostic");
+
+        assert_eq!(diagnostic.code, Some(e5::INVALID_CONFIG as u32));
+        assert_eq!(
+            diagnostic.message,
+            "`compilerOptions.maxSpecializations` must be a non-negative integer"
+        );
+    }
 }
