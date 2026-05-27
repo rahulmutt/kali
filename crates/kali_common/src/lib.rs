@@ -850,6 +850,23 @@ pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
     join_semicolon_terminated_segments(&statements.iter().map(String::as_str).collect::<Vec<_>>())
 }
 
+/// Canonical frozen callable aliases for the supported `Object.keys` / `Object.values` / `Object.entries` helper slice.
+pub const fn object_enumeration_frozen_callable_aliases() -> &'static [&'static str] {
+    &[
+        r#"Object.freeze((globalThis["Object"]).keys)"#,
+        r#"Object.freeze((globalThis["Object"]).values)"#,
+        r#"Object.freeze((globalThis["Object"]).entries)"#,
+        r#"Object.freeze((globalThis['Object']).keys)"#,
+        r#"Object.freeze((globalThis['Object']).values)"#,
+        r#"Object.freeze((globalThis['Object']).entries)"#,
+    ]
+}
+
+/// Canonical source text for the supported `Object.keys` / `Object.values` / `Object.entries` helper slice.
+pub fn object_enumeration_frozen_callable_source() -> String {
+    join_semicolon_terminated_segments(object_enumeration_frozen_callable_aliases())
+}
+
 /// Canonical boolean-check source for the supported `Object.hasOwn` frozen callable aliases.
 pub fn object_has_own_frozen_callable_condition_source(
     receiver_source: &str,

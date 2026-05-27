@@ -1495,6 +1495,38 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
 }
 
 #[test]
+fn test_object_enumeration_frozen_callable_source_lists_all_aliases_in_order() {
+    let aliases = object_enumeration_frozen_callable_aliases();
+    let source = object_enumeration_frozen_callable_source();
+    let expected = format!("{};", aliases.join("; "));
+
+    for expected_alias in [
+        r#"Object.freeze((globalThis["Object"]).keys)"#,
+        r#"Object.freeze((globalThis["Object"]).values)"#,
+        r#"Object.freeze((globalThis["Object"]).entries)"#,
+        r#"Object.freeze((globalThis['Object']).keys)"#,
+        r#"Object.freeze((globalThis['Object']).values)"#,
+        r#"Object.freeze((globalThis['Object']).entries)"#,
+    ] {
+        assert!(
+            aliases.contains(&expected_alias),
+            "missing alias: {expected_alias}"
+        );
+    }
+
+    let mut unique_aliases = std::collections::HashSet::new();
+    for alias in aliases.iter().copied() {
+        assert!(
+            unique_aliases.insert(alias),
+            "duplicate alias in Object.keys/values/entries frozen-callable inventory: {alias}"
+        );
+    }
+
+    assert_eq!(aliases.len(), unique_aliases.len());
+    assert_eq!(source, expected);
+}
+
+#[test]
 fn test_object_has_own_frozen_callable_condition_source_lists_all_aliases_in_order() {
     let aliases = object_has_own_frozen_callable_aliases();
     let condition_source = object_has_own_frozen_callable_condition_source("wrapped", r#""a""#);
