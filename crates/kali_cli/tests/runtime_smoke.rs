@@ -43608,6 +43608,74 @@ fn run_supports_math_sin_and_cos_zero_literals_in_js_input() {
 }
 
 #[test]
+fn run_and_test_supports_math_sin_cos_tan_zero_literals_with_transparent_aliases_in_js_input() {
+    for (command, source_name, source, expected_stdout) in [
+        (
+            "run",
+            "main.js",
+            "const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(Object.freeze(globalThis.Math).cos(zero)); console.log(Object.freeze(globalThis[\"Math\"][\"tan\"])(zero));\n",
+            "1",
+        ),
+        (
+            "test",
+            "smoke.test.js",
+            "Kali.test('math sin/cos/tan zero identities with aliases', () => { const zero = 0; console.log(globalThis[\"Math\"].sin(zero)); console.log(Object.freeze(globalThis.Math).cos(zero)); console.log(Object.freeze(globalThis[\"Math\"][\"tan\"])(zero)); });\n",
+            "ok 1",
+        ),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(source_name);
+            fs::write(&source_path, source).expect("write source");
+
+            let mut command_builder = Command::new(kali_bin());
+            command_builder.current_dir(dir.path());
+            if output_json {
+                command_builder.arg("--output").arg("json");
+            }
+            let output = command_builder
+                .arg(command)
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(
+                output.status.success(),
+                "stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], true);
+                if command == "run" {
+                    assert_eq!(json["exitCode"], 0);
+                    assert_eq!(json["payload"]["exitCode"], 0);
+                } else {
+                    assert_eq!(json["payload"]["total"], 1);
+                    assert_eq!(json["payload"]["passed"], 1);
+                    assert_eq!(json["payload"]["failed"], 0);
+                }
+                let stdout = json["stdout"].as_str().expect("stdout string");
+                assert!(stdout.contains("1"), "json: {json}");
+                assert!(stdout.contains("0"), "json: {json}");
+                assert_eq!(json["stderr"], "");
+            } else {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                assert!(stdout.contains("1"), "stdout: {stdout}");
+                assert!(stdout.contains("0"), "stdout: {stdout}");
+                if command == "test" {
+                    assert!(stdout.contains(expected_stdout), "stdout: {stdout}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn run_supports_math_exp_and_log_exact_identity_literals_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
