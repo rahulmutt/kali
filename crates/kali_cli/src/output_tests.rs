@@ -5065,6 +5065,86 @@ fn validate_doctor_payload_value_rejects_empty_or_whitespace_host_description_no
 }
 
 #[test]
+fn validate_doctor_payload_value_rejects_empty_or_whitespace_summary_note() {
+    for value in ["", " \n\t "] {
+        let payload = json!({
+            "browserHarness": {
+                "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                "source": "env",
+                "override": "node --test",
+                "command": ["node", "--test"],
+                "executable": "node",
+                "args": ["--test"],
+                "executableAvailable": true,
+            },
+            "browserRuntimeContract": {
+                "hostLabel": "browser-requested",
+                "hostDescription": "real browser host",
+                "hostDescriptionNote": "browser runtime host description: real browser host",
+                "supportedCommands": ["run", "test"],
+                "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                "summaryNote": value,
+                "contractScopeNote": "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                "diagnosticNotes": [
+                    "supported browser runtime commands: run, test",
+                    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                    "browser runtime host description: real browser host"
+                ]
+            }
+        });
+
+        let err = validate_doctor_payload_value(&payload)
+            .expect_err("empty or whitespace summaryNote should fail");
+        assert!(
+            err.contains("browserRuntimeContract summaryNote"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
+fn validate_doctor_payload_value_rejects_empty_or_whitespace_contract_scope_note() {
+    for value in ["", " \n\t "] {
+        let payload = json!({
+            "browserHarness": {
+                "envVar": "KALI_BROWSER_BUNDLE_HARNESS_COMMAND",
+                "source": "env",
+                "override": "node --test",
+                "command": ["node", "--test"],
+                "executable": "node",
+                "args": ["--test"],
+                "executableAvailable": true,
+            },
+            "browserRuntimeContract": {
+                "hostLabel": "browser-requested",
+                "hostDescription": "real browser host",
+                "hostDescriptionNote": "browser runtime host description: real browser host",
+                "supportedCommands": ["run", "test"],
+                "diagnosticHint": "Use the Phase-1 browser-targeted command set (`kali check --api browser` and `kali build --bundle --api browser`) for browser-targeted analysis/build work.",
+                "summaryNote": "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                "contractScopeNote": value,
+                "diagnosticNotes": [
+                    "supported browser runtime commands: run, test",
+                    "browser runtime contract summary: run and test remain later-compatibility commands; use the Phase-1 browser-targeted check/build lane for browser-facing analysis/build work",
+                    "browser runtime contract scope: run and test only; entrypoints, stdout/stderr capture, and exit status are mapped by the future browser harness",
+                    "browser runtime summary fallback: stdout wins when the configured browser harness summary file is missing, unparseable, unreadable, whitespace-only, or shape-invalid",
+                    "browser runtime host description: real browser host"
+                ]
+            }
+        });
+
+        let err = validate_doctor_payload_value(&payload)
+            .expect_err("empty or whitespace contractScopeNote should fail");
+        assert!(
+            err.contains("browserRuntimeContract contractScopeNote"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_doctor_payload_value_rejects_wrong_host_label() {
     let value = json!({
         "browserHarness": {
