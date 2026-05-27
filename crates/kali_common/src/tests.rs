@@ -1510,6 +1510,9 @@ fn test_object_enumeration_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze((globalThis['Object']).keys)"#,
         r#"Object.freeze((globalThis['Object']).values)"#,
         r#"Object.freeze((globalThis['Object']).entries)"#,
+        r#"Object.freeze((globalThis['Object'])['keys'])"#,
+        r#"Object.freeze((globalThis['Object'])['values'])"#,
+        r#"Object.freeze((globalThis['Object'])['entries'])"#,
     ] {
         assert!(
             aliases.contains(&expected_alias),
