@@ -111,6 +111,57 @@ fn package_audit_preview_flag_stays_hidden_from_help() {
 }
 
 #[test]
+fn readme_cli_examples_remain_parseable() {
+    let cargo_manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = cargo_manifest_dir
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("repo root");
+    let readme = std::fs::read_to_string(repo_root.join("README.md")).expect("read README");
+
+    let mut in_use_cli_section = false;
+    let mut in_code_block = false;
+    let mut examples = Vec::new();
+
+    for line in readme.lines() {
+        let trimmed = line.trim_start();
+        if trimmed == "## Use the CLI" {
+            in_use_cli_section = true;
+            continue;
+        }
+        if in_use_cli_section && trimmed.starts_with("## ") {
+            break;
+        }
+        if !in_use_cli_section {
+            continue;
+        }
+        if trimmed.starts_with("```") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block && trimmed.starts_with("kali ") {
+            let command = trimmed
+                .split_once(" #")
+                .map_or(trimmed, |(command, _)| command)
+                .trim_end();
+            examples.push(command.to_string());
+        }
+    }
+
+    assert!(!examples.is_empty(), "expected README CLI examples");
+
+    for example in examples {
+        let normalized = example
+            .replace("[-- args...]", "-- guest-arg")
+            .replace("[files...]", "main.ts")
+            .replace("<file>", "main.ts")
+            .replace("<package>", "lodash");
+        let argv: Vec<_> = normalized.split_whitespace().collect();
+        Args::parse_from(argv);
+    }
+}
+
+#[test]
 fn run_command_splits_guest_args_after_double_dash() {
     let args = Args::parse_from(["kali", "run", "--api", "node", "main.ts", "--", "1.2.3"]);
     match args.command {
