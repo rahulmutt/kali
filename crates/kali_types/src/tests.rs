@@ -2838,6 +2838,41 @@ Object.prototype.hasOwnProperty.call(alias, "a");
 }
 
 #[test]
+fn test_resolution_supports_bracketed_and_frozen_object_has_own_aliases_in_js_input() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = r#"const object = Object.fromEntries([["a", 1], ["b", 2]]);
+const alias = object;
+const bracketedHasOwn = Object["hasOwn"];
+const globalThisBracketedHasOwn = globalThis["Object"]["hasOwn"];
+const frozenBracketedHasOwn = Object.freeze(globalThis["Object"]["hasOwn"]);
+const frozenParenthesizedBracketedHasOwn = Object.freeze((globalThis["Object"])["hasOwn"]);
+bracketedHasOwn(alias, "a");
+globalThisBracketedHasOwn(alias, "a");
+frozenBracketedHasOwn(alias, "a");
+frozenParenthesizedBracketedHasOwn(alias, "a");
+Object["hasOwn"](alias, "a");
+globalThis["Object"]["hasOwn"](alias, "a");
+Object.freeze(globalThis["Object"]["hasOwn"])(alias, "a");
+Object.freeze((globalThis["Object"])["hasOwn"])(alias, "a");
+"#;
+    fs::write(&source_path, source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let result = TypeContext::with_base_path(&source_path)
+        .resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn test_resolution_supports_object_from_entries_with_conditional_wrapper_in_js_input() {
     let dir = tempdir().unwrap();
     let source_path = dir.path().join("main.js");
