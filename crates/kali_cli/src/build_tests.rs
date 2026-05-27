@@ -8073,6 +8073,43 @@ fn collect_library_exports_rejects_generator_default_export_expression_through_p
 }
 
 #[test]
+fn collect_library_exports_rejects_generator_default_export_expression_through_sequence() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.ts");
+
+    let statements = vec![Statement::ExportDefault(
+        kali_ast::ExportDefaultDeclaration::Expression(Expression::SequenceExpression(Box::new(
+            kali_ast::SequenceExpression {
+                expressions: vec![
+                    Expression::Literal(kali_ast::LiteralValue::Number(0.0)),
+                    Expression::FunctionExpression(Box::new(kali_ast::FunctionExpression {
+                        id: None,
+                        params: vec![],
+                        body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
+                        is_async: false,
+                        generator: true,
+                    })),
+                ],
+            },
+        ))),
+    )];
+
+    let error = collect_library_exports_from_statements(&statements, &source_path)
+        .expect_err("sequence-wrapped generator default exports should fail");
+    assert!(
+        error.iter().any(|diagnostic| diagnostic.code
+            == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32)),
+        "unexpected diagnostics: {error:?}"
+    );
+    assert!(
+        error
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("generator function lowering")),
+        "unexpected diagnostics: {error:?}"
+    );
+}
+
+#[test]
 fn collect_library_exports_rejects_async_generator_default_export_expression_through_sequence() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");
