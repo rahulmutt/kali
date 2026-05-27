@@ -3118,11 +3118,25 @@ impl TypeContext {
             return false;
         }
 
+        let single_quoted = bracketed.replace("[\"", "['").replace("\"]", "']");
+        let single_quoted_root_dotted = Self::member_access_single_quoted_root_name(argument)
+            .map(|root| {
+                format!(
+                    "{}.{}",
+                    root,
+                    dotted
+                        .rsplit_once('.')
+                        .map(|(_, leaf)| leaf)
+                        .unwrap_or(dotted.as_str())
+                )
+            })
+            .unwrap_or_else(|| single_quoted.clone());
+
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
-                dotted, bracketed
+                "late object-model API '{}' (aka {}, {}, {}) is unavailable until the later object-model compatibility path is enabled",
+                dotted, bracketed, single_quoted, single_quoted_root_dotted
             ),
         ));
         true
@@ -4712,6 +4726,19 @@ impl TypeContext {
     fn resolve_late_object_model_member(&mut self, expr: &MemberExpression) -> bool {
         let dotted = Self::member_access_name(expr).unwrap_or_else(|| expr.property.clone());
         let bracketed = Self::member_access_name_bracketed(expr).unwrap_or_else(|| dotted.clone());
+        let single_quoted = Self::member_access_name_single_quoted(expr).unwrap_or_else(|| {
+            format!(
+                "{}['{}']",
+                dotted
+                    .rsplit_once('.')
+                    .map(|(root, _)| root)
+                    .unwrap_or(&dotted),
+                expr.property
+            )
+        });
+        let single_quoted_root_dotted = Self::member_access_single_quoted_root_name(&expr.object)
+            .map(|root| format!("{}.{}", root, expr.property))
+            .unwrap_or_else(|| single_quoted.clone());
 
         if self.api_surface != "node"
             && self.is_supported_static_callable_member_name(&dotted, &bracketed)
@@ -4726,8 +4753,8 @@ impl TypeContext {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
-                    "late object-model API '{}' (aka {}) is unavailable until the later object-model compatibility path is enabled",
-                    dotted, bracketed
+                    "late object-model API '{}' (aka {}, {}, {}) is unavailable until the later object-model compatibility path is enabled",
+                    dotted, bracketed, single_quoted, single_quoted_root_dotted
                 ),
             ));
             return true;

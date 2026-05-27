@@ -7592,6 +7592,10 @@ fn test_resolution_reports_proxy_revocable_member_access_as_late_object_model_ap
         .diagnostics
         .iter()
         .any(|diag| { diag.message.contains(r#"globalThis["Proxy"]["revocable"]"#) }));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains(r#"globalThis['Proxy']['revocable']"#)));
 }
 
 #[test]
@@ -7628,6 +7632,10 @@ fn test_resolution_reports_single_quoted_proxy_revocable_aliases_as_late_object_
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains(r#"globalThis["Proxy"]["revocable"]"#)));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains(r#"globalThis['Proxy']['revocable']"#)));
 }
 
 #[test]
@@ -7677,6 +7685,10 @@ fn test_resolution_reports_frozen_proxy_revocable_aliases_as_unavailable() {
         .diagnostics
         .iter()
         .any(|diag| diag.message.contains("globalThis.Proxy.revocable")));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diag| diag.message.contains(r#"globalThis['Proxy']['revocable']"#)));
 }
 
 #[test]

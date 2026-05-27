@@ -61,6 +61,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Maintain compact dashboards of supported vs gated semantics.
 - Remove implementation-journal prose from plan files.
 - Keep diagnostic codes and wording aligned with `specs/15-errors.md`.
+- Normalize late object-model diagnostics so quoted and frozen alias spellings surface the same canonical `Proxy.revocable` family in E5506 text.
 
 ## Exit gate
 
