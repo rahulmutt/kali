@@ -72,7 +72,7 @@ main();
 fn array_callback_iteration_source() -> &'static str {
     r#"function main() {
   const values = [1, 2];
-  for (const item of values.map((value) => value)) {
+  for (const item of values.filter((value) => value > 1)) {
     console.log(item);
   }
 }

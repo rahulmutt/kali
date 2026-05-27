@@ -14011,7 +14011,6 @@ fn test_resolution_rejects_array_callback_methods_in_non_browser_surface() {
         ("findIndex", "(value) => value < 3"),
         ("findLast", "(value) => value < 3"),
         ("findLastIndex", "(value) => value < 3"),
-        ("map", "(value) => value + 1"),
         ("filter", "(value) => value > 1"),
         ("some", "(value) => value > 1"),
         ("every", "(value) => value > 1"),
@@ -14021,4 +14020,25 @@ fn test_resolution_rejects_array_callback_methods_in_non_browser_surface() {
     ] {
         assert_array_callback_method_is_rejected_non_browser_surface(method, callback);
     }
+}
+
+#[test]
+fn test_resolution_allows_identity_array_map_in_non_browser_surface() {
+    let dir = tempfile::tempdir().unwrap();
+    let source_path = dir.path().join("main.js");
+    let source = "const result = [1, 2, 3].map((value) => value);".to_string();
+    fs::write(&source_path, &source).unwrap();
+
+    let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source);
+    let tokens = lexer.lex_all().tokens;
+    let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+    let statements = parser.parse(None).statements;
+
+    let mut ctx = TypeContext::with_base_path(&source_path);
+    let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
 }

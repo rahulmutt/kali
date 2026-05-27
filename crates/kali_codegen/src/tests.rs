@@ -2798,7 +2798,6 @@ fn generator_function_without_yield_still_remains_feature_unavailable() {
 #[test]
 fn unsupported_array_callback_iteration_lowering_reports_feature_unavailable() {
     for source in [
-        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }",

@@ -36,7 +36,7 @@ Implemented areas include:
 - Deno/Web/Node API slices with explicit late-compatibility gates;
 - runtime slices for supported object, iterator, BigInt, Math, Promise, console, dynamic-import, and reflection behavior;
 - library, WIT, C ABI, component, metadata, and binding-package artifact lanes;
-- deterministic PGO input handling and benchmark fixtures;
+- deterministic PGO input handling and benchmark fixtures; the new `math-round-builtin` / `math-round-builtin-js` pair now does the same for `Math.round`, and the `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`);
 - Lean proof infrastructure with proof-backed claims limited to the published boundary.
 
 ## Planning boundary

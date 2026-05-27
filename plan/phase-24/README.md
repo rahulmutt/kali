@@ -16,7 +16,7 @@ Turn optimization and PGO work into deterministic, evidence-backed performance c
 
 ### 24.1 Optimization inventory upkeep
 
-- Keep a concise current-evidence inventory of real `fast`, `release`, and `release-advanced` behavior.
+- Keep a concise current-evidence inventory of real `fast`, `release`, and `release-advanced` behavior. Current fixture names include `math-floor-builtin-js`, `math-round-builtin-js`, `math-pow-builtin-js`, `math-trunc-builtin-js`, `math-ceil-builtin-js`, and `folded-arithmetic-variant-js`.
 - Update the inventory only when tests prove a mode's behavior.
 - Preserve deterministic artifacts and schema-v1 output contracts.
 

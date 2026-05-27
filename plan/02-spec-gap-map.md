@@ -13,7 +13,7 @@ Remaining goals:
 - Promote parser-accepted but unavailable semantics only when checker, lowering, runtime, and conformance evidence exist.
 - Implement full generator and async-generator execution semantics, including resumable state machines, `yield`, `yield*`, `return`, `throw`, async interaction, and finalization.
 - Expand iterator and async-iterator protocol behavior beyond bounded static slices, including lookup, `next` result handling, abrupt completion, close/finalization, and async protocol behavior.
-- Implement callback-bearing array methods and other callback-driven built-ins only when faithful callback lowering and error/finalization semantics are present.
+- Implement callback-bearing array methods and other callback-driven built-ins only when faithful callback lowering and error/finalization semantics are present. The supported literal-array identity `values.map((value) => value)` slice now has a live lowering path; keep the remaining callback-bearing methods gated until faithful callback lowering exists.
 - Continue widening expression/operator, object-model, BigInt, Math, Promise, dynamic-import, reflection, and built-in semantics where translation-safe.
 - Keep non-literal dynamic import, broad reflection, eval-adjacent behavior, and unsupported dynamic language forms explicitly gated unless maturity rows are promoted.
 - Grow bounded TS/JS inference only within deterministic budget rules, especially at exported/public boundaries and cross-module analysis.
@@ -52,7 +52,7 @@ Remaining goals:
 - Deepen `release` and `release-advanced` optimizations while preserving JavaScript-visible semantics, sandbox effects, proof boundaries, and deterministic artifacts.
 - Keep `--profile` as a deterministic build-only additive input; do not create a hidden fourth build mode.
 - Promote performance wording only when benchmark evidence names workload, build mode, baseline, and reproducibility constraints.
-- Keep optimization inventories as concise evidence snapshots rather than progress journals.
+- Keep optimization inventories as concise evidence snapshots rather than progress journals. The `folded-arithmetic-variant` slice now also has a JS workload form (`folded-arithmetic-variant-js`).
 
 ## Verification and contracts
 

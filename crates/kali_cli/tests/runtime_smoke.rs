@@ -50473,9 +50473,8 @@ fn run_and_test_reject_generator_and_async_generator_function_lowering_when_brow
     }
 }
 
-fn array_callback_iteration_sources() -> [&'static str; 11] {
+fn array_callback_iteration_sources() -> [&'static str; 10] {
     [
-        "const values = [1, 2]; for (const item of values.map((value) => value)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }\n",

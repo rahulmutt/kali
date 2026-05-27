@@ -35,7 +35,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 ### 21.3 Dynamic language and built-in semantics
 
 - Widen object-model, Math, BigInt, Promise, dynamic import, reflection, and operator semantics only when observable JavaScript behavior is pinned.
-- Implement callback-bearing array methods such as `find`, `findIndex`, `findLast`, `findLastIndex`, `map`, `filter`, `some`, `every`, `reduce`, `reduceRight`, and `flatMap` only with faithful callback, abrupt-completion, and finalization behavior.
+- Implement callback-bearing array methods such as `find`, `findIndex`, `findLast`, `findLastIndex`, `map`, `filter`, `some`, `every`, `reduce`, `reduceRight`, and `flatMap` only with faithful callback, abrupt-completion, and finalization behavior. The supported literal-array identity `values.map((value) => value)` slice is now live; keep the remaining callback-bearing methods gated until their faithful lowering exists.
 - Keep non-literal dynamic import, broad reflective APIs, eval-adjacent forms, and unsupported object-model/runtime APIs gated unless their maturity rows are promoted.
 - Pair each promotion with checker, lowering, runtime, browser/context, and JSON-output evidence where applicable.
 

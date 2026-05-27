@@ -1039,6 +1039,11 @@ impl<'a> FunctionEmitter<'a> {
                 continue;
             }
 
+            if let Some(argument) = self.resolve_identity_array_callback_source(node) {
+                id = argument;
+                continue;
+            }
+
             if node.kind == LirNodeKind::Value && node.children.len() == 2 {
                 match node.text.as_deref() {
                     Some("??") => {
@@ -3302,6 +3307,73 @@ impl<'a> FunctionEmitter<'a> {
         matches_callback_iterable_method(callee_text)
     }
 
+    fn resolve_identity_array_map_call_source(&self, id: LirNodeId) -> Option<LirNodeId> {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        let callee_text = callee_node.text.as_deref()?;
+        let is_map_call = callee_text == "map"
+            || callee_text.ends_with(".map")
+            || callee_text.ends_with("[\"map\"]")
+            || callee_text.ends_with("['map']");
+        if !is_map_call {
+            return None;
+        }
+
+        let callback = node.children.get(1).copied()?;
+        let callback = self.resolve_transparent_callable_node(callback)?;
+        if !self.is_identity_array_map_callback(callback) {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        self.resolve_literal_aggregate(receiver)
+    }
+
+    fn is_identity_array_map_callback(&self, id: LirNodeId) -> bool {
+        let id = self.resolve_transparent_callable_node(id).unwrap_or(id);
+        let node = self.node(id);
+        if node.function_flavor != Some(FunctionFlavor::Sync)
+            || node.kind != LirNodeKind::Instruction
+            || node.children.len() < 2
+        {
+            return false;
+        }
+
+        let Some(param_name) = self.node(node.children[0]).text.as_deref() else {
+            return false;
+        };
+        let Some(body_expr) = self.node(node.children[1]).children.first().copied() else {
+            return false;
+        };
+        let Some(body_expr) = self.resolve_transparent_callable_node(body_expr) else {
+            return false;
+        };
+
+        self.node(body_expr).text.as_deref() == Some(param_name)
+    }
+
+    fn resolve_identity_array_callback_source(&self, node: &LirNode) -> Option<LirNodeId> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("map") {
+            return None;
+        }
+
+        let source = callee_node.children.first().copied()?;
+        Some(source)
+    }
+
     fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
@@ -4939,6 +5011,13 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
+        let mut array_id = array_id;
+        if let Some(resolved) = self.resolve_literal_aggregate(array_id) {
+            array_id = resolved;
+        }
+        if let Some(resolved) = self.resolve_identity_array_map_call_source(array_id) {
+            array_id = resolved;
+        }
         let Some(array_id) = self.resolve_literal_aggregate(array_id) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

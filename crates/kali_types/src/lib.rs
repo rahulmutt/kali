@@ -1065,6 +1065,7 @@ impl TypeContext {
                     || self.is_static_array_from_call(call)
                         && call.args.len() == 1
                         && self.is_static_array_iteration_target(&call.args[0])
+                    || self.is_static_identity_array_map_call(call)
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)
@@ -1081,6 +1082,20 @@ impl TypeContext {
             self.resolve_static_callable_name(&call.callee).as_deref(),
             Some(name) if kali_common::array_from_aliases().contains(&name)
         )
+    }
+
+    fn is_static_identity_array_map_call(&self, call: &CallExpression) -> bool {
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+
+        if member.property.as_str() != "map" {
+            return false;
+        }
+
+        call.args.len() == 1
+            && self.is_static_array_iteration_target(&member.object)
+            && self.is_identity_array_callback(&call.args[0])
     }
 
     fn is_static_set_constructor_iteration_target(&self, expression: &NewExpression) -> bool {
@@ -3917,10 +3932,6 @@ impl TypeContext {
     }
 
     fn resolve_array_callback_member_call(&mut self, expr: &CallExpression) {
-        if self.api_surface == "browser" {
-            return;
-        }
-
         let Expression::MemberExpression(member) = &expr.callee else {
             return;
         };
@@ -3947,6 +3958,19 @@ impl TypeContext {
             return;
         }
 
+        if method == "map"
+            && expr
+                .args
+                .first()
+                .is_some_and(|callback| self.is_identity_array_callback(callback))
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         self.resolve_expression(&member.object);
         for arg in &expr.args {
             self.resolve_expression(arg);
@@ -3958,6 +3982,45 @@ impl TypeContext {
                 "array callback method '{method}' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path"
             ),
         ));
+    }
+
+    fn is_identity_array_callback(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrowFunctionExpression(arrow) => {
+                arrow.params.len() == 1
+                    && self
+                        .is_identity_array_callback_expression(&arrow.body, &arrow.params[0].name)
+            }
+            Expression::FunctionExpression(function) => {
+                let Some(body) = &function.body else {
+                    return false;
+                };
+                function.params.len() == 1
+                    && body.body.len() == 1
+                    && matches!(
+                        &body.body[0],
+                        Statement::ReturnStatement(ReturnStatement {
+                            argument: Some(argument),
+                        }) if self.is_identity_array_callback_expression(argument, &function.params[0].name)
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    fn is_identity_array_callback_expression(
+        &self,
+        expression: &Expression,
+        param_name: &str,
+    ) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::Identifier(name) => name == param_name,
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|last| self.is_identity_array_callback_expression(last, param_name)),
+            _ => false,
+        }
     }
 
     fn resolve_promise_member_call(&mut self, _expr: &CallExpression) {}
