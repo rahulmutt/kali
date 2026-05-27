@@ -69,6 +69,43 @@ fn build_source_file_writes_valid_wasm_artifact_in_js_input() {
 }
 
 #[test]
+fn build_and_check_source_file_accept_supported_array_callback_slices_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"const values = [1, 2, 3];
+console.log("map:" + values.map((value) => value).join(','));
+console.log("filter:" + [1, 2].filter((value) => value).join(','));
+console.log("some:" + [0, 1].some((value) => value));
+console.log("every:" + [1, 0].every((value) => value));
+console.log("flatMap:" + [1, 2].flatMap((value) => [value]).join(','));
+"#,
+    )
+    .expect("write source");
+
+    check_source_file(&source_path, ApiSurface::Deno, &[], false, false)
+        .expect("check should succeed");
+
+    let output = build_source_file(
+        &source_path,
+        BuildMode::Fast,
+        ApiSurface::Deno,
+        false,
+        &[],
+        16,
+        None,
+        None,
+    )
+    .expect("build should succeed");
+
+    assert!(output.output_path.exists());
+    Validator::new()
+        .validate_all(&output.wasm_bytes)
+        .expect("artifact should validate");
+}
+
+#[test]
 fn build_source_file_supports_deno_env_get_in_ts_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.ts");

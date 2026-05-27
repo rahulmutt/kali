@@ -59453,6 +59453,67 @@ fn test_accepts_inherited_browser_api_surface_when_a_browser_harness_command_is_
 }
 
 #[test]
+fn test_accepts_supported_array_callback_slices_when_a_browser_harness_command_is_configured() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("smoke.test.ts");
+    fs::write(
+        &source_path,
+        r#"Kali.test('browser runtime smoke', () => {
+  for (const item of [1, 2, 3].map((value) => value)) {
+    console.log("map:" + item);
+  }
+  for (const item of [1, 2].filter((value) => value)) {
+    console.log("filter:" + item);
+  }
+  if ([0, 1].some((value) => value)) {
+    console.log("some:true");
+  } else {
+    console.log("some:false");
+  }
+  if ([1, 0].every((value) => value)) {
+    console.log("every:true");
+  } else {
+    console.log("every:false");
+  }
+  for (const item of [1, 2].flatMap((value) => [value])) {
+    console.log("flatMap:" + item);
+  }
+});"#,
+    )
+    .expect("write source");
+
+    fs::write(
+        dir.path().join("kali.json"),
+        r#"{
+  "schemaVersion": 1,
+  "compilerOptions": {
+    "apiSurface": "browser"
+  }
+}"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(kali_bin())
+        .env(kali_runtime::BROWSER_HARNESS_COMMAND_ENV, "node")
+        .current_dir(dir.path())
+        .arg("test")
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("ok 1"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_accepts_zero_thread_and_spawn_budget_overrides_when_browser_harness_is_configured_in_js_input(
 ) {
     let dir = tempdir().expect("tempdir");

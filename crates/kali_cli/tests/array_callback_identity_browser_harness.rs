@@ -25,6 +25,8 @@ fn browser_array_callback_identity_source(command: &str) -> String {
   for (const item of [1, 2].flatMap((value) => [value])) {
     observed.push(item);
   }
+  console.log(`some:${[0, 1].some((value) => value)}`);
+  console.log(`every:${[1, 0].every((value) => value)}`);
   if (observed.join(",") !== "1,2,1,2,1,2,1,2,1,2") {
     throw new Error('unexpected array callback identity semantics');
   }
