@@ -34,6 +34,7 @@ function browserObjectEntriesIteration() {
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
@@ -49,6 +50,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);
@@ -87,6 +89,7 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   const frozenGlobalEntries = Object.freeze(globalThis.Object.entries)(alias);
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
   const frozenParenthesizedReceiverBracketedEntries = Object.freeze((globalThis["Object"])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedEntries = Object.freeze((globalThis['Object'])["entries"])(alias);
   const frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries = Object.freeze((globalThis['Object']).entries)(alias);
@@ -102,6 +105,7 @@ fn browser_harness_object_entries_test_source() -> &'static str {
   assertObjectEntriesIteration(frozenGlobalEntries);
   assertObjectEntriesIteration(frozenBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
   assertObjectEntriesIteration(frozenParenthesizedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedEntries);
   assertObjectEntriesIteration(frozenParenthesizedSingleQuotedReceiverBracketedPropertyEntries);

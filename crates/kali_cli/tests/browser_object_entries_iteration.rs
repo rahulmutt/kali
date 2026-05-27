@@ -30,6 +30,7 @@ function browserObjectEntriesIteration() {
   const frozenBracketedEntries = Object.freeze(globalThis["Object"]["entries"])(alias);
   const frozenBracketRootEntries = Object.freeze((globalThis["Object"]))["entries"](alias);
   const frozenParenthesizedBracketedEntries = Object.freeze((globalThis["Object"]).entries)(alias);
+  const frozenParenthesizedDotRootEntries = Object.freeze((globalThis.Object).entries)(alias);
   const mixedEntries = globalThis.Object["entries"](alias);
   const mixedBracketedEntries = globalThis["Object"].entries(alias);
   const parenthesizedReceiverBracketedEntries = (globalThis["Object"])["entries"](alias);
@@ -51,6 +52,7 @@ function browserObjectEntriesIteration() {
   assertObjectEntriesIteration(frozenBracketedEntries);
   assertObjectEntriesIteration(frozenBracketRootEntries);
   assertObjectEntriesIteration(frozenParenthesizedBracketedEntries);
+  assertObjectEntriesIteration(frozenParenthesizedDotRootEntries);
   assertObjectEntriesIteration(mixedEntries);
   assertObjectEntriesIteration(mixedBracketedEntries);
   assertObjectEntriesIteration(parenthesizedReceiverBracketedEntries);
