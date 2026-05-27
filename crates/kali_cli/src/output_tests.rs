@@ -7112,6 +7112,106 @@ fn validate_envelope_value_rejects_empty_nested_source_span_files() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_reversed_nested_source_spans() {
+    for (context, payload) in [
+        (
+            "errors[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad diagnostic span order",
+                        "span": {"file": "src/main.ts", "line": 2, "column": 1, "endLine": 1, "endColumn": 1},
+                        "labels": [],
+                        "related": [],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+        (
+            "labels[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad label span order",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [
+                            {
+                                "span": {"file": "src/main.ts", "line": 2, "column": 1, "endLine": 1, "endColumn": 1},
+                                "message": "label",
+                                "style": "primary"
+                            }
+                        ],
+                        "related": [],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+        (
+            "related[0]",
+            json!({
+                "schemaVersion": 1,
+                "command": "doctor",
+                "success": false,
+                "errors": [
+                    {
+                        "severity": "error",
+                        "code": "E5508",
+                        "message": "bad related span order",
+                        "span": {"file": "src/main.ts", "line": 1, "column": 1, "endLine": 1, "endColumn": 2},
+                        "labels": [],
+                        "related": [
+                            {
+                                "message": "follow-up note",
+                                "span": {"file": "src/main.ts", "line": 2, "column": 1, "endLine": 1, "endColumn": 1}
+                            }
+                        ],
+                        "fix": null,
+                        "notes": []
+                    }
+                ],
+                "warnings": [],
+                "payload": null,
+                "stdout": null,
+                "stderr": null,
+                "exitCode": 1,
+            }),
+        ),
+    ] {
+        let err = validate_envelope_value(&payload)
+            .expect_err("reversed nested source spans should fail validation");
+        assert!(err.contains(context), "unexpected error: {err}");
+        assert!(
+            err.contains("must not precede its start position"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
+#[test]
 fn validate_envelope_value_rejects_malformed_suggested_fix_edits() {
     let invalid_fix = json!({
         "schemaVersion": 1,
