@@ -68,16 +68,13 @@ pub fn emit_envelope_value(
 }
 
 pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
-    const REQUIRED_KEYS: [&str; 9] = [
+    const REQUIRED_KEYS: [&str; 6] = [
         "schemaVersion",
         "command",
         "success",
         "errors",
         "warnings",
         "payload",
-        "stdout",
-        "stderr",
-        "exitCode",
     ];
     const ALL_KEYS: [&str; 11] = [
         "schemaVersion",
@@ -143,46 +140,49 @@ pub fn validate_envelope_value(value: &Value) -> Result<(), String> {
     validate_diagnostic_array(object.get("warnings"), "warnings")?;
     validate_cli_artifacts_array(object.get("artifacts"))?;
 
-    match object.get("stdout") {
-        Some(Value::Null) | Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "CLI envelope stdout must be string or null, got {other}"
-            ))
+    if let Some(stdout) = object.get("stdout") {
+        match stdout {
+            Value::Null | Value::String(_) => {}
+            other => {
+                return Err(format!(
+                    "CLI envelope stdout must be string or null, got {other}"
+                ))
+            }
         }
-        None => unreachable!("validated above"),
     }
 
-    match object.get("stderr") {
-        Some(Value::Null) | Some(Value::String(_)) => {}
-        Some(other) => {
-            return Err(format!(
-                "CLI envelope stderr must be string or null, got {other}"
-            ))
+    if let Some(stderr) = object.get("stderr") {
+        match stderr {
+            Value::Null | Value::String(_) => {}
+            other => {
+                return Err(format!(
+                    "CLI envelope stderr must be string or null, got {other}"
+                ))
+            }
         }
-        None => unreachable!("validated above"),
     }
 
     validate_timings_array(object.get("timings"))?;
 
-    match object.get("exitCode") {
+    let exit_code_is_zero = match object.get("exitCode") {
         Some(Value::Number(number))
-            if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) => {}
+            if number.as_u64().is_some() || number.as_i64().is_some_and(|value| value >= 0) =>
+        {
+            number.as_i64() == Some(0) || number.as_u64() == Some(0)
+        }
         Some(other) => {
             return Err(format!(
                 "CLI envelope exitCode must be a non-negative integer, got {other}"
             ))
         }
-        None => unreachable!("validated above"),
-    }
+        None => false,
+    };
 
     let success = matches!(object.get("success"), Some(Value::Bool(true)));
-    let exit_code_is_zero = matches!(object.get("exitCode"), Some(Value::Number(number)) if number.as_i64() == Some(0) || number.as_u64() == Some(0));
-
-    if success && !exit_code_is_zero {
+    if success && matches!(object.get("exitCode"), Some(Value::Number(_))) && !exit_code_is_zero {
         return Err("CLI envelope success=true requires exitCode 0".to_string());
     }
-    if !success && exit_code_is_zero {
+    if !success && matches!(object.get("exitCode"), Some(Value::Number(_))) && exit_code_is_zero {
         return Err("CLI envelope success=false requires a non-zero exitCode".to_string());
     }
 

@@ -5630,12 +5630,27 @@ fn validate_envelope_value_rejects_wrong_top_level_shapes() {
         "success": true,
         "errors": [],
         "warnings": [],
-        "payload": null,
         "stdout": null,
         "stderr": null,
+        "exitCode": 0,
     });
-    let err = validate_envelope_value(&missing_key).expect_err("missing exitCode should fail");
-    assert!(err.contains("exitCode"), "unexpected error: {err}");
+    let err = validate_envelope_value(&missing_key).expect_err("missing payload should fail");
+    assert!(err.contains("payload"), "unexpected error: {err}");
+}
+
+#[test]
+fn validate_envelope_value_allows_missing_optional_stream_and_exit_code_fields() {
+    let value = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+    });
+
+    validate_envelope_value(&value)
+        .expect("envelopes may omit optional stdout, stderr, and exitCode fields");
 }
 
 #[test]
