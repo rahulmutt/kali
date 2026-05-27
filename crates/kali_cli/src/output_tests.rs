@@ -122,6 +122,49 @@ fn emitted_cli_envelopes_reject_empty_or_whitespace_command() {
 }
 
 #[test]
+fn emitted_cli_envelopes_reject_non_string_command_stdout_and_stderr_fields() {
+    for (field, replacement, expected_fragment) in [
+        (
+            "command",
+            json!(42),
+            "CLI envelope command must be a non-empty, non-whitespace string",
+        ),
+        (
+            "stdout",
+            json!(false),
+            "CLI envelope stdout must be string or null",
+        ),
+        (
+            "stderr",
+            json!(["not", "a", "string"]),
+            "CLI envelope stderr must be string or null",
+        ),
+    ] {
+        let mut value = emit_envelope_value(
+            "doctor",
+            true,
+            json!([]),
+            json!([]),
+            json!({"answer": 42}),
+            Some("stdout text".to_string()),
+            Some("stderr text".to_string()),
+            0,
+        );
+        value
+            .as_object_mut()
+            .expect("envelope object")
+            .insert(field.to_string(), replacement);
+
+        let error = validate_envelope_value(&value)
+            .expect_err("non-string CLI envelope field should fail validation");
+        assert!(
+            error.contains(expected_fragment),
+            "unexpected error: {error}"
+        );
+    }
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_run_text_output() {
     let value = emit_envelope_value(
         "run",
