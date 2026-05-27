@@ -3416,6 +3416,185 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    fn resolve_static_array_callback_truthiness(
+        &self,
+        callback: LirNodeId,
+        value: LirNodeId,
+    ) -> Option<bool> {
+        let callback = self.resolve_transparent_callable_node(callback)?;
+        let callback_node = self.node(callback);
+        if callback_node.function_flavor != Some(FunctionFlavor::Sync)
+            || callback_node.kind != LirNodeKind::Instruction
+            || callback_node.children.len() < 2
+        {
+            return None;
+        }
+
+        let param_name = self.node(callback_node.children[0]).text.as_deref()?;
+        let body_node = self.node(callback_node.children[1]);
+        let body_expr = body_node.children.first().copied()?;
+        self.resolve_static_array_callback_truthiness_expr(body_expr, param_name, value)
+    }
+
+    fn resolve_static_array_callback_truthiness_expr(
+        &self,
+        id: LirNodeId,
+        param_name: &str,
+        value: LirNodeId,
+    ) -> Option<bool> {
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            return self.resolve_static_array_callback_truthiness_expr(
+                node.children[0],
+                param_name,
+                value,
+            );
+        }
+
+        match node.kind {
+            LirNodeKind::Literal => self
+                .resolve_static_object_identity_value(id)
+                .and_then(|value| value.truthiness()),
+            LirNodeKind::Value if node.children.is_empty() => {
+                let text = node.text.as_deref()?;
+                if text == param_name {
+                    return self
+                        .resolve_static_object_identity_value(value)
+                        .and_then(|value| value.truthiness());
+                }
+
+                self.resolve_static_object_identity_value(id)
+                    .and_then(|value| value.truthiness())
+            }
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                Some("!") => self
+                    .resolve_static_array_callback_truthiness_expr(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )
+                    .map(|truthy| !truthy),
+                Some("+") => self.resolve_static_array_callback_truthiness_expr(
+                    node.children[0],
+                    param_name,
+                    value,
+                ),
+                Some("-") => self
+                    .resolve_static_array_callback_numeric_operand(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )
+                    .map(|number| !number.is_nan() && number != 0.0),
+                _ => None,
+            },
+            LirNodeKind::Value if node.children.len() == 2 => match node.text.as_deref() {
+                Some("&&") => {
+                    let left = self.resolve_static_array_callback_truthiness_expr(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )?;
+                    if left {
+                        self.resolve_static_array_callback_truthiness_expr(
+                            node.children[1],
+                            param_name,
+                            value,
+                        )
+                    } else {
+                        Some(false)
+                    }
+                }
+                Some("||") => {
+                    let left = self.resolve_static_array_callback_truthiness_expr(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )?;
+                    if left {
+                        Some(true)
+                    } else {
+                        self.resolve_static_array_callback_truthiness_expr(
+                            node.children[1],
+                            param_name,
+                            value,
+                        )
+                    }
+                }
+                Some(">") | Some(">=") | Some("<") | Some("<=") => {
+                    let left = self.resolve_static_array_callback_numeric_operand(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )?;
+                    let right = self.resolve_static_array_callback_numeric_operand(
+                        node.children[1],
+                        param_name,
+                        value,
+                    )?;
+                    Some(match node.text.as_deref() {
+                        Some(">") => left > right,
+                        Some(">=") => left >= right,
+                        Some("<") => left < right,
+                        Some("<=") => left <= right,
+                        _ => unreachable!(),
+                    })
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    fn resolve_static_array_callback_numeric_operand(
+        &self,
+        id: LirNodeId,
+        param_name: &str,
+        value: LirNodeId,
+    ) -> Option<f64> {
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.is_empty()
+            && node.text.as_deref() == Some(param_name)
+        {
+            return self.resolve_static_numeric_value(value);
+        }
+
+        if node.kind == LirNodeKind::Value && node.children.len() == 1 {
+            match node.text.as_deref() {
+                Some("+") => {
+                    return self.resolve_static_array_callback_numeric_operand(
+                        node.children[0],
+                        param_name,
+                        value,
+                    );
+                }
+                Some("-") => {
+                    return self
+                        .resolve_static_array_callback_numeric_operand(
+                            node.children[0],
+                            param_name,
+                            value,
+                        )
+                        .map(|number| -number);
+                }
+                None | Some("") => {
+                    return self.resolve_static_array_callback_numeric_operand(
+                        node.children[0],
+                        param_name,
+                        value,
+                    );
+                }
+                _ => {}
+            }
+        }
+
+        self.resolve_static_numeric_value(id)
+    }
+
     fn resolve_static_array_some_every_call(&self, node: &LirNode, method: &str) -> Option<bool> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
@@ -3429,11 +3608,6 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let callback = node.children.get(1).copied()?;
-        let callback = self.resolve_transparent_callable_node(callback)?;
-        if !self.is_identity_array_map_callback(callback) {
-            return None;
-        }
-
         let source = callee_node.children.first().copied()?;
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
@@ -3452,8 +3626,7 @@ impl<'a> FunctionEmitter<'a> {
         match method {
             "some" => {
                 for child in &source_node.children {
-                    let value = self.resolve_static_object_identity_value(*child)?;
-                    if value.truthiness()? {
+                    if self.resolve_static_array_callback_truthiness(callback, *child)? {
                         return Some(true);
                     }
                 }
@@ -3461,8 +3634,7 @@ impl<'a> FunctionEmitter<'a> {
             }
             "every" => {
                 for child in &source_node.children {
-                    let value = self.resolve_static_object_identity_value(*child)?;
-                    if !value.truthiness()? {
+                    if !self.resolve_static_array_callback_truthiness(callback, *child)? {
                         return Some(false);
                     }
                 }

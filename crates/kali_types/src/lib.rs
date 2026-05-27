@@ -4048,10 +4048,10 @@ impl TypeContext {
         }
 
         if matches!(method, "some" | "every")
-            && expr
-                .args
-                .first()
-                .is_some_and(|callback| self.is_identity_array_callback(callback))
+            && expr.args.first().is_some_and(|callback| {
+                self.is_identity_array_callback(callback)
+                    || self.is_some_every_array_callback(callback)
+            })
             && self.is_static_array_iteration_target(&member.object)
         {
             self.resolve_expression(&member.object);
@@ -4110,6 +4110,151 @@ impl TypeContext {
                 .last()
                 .is_some_and(|last| self.is_identity_array_callback_expression(last, param_name)),
             _ => false,
+        }
+    }
+
+    fn is_some_every_array_callback(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrowFunctionExpression(arrow) => {
+                arrow.params.len() == 1
+                    && self
+                        .is_some_every_array_callback_expression(&arrow.body, &arrow.params[0].name)
+            }
+            Expression::FunctionExpression(function) => {
+                let Some(body) = &function.body else {
+                    return false;
+                };
+                function.params.len() == 1
+                    && body.body.len() == 1
+                    && matches!(
+                        &body.body[0],
+                        Statement::ReturnStatement(ReturnStatement {
+                            argument: Some(argument),
+                        }) if self.is_some_every_array_callback_expression(
+                            argument,
+                            &function.params[0].name,
+                        )
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    fn is_some_every_array_callback_expression(
+        &self,
+        expression: &Expression,
+        param_name: &str,
+    ) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::Identifier(name) => name == param_name,
+            Expression::Literal(LiteralValue::Boolean(_))
+            | Expression::Literal(LiteralValue::Number(_))
+            | Expression::Literal(LiteralValue::String(_))
+            | Expression::Literal(LiteralValue::Null) => true,
+            Expression::UnaryExpression(expr)
+                if matches!(expr.operator.as_str(), "!" | "+" | "-") =>
+            {
+                self.is_some_every_array_callback_expression(&expr.argument, param_name)
+            }
+            Expression::BinaryExpression(expr)
+                if matches!(expr.operator.as_str(), ">" | ">=" | "<" | "<=") =>
+            {
+                (self.is_some_every_array_callback_operand(&expr.left, param_name)
+                    && self
+                        .resolve_static_numeric_literal_value(&expr.right)
+                        .is_some())
+                    || (self
+                        .resolve_static_numeric_literal_value(&expr.left)
+                        .is_some()
+                        && self.is_some_every_array_callback_operand(&expr.right, param_name))
+            }
+            Expression::LogicalExpression(expr)
+                if matches!(expr.operator, LogicalOperator::And | LogicalOperator::Or) =>
+            {
+                self.is_some_every_array_callback_expression(&expr.left, param_name)
+                    && self.is_some_every_array_callback_expression(&expr.right, param_name)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|last| self.is_some_every_array_callback_expression(last, param_name)),
+            Expression::ParenthesizedExpression(expr) => {
+                self.is_some_every_array_callback_expression(&expr.expression, param_name)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.is_some_every_array_callback_expression(&expr.expression, param_name)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.is_some_every_array_callback_expression(&expr.expression, param_name)
+            }
+            Expression::AwaitExpression(expr) => {
+                self.is_some_every_array_callback_expression(&expr.argument, param_name)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    self.is_some_every_array_callback_expression(object, param_name)
+                }
+            },
+            Expression::ChainExpression(expr) => {
+                self.is_some_every_array_callback_expression(&expr.expression, param_name)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.is_some_every_array_callback_expression(&expr.expression, param_name)
+            }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().is_some_and(|argument| {
+                    self.is_some_every_array_callback_expression(argument, param_name)
+                })
+            }
+            _ => false,
+        }
+    }
+
+    fn is_some_every_array_callback_operand(
+        &self,
+        expression: &Expression,
+        param_name: &str,
+    ) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::Identifier(name) => name == param_name,
+            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
+                self.is_some_every_array_callback_operand(&expr.argument, param_name)
+            }
+            Expression::SequenceExpression(expr) => expr
+                .expressions
+                .last()
+                .is_some_and(|last| self.is_some_every_array_callback_operand(last, param_name)),
+            Expression::ParenthesizedExpression(expr) => {
+                self.is_some_every_array_callback_operand(&expr.expression, param_name)
+            }
+            Expression::TypeAssertion(expr) => {
+                self.is_some_every_array_callback_operand(&expr.expression, param_name)
+            }
+            Expression::SatisfiesExpression(expr) => {
+                self.is_some_every_array_callback_operand(&expr.expression, param_name)
+            }
+            Expression::AwaitExpression(expr) => {
+                self.is_some_every_array_callback_operand(&expr.argument, param_name)
+            }
+            Expression::OptionalChainExpression(expr) => match expr.inner.as_ref() {
+                OptionalChainInner::NonNull { object, .. } => {
+                    self.is_some_every_array_callback_operand(object, param_name)
+                }
+            },
+            Expression::ChainExpression(expr) => {
+                self.is_some_every_array_callback_operand(&expr.expression, param_name)
+            }
+            Expression::DecoratedExpression(expr) => {
+                self.is_some_every_array_callback_operand(&expr.expression, param_name)
+            }
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().is_some_and(|argument| {
+                    self.is_some_every_array_callback_operand(argument, param_name)
+                })
+            }
+            _ => self
+                .resolve_static_numeric_literal_value(expression)
+                .is_some(),
         }
     }
 
