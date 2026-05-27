@@ -2908,6 +2908,46 @@ impl TypeContext {
                 | "globalThis.Promise.allSettled"
                 | "globalThis.Promise.any"
                 | "globalThis.Promise.race"
+                | "Promise[\"all\"]"
+                | "Promise[\"allSettled\"]"
+                | "Promise[\"any\"]"
+                | "Promise[\"race\"]"
+                | "Promise['all']"
+                | "Promise['allSettled']"
+                | "Promise['any']"
+                | "Promise['race']"
+                | "globalThis.Promise[\"all\"]"
+                | "globalThis.Promise[\"allSettled\"]"
+                | "globalThis.Promise[\"any\"]"
+                | "globalThis.Promise[\"race\"]"
+                | "globalThis.Promise['all']"
+                | "globalThis.Promise['allSettled']"
+                | "globalThis.Promise['any']"
+                | "globalThis.Promise['race']"
+                | r#"globalThis["Promise"].all"#
+                | r#"globalThis["Promise"].allSettled"#
+                | r#"globalThis["Promise"].any"#
+                | r#"globalThis["Promise"].race"#
+                | r#"globalThis["Promise"]["all"]"#
+                | r#"globalThis["Promise"]["allSettled"]"#
+                | r#"globalThis["Promise"]["any"]"#
+                | r#"globalThis["Promise"]["race"]"#
+                | r#"globalThis["Promise"]['all']"#
+                | r#"globalThis["Promise"]['allSettled']"#
+                | r#"globalThis["Promise"]['any']"#
+                | r#"globalThis["Promise"]['race']"#
+                | r#"globalThis['Promise'].all"#
+                | r#"globalThis['Promise'].allSettled"#
+                | r#"globalThis['Promise'].any"#
+                | r#"globalThis['Promise'].race"#
+                | r#"globalThis['Promise']['all']"#
+                | r#"globalThis['Promise']['allSettled']"#
+                | r#"globalThis['Promise']['any']"#
+                | r#"globalThis['Promise']['race']"#
+                | r#"globalThis['Promise']["all"]"#
+                | r#"globalThis['Promise']["allSettled"]"#
+                | r#"globalThis['Promise']["any"]"#
+                | r#"globalThis['Promise']["race"]"#
         ) || matches!(
             bracketed,
             r#"globalThis["Object"].is"#
