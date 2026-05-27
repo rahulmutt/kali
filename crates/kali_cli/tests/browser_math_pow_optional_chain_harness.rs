@@ -17,6 +17,7 @@ console.log(Object.freeze((globalThis?.Math.pow))(2, alias));
 }
 
 fn assert_browser_math_pow_optional_chain_rejection(
+    command: &str,
     filename: &str,
     source: &str,
     json_output: bool,
@@ -26,15 +27,20 @@ fn assert_browser_math_pow_optional_chain_rejection(
     fs::write(&source_path, source).expect("write source");
 
     let mut cli = Command::new(kali_bin());
-    cli.current_dir(dir.path())
-        .arg("build")
-        .arg("--bundle")
-        .arg("--api")
-        .arg("browser");
+    cli.current_dir(dir.path());
     if json_output {
         cli.arg("--output").arg("json");
     }
-    let output = cli.arg(&source_path).output().expect("run kali");
+    let mut cli = cli.arg(command);
+    if command == "build" {
+        cli = cli.arg("--bundle");
+    }
+    let output = cli
+        .arg("--api")
+        .arg("browser")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
 
     assert!(
         !output.status.success(),
@@ -47,7 +53,7 @@ fn assert_browser_math_pow_optional_chain_rejection(
     if json_output {
         let json: Value = serde_json::from_slice(&output.stdout).expect("valid json stdout");
         assert_eq!(json["schemaVersion"], 1);
-        assert_eq!(json["command"], "build");
+        assert_eq!(json["command"], command);
         assert_eq!(json["success"], false);
         let errors = json["errors"].as_array().expect("errors array");
         assert!(!errors.is_empty(), "errors array should not be empty");
@@ -76,12 +82,33 @@ fn build_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_
 ) {
     for extension in ["js", "ts", "jsx", "tsx"] {
         assert_browser_math_pow_optional_chain_rejection(
+            "build",
             &format!("app.{extension}"),
             browser_math_pow_optional_chain_run_source(),
             false,
         );
         assert_browser_math_pow_optional_chain_rejection(
+            "build",
             &format!("app.{extension}"),
+            browser_math_pow_optional_chain_run_source(),
+            true,
+        );
+    }
+}
+
+#[test]
+fn check_rejects_optional_chain_wrapped_math_pow_in_browser_api_surface_with_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        assert_browser_math_pow_optional_chain_rejection(
+            "check",
+            &format!("main.{extension}"),
+            browser_math_pow_optional_chain_run_source(),
+            false,
+        );
+        assert_browser_math_pow_optional_chain_rejection(
+            "check",
+            &format!("main.{extension}"),
             browser_math_pow_optional_chain_run_source(),
             true,
         );
