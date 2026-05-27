@@ -135,6 +135,22 @@ fn browser_late_threaded_runtime_source_includes_bracketed_forms() {
         source.contains(r#"globalThis['Atomics']"#),
         "source: {source}"
     );
+    assert!(
+        source.contains(r#"Object.freeze((true && globalThis.SharedArrayBuffer))"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((false || globalThis.SharedArrayBuffer))"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((true && globalThis.Atomics))"#),
+        "source: {source}"
+    );
+    assert!(
+        source.contains(r#"Object.freeze((false || globalThis.Atomics))"#),
+        "source: {source}"
+    );
 }
 
 fn assert_browser_late_process_control_rejection(stderr: &str) {
