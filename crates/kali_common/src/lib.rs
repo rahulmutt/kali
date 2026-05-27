@@ -858,17 +858,23 @@ pub fn reflect_own_keys_frozen_callable_source(object_source: &str) -> String {
 pub const fn object_enumeration_frozen_callable_aliases() -> &'static [&'static str] {
     &[
         r#"Object.freeze((globalThis["Object"]).keys)"#,
+        r#"Object.freeze((globalThis["Object"])["keys"])"#,
         r#"Object.freeze((globalThis["Object"]).values)"#,
+        r#"Object.freeze((globalThis["Object"])["values"])"#,
         r#"Object.freeze((globalThis["Object"]).entries)"#,
+        r#"Object.freeze((globalThis["Object"])["entries"])"#,
         r#"Object.freeze((globalThis["Object"]["keys"]))"#,
         r#"Object.freeze((globalThis["Object"]["values"]))"#,
         r#"Object.freeze((globalThis["Object"]["entries"]))"#,
         r#"Object.freeze((globalThis['Object']).keys)"#,
-        r#"Object.freeze((globalThis['Object']).values)"#,
-        r#"Object.freeze((globalThis['Object']).entries)"#,
         r#"Object.freeze((globalThis['Object'])['keys'])"#,
+        r#"Object.freeze((globalThis['Object'])["keys"])"#,
+        r#"Object.freeze((globalThis['Object']).values)"#,
         r#"Object.freeze((globalThis['Object'])['values'])"#,
+        r#"Object.freeze((globalThis['Object'])["values"])"#,
+        r#"Object.freeze((globalThis['Object']).entries)"#,
         r#"Object.freeze((globalThis['Object'])['entries'])"#,
+        r#"Object.freeze((globalThis['Object'])["entries"])"#,
     ]
 }
 
