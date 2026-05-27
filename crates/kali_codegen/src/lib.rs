@@ -3423,6 +3423,7 @@ impl<'a> FunctionEmitter<'a> {
                     None
                 }
             }
+            Some("filter") => self.resolve_truthy_identity_array_filter_source(node),
             _ => None,
         }
     }

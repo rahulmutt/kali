@@ -11,11 +11,16 @@ fn identity_filter_source() -> &'static str {
   for (const item of [1, 2].filter((value) => value)) {
     console.log(item);
   }
+  for (const item of Array.from([1, 2].filter((value) => value))) {
+    console.log(item);
+  }
+  for (const item of [...[1, 2].filter((value) => value)]) {
+    console.log(item);
+  }
 }
 main();
 "#
 }
-
 fn assert_identity_filter_succeeds(command: &str, extension: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(format!("smoke.test.{extension}"));
@@ -32,10 +37,13 @@ fn assert_identity_filter_succeeds(command: &str, extension: &str) {
 
     if command == "run" {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout, "1\n2\n", "unexpected stdout: {stdout}");
+        assert_eq!(stdout, "1\n2\n1\n2\n1\n2\n", "unexpected stdout: {stdout}");
     } else if command == "test" {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("1\n2\n"), "unexpected stdout: {stdout}");
+        assert!(
+            stdout.contains("1\n2\n1\n2\n1\n2\n"),
+            "unexpected stdout: {stdout}"
+        );
     }
 }
 
