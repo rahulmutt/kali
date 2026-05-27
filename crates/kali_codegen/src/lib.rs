@@ -1658,6 +1658,22 @@ impl<'a> FunctionEmitter<'a> {
             return emitted;
         }
 
+        if let Some(result) = self.resolve_static_array_some_every_call(node, "some") {
+            function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_some_every_call(node, "every") {
+            function.instruction(&Instruction::I64Const(if result { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
         if self.is_object_has_own_call(node, &callee_node) {
             let Some(object_id) = node.children.get(1).copied() else {
                 return EmittedValue {
@@ -3316,34 +3332,6 @@ impl<'a> FunctionEmitter<'a> {
         matches_callback_iterable_method(callee_text)
     }
 
-    fn resolve_identity_array_map_call_source(&self, id: LirNodeId) -> Option<LirNodeId> {
-        let node = self.node(id);
-        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
-            return None;
-        }
-
-        let callee = node.children.first().copied()?;
-        let callee = self.resolve_transparent_callable_node(callee)?;
-        let callee_node = self.node(callee);
-        let callee_text = callee_node.text.as_deref()?;
-        let is_map_call = callee_text == "map"
-            || callee_text.ends_with(".map")
-            || callee_text.ends_with("[\"map\"]")
-            || callee_text.ends_with("['map']");
-        if !is_map_call {
-            return None;
-        }
-
-        let callback = node.children.get(1).copied()?;
-        let callback = self.resolve_transparent_callable_node(callback)?;
-        if !self.is_identity_array_map_callback(callback) {
-            return None;
-        }
-
-        let receiver = callee_node.children.first().copied()?;
-        self.resolve_literal_aggregate(receiver)
-    }
-
     fn is_identity_array_map_callback(&self, id: LirNodeId) -> bool {
         let id = self.resolve_transparent_callable_node(id).unwrap_or(id);
         let node = self.node(id);
@@ -3424,6 +3412,62 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
             Some("filter") => self.resolve_truthy_identity_array_filter_source(node),
+            _ => None,
+        }
+    }
+
+    fn resolve_static_array_some_every_call(&self, node: &LirNode, method: &str) -> Option<bool> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some(method) {
+            return None;
+        }
+
+        let callback = node.children.get(1).copied()?;
+        let callback = self.resolve_transparent_callable_node(callback)?;
+        if !self.is_identity_array_map_callback(callback) {
+            return None;
+        }
+
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0])
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(source_node) {
+            return None;
+        }
+
+        match method {
+            "some" => {
+                for child in &source_node.children {
+                    let value = self.resolve_static_object_identity_value(*child)?;
+                    if value.truthiness()? {
+                        return Some(true);
+                    }
+                }
+                Some(false)
+            }
+            "every" => {
+                for child in &source_node.children {
+                    let value = self.resolve_static_object_identity_value(*child)?;
+                    if !value.truthiness()? {
+                        return Some(false);
+                    }
+                }
+                Some(true)
+            }
             _ => None,
         }
     }
@@ -5104,12 +5148,7 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(resolved) = self.resolve_literal_aggregate(array_id) {
             array_id = resolved;
         }
-        if let Some(resolved) = self.resolve_identity_array_map_call_source(array_id) {
-            array_id = resolved;
-        }
-        if let Some(resolved) =
-            self.resolve_truthy_identity_array_filter_source(self.node(array_id))
-        {
+        if let Some(resolved) = self.resolve_identity_array_callback_source(self.node(array_id)) {
             array_id = resolved;
         }
         let Some(array_id) = self.resolve_literal_aggregate(array_id) else {
@@ -5398,7 +5437,11 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
-        if self.is_array_callback_iteration_call(&array) {
+        if self.is_array_callback_iteration_call(&array)
+            && self
+                .resolve_identity_array_callback_source(&array)
+                .is_none()
+        {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "for-of array iteration lowering is unavailable for array callback-produced iterables in the current phase; use a supported loop form or the later compatibility path",

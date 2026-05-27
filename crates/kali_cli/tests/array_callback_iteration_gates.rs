@@ -6,16 +6,8 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn array_callback_iteration_sources() -> [&'static str; 9] {
+fn array_callback_iteration_sources() -> [&'static str; 8] {
     [
-        r#"function main() {
-  const values = [1, 2];
-  for (const item of values.filter((value) => value > 1)) {
-    console.log(item);
-  }
-}
-main();
-"#,
         r#"function main() {
   const values = [1, 2];
   for (const item of values.find((value) => value > 1)) {

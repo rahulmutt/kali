@@ -4047,6 +4047,20 @@ impl TypeContext {
             return;
         }
 
+        if matches!(method, "some" | "every")
+            && expr
+                .args
+                .first()
+                .is_some_and(|callback| self.is_identity_array_callback(callback))
+            && self.is_static_array_iteration_target(&member.object)
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         self.resolve_expression(&member.object);
         for arg in &expr.args {
             self.resolve_expression(arg);

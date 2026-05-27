@@ -4752,6 +4752,54 @@ fn supported_for_of_array_iteration_accepts_identity_map_calls() {
 }
 
 #[test]
+fn supported_array_some_call_with_identity_callback_lowers_to_true() {
+    let program = parse_and_lower_lir("console.log([0, 1].some((value) => value));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
+fn supported_array_every_call_with_identity_callback_lowers_to_false() {
+    let program = parse_and_lower_lir("console.log([1, 0].every((value) => value));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 0"), "{printed}");
+}
+
+#[test]
 fn supported_for_of_array_iteration_accepts_truthy_identity_filter_calls() {
     let program = parse_and_lower_lir(
         "for (const item of [1, 2].filter((value) => value)) { console.log(item); }",
