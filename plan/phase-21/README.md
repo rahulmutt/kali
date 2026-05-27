@@ -53,6 +53,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Grow inference inside deterministic budgets only.
 - Preserve annotation-required boundaries for exported/public and cross-module surfaces when inference would exceed the bounded contract.
 - Add positive and negative checker baselines for TS and first-class JS input.
+- Current smoke now also covers default-export function expressions across JS, TS, JSX, and TSX input on the bounded lib-export signature slice, including plain and JSON build modes.
 - Keep transparent wrapper handling aligned with bounded-literal/static-resolution paths only when cheap and deterministic.
 
 ### 21.5 Conformance hygiene

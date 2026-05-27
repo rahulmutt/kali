@@ -29,7 +29,7 @@ The checked-in repository is past the original Phase 1 MVP and includes broad la
 Implemented areas include:
 
 - schema-v1 JSON envelopes and deterministic payload validation;
-- source-file checking, building, running, and testing for TS/JS input classes;
+- source-file checking, building, running, and testing for TS/JS input classes, with default-export function-expression lib smoke now also covered across JS, TS, JSX, and TSX input in both plain and JSON build modes;
 - browser-targeted `check` / `build --bundle` plus browser-harness smoke paths, with browser-harness `check` coverage now also rejecting anonymous default-export generator and async-generator declarations across JS, TS, JSX, and TSX input, plus sequence-wrapped anonymous default-export generator and async-generator declarations across the same matrix;
 - generator and async-generator class-expression rejection now also covers sequence-wrapped forms on the supported build/check/runtime smoke paths;
 - public source-graph and registry effect/audit commands, with package-effects and package-audit JSON smoke now also asserting canonical CLI flag context for package-analysis-specific flag rejections and the shared flag-precedence rejection path, including the package-analysis `--sandbox` JSON rejection branch, plus normalized requested/effective package-argument context for padded single-target JSON rejections and requested/effective flag values for concrete package-analysis rejections such as `--api browser`, `--compat eval`, `--wasm-threads`, and `--sandbox policy.json`, and the package-audit preview shim now also has pretty-bearing JSON coverage for the hidden `--preview` context plus plain JSON coverage for the same preview-sandbox/package-analysis short-circuit matrix;
