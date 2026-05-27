@@ -36,7 +36,9 @@ from kali_capi import (  # noqa: E402
     load_metadata_summary,
     load_metadata_summary_from_root,
     load_metadata_summary_from_root_with_name,
+    parse_binding_package_manifest,
     parse_exports,
+    parse_metadata,
 )
 
 
@@ -294,6 +296,49 @@ class KaliCapiSmokeTests(unittest.TestCase):
             self.assertEqual(named_binding.max_specializations, binding.max_specializations)
             self.assertEqual(named_binding.add(2, 3), 5)
             self.assertEqual(named_binding.zero(), 7)
+
+    def test_negative_max_specializations_are_rejected(self) -> None:
+        for parser, payload, expected_fragment in [
+            (
+                parse_metadata,
+                {
+                    "schemaVersion": 1,
+                    "kind": "cabi-metadata",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "maxSpecializations": -1,
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "metadata": "sample.cabi.json",
+                        "wasmModule": "sample.capi.wasm",
+                        "wit": "sample.wit",
+                    },
+                },
+                "cabi metadata field 'maxSpecializations' must be a non-negative integer",
+            ),
+            (
+                parse_binding_package_manifest,
+                {
+                    "schemaVersion": 1,
+                    "kind": "binding-package",
+                    "moduleName": "sample",
+                    "hostAbiVersion": 2,
+                    "minHostAbiVersion": 2,
+                    "maxSpecializations": -1,
+                    "artifacts": {
+                        "exportsHeader": "sample.h",
+                        "glue": ["shim.py"],
+                        "library": "sample.capi.wasm",
+                        "metadata": "sample.cabi.json",
+                    },
+                },
+                "binding package field 'maxSpecializations' must be a non-negative integer",
+            ),
+        ]:
+            with self.subTest(parser=parser.__name__):
+                with self.assertRaises(ValueError) as ctx:
+                    parser(json.dumps(payload))
+                self.assertIn(expected_fragment, str(ctx.exception))
 
     def test_cabi_metadata_with_stem_specific_sidecar_is_auto_discovered(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

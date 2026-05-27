@@ -111,6 +111,18 @@ def _require_int(payload: Mapping[str, object], key: str) -> int:
     return int(value)
 
 
+def _require_non_negative_int(
+    payload: Mapping[str, object], key: str, *, owner: str = "cabi metadata"
+) -> int:
+    value = payload.get(key)
+    if not _is_int(value):
+        raise ValueError(f"{owner} field {key!r} must be an integer")
+    value = int(value)
+    if value < 0:
+        raise ValueError(f"{owner} field {key!r} must be a non-negative integer")
+    return value
+
+
 def _require_str(payload: Mapping[str, object], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str):
@@ -184,8 +196,8 @@ def parse_metadata(metadata_text: str) -> CabiMetadata:
     artifacts = _require_artifacts(payload.get("artifacts"))
 
     max_specializations = payload.get("maxSpecializations")
-    if max_specializations is not None and not _is_int(max_specializations):
-        raise ValueError("cabi metadata field 'maxSpecializations' must be an integer")
+    if max_specializations is not None:
+        max_specializations = _require_non_negative_int(payload, "maxSpecializations")
 
     runtime_profiles = payload.get("runtimeProfiles")
     if runtime_profiles is not None:
@@ -239,8 +251,10 @@ def parse_binding_package_manifest(metadata_text: str) -> BindingPackageManifest
         raise ValueError("binding package field 'minHostAbiVersion' must be an integer")
 
     max_specializations = payload.get("maxSpecializations")
-    if max_specializations is not None and not _is_int(max_specializations):
-        raise ValueError("binding package field 'maxSpecializations' must be an integer")
+    if max_specializations is not None:
+        max_specializations = _require_non_negative_int(
+            payload, "maxSpecializations", owner="binding package"
+        )
 
     runtime_profiles = payload.get("runtimeProfiles", ())
     if runtime_profiles == ():
