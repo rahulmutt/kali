@@ -13,6 +13,9 @@ const alias = wrapped;
 const keys = Object.keys(alias);
 const entries = Object.entries(alias);
 const values = Object.values(alias);
+const bracketRootKeys = globalThis['Object']['keys'](alias);
+const bracketRootEntries = globalThis['Object']['entries'](alias);
+const bracketRootValues = globalThis['Object']['values'](alias);
 if (
   keys.length !== 4 ||
   keys[0] !== '1' ||
@@ -32,7 +35,26 @@ if (
   values[0] !== 4 ||
   values[1] !== 2 ||
   values[2] !== 1 ||
-  values[3] !== 3
+  values[3] !== 3 ||
+  bracketRootKeys.length !== 4 ||
+  bracketRootKeys[0] !== '1' ||
+  bracketRootKeys[1] !== '2' ||
+  bracketRootKeys[2] !== 'b' ||
+  bracketRootKeys[3] !== 'a' ||
+  bracketRootEntries.length !== 4 ||
+  bracketRootEntries[0][0] !== '1' ||
+  bracketRootEntries[0][1] !== 4 ||
+  bracketRootEntries[1][0] !== '2' ||
+  bracketRootEntries[1][1] !== 2 ||
+  bracketRootEntries[2][0] !== 'b' ||
+  bracketRootEntries[2][1] !== 1 ||
+  bracketRootEntries[3][0] !== 'a' ||
+  bracketRootEntries[3][1] !== 3 ||
+  bracketRootValues.length !== 4 ||
+  bracketRootValues[0] !== 4 ||
+  bracketRootValues[1] !== 2 ||
+  bracketRootValues[2] !== 1 ||
+  bracketRootValues[3] !== 3
 ) {
   throw new Error('unexpected wrapped object enumeration ordering');
 }
@@ -47,6 +69,9 @@ fn wrapped_object_enumeration_test_source() -> &'static str {
   const keys = Object.keys(alias);
   const entries = Object.entries(alias);
   const values = Object.values(alias);
+  const bracketRootKeys = globalThis['Object']['keys'](alias);
+  const bracketRootEntries = globalThis['Object']['entries'](alias);
+  const bracketRootValues = globalThis['Object']['values'](alias);
   if (
     keys.length !== 4 ||
     keys[0] !== '1' ||
@@ -66,7 +91,26 @@ fn wrapped_object_enumeration_test_source() -> &'static str {
     values[0] !== 4 ||
     values[1] !== 2 ||
     values[2] !== 1 ||
-    values[3] !== 3
+    values[3] !== 3 ||
+    bracketRootKeys.length !== 4 ||
+    bracketRootKeys[0] !== '1' ||
+    bracketRootKeys[1] !== '2' ||
+    bracketRootKeys[2] !== 'b' ||
+    bracketRootKeys[3] !== 'a' ||
+    bracketRootEntries.length !== 4 ||
+    bracketRootEntries[0][0] !== '1' ||
+    bracketRootEntries[0][1] !== 4 ||
+    bracketRootEntries[1][0] !== '2' ||
+    bracketRootEntries[1][1] !== 2 ||
+    bracketRootEntries[2][0] !== 'b' ||
+    bracketRootEntries[2][1] !== 1 ||
+    bracketRootEntries[3][0] !== 'a' ||
+    bracketRootEntries[3][1] !== 3 ||
+    bracketRootValues.length !== 4 ||
+    bracketRootValues[0] !== 4 ||
+    bracketRootValues[1] !== 2 ||
+    bracketRootValues[2] !== 1 ||
+    bracketRootValues[3] !== 3
   ) {
     throw new Error('unexpected wrapped object enumeration ordering');
   }
