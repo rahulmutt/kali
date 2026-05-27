@@ -2034,8 +2034,12 @@ pub const fn math_pow_bracketed_frozen_callable_aliases() -> &'static [&'static 
     &[
         r#"Object.freeze((globalThis.Math))["pow"]"#,
         r#"Object.freeze((globalThis.Math))['pow']"#,
+        r#"Object.freeze((globalThis.Math).pow)"#,
+        r#"Object.freeze((globalThis.Math)['pow'])"#,
         r#"Object.freeze((globalThis["Math"]))["pow"]"#,
         r#"Object.freeze((globalThis['Math']))['pow']"#,
+        r#"Object.freeze((globalThis["Math"]).pow)"#,
+        r#"Object.freeze((globalThis['Math']).pow)"#,
     ]
 }
 
