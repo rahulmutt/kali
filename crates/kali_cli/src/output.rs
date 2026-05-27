@@ -1430,6 +1430,15 @@ fn validate_browser_harness_value(value: Option<&Value>) -> Result<(), String> {
     )?;
 
     validate_non_empty_string_value(object.get("envVar"), "doctor browserHarness envVar")?;
+    if !trimmed_string_matches(
+        object.get("envVar"),
+        kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+    ) {
+        return Err(format!(
+            "doctor browserHarness envVar must be `{}`",
+            kali_runtime::BROWSER_HARNESS_COMMAND_ENV
+        ));
+    }
 
     let source = match object.get("source") {
         Some(Value::String(value)) if !value.trim().is_empty() => value,

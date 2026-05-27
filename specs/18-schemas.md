@@ -127,7 +127,7 @@ Required fields:
 ### `BrowserHarnessDoctor`
 
 Required fields:
-- `envVar: non-empty, non-whitespace string` — the environment variable that controls the browser bundle/runtime harness command
+- `envVar: non-empty, non-whitespace string` — the environment variable that controls the browser bundle/runtime harness command; schema v1 currently fixes this to `KALI_BROWSER_BUNDLE_HARNESS_COMMAND`
 - `source: "env" | "auto"` — whether the selected command came from the environment override or from Kali's auto-detection fallback
 - `override: non-empty, non-whitespace string | null` — raw environment override value when `source` is `env`; otherwise `null`
 - `command: string[]` — argv-style resolved command vector, including executable and pre-script harness arguments; each entry is a non-empty, non-whitespace string
