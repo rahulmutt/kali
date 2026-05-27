@@ -44,6 +44,15 @@ fn late_process_control_source() -> String {
     )
 }
 
+fn late_object_model_source() -> String {
+    format!(
+        "{} {} {}",
+        kali_common::broader_intl_source(),
+        kali_common::late_object_model_source(),
+        kali_common::late_compat_object_has_own_source("{}", r#""a""#)
+    )
+}
+
 fn assert_browser_late_process_control_rejection(stderr: &str) {
     assert!(stderr.contains("E3100"), "stderr: {stderr}");
     assert!(
@@ -226,6 +235,18 @@ fn browser_late_process_control_source_includes_single_quoted_process_root_forms
         r#"Object.freeze((globalThis['process'].kill))(+0)"#,
         r#"Object.freeze((globalThis['process']['kill']))(0)"#,
         r#"Object.freeze((globalThis['process']['kill']))(+0)"#,
+    ] {
+        assert!(source.contains(expected), "source: {source}");
+    }
+}
+
+#[test]
+fn browser_late_object_model_source_includes_single_quoted_proxy_revocable_aliases() {
+    let source = late_object_model_source();
+    for expected in [
+        r#"globalThis['Proxy']["revocable"]"#,
+        r#"Object.freeze(globalThis['Proxy']["revocable"])"#,
+        r#"Object.freeze((globalThis['Proxy']["revocable"]))"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
