@@ -14007,17 +14007,42 @@ fn assert_array_callback_method_is_rejected_non_browser_surface(method: &str, ca
 #[test]
 fn test_resolution_rejects_array_callback_methods_in_non_browser_surface() {
     for (method, callback) in [
-        ("find", "(value) => value < 3"),
-        ("findIndex", "(value) => value < 3"),
-        ("findLast", "(value) => value < 3"),
-        ("findLastIndex", "(value) => value < 3"),
         ("filter", "(value) => value > 1"),
-        ("some", "(value) => value > 1"),
-        ("every", "(value) => value > 1"),
         ("reduce", "(accumulator, value) => accumulator + value"),
         ("reduceRight", "(accumulator, value) => accumulator + value"),
     ] {
         assert_array_callback_method_is_rejected_non_browser_surface(method, callback);
+    }
+}
+
+#[test]
+fn test_resolution_allows_array_find_family_in_non_browser_surface() {
+    for (method, callback) in [
+        ("find", "(value) => value > 1"),
+        ("findIndex", "(value) => value > 1"),
+        ("findLast", "(value) => value > 1"),
+        ("findLastIndex", "(value) => value > 1"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        let source = format!("const result = [0, 1, 2, 3].{method}({callback});");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(
+            kali_common::FileId::new(0),
+            fs::read_to_string(&source_path).unwrap(),
+        );
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {method}: {:?}",
+            result.diagnostics
+        );
     }
 }
 
@@ -14082,6 +14107,31 @@ fn test_resolution_allows_identity_array_every_in_non_browser_surface() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+}
+
+#[test]
+fn test_resolution_allows_number_predicate_array_some_every_in_non_browser_surface() {
+    for source in [
+        "const result = [0, 1, 2].some((value) => value > 1);",
+        "const result = [2, 3].every((value) => value > 1);",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+    }
 }
 
 #[test]

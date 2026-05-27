@@ -52,6 +52,12 @@ enum StaticObjectIdentityValue {
     Undefined,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum StaticArraySearchResult {
+    Value(LirNodeId),
+    Index(i64),
+}
+
 impl StaticObjectIdentityValue {
     fn same_value(&self, other: &Self) -> bool {
         match (self, other) {
@@ -1671,6 +1677,58 @@ impl<'a> FunctionEmitter<'a> {
             return EmittedValue {
                 produced: true,
                 shape: ValueShape::Boolean,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_find_call(node, "find") {
+            return match result {
+                StaticArraySearchResult::Value(value) => self.emit_node(function, value, true),
+                StaticArraySearchResult::Index(index) => {
+                    function.instruction(&Instruction::I64Const(index));
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
+                }
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_find_call(node, "findIndex") {
+            return match result {
+                StaticArraySearchResult::Value(value) => self.emit_node(function, value, true),
+                StaticArraySearchResult::Index(index) => {
+                    function.instruction(&Instruction::I64Const(index));
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
+                }
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_find_call(node, "findLast") {
+            return match result {
+                StaticArraySearchResult::Value(value) => self.emit_node(function, value, true),
+                StaticArraySearchResult::Index(index) => {
+                    function.instruction(&Instruction::I64Const(index));
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
+                }
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_find_call(node, "findLastIndex") {
+            return match result {
+                StaticArraySearchResult::Value(value) => self.emit_node(function, value, true),
+                StaticArraySearchResult::Index(index) => {
+                    function.instruction(&Instruction::I64Const(index));
+                    EmittedValue {
+                        produced: true,
+                        shape: ValueShape::Scalar,
+                    }
+                }
             };
         }
 
@@ -3639,6 +3697,83 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
                 Some(true)
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_static_array_find_call(
+        &mut self,
+        node: &LirNode,
+        method: &str,
+    ) -> Option<StaticArraySearchResult> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some(method) {
+            return None;
+        }
+
+        let callback = node.children.get(1).copied()?;
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source).clone();
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0]).clone()
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(&source_node) {
+            return None;
+        }
+
+        match method {
+            "find" => {
+                for child in &source_node.children {
+                    if self.resolve_static_array_callback_truthiness(callback, *child)? {
+                        return Some(StaticArraySearchResult::Value(*child));
+                    }
+                }
+                Some(StaticArraySearchResult::Value(self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some("undefined".to_string()),
+                    vec![],
+                )))
+            }
+            "findIndex" => {
+                for (index, child) in source_node.children.iter().enumerate() {
+                    if self.resolve_static_array_callback_truthiness(callback, *child)? {
+                        return Some(StaticArraySearchResult::Index(index as i64));
+                    }
+                }
+                Some(StaticArraySearchResult::Index(-1))
+            }
+            "findLast" => {
+                for child in source_node.children.iter().rev() {
+                    if self.resolve_static_array_callback_truthiness(callback, *child)? {
+                        return Some(StaticArraySearchResult::Value(*child));
+                    }
+                }
+                Some(StaticArraySearchResult::Value(self.alloc_scratch_node(
+                    LirNodeKind::Literal,
+                    Some("undefined".to_string()),
+                    vec![],
+                )))
+            }
+            "findLastIndex" => {
+                for (index, child) in source_node.children.iter().enumerate().rev() {
+                    if self.resolve_static_array_callback_truthiness(callback, *child)? {
+                        return Some(StaticArraySearchResult::Index(index as i64));
+                    }
+                }
+                Some(StaticArraySearchResult::Index(-1))
             }
             _ => None,
         }
