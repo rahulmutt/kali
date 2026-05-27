@@ -1067,6 +1067,7 @@ impl TypeContext {
                         && self.is_static_array_iteration_target(&call.args[0])
                     || self.is_static_identity_array_map_call(call)
                     || self.is_static_identity_array_filter_call(call)
+                    || self.is_static_identity_array_flat_map_call(call)
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)
@@ -1109,6 +1110,20 @@ impl TypeContext {
         call.args.len() == 1
             && self.is_static_truthy_array_literal(&member.object)
             && self.is_identity_array_callback(&call.args[0])
+    }
+
+    fn is_static_identity_array_flat_map_call(&self, call: &CallExpression) -> bool {
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+
+        if member.property.as_str() != "flatMap" {
+            return false;
+        }
+
+        call.args.len() == 1
+            && self.is_static_array_iteration_target(&member.object)
+            && self.is_identity_array_flat_map_callback(&call.args[0])
     }
 
     fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
@@ -3979,11 +3994,11 @@ impl TypeContext {
                 | "findLastIndex"
                 | "map"
                 | "filter"
+                | "flatMap"
                 | "some"
                 | "every"
                 | "reduce"
                 | "reduceRight"
-                | "flatMap"
         ) {
             return;
         }
@@ -4011,6 +4026,19 @@ impl TypeContext {
                 .first()
                 .is_some_and(|callback| self.is_identity_array_callback(callback))
             && self.is_static_truthy_array_literal(&member.object)
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        if method == "flatMap"
+            && expr
+                .args
+                .first()
+                .is_some_and(|callback| self.is_identity_array_flat_map_callback(callback))
         {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
@@ -4067,6 +4095,56 @@ impl TypeContext {
                 .expressions
                 .last()
                 .is_some_and(|last| self.is_identity_array_callback_expression(last, param_name)),
+            _ => false,
+        }
+    }
+
+    fn is_identity_array_flat_map_callback(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrowFunctionExpression(arrow) => {
+                arrow.params.len() == 1
+                    && self.is_identity_array_flat_map_callback_expression(
+                        &arrow.body,
+                        &arrow.params[0].name,
+                    )
+            }
+            Expression::FunctionExpression(function) => {
+                let Some(body) = &function.body else {
+                    return false;
+                };
+                function.params.len() == 1
+                    && body.body.len() == 1
+                    && matches!(
+                        &body.body[0],
+                        Statement::ReturnStatement(ReturnStatement {
+                            argument: Some(argument),
+                        }) if self.is_identity_array_flat_map_callback_expression(
+                            argument,
+                            &function.params[0].name,
+                        )
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    fn is_identity_array_flat_map_callback_expression(
+        &self,
+        expression: &Expression,
+        param_name: &str,
+    ) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrayExpression(array) => {
+                array.elements.len() == 1
+                    && matches!(
+                        &array.elements[0],
+                        Some(ExpressionOrSpread::Expression(expr))
+                            if self.is_identity_array_callback_expression(expr, param_name)
+                    )
+            }
+            Expression::SequenceExpression(expr) => expr.expressions.last().is_some_and(|last| {
+                self.is_identity_array_flat_map_callback_expression(last, param_name)
+            }),
             _ => false,
         }
     }

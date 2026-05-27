@@ -3367,6 +3367,43 @@ impl<'a> FunctionEmitter<'a> {
         self.node(body_expr).text.as_deref() == Some(param_name)
     }
 
+    fn is_identity_array_flat_map_callback(&self, id: LirNodeId) -> bool {
+        let id = self.resolve_transparent_callable_node(id).unwrap_or(id);
+        let node = self.node(id);
+        if node.function_flavor != Some(FunctionFlavor::Sync)
+            || node.kind != LirNodeKind::Instruction
+            || node.children.len() < 2
+        {
+            return false;
+        }
+
+        let Some(param_name) = self.node(node.children[0]).text.as_deref() else {
+            return false;
+        };
+        let Some(body_expr) = self.node(node.children[1]).children.first().copied() else {
+            return false;
+        };
+
+        self.is_identity_array_flat_map_expression(body_expr, param_name)
+    }
+
+    fn is_identity_array_flat_map_expression(&self, id: LirNodeId, param_name: &str) -> bool {
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value
+            || node.text.as_deref().is_some_and(|text| !text.is_empty())
+            || node.children.len() != 1
+        {
+            return false;
+        }
+
+        let child = node.children[0];
+        if self.node(child).text.as_deref() == Some(param_name) {
+            return true;
+        }
+
+        self.is_identity_array_flat_map_expression(child, param_name)
+    }
+
     fn resolve_identity_array_callback_source(&self, node: &LirNode) -> Option<LirNodeId> {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return None;
@@ -3375,12 +3412,19 @@ impl<'a> FunctionEmitter<'a> {
         let callee = node.children.first().copied()?;
         let callee = self.resolve_transparent_callable_node(callee)?;
         let callee_node = self.node(callee);
-        if callee_node.text.as_deref() != Some("map") {
-            return None;
+        match callee_node.text.as_deref() {
+            Some("map") => Some(callee_node.children.first().copied()?),
+            Some("flatMap") => {
+                let callback = node.children.get(1).copied()?;
+                let callback = self.resolve_transparent_callable_node(callback)?;
+                if self.is_identity_array_flat_map_callback(callback) {
+                    Some(callee_node.children.first().copied()?)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
-
-        let source = callee_node.children.first().copied()?;
-        Some(source)
     }
 
     fn resolve_truthy_identity_array_filter_source(&self, node: &LirNode) -> Option<LirNodeId> {

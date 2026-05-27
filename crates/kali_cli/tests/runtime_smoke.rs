@@ -50473,14 +50473,13 @@ fn run_and_test_reject_generator_and_async_generator_function_lowering_when_brow
     }
 }
 
-fn array_callback_iteration_sources() -> [&'static str; 10] {
+fn array_callback_iteration_sources() -> [&'static str; 9] {
     [
         "const values = [1, 2]; for (const item of values.filter((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.find((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.findLast((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.findLastIndex((value) => value > 1)) { console.log(item); }\n",
-        "const values = [1, 2]; for (const item of values.flatMap((value) => [value])) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.some((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.every((value) => value > 1)) { console.log(item); }\n",
         "const values = [1, 2]; for (const item of values.reduce((acc, value) => acc + value, 0)) { console.log(item); }\n",

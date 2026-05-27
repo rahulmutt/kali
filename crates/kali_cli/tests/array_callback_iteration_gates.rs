@@ -6,7 +6,7 @@ fn kali_bin() -> String {
     std::env::var("CARGO_BIN_EXE_kali").expect("kali binary path")
 }
 
-fn array_callback_iteration_sources() -> [&'static str; 10] {
+fn array_callback_iteration_sources() -> [&'static str; 9] {
     [
         r#"function main() {
   const values = [1, 2];
@@ -43,14 +43,6 @@ main();
         r#"function main() {
   const values = [1, 2];
   for (const item of values.findLastIndex((value) => value > 1)) {
-    console.log(item);
-  }
-}
-main();
-"#,
-        r#"function main() {
-  const values = [1, 2];
-  for (const item of values.flatMap((value) => [value])) {
     console.log(item);
   }
 }

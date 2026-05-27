@@ -2803,7 +2803,6 @@ fn unsupported_array_callback_iteration_lowering_reports_feature_unavailable() {
         "const values = [1, 2]; for (const item of values.findIndex((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.findLast((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.findLastIndex((value) => value > 1)) { console.log(item); }",
-        "const values = [1, 2]; for (const item of values.flatMap((value) => [value])) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.some((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.every((value) => value > 1)) { console.log(item); }",
         "const values = [1, 2]; for (const item of values.reduce((acc, value) => acc + value, 0)) { console.log(item); }",
@@ -4756,6 +4755,29 @@ fn supported_for_of_array_iteration_accepts_identity_map_calls() {
 fn supported_for_of_array_iteration_accepts_truthy_identity_filter_calls() {
     let program = parse_and_lower_lir(
         "for (const item of [1, 2].filter((value) => value)) { console.log(item); }",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn supported_for_of_array_iteration_accepts_identity_flat_map_calls() {
+    let program = parse_and_lower_lir(
+        "for (const item of [1, 2].flatMap((value) => [value])) { console.log(item); }",
     );
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
