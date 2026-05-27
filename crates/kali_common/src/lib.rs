@@ -1040,7 +1040,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
 /// Canonical source text for the supported Number predicate slice.
 pub fn number_predicates_preamble_source(alias_literal: &str) -> String {
     format!(
-        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenNaN = Object.freeze(Number.isNaN); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger); const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]); const frozenBracketedNaN = Object.freeze(Number[\"isNaN\"]); const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]); const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]); const frozenParenthesizedBracketedFinite = Object.freeze((globalThis[\"Number\"])[\"isFinite\"]); const frozenParenthesizedBracketedNaN = Object.freeze((globalThis[\"Number\"])[\"isNaN\"]); const frozenParenthesizedBracketedInteger = Object.freeze((globalThis[\"Number\"])[\"isInteger\"]); const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis[\"Number\"])[\"isSafeInteger\"]);"
+        "const alias = {alias_literal}; const finite = Number.isFinite; const integer = Number.isInteger; const safeInteger = Number.isSafeInteger; const frozenFinite = Object.freeze(Number.isFinite); const frozenNaN = Object.freeze(Number.isNaN); const frozenInteger = Object.freeze(Number.isInteger); const frozenSafeInteger = Object.freeze(Number.isSafeInteger); const frozenBracketedFinite = Object.freeze(Number[\"isFinite\"]); const frozenBracketedNaN = Object.freeze(Number[\"isNaN\"]); const frozenBracketedInteger = Object.freeze(Number[\"isInteger\"]); const frozenBracketedSafeInteger = Object.freeze(Number[\"isSafeInteger\"]); const frozenParenthesizedBracketedFinite = Object.freeze((globalThis[\"Number\"])[\"isFinite\"]); const frozenParenthesizedBracketedNaN = Object.freeze((globalThis[\"Number\"])[\"isNaN\"]); const frozenParenthesizedBracketedInteger = Object.freeze((globalThis[\"Number\"])[\"isInteger\"]); const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis[\"Number\"])[\"isSafeInteger\"]); const frozenParenthesizedPropertyFinite = Object.freeze((globalThis[\"Number\"]).isFinite); const frozenParenthesizedPropertyNaN = Object.freeze((globalThis[\"Number\"]).isNaN); const frozenParenthesizedPropertyInteger = Object.freeze((globalThis[\"Number\"]).isInteger); const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis[\"Number\"]).isSafeInteger);"
     )
 }
 
@@ -1082,6 +1082,11 @@ pub fn number_predicates_console_log_body_source() -> String {
         r#"console.log(frozenParenthesizedBracketedNaN(1))"#,
         r#"console.log(frozenParenthesizedBracketedInteger(alias))"#,
         r#"console.log(frozenParenthesizedBracketedSafeInteger(alias))"#,
+        r#"console.log(frozenParenthesizedPropertyFinite(alias))"#,
+        r#"console.log(frozenParenthesizedPropertyNaN(NaN))"#,
+        r#"console.log(frozenParenthesizedPropertyNaN(1))"#,
+        r#"console.log(frozenParenthesizedPropertyInteger(alias))"#,
+        r#"console.log(frozenParenthesizedPropertySafeInteger(alias))"#,
         r#"console.log(finite(alias))"#,
         r#"console.log(integer(alias))"#,
         r#"console.log(safeInteger(alias))"#,
@@ -1119,6 +1124,10 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "  const frozenParenthesizedBracketedNaN = Object.freeze((globalThis[\"Number\"])[\"isNaN\"]);\n",
             "  const frozenParenthesizedBracketedInteger = Object.freeze((globalThis[\"Number\"])[\"isInteger\"]);\n",
             "  const frozenParenthesizedBracketedSafeInteger = Object.freeze((globalThis[\"Number\"])[\"isSafeInteger\"]);\n",
+            "  const frozenParenthesizedPropertyFinite = Object.freeze((globalThis[\"Number\"]).isFinite);\n",
+            "  const frozenParenthesizedPropertyNaN = Object.freeze((globalThis[\"Number\"]).isNaN);\n",
+            "  const frozenParenthesizedPropertyInteger = Object.freeze((globalThis[\"Number\"]).isInteger);\n",
+            "  const frozenParenthesizedPropertySafeInteger = Object.freeze((globalThis[\"Number\"]).isSafeInteger);\n",
             "  if (\n",
             "    Number.isFinite(alias) !== true ||\n",
             "    Number.isSafeInteger(await alias) !== true ||\n",
@@ -1156,6 +1165,11 @@ pub fn number_predicates_browser_bundle_source(alias_literal: &str) -> String {
             "    frozenParenthesizedBracketedNaN(1) !== false ||\n",
             "    frozenParenthesizedBracketedInteger(alias) !== true ||\n",
             "    frozenParenthesizedBracketedSafeInteger(alias) !== true ||\n",
+            "    frozenParenthesizedPropertyFinite(alias) !== true ||\n",
+            "    frozenParenthesizedPropertyNaN(NaN) !== true ||\n",
+            "    frozenParenthesizedPropertyNaN(1) !== false ||\n",
+            "    frozenParenthesizedPropertyInteger(alias) !== true ||\n",
+            "    frozenParenthesizedPropertySafeInteger(alias) !== true ||\n",
             "    safeInteger(alias) !== true ||\n",
             "    finite(alias) !== true\n",
             "  ) {{\n",
