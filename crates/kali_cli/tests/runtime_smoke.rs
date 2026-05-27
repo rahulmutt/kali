@@ -42624,6 +42624,104 @@ fn json_check_rejects_negative_math_pow_exponents_in_js_input() {
 }
 
 #[test]
+fn check_and_build_reject_optional_chain_wrapped_math_pow_in_browser_api_surface_in_js_ts_jsx_and_tsx_input(
+) {
+    for (command, extension, source) in [
+        ("check", "js", "console.log(Math?.pow(2, 3));\n"),
+        ("check", "ts", "console.log(Math?.pow(2, 3));\n"),
+        ("check", "jsx", "console.log(Math?.pow(2, 3));\n"),
+        ("check", "tsx", "console.log(Math?.pow(2, 3));\n"),
+        ("build", "js", "console.log(Math?.pow(2, 3));\n"),
+        ("build", "ts", "console.log(Math?.pow(2, 3));\n"),
+        ("build", "jsx", "console.log(Math?.pow(2, 3));\n"),
+        ("build", "tsx", "console.log(Math?.pow(2, 3));\n"),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join(format!("main.{extension}"));
+            fs::write(&source_path, source).expect("write source");
+
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            let output = output
+                .arg("--api")
+                .arg("browser")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_optional_chain_math_pow_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_optional_chain_math_pow_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
+fn check_and_build_reject_global_this_optional_chain_wrapped_math_pow_in_browser_api_surface_in_js_input(
+) {
+    for (command, source) in [
+        ("check", "console.log(globalThis.Math?.pow(2, 3));\n"),
+        ("check", "console.log(globalThis?.Math.pow(2, 3));\n"),
+        ("build", "console.log(globalThis.Math?.pow(2, 3));\n"),
+        ("build", "console.log(globalThis?.Math.pow(2, 3));\n"),
+    ] {
+        for output_json in [false, true] {
+            let dir = tempdir().expect("tempdir");
+            let source_path = dir.path().join("main.js");
+            fs::write(&source_path, source).expect("write source");
+
+            let mut output = Command::new(kali_bin());
+            output.current_dir(dir.path());
+            if output_json {
+                output.arg("--output").arg("json");
+            }
+            output.arg(command);
+            if command == "build" {
+                output.arg("--bundle");
+            }
+            let output = output
+                .arg("--api")
+                .arg("browser")
+                .arg(&source_path)
+                .output()
+                .expect("run kali");
+
+            assert!(!output.status.success());
+            assert_eq!(output.status.code(), Some(1));
+            if output_json {
+                let json = parse_json_stdout(&output);
+                assert_eq!(json["schemaVersion"], 1);
+                assert_eq!(json["command"], command);
+                assert_eq!(json["success"], false);
+                let errors = json["errors"].as_array().expect("errors array");
+                assert_optional_chain_math_pow_rejection_json(errors);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert_optional_chain_math_pow_rejection_text(&stderr);
+            }
+        }
+    }
+}
+
+#[test]
 fn json_check_supports_non_integer_numeric_literals_in_math_member_calls_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
@@ -46125,6 +46223,33 @@ fn assert_unsupported_math_member_calls_rejection_json_for_method(
             message.contains(expected_method)
         }),
         "missing unsupported Math member call in {errors:?}"
+    );
+}
+
+fn assert_optional_chain_math_pow_rejection_text(stderr: &str) {
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(stderr.contains("Math.pow"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("optional-chain wrappers"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("later compatibility"), "stderr: {stderr}");
+}
+
+fn assert_optional_chain_math_pow_rejection_json(errors: &[Value]) {
+    assert!(!errors.is_empty(), "errors array should not be empty");
+    assert!(
+        errors.iter().all(|error| error["code"] == "E5506"),
+        "unexpected errors: {errors:?}"
+    );
+    assert!(
+        errors.iter().any(|error| {
+            error["message"]
+                .as_str()
+                .expect("error message")
+                .contains("Math.pow is unavailable through optional-chain wrappers")
+        }),
+        "missing optional-chain Math.pow rejection in {errors:?}"
     );
 }
 
