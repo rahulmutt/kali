@@ -165,6 +165,21 @@ fn emitted_cli_envelopes_reject_non_string_command_stdout_and_stderr_fields() {
 }
 
 #[test]
+fn emitted_cli_envelopes_accept_omitted_stdout_stderr_and_exit_code_fields() {
+    let value = json!({
+        "schemaVersion": 1,
+        "command": "doctor",
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": {"answer": 42}
+    });
+
+    validate_envelope_value(&value)
+        .expect("externally sourced envelopes may omit stdout, stderr, and exitCode");
+}
+
+#[test]
 fn emitted_cli_envelopes_preserve_empty_diagnostic_arrays_for_run_text_output() {
     let value = emit_envelope_value(
         "run",
