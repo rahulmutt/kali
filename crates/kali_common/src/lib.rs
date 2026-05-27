@@ -1040,6 +1040,7 @@ pub fn late_compat_object_has_own_source(receiver_source: &str, key_source: &str
         format!(r#"Object.prototype["hasOwnProperty"].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis.Object["hasOwnProperty"].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis.Object['hasOwnProperty'].call({receiver_source}, {key_source})"#),
+        format!(r#"globalThis["Object"]['hasOwnProperty'].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis["Object"].hasOwnProperty.call({receiver_source}, {key_source})"#),
         format!(r#"globalThis["Object"]["hasOwnProperty"].call({receiver_source}, {key_source})"#),
         format!(r#"globalThis['Object'].hasOwnProperty.call({receiver_source}, {key_source})"#),
@@ -3114,6 +3115,7 @@ const LATE_OBJECT_MODEL_OWN_PROPERTY_SEGMENTS: &[&str] = &[
     r#"globalThis.Object["hasOwnProperty"].call(globalThis, "a")"#,
     r#"globalThis.Object['hasOwnProperty'].call(globalThis, "a")"#,
     r#"globalThis["Object"]["hasOwnProperty"].call(globalThis, "a")"#,
+    r#"globalThis["Object"]['hasOwnProperty'].call(globalThis, "a")"#,
     r#"Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
     r#"globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a")"#,
     r#"globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a")"#,
@@ -3138,7 +3140,7 @@ pub fn late_object_model_own_property_aliases() -> &'static [&'static str] {
 
 /// Canonical late-object-model own-property source text used by the browser and runtime smoke.
 pub const fn late_object_model_own_property_source() -> &'static str {
-    r#"Object.hasOwn(globalThis, "a"); globalThis.Object.hasOwn(globalThis, "a"); globalThis.Object["hasOwn"](globalThis, "a"); globalThis["Object"].hasOwn(globalThis, "a"); globalThis["Object"]["hasOwn"](globalThis, "a"); Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object['hasOwnProperty'].call(globalThis, "a"); globalThis["Object"]["hasOwnProperty"].call(globalThis, "a"); Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty']['call'](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty'].call(globalThis, "a"); globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a");"#
+    r#"Object.hasOwn(globalThis, "a"); globalThis.Object.hasOwn(globalThis, "a"); globalThis.Object["hasOwn"](globalThis, "a"); globalThis["Object"].hasOwn(globalThis, "a"); globalThis["Object"]["hasOwn"](globalThis, "a"); Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object["hasOwnProperty"].call(globalThis, "a"); globalThis.Object['hasOwnProperty'].call(globalThis, "a"); globalThis["Object"]["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]['hasOwnProperty'].call(globalThis, "a"); Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty.call(globalThis, "a"); globalThis.Object.prototype.hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis.Object["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis.Object.prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty.call(globalThis, "a"); globalThis["Object"].prototype.hasOwnProperty["call"](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty']['call'](globalThis, "a"); globalThis["Object"].prototype['hasOwnProperty'].call(globalThis, "a"); globalThis["Object"].prototype["hasOwnProperty"].call(globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty.call(globalThis, "a"); globalThis["Object"]["prototype"]["hasOwnProperty"]["call"](globalThis, "a"); globalThis["Object"]["prototype"].hasOwnProperty["call"](globalThis, "a"); globalThis.Object["prototype"].hasOwnProperty["call"](globalThis, "a");"#
 }
 
 const LATE_THREADED_RUNTIME_SEGMENTS: &[&str] = &[

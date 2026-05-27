@@ -62,7 +62,7 @@ Keep this file at the sequencing level. Exact coverage belongs in tests, maturit
 - Remove implementation-journal prose from plan files.
 - Keep diagnostic codes and wording aligned with `specs/15-errors.md`.
 - Normalize late object-model diagnostics so quoted alias spellings surface the same canonical `Proxy.revocable` family in E5506 text, including the mixed-quote bracket-access family now kept in the shared smoke inventory.
-- Keep the shared own-property source inventory aligned with the single-quoted `globalThis.Object['hasOwnProperty'].call` spelling so the `Object.hasOwn` / `hasOwnProperty.call` slices stay canonical across the smoke corpus.
+- Keep the shared own-property source inventory aligned with the single-quoted `globalThis.Object['hasOwnProperty'].call` spelling and the complementary `globalThis["Object"]['hasOwnProperty'].call` form so the `Object.hasOwn` / `hasOwnProperty.call` slices stay canonical across the smoke corpus.
 
 ## Exit gate
 
