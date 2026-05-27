@@ -670,6 +670,15 @@ theorem releaseAndCollectDropsOriginalZeroCountCells (snapshot : RcSnapshot) (re
     simp [hzero] at hpos
   exact False.elim hfalse
 
+/-- The release-and-collect helper drops original zero-count cells and preserves linear memory. -/
+theorem releaseAndCollectDropsOriginalZeroCountCellsAndLinearMemory (snapshot : RcSnapshot) (ref : String) :
+    (∀ cell, cell ∈ snapshot.heap → cell.refCount = 0 →
+      cell ∉ (releaseAndCollect snapshot ref).heap) ∧
+    (releaseAndCollect snapshot ref).linearMemory = snapshot.linearMemory := by
+  constructor
+  · exact releaseAndCollectDropsOriginalZeroCountCells snapshot ref
+  · exact releaseAndCollectPreservesLinearMemory snapshot ref
+
 /-- The release-and-collect helper's heap is exactly the positive-count filter of the decrement pass. -/
 theorem releaseAndCollectHeapIsPositiveCountFilter (snapshot : RcSnapshot) (ref : String) :
     (releaseAndCollect snapshot ref).heap =

@@ -22,7 +22,7 @@ Widen proof-backed and machine-contract confidence while keeping claims exact.
 
 ### 25.2 Model widening
 
-- Widen core semantics, ownership/RC, effects, type-system, and lowering models in small named slices.
+- Widen core semantics, ownership/RC, effects, type-system, and lowering models in small named slices; the RC slice now also tracks the `releaseAndCollectDropsOriginalZeroCountCellsAndLinearMemory` companion so the zero-count-drop theorem stays aligned with the explicit linear-memory payload.
 - Pair every widened proof-backed claim with mechanized theorem inventory and proof-CI evidence.
 - Keep full-language/full-host proof wording out of release claims until those semantics are modeled.
 
