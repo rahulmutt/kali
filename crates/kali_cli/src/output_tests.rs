@@ -5538,6 +5538,52 @@ fn validate_envelope_value_rejects_empty_or_whitespace_command() {
 }
 
 #[test]
+fn validate_envelope_value_rejects_non_string_command() {
+    let value = json!({
+        "schemaVersion": 1,
+        "command": 1,
+        "success": true,
+        "errors": [],
+        "warnings": [],
+        "payload": null,
+        "stdout": null,
+        "stderr": null,
+        "exitCode": 0,
+    });
+
+    let err =
+        validate_envelope_value(&value).expect_err("non-string command should fail validation");
+    assert!(err.contains("command"), "unexpected error: {err}");
+    assert!(
+        err.contains("non-empty, non-whitespace string"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn validate_envelope_value_rejects_non_string_stdout_and_stderr() {
+    for (field, value) in [("stdout", json!(1)), ("stderr", json!({"bad": true}))] {
+        let mut envelope = json!({
+            "schemaVersion": 1,
+            "command": "doctor",
+            "success": true,
+            "errors": [],
+            "warnings": [],
+            "payload": null,
+            "stdout": null,
+            "stderr": null,
+            "exitCode": 0,
+        });
+        envelope[field] = value;
+
+        let err = validate_envelope_value(&envelope)
+            .expect_err("non-string stdout/stderr should fail validation");
+        assert!(err.contains(field), "unexpected error: {err}");
+        assert!(err.contains("string or null"), "unexpected error: {err}");
+    }
+}
+
+#[test]
 fn validate_envelope_value_allows_schema_permitted_extension_keys() {
     let extended = json!({
         "schemaVersion": 1,
