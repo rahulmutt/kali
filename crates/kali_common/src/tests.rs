@@ -2095,6 +2095,8 @@ fn test_math_pow_browser_alias_inventory_aliases_list_all_aliases_in_order() {
             r#"Object.freeze((globalThis.Math)['pow'])"#,
             r#"Object.freeze((globalThis["Math"]))["pow"]"#,
             r#"Object.freeze((globalThis['Math']))['pow']"#,
+            r#"Object.freeze((globalThis['Math'])["pow"])"#,
+            r#"Object.freeze((globalThis['Math'])['pow'])"#,
             r#"Object.freeze((globalThis["Math"]).pow)"#,
             r#"Object.freeze((globalThis['Math']).pow)"#,
         ]
@@ -2864,11 +2866,13 @@ fn test_math_pow_bracketed_frozen_callable_source_lists_all_aliases_in_order() {
             r#"Object.freeze((globalThis.Math)['pow'])"#,
             r#"Object.freeze((globalThis["Math"]))["pow"]"#,
             r#"Object.freeze((globalThis['Math']))['pow']"#,
+            r#"Object.freeze((globalThis['Math'])["pow"])"#,
+            r#"Object.freeze((globalThis['Math'])['pow'])"#,
             r#"Object.freeze((globalThis["Math"]).pow)"#,
             r#"Object.freeze((globalThis['Math']).pow)"#,
         ]
     );
-    assert_eq!(source, "Object.freeze((globalThis.Math))[\"pow\"]; Object.freeze((globalThis.Math))['pow']; Object.freeze((globalThis.Math).pow); Object.freeze((globalThis.Math)['pow']); Object.freeze((globalThis[\"Math\"]))[\"pow\"]; Object.freeze((globalThis['Math']))['pow']; Object.freeze((globalThis[\"Math\"]).pow); Object.freeze((globalThis['Math']).pow);");
+    assert_eq!(source, "Object.freeze((globalThis.Math))[\"pow\"]; Object.freeze((globalThis.Math))['pow']; Object.freeze((globalThis.Math).pow); Object.freeze((globalThis.Math)['pow']); Object.freeze((globalThis[\"Math\"]))[\"pow\"]; Object.freeze((globalThis['Math']))['pow']; Object.freeze((globalThis['Math'])[\"pow\"]); Object.freeze((globalThis['Math'])['pow']); Object.freeze((globalThis[\"Math\"]).pow); Object.freeze((globalThis['Math']).pow);");
 }
 
 #[test]
