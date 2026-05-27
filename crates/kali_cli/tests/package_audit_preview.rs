@@ -296,3 +296,103 @@ fn package_audit_pretty_without_json_short_circuits_before_registry_lookup() {
         "pretty should short-circuit before target validation: {stderr}"
     );
 }
+
+#[test]
+fn package_audit_preview_short_circuits_before_malformed_target_validation_with_package_analysis_flags_in_text_mode(
+) {
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+    ] {
+        let output = Command::new(kali_bin())
+            .arg("package-audit")
+            .args(args)
+            .arg("--preview")
+            .arg("lodash")
+            .output()
+            .expect("run kali");
+
+        assert_eq!(output.status.code(), Some(5));
+        assert!(output.stdout.is_empty(), "stdout: {:?}", output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(
+                "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape",
+            ),
+            "stderr: {stderr}"
+        );
+        assert!(
+            !stderr.contains("does not accept package-analysis-specific flags"),
+            "preview should short-circuit before package-analysis flag validation: {stderr}"
+        );
+        assert!(
+            !stderr.contains("lodash"),
+            "preview should short-circuit before malformed-target validation: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn package_audit_preview_short_circuits_before_registry_lookup_with_package_analysis_flags_in_pretty_json_mode(
+) {
+    for args in [
+        &["--api", "browser"][..],
+        &["--compat", "eval"][..],
+        &["--wasm-threads"][..],
+    ] {
+        let (registry_url, hits, stop, handle) =
+            start_registry_metadata_server(r#"{"schemaVersion":1,"packages":[]}"#);
+
+        let output = Command::new(kali_bin())
+            .env("KALI_REGISTRY", registry_url)
+            .arg("package-audit")
+            .args(args)
+            .arg("--pretty")
+            .arg("--output")
+            .arg("json")
+            .arg("--preview")
+            .arg("lodash")
+            .output()
+            .expect("run kali");
+
+        stop.store(true, Ordering::SeqCst);
+        handle.join().expect("join registry server");
+
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            0,
+            "registry should not be queried"
+        );
+        assert_eq!(output.status.code(), Some(5));
+        assert!(output.stderr.is_empty(), "stderr: {:?}", output.stderr);
+        let json = parse_json_stdout(&output);
+        assert_eq!(json["schemaVersion"], 1);
+        assert_eq!(json["command"], "package-audit");
+        assert_eq!(json["success"], false);
+        assert_eq!(json["exitCode"], 5);
+        assert!(json["payload"].is_null());
+        let errors = json["errors"].as_array().expect("errors array");
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0]["code"], "E5508");
+        assert_eq!(errors[0]["context"]["origin"], "cli");
+        assert_eq!(errors[0]["context"]["flag"], "--preview");
+        assert_eq!(errors[0]["context"]["requestedValue"], "true");
+        assert_eq!(errors[0]["context"]["effectiveValue"], "true");
+        assert_eq!(errors[0]["message"], "legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape");
+        assert!(
+            !errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("package-analysis-specific flags"),
+            "json: {json}"
+        );
+        assert!(
+            !errors[0]["message"]
+                .as_str()
+                .expect("message string")
+                .contains("lodash"),
+            "preview should short-circuit before malformed-target validation: {json}"
+        );
+    }
+}
