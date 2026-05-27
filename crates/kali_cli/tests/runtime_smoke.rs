@@ -71190,6 +71190,54 @@ fn package_audit_rejects_preview_compatibility_shim_before_package_analysis_flag
 }
 
 #[test]
+fn package_audit_rejects_preview_compatibility_shim_before_package_analysis_flag_validation_with_sandbox_in_text_output(
+) {
+    let dir = tempdir().expect("tempdir");
+    let policy_path = dir.path().join("ignored.policy.json");
+    fs::write(&policy_path, "{\n  \"schemaVersion\": 1\n}\n").expect("write policy");
+    let policy_path = policy_path.to_str().expect("policy path");
+
+    let (registry_url, hits, stop, handle) =
+        start_registry_metadata_server(package_audit_metadata_body(None, false));
+
+    let output = Command::new(kali_bin())
+        .env("KALI_REGISTRY", registry_url)
+        .arg("package-audit")
+        .arg("--sandbox")
+        .arg(policy_path)
+        .arg("--api")
+        .arg("browser")
+        .arg("--preview")
+        .arg("lodash")
+        .output()
+        .expect("run kali");
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().expect("join registry server");
+
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        0,
+        "registry server should not be queried"
+    );
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(5));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5508"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("legacy `--preview` compatibility shim is not part of the schema-v1 package-audit command shape"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("--api"), "stderr: {stderr}");
+    assert!(!stderr.contains("--sandbox"), "stderr: {stderr}");
+    assert!(
+        output.stdout.is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
 fn package_audit_rejects_preview_compatibility_shim_in_json_output() {
     let (registry_url, hits, stop, handle) =
         start_registry_metadata_server(package_audit_metadata_body(None, false));
