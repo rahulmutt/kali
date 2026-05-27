@@ -4695,12 +4695,15 @@ impl TypeContext {
             .unwrap_or_else(|| format!("globalThis[\"{}\"]", expr.property));
         let single_quoted = Self::member_access_name_single_quoted(expr)
             .unwrap_or_else(|| format!("globalThis['{}']", expr.property));
+        let single_quoted_root_dotted = Self::member_access_single_quoted_root_name(&expr.object)
+            .map(|root| format!("{}.{}", root, expr.property))
+            .unwrap_or_else(|| single_quoted.clone());
 
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
-                "broader Intl support via '{}' (aka {}, {}) is unavailable until the later web/Intl compatibility path is enabled",
-                dotted, bracketed, single_quoted
+                "broader Intl support via '{}' (aka {}, {}, {}) is unavailable until the later web/Intl compatibility path is enabled",
+                dotted, bracketed, single_quoted, single_quoted_root_dotted
             ),
         ));
         true

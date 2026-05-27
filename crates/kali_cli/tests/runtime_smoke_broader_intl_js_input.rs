@@ -12,7 +12,7 @@ fn kali_bin() -> String {
 }
 
 fn broader_intl_js_source() -> &'static str {
-    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Object.freeze((null ?? globalThis.Intl.NumberFormat)); globalThis[\"Intl\"].NumberFormat; globalThis.Intl[\"NumberFormat\"]; globalThis[\"Intl\"].NumberFormat; globalThis.Intl.DateTimeFormat; globalThis[\"Intl\"].DateTimeFormat; globalThis.Intl[\"DateTimeFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis[\"Intl\"][\"Collator\"]; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis[\"Intl\"][\"Segmenter\"]; globalThis[\"Intl\"][\"Locale\"]; globalThis[\"Intl\"][\"PluralRules\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale; Intl.PluralRules;"
+    "Intl; globalThis.Intl; globalThis.Intl.NumberFormat; Object.freeze((null ?? globalThis.Intl.NumberFormat)); globalThis[\"Intl\"].NumberFormat; globalThis['Intl'].NumberFormat; globalThis.Intl[\"NumberFormat\"]; globalThis[\"Intl\"].NumberFormat; globalThis.Intl.DateTimeFormat; globalThis['Intl'].DateTimeFormat; globalThis[\"Intl\"].DateTimeFormat; globalThis.Intl[\"DateTimeFormat\"]; globalThis[\"Intl\"][\"DateTimeFormat\"]; globalThis[\"Intl\"][\"NumberFormat\"]; globalThis.Intl.RelativeTimeFormat; globalThis.Intl.Collator; globalThis.Intl.DisplayNames; globalThis.Intl.Segmenter; globalThis.Intl.Locale; globalThis['Intl'].RelativeTimeFormat; globalThis[\"Intl\"][\"RelativeTimeFormat\"]; globalThis['Intl'].Collator; globalThis[\"Intl\"][\"Collator\"]; globalThis['Intl'].DisplayNames; globalThis[\"Intl\"][\"DisplayNames\"]; globalThis['Intl'].Segmenter; globalThis[\"Intl\"][\"Segmenter\"]; globalThis['Intl'].Locale; globalThis[\"Intl\"][\"Locale\"]; globalThis['Intl'].PluralRules; globalThis[\"Intl\"][\"PluralRules\"]; Intl.NumberFormat; Intl.DateTimeFormat; Intl.RelativeTimeFormat; Intl.Collator; Intl.DisplayNames; globalThis.Intl.DisplayNames; Intl.Segmenter; Intl.Locale; Intl.PluralRules;"
 }
 
 fn assert_broader_intl_rejection(stderr: &str) {
@@ -21,12 +21,19 @@ fn assert_broader_intl_rejection(stderr: &str) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
+        "globalThis['Intl'].NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis['Intl'].DateTimeFormat",
         "globalThis.Intl.RelativeTimeFormat",
+        "globalThis['Intl'].RelativeTimeFormat",
         "globalThis.Intl.Collator",
+        "globalThis['Intl'].Collator",
         "globalThis.Intl.DisplayNames",
+        "globalThis['Intl'].DisplayNames",
         "globalThis.Intl.Segmenter",
+        "globalThis['Intl'].Segmenter",
         "globalThis.Intl.Locale",
+        "globalThis['Intl'].Locale",
         "Intl.NumberFormat",
         r#"globalThis["Intl"]["DateTimeFormat"]"#,
         r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
@@ -36,6 +43,7 @@ fn assert_broader_intl_rejection(stderr: &str) {
         r#"globalThis["Intl"]["Locale"]"#,
         r#"globalThis["Intl"]["NumberFormat"]"#,
         r#"globalThis["Intl"]["PluralRules"]"#,
+        "globalThis['Intl'].PluralRules",
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
@@ -65,12 +73,19 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         "Intl",
         "globalThis.Intl",
         "globalThis.Intl.NumberFormat",
+        "globalThis['Intl'].NumberFormat",
         "globalThis.Intl.DateTimeFormat",
+        "globalThis['Intl'].DateTimeFormat",
         "globalThis.Intl.RelativeTimeFormat",
+        "globalThis['Intl'].RelativeTimeFormat",
         "globalThis.Intl.Collator",
+        "globalThis['Intl'].Collator",
         "globalThis.Intl.DisplayNames",
+        "globalThis['Intl'].DisplayNames",
         "globalThis.Intl.Segmenter",
+        "globalThis['Intl'].Segmenter",
         "globalThis.Intl.Locale",
+        "globalThis['Intl'].Locale",
         "Intl.NumberFormat",
         r#"globalThis["Intl"]["DateTimeFormat"]"#,
         r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
@@ -80,6 +95,7 @@ fn assert_broader_intl_rejection_json(errors: &[Value]) {
         r#"globalThis["Intl"]["Locale"]"#,
         r#"globalThis["Intl"]["NumberFormat"]"#,
         r#"globalThis["Intl"]["PluralRules"]"#,
+        "globalThis['Intl'].PluralRules",
         "Intl.DateTimeFormat",
         "Intl.RelativeTimeFormat",
         "Intl.Collator",
