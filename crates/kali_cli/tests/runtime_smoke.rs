@@ -51189,7 +51189,7 @@ fn run_and_test_reject_wrapped_generator_and_async_generator_class_expressions_i
 }
 
 #[test]
-fn run_and_test_reject_sequence_wrapped_generator_and_async_generator_class_expressions_in_js_input(
+fn run_and_test_reject_sequence_wrapped_generator_and_async_generator_class_expressions_in_js_ts_jsx_and_tsx_input(
 ) {
     for (source, expected_message) in [
         (
@@ -51203,13 +51203,15 @@ fn run_and_test_reject_sequence_wrapped_generator_and_async_generator_class_expr
     ] {
         for command in ["run", "test"] {
             for json_output in [false, true] {
-                assert_runtime_entrypoint_rejection(
-                    command,
-                    json_output,
-                    "js",
-                    source,
-                    expected_message,
-                );
+                for extension in ["js", "ts", "jsx", "tsx"] {
+                    assert_runtime_entrypoint_rejection(
+                        command,
+                        json_output,
+                        extension,
+                        source,
+                        expected_message,
+                    );
+                }
             }
         }
     }
