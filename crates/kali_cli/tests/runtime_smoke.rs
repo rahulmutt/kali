@@ -5267,6 +5267,52 @@ fn doctor_emits_json_envelope_for_browser_harness_override() {
 }
 
 #[test]
+fn doctor_emits_pretty_json_envelope_for_browser_harness_override() {
+    let output = Command::new(kali_bin())
+        .arg("--output")
+        .arg("json")
+        .arg("--pretty")
+        .arg("doctor")
+        .env(
+            kali_runtime::BROWSER_HARNESS_COMMAND_ENV,
+            "definitely-missing-browser-harness --flag",
+        )
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("{\n"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("\n    \"browserRuntimeContract\""),
+        "stdout: {stdout}"
+    );
+
+    let json = parse_json_stdout(&output);
+    assert_eq!(json["schemaVersion"], 1);
+    assert_eq!(json["command"], "doctor");
+    assert_eq!(json["success"], true);
+    assert_eq!(json["exitCode"], 0);
+
+    let browser_runtime_contract = &json["payload"]["browserRuntimeContract"];
+    assert_eq!(
+        browser_runtime_contract["diagnosticHint"],
+        json!(kali_runtime::BrowserRuntimeContract::diagnostic_hint())
+    );
+    assert_eq!(browser_runtime_contract["hostLabel"], "browser-requested");
+    assert_eq!(
+        browser_runtime_contract["hostDescription"],
+        "real browser host"
+    );
+    assert!(json["errors"].as_array().expect("errors array").is_empty());
+}
+
+#[test]
 fn doctor_emits_human_output_for_browser_harness_override() {
     let output = Command::new(kali_bin())
         .arg("doctor")
