@@ -54,6 +54,7 @@ function browserWrappedObjectEnumeration() {
   const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
   const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
   const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
   const frozenValues = Object.values(frozenFromEntries);
   const frozenEntries = Object.entries(frozenFromEntries);
   assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
@@ -61,6 +62,7 @@ function browserWrappedObjectEnumeration() {
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
   console.log('browser wrapped object enumeration ok');
 }
 
@@ -114,6 +116,7 @@ function browserWrappedObjectEnumeration() {
   const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
   const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
   const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
   const frozenValues = Object.values(frozenFromEntries);
   const frozenEntries = Object.entries(frozenFromEntries);
   assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
@@ -121,6 +124,7 @@ function browserWrappedObjectEnumeration() {
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
 
   const spreadFrozenKeys = [...Object.keys(frozenFromEntries)];
   const spreadFrozenValues = [...Object.values(frozenFromEntries)];
@@ -180,6 +184,7 @@ fn browser_harness_wrapped_object_enumeration_test_source() -> &'static str {
   const frozenSingleQuotedBracketRootKeys = Object.freeze((globalThis["Object"])['keys'])(frozenFromEntries);
   const frozenBracketedKeys = Object.freeze((globalThis['Object'])["keys"])(frozenFromEntries);
   const frozenSingleQuotedBracketedKeys = Object.freeze((globalThis['Object'])['keys'])(frozenFromEntries);
+  const frozenDotRootBracketedKeys = Object.freeze(globalThis.Object["keys"])(frozenFromEntries);
   const frozenValues = Object.values(frozenFromEntries);
   const frozenEntries = Object.entries(frozenFromEntries);
   assertWrappedObjectEnumeration(frozenKeys, frozenValues, frozenEntries);
@@ -187,6 +192,7 @@ fn browser_harness_wrapped_object_enumeration_test_source() -> &'static str {
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketRootKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenBracketedKeys, frozenValues, frozenEntries);
   assertWrappedObjectEnumeration(frozenSingleQuotedBracketedKeys, frozenValues, frozenEntries);
+  assertWrappedObjectEnumeration(frozenDotRootBracketedKeys, frozenValues, frozenEntries);
 
   console.log('browser wrapped object enumeration ok');
 });
