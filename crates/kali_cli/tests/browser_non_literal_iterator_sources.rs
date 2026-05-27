@@ -915,28 +915,37 @@ fn check_rejects_array_callback_iteration_from_call_expression_source_under_inhe
 }
 
 #[test]
-fn run_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+fn run_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for json_output in [false, true] {
-        assert_browser_requested_array_callback_iteration_source_rejects(
-            array_callback_iteration_source(),
-            "main.js",
-            json_output,
-            "run",
-        );
+        for filename in ["main.js", "main.ts", "main.jsx", "main.tsx"] {
+            assert_browser_requested_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "run",
+            );
+        }
     }
 }
 
 #[test]
-fn test_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_input(
+fn test_rejects_array_callback_iteration_from_call_expression_source_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
 ) {
     for json_output in [false, true] {
-        assert_browser_requested_array_callback_iteration_source_rejects(
-            array_callback_iteration_source(),
+        for filename in [
             "smoke.test.js",
-            json_output,
-            "test",
-        );
+            "smoke.test.ts",
+            "smoke.test.jsx",
+            "smoke.test.tsx",
+        ] {
+            assert_browser_requested_array_callback_iteration_source_rejects(
+                array_callback_iteration_source(),
+                filename,
+                json_output,
+                "test",
+            );
+        }
     }
 }
 
