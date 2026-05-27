@@ -726,6 +726,27 @@ fn object_has_own_lowers_for_mixed_bracketed_global_this_object_spellings() {
 }
 
 #[test]
+fn object_has_own_lowers_for_bracketed_callable_alias_over_static_object_literal() {
+    let program =
+        parse_and_lower_lir("console.log(Object[\"hasOwn\"]({\"a\": 1, \"b\": 2}, \"a\"));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+}
+
+#[test]
 fn for_of_object_enumeration_lowers_for_static_object_from_entries_operands() {
     let program = parse_and_lower_lir(
         "for (const key of Object.keys(Object.fromEntries([[\"b\", 1], [\"a\", 2], [\"b\", 3]]))) { console.log(key); }",

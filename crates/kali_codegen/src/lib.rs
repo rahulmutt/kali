@@ -5306,7 +5306,26 @@ impl<'a> FunctionEmitter<'a> {
             .and_then(|receiver| self.node(*receiver).text.as_deref())
             .unwrap_or_default();
         match callee_node.text.as_deref() {
-            Some(text) if text == "hasOwn" || text.ends_with(".hasOwn") => true,
+            Some(text)
+                if text == "hasOwn"
+                    || text.ends_with(".hasOwn")
+                    || text.ends_with("[\"hasOwn\"]")
+                    || text.ends_with("['hasOwn']")
+                    || text == "Object.hasOwn"
+                    || text == "Object[\"hasOwn\"]"
+                    || text == "Object['hasOwn']"
+                    || text == "globalThis.Object.hasOwn"
+                    || text == "globalThis.Object[\"hasOwn\"]"
+                    || text == "globalThis.Object['hasOwn']"
+                    || text == r#"globalThis["Object"].hasOwn"#
+                    || text == r#"globalThis["Object"]["hasOwn"]"#
+                    || text == r#"globalThis["Object"]['hasOwn']"#
+                    || text == r#"globalThis['Object'].hasOwn"#
+                    || text == r#"globalThis['Object']['hasOwn']"#
+                    || text == r#"globalThis['Object']["hasOwn"]"# =>
+            {
+                true
+            }
             Some("call") if receiver_text.contains("hasOwnProperty") => true,
             _ => false,
         }
