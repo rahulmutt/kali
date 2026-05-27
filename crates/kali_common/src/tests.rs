@@ -119,6 +119,8 @@ fn test_late_object_model_aliases_and_source_are_canonical() {
             r#"globalThis['Proxy']["revocable"]({}, {})"#,
             r#"Object.freeze(globalThis['Proxy']["revocable"])({}, {})"#,
             r#"Object.freeze((globalThis['Proxy']["revocable"]))({}, {})"#,
+            r#"Object.freeze((globalThis["Proxy"])["revocable"])({}, {})"#,
+            r#"Object.freeze((globalThis['Proxy'])['revocable'])({}, {})"#,
             "Object.freeze(Proxy.revocable)({}, {})",
             "Object.freeze((Proxy.revocable))({}, {})",
             "Object.freeze(globalThis.Proxy.revocable)({}, {})",

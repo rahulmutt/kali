@@ -453,6 +453,8 @@ fn late_object_model_source_includes_bracketed_spellings() {
         r#"globalThis.Proxy["revocable"]"#,
         r#"globalThis['Proxy']["revocable"]"#,
         r#"Object.freeze(globalThis['Proxy']["revocable"])"#,
+        r#"Object.freeze((globalThis["Proxy"])["revocable"])"#,
+        r#"Object.freeze((globalThis['Proxy'])['revocable'])"#,
         r#"globalThis.Proxy['revocable']"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
