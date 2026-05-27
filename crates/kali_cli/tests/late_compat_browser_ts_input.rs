@@ -247,6 +247,7 @@ fn browser_late_object_model_source_includes_single_quoted_proxy_revocable_alias
         r#"globalThis['Proxy']["revocable"]"#,
         r#"Object.freeze(globalThis['Proxy']["revocable"])"#,
         r#"Object.freeze((globalThis['Proxy']["revocable"]))"#,
+        r#"Object.freeze((globalThis["Proxy"]['revocable']))"#,
     ] {
         assert!(source.contains(expected), "source: {source}");
     }
