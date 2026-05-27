@@ -15,6 +15,14 @@ fn async_generator_default_export_class_expression_source() -> &'static str {
     "export default (class NamedExample { async *main() { yield* []; } });\n"
 }
 
+fn generator_default_export_sequence_wrapped_class_expression_source() -> &'static str {
+    "export default (0, class NamedExample { *main() { yield* []; } });\n"
+}
+
+fn async_generator_default_export_sequence_wrapped_class_expression_source() -> &'static str {
+    "export default (0, class NamedExample { async *main() { yield* []; } });\n"
+}
+
 fn assert_browser_harness_generator_rejection(
     command: &str,
     bundle: bool,
@@ -461,6 +469,118 @@ fn build_rejects_default_export_generator_and_async_generator_class_expressions_
                 ),
                 (
                     async_generator_default_export_class_expression_source(),
+                    &["async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+            ] {
+                assert_browser_harness_generator_rejection_with_expected_messages(
+                    "build",
+                    true,
+                    extension,
+                    source,
+                    json_output,
+                    expected_messages,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn check_rejects_sequence_wrapped_default_export_generator_and_async_generator_class_expressions_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            for (source, expected_messages) in [
+                (
+                    generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+                (
+                    async_generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+            ] {
+                assert_browser_harness_generator_rejection_with_expected_messages(
+                    "check",
+                    false,
+                    extension,
+                    source,
+                    json_output,
+                    expected_messages,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn run_rejects_sequence_wrapped_default_export_generator_and_async_generator_class_expressions_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            for (source, expected_messages) in [
+                (
+                    generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+                (
+                    async_generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+            ] {
+                assert_browser_harness_generator_rejection_with_expected_messages(
+                    "run",
+                    false,
+                    extension,
+                    source,
+                    json_output,
+                    expected_messages,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn test_rejects_sequence_wrapped_default_export_generator_and_async_generator_class_expressions_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            for (source, expected_messages) in [
+                (
+                    generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+                (
+                    async_generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+            ] {
+                assert_browser_harness_generator_rejection_with_expected_messages(
+                    "test",
+                    false,
+                    extension,
+                    source,
+                    json_output,
+                    expected_messages,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn build_rejects_sequence_wrapped_default_export_generator_and_async_generator_class_expressions_in_browser_api_surface_with_harness_js_ts_jsx_and_tsx_input(
+) {
+    for extension in ["js", "ts", "jsx", "tsx"] {
+        for json_output in [false, true] {
+            for (source, expected_messages) in [
+                (
+                    generator_default_export_sequence_wrapped_class_expression_source(),
+                    &["generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
+                ),
+                (
+                    async_generator_default_export_sequence_wrapped_class_expression_source(),
                     &["async-generator class method lowering is unavailable in the direct runtime path for yield* delegation"][..],
                 ),
             ] {
