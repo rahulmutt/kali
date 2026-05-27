@@ -37,6 +37,7 @@ function browserObjectKeysEntriesSpread() {
   const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
   const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
   const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
   const collectedEntries = [...Object.entries(fromEntries)];
   const globalEntries = [...globalThis.Object.entries(fromEntries)];
@@ -56,6 +57,7 @@ function browserObjectKeysEntriesSpread() {
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
   assertObjectKeysIteration(parenthesizedBracketedKeys);
   assertObjectEntriesIteration(collectedEntries);
   assertObjectEntriesIteration(globalEntries);

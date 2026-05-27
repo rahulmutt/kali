@@ -37,6 +37,7 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
   const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
   const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
   const collectedEntries = [...Object.entries(fromEntries)];
   const globalEntries = [...globalThis.Object.entries(fromEntries)];
@@ -56,6 +57,7 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
   assertObjectKeysIteration(parenthesizedBracketedKeys);
   assertObjectEntriesIteration(collectedEntries);
   assertObjectEntriesIteration(globalEntries);
@@ -100,6 +102,7 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   const singleBracketedKeys = [...globalThis['Object']['keys'](fromEntries)];
   const parenthesizedReceiverBracketedKeys = [...Object.freeze((globalThis["Object"])["keys"])(fromEntries)];
   const parenthesizedSingleQuotedReceiverBracketedKeys = [...Object.freeze((globalThis['Object'])['keys'])(fromEntries)];
+  const parenthesizedSingleQuotedReceiverPropertyKeys = [...Object.freeze((globalThis['Object']).keys)(fromEntries)];
   const parenthesizedBracketedKeys = [...Object.freeze((globalThis["Object"]).keys)(fromEntries)];
   const collectedEntries = [...Object.entries(fromEntries)];
   const globalEntries = [...globalThis.Object.entries(fromEntries)];
@@ -119,6 +122,7 @@ fn browser_harness_object_keys_entries_spread_source(test_mode: bool) -> String 
   assertObjectKeysIteration(singleBracketedKeys);
   assertObjectKeysIteration(parenthesizedReceiverBracketedKeys);
   assertObjectKeysIteration(parenthesizedSingleQuotedReceiverBracketedKeys);
+  assertObjectKeysIteration(parenthesizedSingleQuotedReceiverPropertyKeys);
   assertObjectKeysIteration(parenthesizedBracketedKeys);
   assertObjectEntriesIteration(collectedEntries);
   assertObjectEntriesIteration(globalEntries);
