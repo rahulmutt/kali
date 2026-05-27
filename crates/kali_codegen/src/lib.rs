@@ -1129,6 +1129,15 @@ impl<'a> FunctionEmitter<'a> {
         node.kind == LirNodeKind::Value && node.text.is_none() && !self.is_object_literal(node)
     }
 
+    fn is_truthy_array_literal(&self, node: &LirNode) -> bool {
+        self.is_array_literal(node)
+            && node.children.iter().all(|child| {
+                self.resolve_static_object_identity_value(*child)
+                    .and_then(|value| value.truthiness())
+                    == Some(true)
+            })
+    }
+
     fn assignment_target_name(&self, _node: &LirNode, id: LirNodeId) -> Option<String> {
         let mut current = id;
         loop {
@@ -3374,6 +3383,41 @@ impl<'a> FunctionEmitter<'a> {
         Some(source)
     }
 
+    fn resolve_truthy_identity_array_filter_source(&self, node: &LirNode) -> Option<LirNodeId> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("filter") {
+            return None;
+        }
+
+        let callback = node.children.get(1).copied()?;
+        if !self.is_identity_array_map_callback(callback) {
+            return None;
+        }
+
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0])
+        } else {
+            source_node
+        };
+        if !self.is_truthy_array_literal(source_node) {
+            return None;
+        }
+
+        Some(source)
+    }
+
     fn is_frozen_array_from_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call || node.children.len() != 2 {
             return false;
@@ -5016,6 +5060,11 @@ impl<'a> FunctionEmitter<'a> {
             array_id = resolved;
         }
         if let Some(resolved) = self.resolve_identity_array_map_call_source(array_id) {
+            array_id = resolved;
+        }
+        if let Some(resolved) =
+            self.resolve_truthy_identity_array_filter_source(self.node(array_id))
+        {
             array_id = resolved;
         }
         let Some(array_id) = self.resolve_literal_aggregate(array_id) else {

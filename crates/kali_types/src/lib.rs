@@ -1066,6 +1066,7 @@ impl TypeContext {
                         && call.args.len() == 1
                         && self.is_static_array_iteration_target(&call.args[0])
                     || self.is_static_identity_array_map_call(call)
+                    || self.is_static_identity_array_filter_call(call)
             }
             Expression::NewExpression(expr) => {
                 self.is_static_set_constructor_iteration_target(expr)
@@ -1075,6 +1076,39 @@ impl TypeContext {
                 .resolve_static_string_iterable_expression(other)
                 .is_some(),
         }
+    }
+
+    fn is_static_truthy_array_literal(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrayExpression(array) => {
+                array.elements.iter().all(|element| match element {
+                    Some(ExpressionOrSpread::Expression(expr)) => {
+                        self.resolve_static_object_identity_literal_value(expr)
+                            .and_then(|value| value.truthiness())
+                            == Some(true)
+                    }
+                    Some(ExpressionOrSpread::Spread(spread)) => {
+                        self.is_static_truthy_array_literal(&spread.argument)
+                    }
+                    Some(ExpressionOrSpread::Empty) | None => false,
+                })
+            }
+            _ => false,
+        }
+    }
+
+    fn is_static_identity_array_filter_call(&self, call: &CallExpression) -> bool {
+        let Expression::MemberExpression(member) = &call.callee else {
+            return false;
+        };
+
+        if member.property.as_str() != "filter" {
+            return false;
+        }
+
+        call.args.len() == 1
+            && self.is_static_truthy_array_literal(&member.object)
+            && self.is_identity_array_callback(&call.args[0])
     }
 
     fn is_static_array_from_call(&self, call: &CallExpression) -> bool {
@@ -3963,6 +3997,20 @@ impl TypeContext {
                 .args
                 .first()
                 .is_some_and(|callback| self.is_identity_array_callback(callback))
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        if method == "filter"
+            && expr
+                .args
+                .first()
+                .is_some_and(|callback| self.is_identity_array_callback(callback))
+            && self.is_static_truthy_array_literal(&member.object)
         {
             self.resolve_expression(&member.object);
             for arg in &expr.args {
