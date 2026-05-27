@@ -4130,6 +4130,10 @@ fn late_eval_compatibility_source() -> &'static str {
     "eval('1 + 2'); new Function('return 3')();"
 }
 
+fn late_eval_compatibility_alias_source() -> &'static str {
+    "globalThis.Function('return 3')(); globalThis[\"Function\"]('return 4')(); globalThis['Function']('return 5')(); new globalThis.Function('return 6')(); new globalThis[\"Function\"]('return 7')(); new globalThis['Function']('return 8')();"
+}
+
 fn assert_browser_late_eval_rejection(stderr: &str) {
     assert!(stderr.contains("E5506"), "stderr: {stderr}");
     assert!(
@@ -4158,11 +4162,12 @@ fn assert_browser_late_eval_rejection_for_command(
     command_args: &[&str],
     with_browser_harness: bool,
     with_browser_api_surface_manifest: bool,
+    source: &str,
     source_name: &str,
 ) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(source_name);
-    fs::write(&source_path, late_eval_compatibility_source()).expect("write source");
+    fs::write(&source_path, source).expect("write source");
     if with_browser_api_surface_manifest {
         write_browser_api_surface_manifest(&dir);
     }
@@ -4203,44 +4208,112 @@ fn assert_browser_late_eval_rejection_for_command(
 
 #[test]
 fn check_rejects_eval_and_function_constructor_in_browser_api_surface_js_input() {
-    assert_browser_late_eval_rejection_for_command("check", &[], false, false, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "check",
+        &[],
+        false,
+        false,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn build_rejects_eval_and_function_constructor_in_browser_bundle_js_input() {
-    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, false, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        false,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn run_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
 {
-    assert_browser_late_eval_rejection_for_command("run", &[], true, false, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "run",
+        &[],
+        true,
+        false,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn test_rejects_eval_and_function_constructor_in_browser_api_surface_js_input_with_browser_harness()
 {
-    assert_browser_late_eval_rejection_for_command("test", &[], true, false, "smoke.test.js");
+    assert_browser_late_eval_rejection_for_command(
+        "test",
+        &[],
+        true,
+        false,
+        late_eval_compatibility_source(),
+        "smoke.test.js",
+    );
 }
 
 #[test]
 fn check_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input() {
-    assert_browser_late_eval_rejection_for_command("check", &[], false, true, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "check",
+        &[],
+        false,
+        true,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn build_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input() {
-    assert_browser_late_eval_rejection_for_command("build", &["--bundle"], false, true, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "build",
+        &["--bundle"],
+        false,
+        true,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn run_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input_with_browser_harness(
 ) {
-    assert_browser_late_eval_rejection_for_command("run", &[], true, true, "main.js");
+    assert_browser_late_eval_rejection_for_command(
+        "run",
+        &[],
+        true,
+        true,
+        late_eval_compatibility_source(),
+        "main.js",
+    );
+}
+
+#[test]
+fn check_rejects_global_this_function_aliases_in_browser_api_surface_js_input() {
+    assert_browser_late_eval_rejection_for_command(
+        "check",
+        &[],
+        false,
+        false,
+        late_eval_compatibility_alias_source(),
+        "main.js",
+    );
 }
 
 #[test]
 fn test_rejects_eval_and_function_constructor_in_inherited_browser_api_surface_js_input_with_browser_harness(
 ) {
-    assert_browser_late_eval_rejection_for_command("test", &[], true, true, "smoke.test.js");
+    assert_browser_late_eval_rejection_for_command(
+        "test",
+        &[],
+        true,
+        true,
+        late_eval_compatibility_source(),
+        "smoke.test.js",
+    );
 }

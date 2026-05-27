@@ -1539,41 +1539,87 @@ fn find_statement_end(tokens: &[Token], start: usize) -> usize {
 }
 
 fn source_uses_eval_compat(tokens: &[Token]) -> bool {
-    for index in 0..tokens.len().saturating_sub(1) {
-        let current = &tokens[index];
-        let next = &tokens[index + 1];
-        let previous_is_dot = index
-            .checked_sub(1)
-            .and_then(|previous| tokens.get(previous))
-            .is_some_and(|token| token.kind == TokenType::Dot);
-
-        if !previous_is_dot
-            && current.kind == TokenType::Identifier
-            && current.value == "eval"
-            && next.kind == TokenType::LeftParen
-        {
-            return true;
-        }
-
-        if !previous_is_dot
-            && current.kind == TokenType::Identifier
-            && current.value == "Function"
-            && next.kind == TokenType::LeftParen
-        {
-            return true;
-        }
-
-        if current.kind == TokenType::New
-            && next.kind == TokenType::Identifier
-            && next.value == "Function"
-            && tokens
-                .get(index + 2)
-                .is_some_and(|token| token.kind == TokenType::LeftParen)
+    for index in 0..tokens.len() {
+        if matches_direct_eval_call(tokens, index)
+            || matches_direct_function_call(tokens, index)
+            || matches_global_this_function_call(tokens, index)
+            || matches_global_this_function_bracket_call(tokens, index)
+            || matches_new_function_constructor(tokens, index)
         {
             return true;
         }
     }
     false
+}
+
+fn matches_direct_eval_call(tokens: &[Token], index: usize) -> bool {
+    let previous_is_dot = index
+        .checked_sub(1)
+        .and_then(|previous| tokens.get(previous))
+        .is_some_and(|token| token.kind == TokenType::Dot);
+
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "eval")
+        && tokens
+            .get(index + 1)
+            .is_some_and(|token| token.kind == TokenType::LeftParen)
+        && !previous_is_dot
+}
+
+fn matches_direct_function_call(tokens: &[Token], index: usize) -> bool {
+    let previous_is_dot = index
+        .checked_sub(1)
+        .and_then(|previous| tokens.get(previous))
+        .is_some_and(|token| token.kind == TokenType::Dot);
+
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Function")
+        && tokens
+            .get(index + 1)
+            .is_some_and(|token| token.kind == TokenType::LeftParen)
+        && !previous_is_dot
+}
+
+fn matches_global_this_function_call(tokens: &[Token], index: usize) -> bool {
+    matches_global_this_function_member(tokens, index)
+        && tokens
+            .get(index + 3)
+            .is_some_and(|token| token.kind == TokenType::LeftParen)
+}
+
+fn matches_global_this_function_bracket_call(tokens: &[Token], index: usize) -> bool {
+    matches_global_this_function_bracket_member(tokens, index)
+        && tokens
+            .get(index + 4)
+            .is_some_and(|token| token.kind == TokenType::LeftParen)
+}
+
+fn matches_new_function_constructor(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::New)
+        && (matches_direct_function_constructor(tokens, index + 1)
+            || matches_global_this_function_member(tokens, index + 1)
+            || matches_global_this_function_bracket_member(tokens, index + 1))
+}
+
+fn matches_direct_function_constructor(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "Function")
+}
+
+fn matches_global_this_function_member(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
+        && tokens
+            .get(index + 1)
+            .is_some_and(|token| token.kind == TokenType::Dot)
+        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::Identifier && token.value == "Function")
+}
+
+fn matches_global_this_function_bracket_member(tokens: &[Token], index: usize) -> bool {
+    matches!(tokens.get(index), Some(token) if token.kind == TokenType::Identifier && token.value == "globalThis")
+        && tokens
+            .get(index + 1)
+            .is_some_and(|token| token.kind == TokenType::LeftBracket)
+        && matches!(tokens.get(index + 2), Some(token) if token.kind == TokenType::StringLiteral && (token.value == "\"Function\"" || token.value == "'Function'"))
+        && tokens
+            .get(index + 3)
+            .is_some_and(|token| token.kind == TokenType::RightBracket)
 }
 
 fn parse_eval_source_snippet(source: &str) -> Option<EvalConst> {
