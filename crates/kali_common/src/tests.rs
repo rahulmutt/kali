@@ -1492,6 +1492,7 @@ fn test_object_has_own_frozen_callable_source_lists_all_aliases_in_order() {
         r#"Object.freeze(globalThis.Object.hasOwn)"#,
         r#"Object.freeze((globalThis.Object.hasOwn))"#,
         r#"Object.freeze(globalThis.Object["hasOwn"])"#,
+        r#"Object.freeze(globalThis.Object['hasOwn'])"#,
         r#"Object.freeze((globalThis.Object)["hasOwn"])"#,
         r#"Object.freeze((globalThis.Object).hasOwn)"#,
         r#"Object.freeze((globalThis.Object)['hasOwn'])"#,
