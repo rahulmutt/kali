@@ -27,6 +27,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
   const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
   const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
   const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
   const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
   const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
   console.log(Math.sqrt(four));
@@ -46,6 +48,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
   console.log(frozenBracketedMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
   return [
@@ -66,6 +70,8 @@ function mathSqrtCbrtFrozenAliasSlice() {
     frozenBracketedMathCbrt(minusTwentySeven),
     frozenParenthesizedBracketRootMathCbrt(minusTwentySeven),
     frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven),
+    frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven),
+    frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven),
     frozenParenthesizedDotRootMathCbrt(minusTwentySeven),
     frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven),
   ];
@@ -222,6 +228,8 @@ const frozenGlobalThisMathCbrt = Object.freeze(globalThis.Math.cbrt);
 const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
 const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
 const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
 const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
 const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
 console.log(Math.sqrt(four));
@@ -241,6 +249,8 @@ console.log(frozenGlobalThisMathCbrt(minusTwentySeven));
 console.log(frozenBracketedMathCbrt(minusTwentySeven));
 console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
 console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
 console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
 console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
 "#
@@ -265,6 +275,8 @@ fn browser_harness_math_sqrt_cbrt_frozen_aliases_test_source() -> &'static str {
   const frozenBracketedMathCbrt = Object.freeze(globalThis["Math"]["cbrt"]);
   const frozenParenthesizedBracketRootMathCbrt = Object.freeze((globalThis["Math"]))["cbrt"];
   const frozenParenthesizedBracketRootMathCbrtSingle = Object.freeze((globalThis["Math"]))['cbrt'];
+  const frozenSingleQuotedBracketedMathCbrtCall = Object.freeze((globalThis['Math'])["cbrt"]);
+  const frozenParenthesizedSingleQuotedBracketRootMathCbrt = Object.freeze((globalThis['Math']))["cbrt"];
   const frozenParenthesizedDotRootMathCbrt = Object.freeze((globalThis.Math))["cbrt"];
   const frozenParenthesizedDotRootMathCbrtSingle = Object.freeze((globalThis.Math))['cbrt'];
   console.log(Math.sqrt(four));
@@ -284,6 +296,8 @@ fn browser_harness_math_sqrt_cbrt_frozen_aliases_test_source() -> &'static str {
   console.log(frozenBracketedMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedBracketRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedBracketRootMathCbrtSingle(minusTwentySeven));
+  console.log(frozenSingleQuotedBracketedMathCbrtCall(minusTwentySeven));
+  console.log(frozenParenthesizedSingleQuotedBracketRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedDotRootMathCbrt(minusTwentySeven));
   console.log(frozenParenthesizedDotRootMathCbrtSingle(minusTwentySeven));
 });
