@@ -15,13 +15,20 @@ console.log(globalThis?.Math["pow"](2, alias));
 console.log(globalThis?.Math['pow'](2, alias));
 console.log(globalThis?.["Math"].pow(2, alias));
 console.log(globalThis?.["Math"]["pow"](2, alias));
+console.log(globalThis?.["Math"]['pow'](2, alias));
 console.log(globalThis?.['Math'].pow(2, alias));
+console.log(globalThis?.['Math']["pow"](2, alias));
+console.log(globalThis?.['Math']['pow'](2, alias));
 console.log(Object.freeze(globalThis?.Math.pow)(2, alias));
 console.log(Object.freeze((globalThis?.Math.pow))(2, alias));
 console.log(Object.freeze(globalThis?.Math["pow"])(2, alias));
 console.log(Object.freeze((globalThis?.Math["pow"]))(2, alias));
 console.log(Object.freeze((globalThis?.["Math"].pow))(2, alias));
 console.log(Object.freeze((globalThis?.['Math'].pow))(2, alias));
+console.log(Object.freeze((globalThis?.["Math"]["pow"]))(2, alias));
+console.log(Object.freeze((globalThis?.["Math"]['pow']))(2, alias));
+console.log(Object.freeze((globalThis?.['Math']["pow"]))(2, alias));
+console.log(Object.freeze((globalThis?.['Math']['pow']))(2, alias));
 "#
 }
 

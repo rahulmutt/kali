@@ -42814,10 +42814,38 @@ fn check_and_build_reject_global_this_optional_chain_wrapped_math_pow_in_browser
         ("check", "console.log(globalThis?.Math.pow(2, 3));\n"),
         ("check", "console.log(globalThis?.Math[\"pow\"](2, 3));\n"),
         ("check", "console.log(globalThis?.[\"Math\"].pow(2, 3));\n"),
+        (
+            "check",
+            "console.log(globalThis?.[\"Math\"][\"pow\"](2, 3));\n",
+        ),
+        (
+            "check",
+            "console.log(globalThis?.[\"Math\"]['pow'](2, 3));\n",
+        ),
+        ("check", "console.log(globalThis?.['Math'].pow(2, 3));\n"),
+        (
+            "check",
+            "console.log(globalThis?.['Math'][\"pow\"](2, 3));\n",
+        ),
+        ("check", "console.log(globalThis?.['Math']['pow'](2, 3));\n"),
         ("build", "console.log(globalThis.Math?.pow(2, 3));\n"),
         ("build", "console.log(globalThis?.Math.pow(2, 3));\n"),
         ("build", "console.log(globalThis?.Math[\"pow\"](2, 3));\n"),
         ("build", "console.log(globalThis?.[\"Math\"].pow(2, 3));\n"),
+        (
+            "build",
+            "console.log(globalThis?.[\"Math\"][\"pow\"](2, 3));\n",
+        ),
+        (
+            "build",
+            "console.log(globalThis?.[\"Math\"]['pow'](2, 3));\n",
+        ),
+        ("build", "console.log(globalThis?.['Math'].pow(2, 3));\n"),
+        (
+            "build",
+            "console.log(globalThis?.['Math'][\"pow\"](2, 3));\n",
+        ),
+        ("build", "console.log(globalThis?.['Math']['pow'](2, 3));\n"),
     ] {
         for output_json in [false, true] {
             let dir = tempdir().expect("tempdir");
