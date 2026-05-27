@@ -5388,6 +5388,11 @@ const singleQuotedBracketedValues = globalThis['Object']['values'](bracketedFrom
 const mixedBracketedValues = globalThis["Object"].values(fromEntries);
 const frozenMixedBracketedValues = globalThis["Object"].values(frozenFromEntries);
 const bracketedMixedBracketedValues = globalThis["Object"].values(bracketedFromEntries);
+const mixedSingleQuotedValues = globalThis["Object"]['values'](fromEntries);
+const frozenMixedSingleQuotedValues = globalThis["Object"]['values'](frozenFromEntries);
+const bracketedMixedSingleQuotedValues = globalThis["Object"]['values'](bracketedFromEntries);
+const parenthesizedMixedSingleQuotedBracketedValues = Object.freeze((globalThis["Object"]['values']))(fromEntries);
+const frozenParenthesizedMixedSingleQuotedBracketedValues = Object.freeze((globalThis["Object"]['values']))(frozenFromEntries);
 const bracketedValues = globalThis["Object"]["values"](fromEntries);
 const frozenBracketedValues = globalThis["Object"]["values"](frozenFromEntries);
 const bracketedBracketedValues = globalThis["Object"]["values"](bracketedFromEntries);
@@ -5409,6 +5414,11 @@ for (const item of [...singleQuotedBracketedValues]) { console.log(item); }
 for (const item of [...mixedBracketedValues]) { console.log(item); }
 for (const item of [...frozenMixedBracketedValues]) { console.log(item); }
 for (const item of [...bracketedMixedBracketedValues]) { console.log(item); }
+for (const item of [...mixedSingleQuotedValues]) { console.log(item); }
+for (const item of [...frozenMixedSingleQuotedValues]) { console.log(item); }
+for (const item of [...bracketedMixedSingleQuotedValues]) { console.log(item); }
+for (const item of [...parenthesizedMixedSingleQuotedBracketedValues]) { console.log(item); }
+for (const item of [...frozenParenthesizedMixedSingleQuotedBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedSingleQuotedBracketedValues]) { console.log(item); }
 for (const item of [...parenthesizedDoubleQuotedBracketedValues]) { console.log(item); }
@@ -5433,6 +5443,11 @@ const asyncBracketedGlobalValues = globalThis.Object.values(asyncBracketedFromEn
 const asyncMixedValues = globalThis.Object["values"](asyncFromEntries);
 const frozenAsyncMixedValues = globalThis.Object["values"](frozenAsyncFromEntries);
 const asyncBracketedMixedValues = globalThis.Object["values"](asyncBracketedFromEntries);
+const asyncMixedSingleQuotedValues = globalThis["Object"]['values'](asyncFromEntries);
+const frozenAsyncMixedSingleQuotedValues = globalThis["Object"]['values'](frozenAsyncFromEntries);
+const asyncBracketedMixedSingleQuotedValues = globalThis["Object"]['values'](asyncBracketedFromEntries);
+const asyncParenthesizedMixedSingleQuotedBracketedValues = Object.freeze((globalThis["Object"]['values']))(asyncFromEntries);
+const frozenAsyncParenthesizedMixedSingleQuotedBracketedValues = Object.freeze((globalThis["Object"]['values']))(frozenAsyncFromEntries);
 const asyncParenthesizedBracketedValues = Object.freeze((globalThis["Object"]).values)(asyncFromEntries);
 const asyncParenthesizedSingleQuotedBracketedValues = Object.freeze((globalThis['Object'])["values"])(asyncFromEntries);
 const asyncParenthesizedDoubleQuotedBracketedValues = Object.freeze((globalThis["Object"])["values"])(asyncFromEntries);
@@ -5457,6 +5472,11 @@ for await (const item of [...asyncBracketedGlobalValues]) { console.log(item); }
 for await (const item of [...asyncMixedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncMixedValues]) { console.log(item); }
 for await (const item of [...asyncBracketedMixedValues]) { console.log(item); }
+for await (const item of [...asyncMixedSingleQuotedValues]) { console.log(item); }
+for await (const item of [...frozenAsyncMixedSingleQuotedValues]) { console.log(item); }
+for await (const item of [...asyncBracketedMixedSingleQuotedValues]) { console.log(item); }
+for await (const item of [...asyncParenthesizedMixedSingleQuotedBracketedValues]) { console.log(item); }
+for await (const item of [...frozenAsyncParenthesizedMixedSingleQuotedBracketedValues]) { console.log(item); }
 for await (const item of [...asyncSingleQuotedValues]) { console.log(item); }
 for await (const item of [...frozenAsyncSingleQuotedValues]) { console.log(item); }
 for await (const item of [...asyncSingleQuotedBracketedValues]) { console.log(item); }
