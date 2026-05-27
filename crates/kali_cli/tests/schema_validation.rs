@@ -115,6 +115,29 @@ fn diagnostic_spans_reject_unexpected_keys() {
 }
 
 #[test]
+fn build_result_rejects_whitespace_padded_profile_data_hash() {
+    let build_result = json!({
+        "artifactKind": "executable",
+        "outputPath": "out/app.wasm",
+        "sizeBytes": 42,
+        "buildMode": "release",
+        "sourceHash": "sha256-test",
+        "profileDataHash": " sha256-profile "
+    });
+
+    let error = build::validate_build_result_value(&build_result)
+        .expect_err("whitespace-padded profileDataHash should be rejected");
+    assert!(
+        error.contains("build result profileDataHash"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        error.contains("must not have leading or trailing whitespace"),
+        "unexpected error: {error}"
+    );
+}
+
+#[test]
 fn build_result_artifact_roles_reject_duplicate_primary_roles() {
     let build_result = json!({
         "artifactKind": "lib",
