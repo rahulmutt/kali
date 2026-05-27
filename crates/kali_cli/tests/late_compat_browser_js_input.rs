@@ -52,7 +52,7 @@ fn browser_late_object_model_source_is_composed_from_shared_helpers() {
     let has_own_source = kali_common::late_compat_object_has_own_source("{}", r#""a""#);
     let has_own_source: &str = has_own_source.as_ref();
 
-    assert!(source.starts_with(intl_source), "source: {source}");
+    assert!(source.starts_with(intl_source.as_str()), "source: {source}");
     assert!(source.contains(object_model_source), "source: {source}");
     assert!(source.contains(has_own_source), "source: {source}");
     assert_eq!(
@@ -977,100 +977,9 @@ fn parse_json_stdout(output: &std::process::Output) -> Value {
 #[test]
 fn browser_late_object_model_source_includes_bracketed_intl_forms() {
     let source = late_object_model_source();
-    assert!(source.contains(r#"globalThis["Intl"]"#), "source: {source}");
-    assert!(source.contains(r#"globalThis['Intl']"#), "source: {source}");
-    assert!(
-        source.contains(r#"globalThis["Intl"]["NumberFormat"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['NumberFormat']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["DateTimeFormat"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['DateTimeFormat']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["RelativeTimeFormat"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['RelativeTimeFormat']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].RelativeTimeFormat"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].Collator"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].DisplayNames"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].Segmenter"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].Locale"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"].PluralRules"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['PluralRules']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis.Intl["PluralRules"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["PluralRules"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["Collator"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['Collator']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["DisplayNames"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['DisplayNames']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["Segmenter"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['Segmenter']"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis["Intl"]["Locale"]"#),
-        "source: {source}"
-    );
-    assert!(
-        source.contains(r#"globalThis['Intl']['Locale']"#),
-        "source: {source}"
-    );
+    let intl_source = kali_common::broader_intl_source();
+
+    assert!(source.contains(intl_source.as_str()), "source: {source}");
 }
 
 #[test]

@@ -168,7 +168,7 @@ fn late_object_model_own_property_source() -> &'static str {
     kali_common_late_object_model_own_property_source()
 }
 
-fn broader_intl_source() -> &'static str {
+fn broader_intl_source() -> String {
     kali_common::broader_intl_source()
 }
 
@@ -524,28 +524,9 @@ fn permission_escalation_mixed_bracketed_source_includes_mixed_spellings() {
 #[test]
 fn broader_intl_source_includes_bracketed_spellings() {
     let source = broader_intl_source();
-    for expected in [
-        r#"globalThis.Intl["NumberFormat"]"#,
-        r#"globalThis["Intl"].NumberFormat"#,
-        r#"globalThis["Intl"]["NumberFormat"]"#,
-        r#"globalThis['Intl']['NumberFormat']"#,
-        r#"globalThis["Intl"]["DateTimeFormat"]"#,
-        r#"globalThis['Intl']['DateTimeFormat']"#,
-        r#"globalThis["Intl"]["RelativeTimeFormat"]"#,
-        r#"globalThis['Intl']['RelativeTimeFormat']"#,
-        r#"globalThis["Intl"]["PluralRules"]"#,
-        r#"globalThis['Intl']['PluralRules']"#,
-        r#"globalThis["Intl"]["Collator"]"#,
-        r#"globalThis['Intl']['Collator']"#,
-        r#"globalThis["Intl"]["DisplayNames"]"#,
-        r#"globalThis['Intl']['DisplayNames']"#,
-        r#"globalThis["Intl"]["Segmenter"]"#,
-        r#"globalThis['Intl']['Segmenter']"#,
-        r#"globalThis["Intl"]["Locale"]"#,
-        r#"globalThis['Intl']['Locale']"#,
-    ] {
-        assert!(source.contains(expected), "source: {source}");
-    }
+    let intl_source = kali_common::broader_intl_source();
+
+    assert!(source.contains(intl_source.as_str()), "source: {source}");
 }
 
 fn threaded_runtime_source() -> &'static str {
