@@ -1,6 +1,6 @@
 # Kali — Active Implementation Plan
 
-`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks future work from the current checked-in repository state only. Historical checklists, completed task lists, and implementation journals are intentionally excluded.
+`PLAN.md` is the implementation playbook for [`SPEC.md`](./SPEC.md). It tracks future work from the current checked-in repository state only. Historical phase checklists and implementation journals are intentionally excluded.
 
 ## Plan contract
 
@@ -21,11 +21,11 @@ Normative ownership remains unchanged:
 
 ## Current baseline
 
-The checked-in repository is beyond the original MVP and several later surfaces. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
+The repository is beyond the original MVP. The live CLI exposes `doctor`, `init`, `install`, `fmt`, `lint`, `check`, `build`, `run`, `test`, `effects`, `package-effects`, and `package-audit`.
 
-Implemented work includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Node/Deno/browser API slices, embedding artifacts, coverage reporting, deterministic PGO input handling, package-corpus probes, and proof-backed claims limited to the published proof boundary.
+Implemented work already includes schema-v1 JSON envelopes, effect reporting, registry analysis, browser bundle and harness lanes, Deno/Web/Node API slices, embedding artifacts, coverage reporting, deterministic PGO input handling, package-corpus probes, and proof-backed claims limited to the published proof boundary.
 
-The active plan therefore starts at remaining spec gaps. Do not reopen completed Phase 1 through Phase 20 work as active tasks, and keep feature-level evidence details in specs, tests, and proof-boundary files rather than in the plan.
+The active plan starts at remaining spec gaps. Do not reopen completed Phase 1 through Phase 20 work as active tasks, and do not use plan files as evidence logs.
 
 ## Active roadmap
 
