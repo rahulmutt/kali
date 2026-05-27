@@ -1113,6 +1113,10 @@ fn browser_late_object_model_source_includes_mixed_bracketed_proxy_revocable_for
         "source: {source}"
     );
     assert!(
+        source.contains(r#"Object.freeze((globalThis["Proxy"])["revocable"])"#),
+        "source: {source}"
+    );
+    assert!(
         source.contains(r#"Object.freeze(globalThis["Proxy"]["revocable"])"#),
         "source: {source}"
     );
@@ -1140,7 +1144,7 @@ fn check_rejects_frozen_late_object_model_revocable_calls_in_browser_api_surface
     let source_path = dir.path().join("main.js");
     fs::write(
         &source_path,
-        "Object.freeze(Proxy.revocable)({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze(globalThis[\"Proxy\"][\"revocable\"])({}, {}); Object.freeze(globalThis['Proxy'][\"revocable\"])({}, {}); Object.freeze((globalThis['Proxy'][\"revocable\"]))({}, {}); Object.freeze(globalThis[\"Proxy\"].revocable)({}, {}); Object.freeze((globalThis[\"Proxy\"].revocable))({}, {}); Object.freeze(globalThis.Proxy[\"revocable\"])({}, {}); Object.freeze((globalThis.Proxy[\"revocable\"]))({}, {});",
+        "Object.freeze(Proxy.revocable)({}, {}); Object.freeze(globalThis.Proxy.revocable)({}, {}); Object.freeze(globalThis[\"Proxy\"][\"revocable\"])({}, {}); Object.freeze(globalThis['Proxy'][\"revocable\"])({}, {}); Object.freeze((globalThis['Proxy'][\"revocable\"]))({}, {}); Object.freeze(globalThis[\"Proxy\"].revocable)({}, {}); Object.freeze((globalThis[\"Proxy\"].revocable))({}, {}); Object.freeze(globalThis.Proxy[\"revocable\"])({}, {}); Object.freeze((globalThis.Proxy[\"revocable\"]))({}, {}); Object.freeze((globalThis[\"Proxy\"])[\"revocable\"])({}, {});",
     )
     .expect("write source");
 

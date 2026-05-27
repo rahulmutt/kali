@@ -878,6 +878,7 @@ pub const fn object_enumeration_frozen_callable_aliases() -> &'static [&'static 
         r#"Object.freeze((globalThis['Object']).entries)"#,
         r#"Object.freeze((globalThis['Object'])['entries'])"#,
         r#"Object.freeze((globalThis['Object'])["entries"])"#,
+        r#"Object.freeze(globalThis["Object"]["keys"])"#,
         r#"Object.freeze(globalThis["Object"]['keys'])"#,
         r#"Object.freeze(globalThis["Object"]['values'])"#,
         r#"Object.freeze(globalThis["Object"]['entries'])"#,
