@@ -4075,6 +4075,19 @@ impl TypeContext {
             return;
         }
 
+        if matches!(method, "reduce" | "reduceRight")
+            && expr.args.len() == 2
+            && self.is_static_array_iteration_target(&member.object)
+            && self.is_static_numeric_literal_expr(&expr.args[1])
+            && self.is_numeric_reducer_callback(&expr.args[0])
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         self.resolve_expression(&member.object);
         for arg in &expr.args {
             self.resolve_expression(arg);
@@ -4270,6 +4283,110 @@ impl TypeContext {
                 .resolve_static_numeric_literal_value(expression)
                 .is_some(),
         }
+    }
+
+    fn is_numeric_reducer_callback(&self, expression: &Expression) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::ArrowFunctionExpression(arrow) => {
+                arrow.params.len() >= 2
+                    && self.is_numeric_reducer_callback_expression(
+                        &arrow.body,
+                        &arrow.params[0].name,
+                        &arrow.params[1].name,
+                    )
+            }
+            Expression::FunctionExpression(function) => {
+                let Some(body) = &function.body else {
+                    return false;
+                };
+                function.params.len() >= 2
+                    && body.body.len() == 1
+                    && matches!(
+                        &body.body[0],
+                        Statement::ReturnStatement(ReturnStatement {
+                            argument: Some(argument),
+                        }) if self.is_numeric_reducer_callback_expression(
+                            argument,
+                            &function.params[0].name,
+                            &function.params[1].name,
+                        )
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    fn is_numeric_reducer_callback_expression(
+        &self,
+        expression: &Expression,
+        accumulator_name: &str,
+        value_name: &str,
+    ) -> bool {
+        match self.unwrap_for_of_wrapper_expression(expression) {
+            Expression::Identifier(name) => name == accumulator_name || name == value_name,
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(expr) if matches!(expr.operator.as_str(), "+" | "-") => {
+                self.is_numeric_reducer_callback_expression(
+                    &expr.argument,
+                    accumulator_name,
+                    value_name,
+                )
+            }
+            Expression::BinaryExpression(expr)
+                if matches!(expr.operator.as_str(), "+" | "-" | "*") =>
+            {
+                self.is_numeric_reducer_callback_expression(
+                    &expr.left,
+                    accumulator_name,
+                    value_name,
+                ) && self.is_numeric_reducer_callback_expression(
+                    &expr.right,
+                    accumulator_name,
+                    value_name,
+                )
+            }
+            Expression::SequenceExpression(expr) => expr.expressions.last().is_some_and(|last| {
+                self.is_numeric_reducer_callback_expression(last, accumulator_name, value_name)
+            }),
+            Expression::ParenthesizedExpression(expr) => self
+                .is_numeric_reducer_callback_expression(
+                    &expr.expression,
+                    accumulator_name,
+                    value_name,
+                ),
+            Expression::TypeAssertion(expr) => self.is_numeric_reducer_callback_expression(
+                &expr.expression,
+                accumulator_name,
+                value_name,
+            ),
+            Expression::SatisfiesExpression(expr) => self.is_numeric_reducer_callback_expression(
+                &expr.expression,
+                accumulator_name,
+                value_name,
+            ),
+            Expression::DecoratedExpression(expr) => self.is_numeric_reducer_callback_expression(
+                &expr.expression,
+                accumulator_name,
+                value_name,
+            ),
+            Expression::CallExpression(call) if Self::is_object_freeze_call(call) => {
+                call.args.first().is_some_and(|argument| {
+                    self.is_numeric_reducer_callback_expression(
+                        argument,
+                        accumulator_name,
+                        value_name,
+                    )
+                })
+            }
+            _ => self
+                .resolve_static_numeric_literal_value(expression)
+                .is_some(),
+        }
+    }
+
+    fn is_static_numeric_literal_expr(&self, expression: &Expression) -> bool {
+        self.resolve_static_numeric_literal_value(expression)
+            .is_some()
     }
 
     fn is_identity_array_flat_map_callback(&self, expression: &Expression) -> bool {

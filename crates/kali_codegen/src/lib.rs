@@ -1732,6 +1732,22 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_array_reduce_call(node, "reduce") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_reduce_call(node, "reduceRight") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if self.is_object_has_own_call(node, &callee_node) {
             let Some(object_id) = node.children.get(1).copied() else {
                 return EmittedValue {
@@ -3774,6 +3790,156 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
                 Some(StaticArraySearchResult::Index(-1))
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_static_array_reduce_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 3 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some(method) {
+            return None;
+        }
+
+        let callback = node.children.get(1).copied()?;
+        let initial = node.children.get(2).copied()?;
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source).clone();
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0]).clone()
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(&source_node) {
+            return None;
+        }
+
+        let mut accumulator = self.resolve_static_numeric_value(initial)?;
+        let values: Box<dyn Iterator<Item = &LirNodeId>> = if method == "reduceRight" {
+            Box::new(source_node.children.iter().rev())
+        } else {
+            Box::new(source_node.children.iter())
+        };
+        for child in values {
+            let current = self.resolve_static_numeric_value(*child)?;
+            accumulator =
+                self.resolve_static_numeric_reducer_callback(callback, accumulator, current)?;
+        }
+
+        if accumulator.is_finite() && accumulator.fract() == 0.0 {
+            Some(accumulator as i64)
+        } else {
+            None
+        }
+    }
+
+    fn resolve_static_numeric_reducer_callback(
+        &self,
+        callback: LirNodeId,
+        accumulator: f64,
+        current: f64,
+    ) -> Option<f64> {
+        let callback = self.resolve_transparent_callable_node(callback)?;
+        let callback_node = self.node(callback);
+        if callback_node.function_flavor != Some(FunctionFlavor::Sync)
+            || callback_node.kind != LirNodeKind::Instruction
+            || callback_node.children.len() < 3
+        {
+            return None;
+        }
+
+        let accumulator_name = self.node(callback_node.children[0]).text.as_deref()?;
+        let current_name = self.node(callback_node.children[1]).text.as_deref()?;
+        let body_node = self.node(*callback_node.children.last()?);
+        let body_expr = body_node.children.first().copied()?;
+        self.resolve_static_numeric_reducer_expr(
+            body_expr,
+            accumulator_name,
+            current_name,
+            accumulator,
+            current,
+        )
+    }
+
+    fn resolve_static_numeric_reducer_expr(
+        &self,
+        id: LirNodeId,
+        accumulator_name: &str,
+        current_name: &str,
+        accumulator: f64,
+        current: f64,
+    ) -> Option<f64> {
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            return self.resolve_static_numeric_reducer_expr(
+                node.children[0],
+                accumulator_name,
+                current_name,
+                accumulator,
+                current,
+            );
+        }
+
+        match node.kind {
+            LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
+            LirNodeKind::Value if node.children.is_empty() => match node.text.as_deref()? {
+                name if name == accumulator_name => Some(accumulator),
+                name if name == current_name => Some(current),
+                _ => self.resolve_static_numeric_value(id),
+            },
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                None | Some("") | Some("+") => self.resolve_static_numeric_reducer_expr(
+                    node.children[0],
+                    accumulator_name,
+                    current_name,
+                    accumulator,
+                    current,
+                ),
+                Some("-") => self
+                    .resolve_static_numeric_reducer_expr(
+                        node.children[0],
+                        accumulator_name,
+                        current_name,
+                        accumulator,
+                        current,
+                    )
+                    .map(|value| -value),
+                _ => None,
+            },
+            LirNodeKind::Value if node.children.len() == 2 => {
+                let left = self.resolve_static_numeric_reducer_expr(
+                    node.children[0],
+                    accumulator_name,
+                    current_name,
+                    accumulator,
+                    current,
+                )?;
+                let right = self.resolve_static_numeric_reducer_expr(
+                    node.children[1],
+                    accumulator_name,
+                    current_name,
+                    accumulator,
+                    current,
+                )?;
+                match node.text.as_deref() {
+                    Some("+") => Some(left + right),
+                    Some("-") => Some(left - right),
+                    Some("*") => Some(left * right),
+                    _ => None,
+                }
             }
             _ => None,
         }
