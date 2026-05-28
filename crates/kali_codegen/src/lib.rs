@@ -74,6 +74,19 @@ impl StaticObjectIdentityValue {
         }
     }
 
+    fn strict_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::BigInt(left), Self::BigInt(right)) => left == right,
+            (Self::Null, Self::Null) | (Self::Undefined, Self::Undefined) => true,
+            (Self::Number(left), Self::Number(right)) => {
+                !left.is_nan() && !right.is_nan() && left == right
+            }
+            _ => false,
+        }
+    }
+
     fn is_nullish(&self) -> bool {
         matches!(self, Self::Null | Self::Undefined)
     }
@@ -3598,6 +3611,24 @@ impl<'a> FunctionEmitter<'a> {
                         )
                     }
                 }
+                Some("===") | Some("!==") => {
+                    let left = self.resolve_static_array_callback_identity_operand(
+                        node.children[0],
+                        param_name,
+                        value,
+                    )?;
+                    let right = self.resolve_static_array_callback_identity_operand(
+                        node.children[1],
+                        param_name,
+                        value,
+                    )?;
+                    let strict_eq = left.strict_eq(&right);
+                    Some(if node.text.as_deref() == Some("===") {
+                        strict_eq
+                    } else {
+                        !strict_eq
+                    })
+                }
                 Some(">") | Some(">=") | Some("<") | Some("<=") => {
                     let left = self.resolve_static_array_callback_numeric_operand(
                         node.children[0],
@@ -3621,6 +3652,34 @@ impl<'a> FunctionEmitter<'a> {
             },
             _ => None,
         }
+    }
+
+    fn resolve_static_array_callback_identity_operand(
+        &self,
+        id: LirNodeId,
+        param_name: &str,
+        value: LirNodeId,
+    ) -> Option<StaticObjectIdentityValue> {
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Value
+            && node.children.len() == 1
+            && node.text.as_deref().is_none_or(|text| text.is_empty())
+        {
+            return self.resolve_static_array_callback_identity_operand(
+                node.children[0],
+                param_name,
+                value,
+            );
+        }
+
+        if node.kind == LirNodeKind::Value
+            && node.children.is_empty()
+            && node.text.as_deref() == Some(param_name)
+        {
+            return self.resolve_static_object_identity_value(value);
+        }
+
+        self.resolve_static_object_identity_value(id)
     }
 
     fn resolve_static_array_callback_numeric_operand(
