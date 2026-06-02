@@ -87,6 +87,15 @@ impl StaticObjectIdentityValue {
         }
     }
 
+    fn same_value_zero(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Number(left), Self::Number(right)) => {
+                (left.is_nan() && right.is_nan()) || left == right
+            }
+            _ => self.strict_eq(other),
+        }
+    }
+
     fn is_nullish(&self) -> bool {
         matches!(self, Self::Null | Self::Undefined)
     }
@@ -1742,6 +1751,30 @@ impl<'a> FunctionEmitter<'a> {
                         shape: ValueShape::Scalar,
                     }
                 }
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_search_call(node, "includes") {
+            function.instruction(&Instruction::I64Const(if result >= 0 { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_search_call(node, "indexOf") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_array_search_call(node, "lastIndexOf") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
             };
         }
 
@@ -3849,6 +3882,94 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
                 Some(StaticArraySearchResult::Index(-1))
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_static_array_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some(method) {
+            return None;
+        }
+
+        let search_value = self.resolve_static_object_identity_value(*node.children.get(1)?)?;
+        let from_index = node
+            .children
+            .get(2)
+            .map(|id| {
+                self.resolve_static_numeric_value(*id)
+                    .map(|value| value.trunc() as i64)
+            })
+            .unwrap_or(Some(0))?;
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0])
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(source_node) {
+            return None;
+        }
+
+        let length = source_node.children.len() as i64;
+        if length == 0 {
+            return Some(-1);
+        }
+
+        match method {
+            "includes" | "indexOf" => {
+                let start = if from_index >= 0 {
+                    from_index.min(length)
+                } else {
+                    (length + from_index).max(0)
+                } as usize;
+                for (index, child) in source_node.children.iter().enumerate().skip(start) {
+                    let candidate = self.resolve_static_object_identity_value(*child)?;
+                    let matches = if method == "includes" {
+                        candidate.same_value_zero(&search_value)
+                    } else {
+                        candidate.strict_eq(&search_value)
+                    };
+                    if matches {
+                        return Some(index as i64);
+                    }
+                }
+                Some(-1)
+            }
+            "lastIndexOf" => {
+                let start = if from_index >= 0 {
+                    from_index.min(length - 1)
+                } else {
+                    length + from_index
+                };
+                if start < 0 {
+                    return Some(-1);
+                }
+                for (index, child) in source_node
+                    .children
+                    .iter()
+                    .enumerate()
+                    .take(start as usize + 1)
+                    .rev()
+                {
+                    let candidate = self.resolve_static_object_identity_value(*child)?;
+                    if candidate.strict_eq(&search_value) {
+                        return Some(index as i64);
+                    }
+                }
+                Some(-1)
             }
             _ => None,
         }

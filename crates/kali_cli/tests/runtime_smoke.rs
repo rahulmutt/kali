@@ -31230,6 +31230,37 @@ fn run_supports_array_iteration_semantics_for_now_in_js_input() {
 }
 
 #[test]
+fn run_supports_static_array_search_helpers_in_js_input() {
+    let dir = tempdir().expect("tempdir");
+    let source_path = dir.path().join("main.js");
+    fs::write(
+        &source_path,
+        r#"console.log([0, 1, 2].includes(1));
+console.log([0, 1, 2, 1].indexOf(1, 2));
+console.log([0, 1, 2, 1].lastIndexOf(1, 2));
+"#,
+    )
+    .expect("write source");
+
+    let output = Command::new(kali_bin())
+        .current_dir(dir.path())
+        .arg("run")
+        .arg(&source_path)
+        .output()
+        .expect("run kali");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("3"), "stdout: {stdout}");
+    assert_eq!(stdout.matches('1').count(), 2, "stdout: {stdout}");
+}
+
+#[test]
 fn run_supports_array_iteration_semantics_with_const_alias_in_js_input() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("main.js");
