@@ -1887,6 +1887,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_replace_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if self.is_string_repeat_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1931,6 +1940,18 @@ impl<'a> FunctionEmitter<'a> {
                 format!(
                     "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
                 ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if self.is_string_replace_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4545,6 +4566,60 @@ impl<'a> FunctionEmitter<'a> {
             "toUpperCase" => Some(source.to_ascii_uppercase()),
             _ => None,
         }
+    }
+
+    fn resolve_static_string_replace_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 3 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("replace") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let search = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let replacement = match self.resolve_static_object_identity_value(*node.children.get(2)?)? {
+            StaticObjectIdentityValue::String(value)
+                if value.is_ascii() && !value.contains('$') =>
+            {
+                value
+            }
+            _ => return None,
+        };
+
+        Some(source.replacen(&search, &replacement, 1))
+    }
+
+    fn is_string_replace_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("replace")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
     fn string_case_call_method(&self, node: &LirNode) -> Option<String> {

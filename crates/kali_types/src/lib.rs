@@ -2722,6 +2722,7 @@ impl TypeContext {
         self.resolve_string_char_at_member_call(expr);
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
+        self.resolve_string_replace_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -4568,6 +4569,55 @@ impl TypeContext {
             format!(
                 "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
+        ));
+    }
+
+    fn resolve_string_replace_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if method != "replace" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let search = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_string_expression(argument));
+        let replacement = expr
+            .args
+            .get(1)
+            .and_then(|argument| self.resolve_static_string_expression(argument));
+        let has_ascii_operands = source
+            .as_ref()
+            .zip(search.as_ref())
+            .zip(replacement.as_ref())
+            .is_some_and(|((source, search), replacement)| {
+                source.is_ascii()
+                    && search.is_ascii()
+                    && replacement.is_ascii()
+                    && !replacement.contains('$')
+            });
+
+        if expr.args.len() == 2 && has_ascii_operands {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.replace is unavailable unless the receiver, search value, and replacement are statically-known ASCII string literals and the replacement contains no substitution markers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

@@ -14422,6 +14422,65 @@ fn test_resolution_allows_static_ascii_string_case_family_in_non_browser_surface
 }
 
 #[test]
+fn test_resolution_allows_static_ascii_string_replace_in_non_browser_surface() {
+    for source in [
+        "const result = 'hello hello'.replace('hello', 'hi');",
+        "const result = 'abc'.replace('', 'X');",
+        "const source = 'hello'; const result = Object.freeze(source).replace(Object.freeze('h'), 'j');",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics for {source}: {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
+fn test_resolution_rejects_dynamic_or_non_ascii_string_replace_in_non_browser_surface() {
+    for source in [
+        "function replace(search) { return 'hello'.replace(search, 'x'); }",
+        "function replace(value) { return value.replace('h', 'j'); }",
+        "const result = 'hello'.replace('h', value);",
+        "const result = 'héllo'.replace('h', 'j');",
+        "const result = 'hello'.replace('h', 'é');",
+        "const result = 'hello'.replace('h', '$&');",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("main.js");
+        fs::write(&source_path, source).unwrap();
+
+        let lexer = kali_lexer::Lexer::new(kali_common::FileId::new(0), source.to_string());
+        let tokens = lexer.lex_all().tokens;
+        let mut parser = kali_parser::Parser::new(kali_common::FileId::new(0), tokens);
+        let statements = parser.parse(None).statements;
+
+        let mut ctx = TypeContext::with_base_path(&source_path);
+        let result = ctx.resolve_statements_at_path(Some(&source_path), &statements);
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                    && diag.message.contains("String.prototype.replace")),
+            "expected String.prototype.replace feature gate for {source}, got {:?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn test_resolution_rejects_non_ascii_or_argument_string_trim_family_in_non_browser_surface() {
     for source in [
         "const result = '  héllo  '.trim();",
