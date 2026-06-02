@@ -2716,6 +2716,7 @@ impl TypeContext {
         self.resolve_array_join_member_call(expr);
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
+        self.resolve_string_repeat_member_call(expr);
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
         self.resolve_promise_member_call(expr);
@@ -4337,6 +4338,48 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "String.prototype.slice is unavailable unless the receiver is a statically-known ASCII string literal and the start/end bounds are statically-known integers in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_string_repeat_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "repeat" {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        if source.is_none() {
+            return;
+        }
+
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        let repeat_count = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_numeric_literal_value(argument));
+        let has_supported_count = repeat_count.is_some_and(|count| {
+            count.is_finite() && count.fract() == 0.0 && (0.0..=1024.0).contains(&count)
+        });
+
+        if expr.args.len() == 1 && has_ascii_source && has_supported_count {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
         ));
     }
 

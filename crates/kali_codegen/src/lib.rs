@@ -1833,6 +1833,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_repeat_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_trim_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -1849,6 +1858,18 @@ impl<'a> FunctionEmitter<'a> {
                 vec![],
             );
             return self.emit_node(function, literal, true);
+        }
+
+        if self.is_string_repeat_call_with_literal_receiver(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
         }
 
         if let Some(method) = self.string_case_call_method(node) {
@@ -4209,6 +4230,52 @@ impl<'a> FunctionEmitter<'a> {
         source
             .get(from as usize..to as usize)
             .map(ToString::to_string)
+    }
+
+    fn resolve_static_string_repeat_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 2 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("repeat") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let count = self.resolve_static_numeric_value(*node.children.get(1)?)?;
+        if !count.is_finite() || count.fract() != 0.0 || !(0.0..=1024.0).contains(&count) {
+            return None;
+        }
+
+        Some(source.repeat(count as usize))
+    }
+
+    fn is_string_repeat_call_with_literal_receiver(&self, node: &LirNode) -> bool {
+        if node.kind != LirNodeKind::Call {
+            return false;
+        }
+
+        let Some(callee) = node.children.first().copied() else {
+            return false;
+        };
+        let Some(callee) = self.resolve_transparent_callable_node(callee) else {
+            return false;
+        };
+        let callee_node = self.node(callee);
+        callee_node.text.as_deref() == Some("repeat")
+            && callee_node
+                .children
+                .first()
+                .copied()
+                .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
+                .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
     }
 
     fn resolve_static_string_trim_call(&self, node: &LirNode) -> Option<String> {
