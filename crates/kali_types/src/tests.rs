@@ -14095,6 +14095,7 @@ fn test_resolution_allows_static_array_at_in_non_browser_surface() {
     for source in [
         "const result = [0, 1, 2].at(1);",
         "const result = [0, 1, 2].at(-1);",
+        "const result = [0, 1, 2].at(3);",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");
@@ -14120,7 +14121,6 @@ fn test_resolution_rejects_dynamic_array_at_in_non_browser_surface() {
     for source in [
         "function get(index) { return [0, 1, 2].at(index); }",
         "function get(values) { return values.at(1); }",
-        "const value = [0, 1, 2].at(3);",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");

@@ -5106,12 +5106,12 @@ fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
         .expect("generated wasm should validate");
 
     let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
-    assert!(printed.contains("i64.const 20"), "{printed}");
-    assert!(printed.contains("i64.const 30"), "{printed}");
+    assert!(printed.contains("\"20\""), "{printed}");
+    assert!(printed.contains("\"30\""), "{printed}");
 }
 
 #[test]
-fn unsupported_static_array_at_out_of_range_reports_feature_unavailable() {
+fn supported_static_array_at_out_of_range_lowers_to_undefined() {
     let program = parse_and_lower_lir("console.log([10, 20, 30].at(3));");
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
@@ -5121,12 +5121,17 @@ fn unsupported_static_array_at_out_of_range_reports_feature_unavailable() {
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(
-        result.diagnostics.iter().any(|diagnostic| diagnostic.code
-            == Some(e5::FEATURE_UNAVAILABLE as u32)
-            && diagnostic.message.contains("Array.prototype.at")),
-        "expected Array.prototype.at unavailable diagnostic: {:?}",
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("undefined"), "{printed}");
 }
 
 #[test]

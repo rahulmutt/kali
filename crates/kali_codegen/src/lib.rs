@@ -1812,15 +1812,12 @@ impl<'a> FunctionEmitter<'a> {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
                 StaticArrayAtResult::OutOfRange => {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        "Array.prototype.at is unavailable for statically out-of-range indexes in the current phase because undefined value emission is not yet supported on this path; use an in-range literal index or the later compatibility path".to_string(),
-                    ));
-                    function.instruction(&Instruction::Unreachable);
-                    return EmittedValue {
-                        produced: false,
-                        shape: ValueShape::Unknown,
-                    };
+                    let undefined = self.alloc_scratch_node(
+                        LirNodeKind::Literal,
+                        Some("undefined".to_string()),
+                        vec![],
+                    );
+                    return self.emit_node(function, undefined, true);
                 }
             }
         }
@@ -5441,6 +5438,13 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Call => {
                 if self.is_object_freeze_call(node) {
                     return self.render_static_value(*node.children.get(1)?);
+                }
+
+                if let Some(result) = self.resolve_static_array_at_call(node) {
+                    return match result {
+                        StaticArrayAtResult::Value(value) => self.render_static_value(value),
+                        StaticArrayAtResult::OutOfRange => Some("undefined".to_string()),
+                    };
                 }
 
                 let callee = node.children.first().copied()?;

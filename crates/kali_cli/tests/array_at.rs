@@ -7,12 +7,12 @@ fn kali_bin() -> String {
 }
 
 #[test]
-fn run_supports_static_literal_array_at_positive_and_negative_indexes() {
+fn run_supports_static_literal_array_at_positive_negative_and_out_of_range_indexes() {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join("array-at.js");
     fs::write(
         &source_path,
-        "console.log([10, 20, 30].at(1));\nconsole.log([10, 20, 30].at(-1));\n",
+        "console.log([10, 20, 30].at(1));\nconsole.log([10, 20, 30].at(-1));\nconsole.log([10, 20, 30].at(3));\nconsole.log([10, 20, 30].at(-4));\n",
     )
     .expect("write source");
 
@@ -29,7 +29,10 @@ fn run_supports_static_literal_array_at_positive_and_negative_indexes() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "20\n30\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "20\n30\nundefined\nundefined\n"
+    );
 }
 
 #[test]

@@ -4144,18 +4144,6 @@ impl TypeContext {
                 self.resolve_expression(arg);
             }
 
-            if let (Some(length), Some(index)) = (
-                self.static_array_literal_length(&member.object),
-                static_index.map(|index| index.trunc() as i64),
-            ) {
-                let resolved_index = if index >= 0 { index } else { length + index };
-                if resolved_index < 0 || resolved_index >= length {
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        "Array.prototype.at is unavailable for statically out-of-range indexes in the current direct-runtime path because undefined value emission is not yet supported; use an in-range literal index or the later compatibility path".to_string(),
-                    ));
-                }
-            }
             return;
         }
 
@@ -4168,30 +4156,6 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             "Array.prototype.at is unavailable unless the receiver is a statically-known array literal and the index is a statically-known integer in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
         ));
-    }
-
-    fn static_array_literal_length(&self, expression: &Expression) -> Option<i64> {
-        match self.unwrap_for_of_wrapper_expression(expression) {
-            Expression::ArrayExpression(array) => {
-                let mut length = 0_i64;
-                for element in &array.elements {
-                    match element {
-                        Some(ExpressionOrSpread::Expression(_)) => length += 1,
-                        Some(ExpressionOrSpread::Spread(spread)) => {
-                            length += self.static_array_literal_length(&spread.argument)?;
-                        }
-                        Some(ExpressionOrSpread::Empty) | None => return None,
-                    }
-                }
-                Some(length)
-            }
-            Expression::CallExpression(call)
-                if Self::is_object_freeze_call(call) && call.args.len() == 1 =>
-            {
-                self.static_array_literal_length(&call.args[0])
-            }
-            _ => None,
-        }
     }
 
     fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
