@@ -5191,6 +5191,57 @@ fn supported_static_string_repeat_lowers_ascii_literals() {
 }
 
 #[test]
+fn supported_static_string_concat_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log('he'.concat('llo')); console.log('he'.concat('l', 'lo')); console.log('hello'.concat());",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("hello"), "{printed}");
+    assert_eq!(printed.matches("call 1").count(), 3, "{printed}");
+}
+
+#[test]
+fn unsupported_static_string_concat_dynamic_operand_is_gated() {
+    let program =
+        parse_and_lower_lir("const suffix = Deno.args[0]; console.log('he'.concat(suffix));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == Some(5506)
+                && diagnostic
+                    .message
+                    .contains("String.prototype.concat is unavailable")),
+        "expected concat gate diagnostic: {:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
 fn supported_static_string_char_at_lowers_ascii_literals() {
     let program = parse_and_lower_lir(
         "console.log('hello'.charAt()); console.log('hello'.charAt(1)); console.log('hello'.charAt(-1)); console.log('hello'.charAt(99));",
