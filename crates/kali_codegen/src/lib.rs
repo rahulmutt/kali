@@ -1842,6 +1842,29 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_case_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
+        if let Some(method) = self.string_case_call_method(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+                ),
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_at_call(node) {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
@@ -4214,6 +4237,40 @@ impl<'a> FunctionEmitter<'a> {
             "trimEnd" => Some(source.trim_end_matches(is_ascii_trim).to_string()),
             _ => None,
         }
+    }
+
+    fn resolve_static_string_case_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 1 {
+            return None;
+        }
+
+        let method = self.string_case_call_method(node)?;
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+
+        match method.as_str() {
+            "toLowerCase" => Some(source.to_ascii_lowercase()),
+            "toUpperCase" => Some(source.to_ascii_uppercase()),
+            _ => None,
+        }
+    }
+
+    fn string_case_call_method(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let method = self.node(callee).text.as_deref()?;
+        matches!(method, "toLowerCase" | "toUpperCase").then(|| method.to_string())
     }
 
     fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {

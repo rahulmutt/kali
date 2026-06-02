@@ -2717,6 +2717,7 @@ impl TypeContext {
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
         self.resolve_string_trim_member_call(expr);
+        self.resolve_string_case_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -4354,6 +4355,36 @@ impl TypeContext {
             return;
         }
 
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        if expr.args.is_empty() && has_ascii_source {
+            self.resolve_expression(&member.object);
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal and no arguments are supplied in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+            ),
+        ));
+    }
+
+    fn resolve_string_case_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if !matches!(method, "toLowerCase" | "toUpperCase") {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
         let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
         if expr.args.is_empty() && has_ascii_source {
             self.resolve_expression(&member.object);
