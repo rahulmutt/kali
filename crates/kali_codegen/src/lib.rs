@@ -1833,6 +1833,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_trim_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_array_at_call(node) {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
@@ -4177,6 +4186,34 @@ impl<'a> FunctionEmitter<'a> {
         source
             .get(from as usize..to as usize)
             .map(ToString::to_string)
+    }
+
+    fn resolve_static_string_trim_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.len() != 1 {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        let method = callee_node.text.as_deref()?;
+        if !matches!(method, "trim" | "trimStart" | "trimEnd") {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+
+        let is_ascii_trim = |ch: char| ch.is_ascii_whitespace();
+        match method {
+            "trim" => Some(source.trim_matches(is_ascii_trim).to_string()),
+            "trimStart" => Some(source.trim_start_matches(is_ascii_trim).to_string()),
+            "trimEnd" => Some(source.trim_end_matches(is_ascii_trim).to_string()),
+            _ => None,
+        }
     }
 
     fn resolve_static_array_at_call(&self, node: &LirNode) -> Option<StaticArrayAtResult> {

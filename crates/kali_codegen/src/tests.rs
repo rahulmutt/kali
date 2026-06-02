@@ -5139,6 +5139,34 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
 }
 
 #[test]
+fn supported_static_string_trim_family_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log('  hello  '.trim()); console.log('  hello  '.trimStart()); console.log('  hello  '.trimEnd());",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("hello"), "{printed}");
+    assert!(printed.contains("hello  "), "{printed}");
+    assert!(printed.contains("  hello"), "{printed}");
+}
+
+#[test]
 fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
     let program =
         parse_and_lower_lir("console.log([10, 20, 30].at(1)); console.log([10, 20, 30].at(-1));");
