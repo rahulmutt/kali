@@ -1822,6 +1822,15 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        if let Some(result) = self.resolve_static_array_join_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if self.is_array_at_call_with_literal_receiver(node) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -4110,6 +4119,76 @@ impl<'a> FunctionEmitter<'a> {
 
     fn is_array_at_call_with_literal_receiver(&self, node: &LirNode) -> bool {
         self.static_array_at_literal_receiver(node).is_some()
+    }
+
+    fn resolve_static_array_join_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !(1..=2).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some("join") {
+            return None;
+        }
+
+        let separator = match node.children.get(1) {
+            Some(id) => match self.resolve_static_object_identity_value(*id)? {
+                StaticObjectIdentityValue::String(value) => value,
+                _ => return None,
+            },
+            None => ",".to_string(),
+        };
+
+        let source = callee_node.children.first().copied()?;
+        let source = self.resolve_literal_aggregate(source)?;
+        let source_node = self.node(source);
+        let source_node = if source_node.kind == LirNodeKind::Value
+            && source_node.text.is_none()
+            && source_node.children.len() == 1
+        {
+            self.node(source_node.children[0])
+        } else {
+            source_node
+        };
+        if !self.is_array_literal(source_node) {
+            return None;
+        }
+
+        let mut rendered = Vec::with_capacity(source_node.children.len());
+        for child in &source_node.children {
+            rendered.push(self.static_array_join_element_to_string(*child)?);
+        }
+        Some(rendered.join(&separator))
+    }
+
+    fn static_array_join_element_to_string(&self, id: LirNodeId) -> Option<String> {
+        match self.resolve_static_object_identity_value(id)? {
+            StaticObjectIdentityValue::String(value) => Some(value),
+            StaticObjectIdentityValue::Boolean(value) => Some(value.to_string()),
+            StaticObjectIdentityValue::Null | StaticObjectIdentityValue::Undefined => {
+                Some(String::new())
+            }
+            StaticObjectIdentityValue::BigInt(value) => Some(value.to_string()),
+            StaticObjectIdentityValue::Number(value) => {
+                if value.is_nan() {
+                    Some("NaN".to_string())
+                } else if value == f64::INFINITY {
+                    Some("Infinity".to_string())
+                } else if value == f64::NEG_INFINITY {
+                    Some("-Infinity".to_string())
+                } else if value == 0.0 {
+                    Some("0".to_string())
+                } else if value.is_finite() && value.fract() == 0.0 {
+                    Some((value as i64).to_string())
+                } else if value.is_finite() {
+                    Some(value.to_string())
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     fn static_array_at_literal_receiver(&self, node: &LirNode) -> Option<&LirNode> {
@@ -8197,6 +8276,23 @@ fn emit_literal(
 
 fn encode_string_handle(offset: u32, len: u32) -> i64 {
     (STRING_HANDLE_TAG | ((offset as u64) << 32) | u64::from(len)) as i64
+}
+
+fn quote_string_literal(value: &str) -> String {
+    let mut quoted = String::with_capacity(value.len() + 2);
+    quoted.push('"');
+    for ch in value.chars() {
+        match ch {
+            '\\' => quoted.push_str("\\\\"),
+            '"' => quoted.push_str("\\\""),
+            '\n' => quoted.push_str("\\n"),
+            '\r' => quoted.push_str("\\r"),
+            '\t' => quoted.push_str("\\t"),
+            _ => quoted.push(ch),
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 fn semver_min_version(range: &str) -> Option<String> {

@@ -2713,6 +2713,7 @@ impl TypeContext {
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);
         self.resolve_array_at_member_call(expr);
+        self.resolve_array_join_member_call(expr);
         self.resolve_string_search_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
@@ -4155,6 +4156,45 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "Array.prototype.at is unavailable unless the receiver is a statically-known array literal and the index is a statically-known integer in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_array_join_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        if member.property.as_str() != "join" {
+            return;
+        }
+
+        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
+        if !has_static_receiver {
+            return;
+        }
+
+        let supported_arg_count = matches!(expr.args.len(), 0 | 1);
+        let has_static_separator = expr
+            .args
+            .first()
+            .is_none_or(|argument| self.resolve_static_string_expression(argument).is_some());
+
+        if supported_arg_count && has_static_separator {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            "Array.prototype.join is unavailable for static literal-array receivers unless the optional separator is a statically-known string in the current direct-runtime path; use explicit literals or the later compatibility path".to_string(),
         ));
     }
 
