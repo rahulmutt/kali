@@ -14538,6 +14538,8 @@ fn test_resolution_allows_static_ascii_parse_int_in_non_browser_surface() {
         "const result = globalThis.parseInt('-0x10');",
         "const result = Number.parseInt('ff', 16);",
         "const source = '101'; const result = globalThis[\"Number\"][\"parseInt\"](Object.freeze(source), Object.freeze(2));",
+        "const parse = Object.freeze(parseInt); const result = parse(Object.freeze('77'), 8);",
+        "const parse = Object.freeze(globalThis[\"Number\"][\"parseInt\"]); const result = parse('10', Object.freeze(2));",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let source_path = dir.path().join("main.js");

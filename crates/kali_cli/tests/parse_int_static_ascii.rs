@@ -12,6 +12,10 @@ fn supported_source() -> &'static str {
 console.log(globalThis.parseInt('-0x10'));
 console.log(Number.parseInt('ff', 16));
 console.log(globalThis["Number"]["parseInt"]('101', 2));
+const frozenParseInt = Object.freeze(parseInt);
+const frozenNumberParseInt = Object.freeze(globalThis["Number"]["parseInt"]);
+console.log(frozenParseInt(Object.freeze('77'), 8));
+console.log(frozenNumberParseInt('10', Object.freeze(2)));
 "#
 }
 
@@ -34,7 +38,10 @@ fn run_supports_static_ascii_parse_int() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "42\n-16\n255\n5\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "42\n-16\n255\n5\n63\n2\n"
+    );
 }
 
 #[test]

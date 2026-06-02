@@ -3611,6 +3611,11 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
 
+        let callee_id = *node.children.first()?;
+        let callee_node = self
+            .resolve_transparent_callable_node(callee_id)
+            .map(|id| self.node(id))
+            .unwrap_or(callee_node);
         if !self.is_parse_int_callable(callee_node) {
             return None;
         }
@@ -5456,6 +5461,13 @@ impl<'a> FunctionEmitter<'a> {
     #[allow(dead_code)]
     fn resolve_static_numeric_value(&self, id: LirNodeId) -> Option<f64> {
         let node = self.node(id);
+        if self.is_object_freeze_call(node) {
+            return node
+                .children
+                .get(1)
+                .copied()
+                .and_then(|child| self.resolve_static_numeric_value(child));
+        }
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
             LirNodeKind::Value if node.children.is_empty() => {
