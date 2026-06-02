@@ -3900,14 +3900,10 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let search_value = self.resolve_static_object_identity_value(*node.children.get(1)?)?;
-        let from_index = node
-            .children
-            .get(2)
-            .map(|id| {
-                self.resolve_static_numeric_value(*id)
-                    .map(|value| value.trunc() as i64)
-            })
-            .unwrap_or(Some(0))?;
+        let explicit_from_index = match node.children.get(2) {
+            Some(id) => Some(self.resolve_static_numeric_value(*id)?.trunc() as i64),
+            None => None,
+        };
         let source = callee_node.children.first().copied()?;
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
@@ -3930,6 +3926,7 @@ impl<'a> FunctionEmitter<'a> {
 
         match method {
             "includes" | "indexOf" => {
+                let from_index = explicit_from_index.unwrap_or(0);
                 let start = if from_index >= 0 {
                     from_index.min(length)
                 } else {
@@ -3949,6 +3946,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some(-1)
             }
             "lastIndexOf" => {
+                let from_index = explicit_from_index.unwrap_or(length - 1);
                 let start = if from_index >= 0 {
                     from_index.min(length - 1)
                 } else {

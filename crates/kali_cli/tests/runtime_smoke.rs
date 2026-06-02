@@ -31238,6 +31238,7 @@ fn run_supports_static_array_search_helpers_in_js_input() {
         r#"console.log([0, 1, 2].includes(1));
 console.log([0, 1, 2, 1].indexOf(1, 2));
 console.log([0, 1, 2, 1].lastIndexOf(1, 2));
+console.log([0, 1, 2, 1].lastIndexOf(1));
 "#,
     )
     .expect("write source");
@@ -31256,8 +31257,8 @@ console.log([0, 1, 2, 1].lastIndexOf(1, 2));
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("3"), "stdout: {stdout}");
-    assert_eq!(stdout.matches('1').count(), 2, "stdout: {stdout}");
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(lines, ["1", "3", "1", "3"], "stdout: {stdout}");
 }
 
 #[test]

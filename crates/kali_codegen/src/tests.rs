@@ -5032,6 +5032,30 @@ fn supported_static_array_last_index_of_lowers_to_index() {
 }
 
 #[test]
+fn supported_static_array_last_index_of_defaults_from_index_to_array_tail() {
+    let program = parse_and_lower_lir("console.log([0, 1, 2, 1].lastIndexOf(1));");
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+}
+
+#[test]
 fn supported_array_find_last_index_call_with_strict_equality_callback_lowers_to_last_index() {
     let program =
         parse_and_lower_lir("console.log([1, 2, 1].findLastIndex((value) => value === 1));");
