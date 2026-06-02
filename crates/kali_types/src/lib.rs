@@ -2717,6 +2717,7 @@ impl TypeContext {
         self.resolve_string_search_member_call(expr);
         self.resolve_string_slice_member_call(expr);
         self.resolve_string_repeat_member_call(expr);
+        self.resolve_string_pad_member_call(expr);
         self.resolve_string_char_at_member_call(expr);
         self.resolve_string_trim_member_call(expr);
         self.resolve_string_case_member_call(expr);
@@ -4381,6 +4382,55 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path".to_string(),
+        ));
+    }
+
+    fn resolve_string_pad_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if !matches!(method, "padStart" | "padEnd") {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        let has_ascii_source = source.as_ref().is_some_and(|source| source.is_ascii());
+        let target_length = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_numeric_literal_value(argument));
+        let has_supported_target_length = target_length.is_some_and(|length| {
+            length.is_finite() && length.fract() == 0.0 && (0.0..=1024.0).contains(&length)
+        });
+        let has_supported_pad_string = expr.args.get(1).is_none_or(|argument| {
+            self.resolve_static_string_expression(argument)
+                .is_some_and(|padding| padding.is_ascii())
+        });
+
+        if matches!(expr.args.len(), 1 | 2)
+            && has_ascii_source
+            && has_supported_target_length
+            && has_supported_pad_string
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal, the target length is a statically-known integer from 0 through 1024, and the optional pad string is statically-known ASCII in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+            ),
         ));
     }
 

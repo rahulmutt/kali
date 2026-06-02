@@ -1842,6 +1842,15 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_node(function, literal, true);
         }
 
+        if let Some(result) = self.resolve_static_string_pad_call(node) {
+            let literal = self.alloc_scratch_node(
+                LirNodeKind::Literal,
+                Some(quote_string_literal(&result)),
+                vec![],
+            );
+            return self.emit_node(function, literal, true);
+        }
+
         if let Some(result) = self.resolve_static_string_char_at_call(node) {
             let literal = self.alloc_scratch_node(
                 LirNodeKind::Literal,
@@ -1873,6 +1882,20 @@ impl<'a> FunctionEmitter<'a> {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "String.prototype.repeat is unavailable unless the receiver is a statically-known ASCII string literal and the repeat count is a statically-known integer from 0 through 1024 in the current direct-runtime path; use explicit ASCII literals or the later compatibility path",
+            ));
+            function.instruction(&Instruction::Unreachable);
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
+
+        if let Some(method) = self.string_pad_call_method(node) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                format!(
+                    "String.prototype.{method} is unavailable unless the receiver is a statically-known ASCII string literal, the target length is a statically-known integer from 0 through 1024, and the optional pad string is statically-known ASCII in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
+                ),
             ));
             function.instruction(&Instruction::Unreachable);
             return EmittedValue {
@@ -4297,6 +4320,65 @@ impl<'a> FunctionEmitter<'a> {
                 .copied()
                 .and_then(|receiver| self.resolve_static_object_identity_value(receiver))
                 .is_some_and(|value| matches!(value, StaticObjectIdentityValue::String(_)))
+    }
+
+    fn resolve_static_string_pad_call(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || !matches!(node.children.len(), 2 | 3) {
+            return None;
+        }
+
+        let method = self.string_pad_call_method(node)?;
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let target_length = self.resolve_static_numeric_value(*node.children.get(1)?)?;
+        if !target_length.is_finite()
+            || target_length.fract() != 0.0
+            || !(0.0..=1024.0).contains(&target_length)
+        {
+            return None;
+        }
+        let padding = match node.children.get(2) {
+            Some(id) => match self.resolve_static_object_identity_value(*id)? {
+                StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+                _ => return None,
+            },
+            None => " ".to_string(),
+        };
+
+        let target_length = target_length as usize;
+        if source.len() >= target_length || padding.is_empty() {
+            return Some(source);
+        }
+
+        let needed = target_length - source.len();
+        let mut fill = String::new();
+        while fill.len() < needed {
+            fill.push_str(&padding);
+        }
+        fill.truncate(needed);
+
+        match method.as_str() {
+            "padStart" => Some(format!("{fill}{source}")),
+            "padEnd" => Some(format!("{source}{fill}")),
+            _ => None,
+        }
+    }
+
+    fn string_pad_call_method(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let method = self.node(callee).text.as_deref()?;
+        matches!(method, "padStart" | "padEnd").then(|| method.to_string())
     }
 
     fn resolve_static_string_char_at_call(&self, node: &LirNode) -> Option<String> {
