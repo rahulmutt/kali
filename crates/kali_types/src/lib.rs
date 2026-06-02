@@ -2711,6 +2711,7 @@ impl TypeContext {
         self.resolve_process_kill_call(expr);
         self.resolve_math_member_call(expr);
         self.resolve_array_callback_member_call(expr);
+        self.resolve_array_search_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -4116,6 +4117,53 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "array callback method '{method}' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path"
+            ),
+        ));
+    }
+
+    fn resolve_array_search_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if !matches!(method, "includes" | "indexOf" | "lastIndexOf") {
+            return;
+        }
+
+        let has_static_receiver = self.is_static_array_iteration_target(&member.object);
+        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let has_static_search_value = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_object_identity_literal_value(argument))
+            .is_some();
+        let has_static_from_index = expr
+            .args
+            .get(1)
+            .is_none_or(|argument| self.is_static_numeric_literal_expr(argument));
+
+        if has_static_receiver
+            && supported_arg_count
+            && has_static_search_value
+            && has_static_from_index
+        {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "array search method '{method}' is unavailable unless the receiver, search value, and fromIndex are statically known in the current direct-runtime path; use explicit literals or the later compatibility path"
             ),
         ));
     }
