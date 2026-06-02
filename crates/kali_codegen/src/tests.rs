@@ -5056,6 +5056,35 @@ fn supported_static_array_last_index_of_defaults_from_index_to_array_tail() {
 }
 
 #[test]
+fn supported_static_string_search_lowers_ascii_literals() {
+    let program = parse_and_lower_lir(
+        "console.log(\"hello\".includes(\"ell\")); console.log(\"hello\".indexOf(\"l\", 3)); console.log(\"hello\".lastIndexOf(\"l\")); console.log(\"hello\".lastIndexOf(\"l\", 2)); console.log(\"hello\".lastIndexOf(\"l\", -1));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        result.diagnostics
+    );
+
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(printed.contains("i64.const 3"), "{printed}");
+    assert!(printed.contains("i64.const 2"), "{printed}");
+    assert!(printed.contains("i64.const -1"), "{printed}");
+}
+
+#[test]
 fn supported_static_array_at_lowers_positive_and_negative_indexes_to_values() {
     let program =
         parse_and_lower_lir("console.log([10, 20, 30].at(1)); console.log([10, 20, 30].at(-1));");

@@ -1784,6 +1784,30 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        if let Some(result) = self.resolve_static_string_search_call(node, "includes") {
+            function.instruction(&Instruction::I64Const(if result >= 0 { 1 } else { 0 }));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_string_search_call(node, "indexOf") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
+        if let Some(result) = self.resolve_static_string_search_call(node, "lastIndexOf") {
+            function.instruction(&Instruction::I64Const(result));
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Scalar,
+            };
+        }
+
         if let Some(result) = self.resolve_static_array_at_call(node) {
             match result {
                 StaticArrayAtResult::Value(value) => return self.emit_node(function, value, true),
@@ -4003,6 +4027,63 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
                 Some(-1)
+            }
+            _ => None,
+        }
+    }
+
+    fn resolve_static_string_search_call(&self, node: &LirNode, method: &str) -> Option<i64> {
+        if node.kind != LirNodeKind::Call || !(2..=3).contains(&node.children.len()) {
+            return None;
+        }
+
+        let callee = node.children.first().copied()?;
+        let callee = self.resolve_transparent_callable_node(callee)?;
+        let callee_node = self.node(callee);
+        if callee_node.text.as_deref() != Some(method) {
+            return None;
+        }
+
+        let receiver = callee_node.children.first().copied()?;
+        let source = match self.resolve_static_object_identity_value(receiver)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let search = match self.resolve_static_object_identity_value(*node.children.get(1)?)? {
+            StaticObjectIdentityValue::String(value) if value.is_ascii() => value,
+            _ => return None,
+        };
+        let explicit_from_index = match node.children.get(2) {
+            Some(id) => Some(self.resolve_static_numeric_value(*id)?.trunc() as i64),
+            None => None,
+        };
+
+        let length = source.len() as i64;
+        match method {
+            "includes" | "indexOf" => {
+                let from_index = explicit_from_index.unwrap_or(0);
+                let start = if from_index >= 0 {
+                    from_index.min(length)
+                } else {
+                    (length + from_index).max(0)
+                } as usize;
+                let haystack = source.get(start..)?;
+                haystack
+                    .find(&search)
+                    .map_or(Some(-1), |index| Some((start + index) as i64))
+            }
+            "lastIndexOf" => {
+                let from_index = explicit_from_index.unwrap_or(length);
+                let position = from_index.clamp(0, length) as usize;
+                if search.is_empty() {
+                    return Some(position as i64);
+                }
+                let end = position.saturating_add(search.len()).min(source.len());
+                let haystack = source.get(..end)?;
+                haystack
+                    .rfind(&search)
+                    .filter(|index| *index <= position)
+                    .map_or(Some(-1), |index| Some(index as i64))
             }
             _ => None,
         }

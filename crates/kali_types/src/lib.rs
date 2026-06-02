@@ -2713,6 +2713,7 @@ impl TypeContext {
         self.resolve_array_callback_member_call(expr);
         self.resolve_array_search_member_call(expr);
         self.resolve_array_at_member_call(expr);
+        self.resolve_string_search_member_call(expr);
         self.resolve_promise_member_call(expr);
     }
 
@@ -4236,6 +4237,55 @@ impl TypeContext {
             e5::FEATURE_UNAVAILABLE as u32,
             format!(
                 "array search method '{method}' is unavailable unless the receiver, search value, and fromIndex are statically known in the current direct-runtime path; use explicit literals or the later compatibility path"
+            ),
+        ));
+    }
+
+    fn resolve_string_search_member_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+
+        let method = member.property.as_str();
+        if !matches!(method, "includes" | "indexOf" | "lastIndexOf") {
+            return;
+        }
+
+        let source = self.resolve_static_string_expression(&member.object);
+        if source.is_none() {
+            return;
+        }
+        let search = expr
+            .args
+            .first()
+            .and_then(|argument| self.resolve_static_string_expression(argument));
+        let has_ascii_source_and_search = source
+            .as_ref()
+            .zip(search.as_ref())
+            .is_some_and(|(source, search)| source.is_ascii() && search.is_ascii());
+        let supported_arg_count = matches!(expr.args.len(), 1 | 2);
+        let has_static_from_index = expr
+            .args
+            .get(1)
+            .is_none_or(|argument| self.is_static_numeric_literal_expr(argument));
+
+        if supported_arg_count && has_ascii_source_and_search && has_static_from_index {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
+        self.resolve_expression(&member.object);
+        for arg in &expr.args {
+            self.resolve_expression(arg);
+        }
+
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            format!(
+                "string search method '{method}' is unavailable unless the receiver, search value, and fromIndex are statically-known ASCII string/number literals in the current direct-runtime path; use explicit ASCII literals or the later compatibility path"
             ),
         ));
     }
